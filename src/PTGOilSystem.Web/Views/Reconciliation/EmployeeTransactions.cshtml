@@ -1,0 +1,41 @@
+@model PTGOilSystem.Web.Models.Reconciliation.EmployeeReconciliationViewModel
+@{
+    ViewData["Title"] = "مغایرت معاش کارمندان";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("کنترل مغایرت معاش کارمندان", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
+
+    <p class="ak-note">این صفحه فقط خواندنی است و هیچ تراکنش، Ledger یا حساب نقدی را اصلاح نمی‌کند. اصلاح باید از مسیر رسمی تراکنش معاش، Payment یا Ledger انجام شود.</p>
+
+    @await Html.PartialAsync("_EmployeeIssueTable", (Title: "تراکنش نقدی بدون Ledger", Rows: Model.TransactionsWithoutLedger))
+    @await Html.PartialAsync("_EmployeeIssueTable", (Title: "پرداخت / برداشت بدون حساب نقد", Rows: Model.TransactionsWithoutCashAccount))
+    @await Html.PartialAsync("_EmployeeIssueTable", (Title: "ناسازگاری مبلغ با Ledger یا Payment", Rows: Model.LedgerAmountMismatches))
+    @await Html.PartialAsync("_EmployeeIssueTable", (Title: "تراکنش لغو شده با Ledger یا Payment فعال", Rows: Model.CancelledTransactionsWithActiveLedger))
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مانده منفی یا غیرعادی", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">کارمند</th><th class="ak-col-num">مانده USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.NegativeOrUnexpectedBalances)
+                {
+                    <tr>
+                        <td class="ak-col-grow"><a asp-controller="Employees" asp-action="Details" asp-route-id="@row.EmployeeId">@row.EmployeeCode - @row.EmployeeName</a></td>
+                        <td class="ak-col-num ak-num">@row.BalanceUsd.ToString("N2")</td>
+                        <td><span class="ak-status">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.NegativeOrUnexpectedBalances.Any())
+                {
+                    <tr><td colspan="3"><div class="ak-empty"><i class="bi bi-check2-circle"></i> مانده‌های کارمندان در محدوده قابل انتظار است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

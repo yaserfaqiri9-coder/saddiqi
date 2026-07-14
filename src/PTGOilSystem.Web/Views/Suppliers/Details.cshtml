@@ -1,0 +1,454 @@
+@model PTGOilSystem.Web.Models.Suppliers.SupplierProfileViewModel
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Shared
+@{
+    ViewData["Title"] = "پروفایل تأمین‌کننده";
+    ViewData["HideSectionTabs"] = true;
+    var notRecorded = "ثبت نشده";
+    var supplierReturnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+
+    // مانده اصلی حساب تأمین‌کننده = ارزش بارگیری/تحویل‌گرفته‌شده منهای پرداخت‌ها (فرمول دست‌نخورده).
+    var endingUsd = Model.SupplierRemainingClaimUsd;
+    var endingRub = Model.SupplierRemainingClaimRub;
+    var hasRubBalance = endingRub.HasValue;
+    var balanceLabel = endingUsd > 0 ? "قابل پرداخت به تأمین‌کننده" : endingUsd < 0 ? "پیش‌پرداخت / طلب ما از تأمین‌کننده" : "حساب تسویه است";
+    var balanceClass = endingUsd > 0 ? "ak-num" : endingUsd < 0 ? "ak-num" : "";
+
+    // سه تب: خلاصه (پیش‌فرض) · قراردادها (شامل پرداخت‌ها) · صورت‌حساب.
+    var activeTab = Model.ActiveTab;
+    var showContracts = activeTab is "contracts" or "payments" or "sarraf";
+    var showStatement = activeTab == "statement";
+    var showOverview = !showContracts && !showStatement;
+
+    var newPaymentUrl = Url.Action("Create", "Payments", new { supplierId = Model.SupplierId, returnUrl = supplierReturnUrl }) ?? "#";
+    var editUrl = Url.Action("Edit", new { id = Model.SupplierId }) ?? "#";
+    var indexUrl = Url.Action("Index") ?? "#";
+
+    var supplierTabs = new[]
+    {
+        $"#supplier-overview|خلاصه|bi-clipboard-data|{(showOverview ? "active" : "")}",
+        $"#supplier-contracts|قراردادها|bi-file-earmark-text|{(showContracts ? "active" : "")}",
+        $"#supplier-statement|صورت‌حساب|bi-journal-text|{(showStatement ? "active" : "")}"
+    };
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((Model.Name, false,
+                       "ثبت پرداخت", "bi-cash-coin", newPaymentUrl, (string?)null,
+                       "فهرست تأمین‌کننده‌ها", "bi-arrow-right", (string?)indexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@editUrl"><i class="bi bi-pencil"></i> ویرایش</a></li>
+                <li><a class="dropdown-item" href="@newPaymentUrl"><i class="bi bi-cash-coin"></i> ثبت پرداخت</a></li>
+            </ul>
+        </div>
+    </div>
+
+    @* ===== اطلاعات هویتی + وضعیت حساب (تخت، بدون Hero/Avatar/KPI رنگی) ===== *@
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>کد</dt><dd>@(string.IsNullOrWhiteSpace(Model.Code) ? notRecorded : Model.Code)</dd></div>
+                <div class="ak-list-row"><dt>کشور</dt><dd>@(string.IsNullOrWhiteSpace(Model.Country) ? notRecorded : Model.Country)</dd></div>
+                <div class="ak-list-row"><dt>طرف تماس</dt><dd>@(string.IsNullOrWhiteSpace(Model.ContactPerson) ? notRecorded : Model.ContactPerson)</dd></div>
+                <div class="ak-list-row"><dt>تلفن</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? notRecorded : Model.Phone)</dd></div>
+                <div class="ak-list-row"><dt>آدرس</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? notRecorded : Model.Address)</dd></div>
+                <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? notRecorded : Model.Notes)</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", balanceLabel))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>مانده حساب</dt><dd class="ak-num @balanceClass">@NumberDisplay.Money(Math.Abs(endingUsd), "USD")</dd></div>
+                @if (hasRubBalance)
+                {
+                    <div class="ak-list-row"><dt>معادل روبل</dt><dd class="ak-num">@NumberDisplay.Money(Math.Abs(endingRub!.Value), "RUB")</dd></div>
+                }
+                <div class="ak-list-row"><dt>خرید بارگیری‌شده</dt><dd class="ak-num">@NumberDisplay.Money(Model.LoadedPurchaseValueUsd, "USD")</dd></div>
+                <div class="ak-list-row"><dt>پرداخت‌شده</dt><dd class="ak-num">@NumberDisplay.Money(Model.TotalPaidUsd, "USD")</dd></div>
+                <div class="ak-list-row"><dt>پیش‌پرداخت آزاد</dt><dd class="ak-num">@NumberDisplay.Money(Model.AdvanceFreeUsd, "USD")</dd></div>
+                <div class="ak-list-row"><dt>قرارداد فعال</dt><dd class="ak-num">@Model.ActivePurchaseContractsCount.ToString("N0")</dd></div>
+                <div class="ak-list-row"><dt>آخرین پرداخت</dt><dd>@(Model.LastPaymentDate.HasValue ? Model.LastPaymentDate.Value.ToDisplayDate() : notRecorded)</dd></div>
+            </dl>
+        </section>
+    </div>
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل تأمین‌کننده", supplierTabs)" />
+
+    @* ===== تب ۱: خلاصه — آخرین حرکت‌های حساب ===== *@
+    <section id="supplier-overview" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حرکت‌های اخیر", "پنج سند آخر حساب این تأمین‌کننده."))" />
+        @{
+            var recent = Model.StatementRows.OrderByDescending(r => r.Date).Take(5).ToList();
+        }
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع سند</th>
+                        <th>قرارداد</th>
+                        <th class="ak-col-num">افزایش طلب USD</th>
+                        <th class="ak-col-num">پرداخت USD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in recent)
+                {
+                    <tr>
+                        <td>@r.Date.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@r.Type</td>
+                        <td>@(r.ContractNumber ?? "-")</td>
+                        <td class="ak-col-num ak-num">@((r.CreditUsd ?? 0m) != 0m ? r.CreditUsd!.Value.ToString("N2") : "—")</td>
+                        <td class="ak-col-num ak-num">@((r.DebitUsd ?? 0m) != 0m ? r.DebitUsd!.Value.ToString("N2") : "—")</td>
+                    </tr>
+                }
+                @if (recent.Count == 0)
+                {
+                    <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-journal-text"></i> هنوز خرید یا پرداختی برای این تأمین‌کننده ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۲: قراردادها + پرداخت‌ها ===== *@
+    <section id="supplier-contracts" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قراردادهای خرید", $"{Model.Contracts.Count:N0} قرارداد")) " />
+        @{
+            // گروه‌بندی پرداخت‌ها فقط نمایشی است؛ هیچ مبلغی دوباره محاسبه نمی‌شود.
+            var payByContract = Model.PaymentLines
+                .Where(p => !string.IsNullOrWhiteSpace(p.ContractNumber))
+                .GroupBy(p => p.ContractNumber!)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+            var unallocatedPayments = Model.PaymentLines
+                .Where(p => string.IsNullOrWhiteSpace(p.ContractNumber))
+                .ToList();
+        }
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">قرارداد</th>
+                        <th>جنس</th>
+                        <th class="ak-col-num">مقدار MT</th>
+                        <th class="ak-col-num">بارگیری‌شده MT</th>
+                        <th class="ak-col-num">قابل پرداخت USD</th>
+                        <th class="ak-col-num">پرداخت‌شده USD</th>
+                        <th class="ak-col-num">مانده USD</th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var c in Model.Contracts)
+                {
+                    var cps = payByContract.TryGetValue(c.ContractNumber, out var _cl) ? _cl : new();
+                    var balClass = c.LoadedValueBalanceUsd > 0 ? "ak-num" : c.LoadedValueBalanceUsd < 0 ? "ak-num" : "";
+                    <tr>
+                        <td class="ak-col-grow">
+                            <a class="ak-name" asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@c.ContractId">@c.ContractNumber</a>
+                        </td>
+                        <td>@c.Product</td>
+                        <td class="ak-col-num ak-num">@NumberDisplay.Quantity(c.QuantityMt, "MT")</td>
+                        <td class="ak-col-num ak-num">@NumberDisplay.Quantity(c.LoadedQuantityMt, "MT")</td>
+                        <td class="ak-col-num ak-num">@NumberDisplay.Money(c.LoadedValueUsd, "USD")</td>
+                        <td class="ak-col-num ak-num">@NumberDisplay.Money(c.PaidUsd, "USD")</td>
+                        <td class="ak-col-num ak-num @balClass">@NumberDisplay.Money(c.LoadedValueBalanceUsd, "USD")</td>
+                        <td><span class="ak-status">@c.StatusName</span></td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@c.ContractId"><i class="bi bi-diagram-3"></i> جریان قرارداد</a></li>
+                                    <li><a class="dropdown-item" href="@newPaymentUrl"><i class="bi bi-cash-coin"></i> ثبت پرداخت</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    @if (cps.Any())
+                    {
+                        foreach (var p in cps)
+                        {
+                            <tr class="ak-subrow">
+                                <td class="ak-col-grow">↳ پرداخت @(p.Method)</td>
+                                <td>@p.Date.ToDisplayDate()</td>
+                                <td class="ak-col-num ak-num" colspan="2">@NumberDisplay.Money(p.Amount, p.Currency)</td>
+                                <td class="ak-col-num ak-num" colspan="2">@NumberDisplay.Money(p.AmountUsd, "USD")</td>
+                                <td colspan="2">
+                                    @if (p.IsLedgerOnlyViaSarraf)
+                                    {
+                                        <span>@p.Reference</span>
+                                    }
+                                    else if (p.IsSarraf)
+                                    {
+                                        <a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@p.SarrafSettlementId">@p.Reference</a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="Payments" asp-action="Details" asp-route-id="@p.PaymentId">@p.Reference</a>
+                                    }
+                                </td>
+                                <td class="ak-col-actions"></td>
+                            </tr>
+                        }
+                    }
+                }
+                @if (!Model.Contracts.Any())
+                {
+                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-file-earmark-text"></i> برای این تأمین‌کننده هنوز قرارداد خرید ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (unallocatedPayments.Any())
+        {
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پیش‌پرداخت آزاد / بدون قرارداد", $"جمع {NumberDisplay.Money(unallocatedPayments.Sum(x => x.AmountUsd), "USD")}"))" />
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th>تاریخ</th>
+                            <th class="ak-col-grow">روش</th>
+                            <th class="ak-col-num">مبلغ سند</th>
+                            <th class="ak-col-num">معادل USD</th>
+                            <th>رسید / حواله</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in unallocatedPayments)
+                    {
+                        <tr>
+                            <td>@p.Date.ToDisplayDate()</td>
+                            <td class="ak-col-grow">@p.Method</td>
+                            <td class="ak-col-num ak-num">@NumberDisplay.Money(p.Amount, p.Currency)</td>
+                            <td class="ak-col-num ak-num">@NumberDisplay.Money(p.AmountUsd, "USD")</td>
+                            <td>
+                                @if (p.IsSarraf)
+                                {
+                                    <a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@p.SarrafSettlementId">@p.Reference</a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Payments" asp-action="Details" asp-route-id="@p.PaymentId">@p.Reference</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (Model.HasAdvances)
+        {
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پیش‌پرداخت تفصیلی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>مجموع پیش‌پرداخت</dt><dd class="ak-num">@Model.AdvanceTotalUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>مصرف‌شده برای قراردادها</dt><dd class="ak-num">@Model.AdvanceAllocatedUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>مانده آزاد</dt><dd class="ak-num">@Model.AdvanceFreeUsd.ToString("N2") USD</dd></div>
+            </dl>
+            @if (Model.AdvanceAllocations.Any())
+            {
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th>تاریخ</th>
+                                <th class="ak-col-grow">پرداخت</th>
+                                <th>قرارداد</th>
+                                <th class="ak-col-num">مبلغ مصرف‌شده USD</th>
+                                <th>وضعیت</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var a in Model.AdvanceAllocations)
+                        {
+                            <tr>
+                                <td>@a.AllocationDate.ToDisplayDate()</td>
+                                <td class="ak-col-grow"><a asp-controller="Payments" asp-action="Details" asp-route-id="@a.PaymentTransactionId">@a.PaymentReference</a></td>
+                                <td><a asp-controller="Contracts" asp-action="Details" asp-route-id="@a.ContractId">@a.ContractNumber</a></td>
+                                <td class="ak-col-num ak-num">@a.AllocatedBookAmountUsd.ToString("N2")</td>
+                                <td><span class="ak-status @(a.IsActive ?"is-active" : "is-inactive")">@a.StatusName</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        @if (Model.SarrafSettlements.Any())
+        {
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تسویه‌های صراف", (string?)null))" />
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th>تاریخ</th>
+                            <th class="ak-col-grow">صراف</th>
+                            <th>قرارداد</th>
+                            <th>مرجع</th>
+                            <th class="ak-col-num">کاهش بدهی USD</th>
+                            <th class="ak-col-num">اختلاف USD</th>
+                            <th>وضعیت</th>
+                            <th class="ak-col-actions">سند</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.SarrafSettlements)
+                    {
+                        <tr>
+                            <td>@row.SettlementDate.ToDisplayDate()</td>
+                            <td class="ak-col-grow">@row.SarrafName</td>
+                            <td>@(row.ContractNumber ?? "-")</td>
+                            <td>@(row.ReferenceNumber ?? $"#{row.Id}")</td>
+                            <td class="ak-col-num ak-num">@row.SupplierReductionAmountUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num @(row.DifferenceAmountUsd >= 0 ?"ak-num" : "ak-num")">@row.DifferenceAmountUsd.ToString("N2")</td>
+                            <td><span class="ak-status @(row.Status == SarrafSettlementStatus.Posted ?"is-active" : row.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@SarrafSettlementLabels.ToPersian(row.Status)</span></td>
+                            <td class="ak-col-actions"><a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@row.Id">مشاهده</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @* ===== تب ۳: صورت‌حساب ===== *@
+    <section id="supplier-statement" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("صورت‌حساب", $"{Model.StatementRows.Count:N0} ردیف — داده‌شده / گرفته‌شده / مانده"))" />
+
+        <form asp-action="Details" asp-route-id="@Model.SupplierId" method="get" class="ak-detail-toolbar">
+            <input type="hidden" name="tab" value="statement" />
+            <div class="ak-field">
+                <label class="ak-label" for="supplierStatementContract">نمایش بر اساس قرارداد</label>
+                <select id="supplierStatementContract" name="contractId" class="ak-input">
+                    <option value="">همه قراردادها</option>
+                    @foreach (var option in Model.StatementContractOptions)
+                    {
+                        <option value="@option.ContractId" selected="@(Model.SelectedContractId == option.ContractId)">@option.ContractNumber</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn btn-light">نمایش</button>
+            @if (Model.SelectedContractId.HasValue)
+            {
+                <a asp-action="Details" asp-route-id="@Model.SupplierId" asp-route-tab="statement" class="btn btn-light">نمایش همه</a>
+            }
+        </form>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع سند</th>
+                        <th>قرارداد</th>
+                        <th class="ak-col-num">افزایش طلب USD</th>
+                        <th class="ak-col-num">پرداخت USD</th>
+                        <th class="ak-col-num">مانده USD</th>
+                        <th class="ak-col-num">مانده RUB</th>
+                        <th>توضیح</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.StatementRows)
+                {
+                    <tr>
+                        <td>@r.Date.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@r.Type</td>
+                        <td>@(r.ContractNumber ?? "-")</td>
+                        <td class="ak-col-num ak-num @(r.CreditUsd.HasValue && r.CreditUsd.Value != 0m ?"ak-num" : "")">
+                            @if (r.CreditUsd.HasValue && r.CreditUsd.Value != 0m)
+                            {
+                                <text>@r.CreditUsd.Value.ToString("N2") USD</text>
+                            }
+                            else { <text>—</text> }
+                        </td>
+                        <td class="ak-col-num ak-num @(r.DebitUsd.HasValue && r.DebitUsd.Value != 0m ?"ak-num" : "")">
+                            @if (r.DebitUsd.HasValue && r.DebitUsd.Value != 0m)
+                            {
+                                <text>@r.DebitUsd.Value.ToString("N2") USD</text>
+                            }
+                            else { <text>—</text> }
+                        </td>
+                        <td class="ak-col-num ak-num @(r.RunningBalanceUsd >= 0 ?"" : "ak-num")">@Math.Abs(r.RunningBalanceUsd).ToString("N2")</td>
+                        <td class="ak-col-num ak-num">@(r.RunningBalanceRubEquivalent.HasValue ? Math.Abs(r.RunningBalanceRubEquivalent.Value).ToString("N2") : "—")</td>
+                        <td>@r.Description</td>
+                    </tr>
+                }
+                @if (!Model.StatementRows.Any())
+                {
+                    <tr><td colspan="8"><div class="ak-empty"><i class="bi bi-journal-text"></i> صورت‌حساب خالی است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @* ===== صورت‌حساب کامل دو-ارزه (RUB/USD) — همان منطق نمایشی قبلی ===== *@
+        @{
+            var slRows = new List<PTGOilSystem.Web.Models.Suppliers.SupplierStatementLedgerRowViewModel>();
+            foreach (var row in Model.StatementRows)
+            {
+                var hasRubEquivalent = row.CreditRubEquivalent.HasValue || row.DebitRubEquivalent.HasValue;
+                var hasGiven = row.DebitUsd.HasValue && row.DebitUsd.Value != 0m;
+                var hasTaken = row.CreditUsd.HasValue && row.CreditUsd.Value != 0m;
+                slRows.Add(new PTGOilSystem.Web.Models.Suppliers.SupplierStatementLedgerRowViewModel
+                {
+                    LedgerEntryId = row.LedgerEntryId,
+                    Date = row.Date,
+                    Type = row.Type,
+                    Reference = row.Reference,
+                    SourceDetailsController = row.SourceDetailsController,
+                    SourceDetailsAction = row.SourceDetailsAction,
+                    SourceDetailsRouteId = row.SourceDetailsRouteId,
+                    ContractNumber = row.ContractNumber,
+                    ContractColorClass = string.Empty,
+                    Description = row.Description,
+                    QuantityMt = null,
+                    UnitPrice = null,
+                    OriginalCurrency = "RUB",
+                    IsOriginalRub = hasRubEquivalent,
+                    CreditOriginal = row.DebitRubEquivalent,
+                    DebitOriginal = row.CreditRubEquivalent,
+                    RunningBalanceOriginal = row.RunningBalanceRubEquivalent.HasValue ? -row.RunningBalanceRubEquivalent : null,
+                    CreditRubEquivalent = row.DebitRubEquivalent,
+                    DebitRubEquivalent = row.CreditRubEquivalent,
+                    RunningBalanceRubEquivalent = row.RunningBalanceRubEquivalent.HasValue ? -row.RunningBalanceRubEquivalent : null,
+                    FxRateDisplayPerUsd = row.RubPerUsdRate ?? row.FxRateDisplayPerUsd,
+                    FxRateUsed = row.FxRateUsed,
+                    CreditUsd = row.DebitUsd,
+                    DebitUsd = row.CreditUsd,
+                    RunningBalanceUsd = -row.RunningBalanceUsd,
+                    BadgeText = row.Type,
+                    BadgeClass = string.Empty,
+                    EffectClass = hasGiven ? "is-increase" : hasTaken ? "is-decrease" : "is-neutral"
+                });
+            }
+            var supplierStatementLedger = new PTGOilSystem.Web.Models.Suppliers.SupplierStatementLedgerTableViewModel { Rows = slRows };
+        }
+        <partial name="~/Views/Shared/Partials/_SupplierStatementLedger.cshtml" model="supplierStatementLedger" />
+
+        @if (Model.HasRecognizedFx)
+        {
+            <p class="ak-note">
+                @if (Model.RecognizedFxGainUsd > 0) { <text>سود نرخ ارز شناسایی‌شده: @Model.RecognizedFxGainUsd.ToString("N2") USD. </text> }
+                @if (Model.RecognizedFxLossUsd > 0) { <text>زیان نرخ ارز شناسایی‌شده: @Model.RecognizedFxLossUsd.ToString("N2") USD. </text> }
+                فقط برای نمایش؛ هیچ محاسبهٔ سود/زیان رسمی را تغییر نمی‌دهد.
+            </p>
+        }
+    </section>
+</div>

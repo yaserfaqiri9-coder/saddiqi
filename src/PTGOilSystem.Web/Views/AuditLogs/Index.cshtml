@@ -1,0 +1,97 @@
+@using PTGOilSystem.Web.Models.Audit
+@model ActivityLogIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"لاگ‌های سیستم","System Logs");
+    var q = Model.Filter.Query;
+}
+
+<div class="ak-list-page">
+    <div class="ak-list">
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml"
+                     model="@AkSearchFilterModel.SearchOnly("q", q, UiText.T(Context, "شماره سند، کاربر، بخش یا متن...", "Document, user, module, or text..."))" />
+            <div class="ak-list-toolbar-actions">
+                <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print();">
+                    <i class="bi bi-box-arrow-up" aria-hidden="true"></i>
+                    <span>@UiText.T(Context,"دریافت خروجی","Export")</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="col-name">@UiText.T(Context,"تاریخ و ساعت","Date & time")</th>
+                        <th>@UiText.T(Context,"کاربر","User")</th>
+                        <th>@UiText.T(Context,"بخش","Module")</th>
+                        <th>@UiText.T(Context,"عملیات","Action")</th>
+                        <th>@UiText.T(Context,"سند/رکورد","Record")</th>
+                        <th>@UiText.T(Context,"خلاصه","Summary")</th>
+                        <th>@UiText.T(Context,"اهمیت","Severity")</th>
+                        <th>@UiText.T(Context,"نتیجه","Result")</th>
+                        <th class="col-chevron"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td dir="ltr" class="ak-num">@item.ActionAtUtc.ToDisplayDateTime()</td>
+                            <td>@item.ActorDisplay</td>
+                            <td>@item.ModuleDisplay</td>
+                            <td><span class="ak-status is-active">@item.ActionDisplay</span></td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(item.RelatedController) && item.RelatedId.HasValue)
+                                {
+                                    <a asp-controller="@item.RelatedController" asp-action="@item.RelatedAction" asp-route-id="@item.RelatedId" class="ak-name">@item.RelatedRecord</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">@item.RelatedRecord</span>
+                                }
+                            </td>
+                            <td>@item.HumanSummary</td>
+                            <td><span class="ak-status">@item.SeverityLabel</span></td>
+                            <td><span class="ak-status @(item.IsSuccess ?"is-active" :"is-inactive")">@item.ResultLabel</span></td>
+                            <td class="col-chevron">
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"جزئیات","Details")" aria-label="@UiText.T(Context,"جزئیات","Details")">
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="9">
+                                <div class="ak-empty">
+                                    <i class="bi bi-journal-text"></i>
+                                    @UiText.T(Context,"لاگی برای فیلتر فعلی پیدا نشد","No logs found for the current filter")
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

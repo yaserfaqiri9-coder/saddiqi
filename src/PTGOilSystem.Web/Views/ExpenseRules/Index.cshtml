@@ -1,0 +1,90 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseRuleIndexViewModel
+@using PTGOilSystem.Web.Models.Expenses
+@{
+    ViewData["Title"] = UiText.T(Context, "قواعد مصرف", "Expense Rules");
+    var items = Model.Items;
+    var hasFilters = !string.IsNullOrWhiteSpace((string?)ViewData["calculationKind"]) || ViewData["isActive"] != null;
+    var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    string CalculationText(string kind) => kind switch
+    {
+        ExpenseRuleCalculationKinds.Flat => "مبلغ ثابت",
+        ExpenseRuleCalculationKinds.PerMt => "نرخ در مقدار",
+        ExpenseRuleCalculationKinds.Percent => "درصدی",
+        _ => kind
+    };
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "قواعد مصرف", "Expense Rules"), true,
+                       UiText.T(Context, "قاعده جدید", "New rule"), "bi-plus-lg",
+                       (string?)Url.Action("Create", new { returnUrl }), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @{
+        var expRulesIsActive = ViewData["isActive"] is bool erAct ? (erAct ? "true" : "false") : null;
+        var expRuleKindOptions = ExpenseRuleCalculationKinds.All
+            .Select(k => new AkFilterOption(k, CalculationText(k))).ToList();
+        var expenseRulesFilter = new AkSearchFilterModel("q", (string?)ViewData["q"],
+            "جستجو در نام قاعده، نوع مصرف یا ارز...",
+            new List<AkFilterDefinition>
+            {
+                new("calculationKind", "نوع محاسبه", "select", expRuleKindOptions, (string?)ViewData["calculationKind"]),
+                new("isActive", "وضعیت", "bool",
+                    new List<AkFilterOption> { new("true", "فعال"), new("false", "غیرفعال") },
+                    expRulesIsActive)
+            });
+    }
+    <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="expenseRulesFilter" />
+
+    <div class="ak-list">
+        <div class="ak-table-wrap">
+            <table class="ak-table" aria-label="لیست قواعد مصرف">
+                <thead>
+                    <tr>
+                        <th class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="انتخاب همه" /></th>
+                        <th class="ak-col-grow">نام قاعده</th>
+                        <th>نوع مصرف</th>
+                        <th>نوع محاسبه</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">استفاده</th>
+                        <th class="ak-col-spacer"></th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr>
+                            <td class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="انتخاب" /></td>
+                            <td class="ak-col-grow"><a asp-action="Details" asp-route-id="@item.Id" class="ak-name">@item.Name</a></td>
+                            <td>@item.ExpenseTypeName</td>
+                            <td>@CalculationText(item.CalculationKind)</td>
+                            <td class="ak-num ak-col-num">@item.Amount.ToString("N4") @item.Currency</td>
+                            <td class="ak-num ak-col-num">@item.UsageCount</td>
+                            <td class="ak-col-spacer"></td>
+                            <td><span class="ak-status @(item.IsActive ?"is-active" : "is-inactive")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                            <td class="ak-col-actions">
+                                <div class="dropdown ak-row-menu">
+                                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-action="Details" asp-route-id="@item.Id"><i class="bi bi-eye" aria-hidden="true"></i>مشاهده</a></li>
+                                        <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil" aria-hidden="true"></i>ویرایش</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!items.Any())
+                    {
+                        <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-sliders" aria-hidden="true"></i>قاعده مصرفی یافت نشد</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

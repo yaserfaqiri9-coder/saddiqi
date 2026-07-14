@@ -1,0 +1,1 @@
+- [Balance check seeding](balance-check-seeding.md) — ContractBalanceTransfer tests require SeedContractCreditAsync before any successful transfer; Assert.All on db.LedgerEntries must filter by SourceType to avoid seed entry collisions.

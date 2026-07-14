@@ -1,0 +1,34 @@
+@model object
+@{
+    var pageTitle = ViewData["Title"] as string ?? "ثبت جدید";
+    var formPartialPath = ViewData["CreateFormPartialPath"] as string;
+    var requestedReturnUrl = Context.Request.Query["returnUrl"].ToString();
+    var returnUrl = Url.IsLocalUrl(requestedReturnUrl)
+        ? requestedReturnUrl
+        : Url.Action("Index") ?? "/";
+
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEn = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEn ? en : fa;
+
+    if (string.IsNullOrWhiteSpace(formPartialPath))
+    {
+        throw new System.InvalidOperationException("Create form partial path is required.");
+    }
+}
+
+<div class="ak-form-page">
+    <div class="ak-form-page-content">
+        <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+                 model="@((pageTitle, true,
+                           (string?)null, (string?)null, (string?)null, (string?)null,
+                           T("بازگشت", "Back"), "bi-arrow-right",
+                           (string?)returnUrl))" />
+
+        <form asp-action="Create" asp-route-returnUrl="@returnUrl" method="post" class="ak-form">
+            @await Html.PartialAsync(formPartialPath, Model)
+            <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                     model="@((T("ذخیره", "Save"), returnUrl, T("انصراف", "Cancel")))" />
+        </form>
+    </div>
+</div>

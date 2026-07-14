@@ -1,0 +1,11 @@
+@model Currency
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش ارز", "Edit Currency");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "ارزها", "Currencies");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "تغییر کد یا غیرفعال‌کردن ارز فقط روی انتخاب‌های بعدی اثر می‌گذارد.", "Changing code or deactivating only affects future selections.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Currencies/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

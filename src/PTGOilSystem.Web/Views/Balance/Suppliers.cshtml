@@ -1,0 +1,117 @@
+@model PTGOilSystem.Web.Models.Balance.SuppliersBalanceViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"بیلانس تأمین‌کنندگان","Supplier Balances");
+    var totalSalesUsd = Model.Items.Sum(item => item.TotalSalesUsd);
+    var totalExpensesUsd = Model.Items.Sum(item => item.TotalExpensesUsd);
+    var totalBaseBalanceUsd = Model.Items.Sum(item => item.BaseBalanceUsd);
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.SupplierId.HasValue || !string.IsNullOrWhiteSpace(Model.Filter.Country);
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context,"بیلانس تأمین‌کنندگان","Supplier Balances"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار بیلانس تأمین‌کنندگان", "Supplier balance metrics")">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context,"تأمین‌کنندگان","Suppliers")</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context,"جمع فروش","Total Sales")</dt><dd class="ak-num">@totalSalesUsd.ToString("N2")</dd></div>
+            <div><dt>@UiText.T(Context,"جمع مصرف","Total Expenses")</dt><dd class="ak-num">@totalExpensesUsd.ToString("N2")</dd></div>
+            <div><dt>@UiText.T(Context,"تراز پایه","Base Balance")</dt><dd class="ak-num @(totalBaseBalanceUsd >= 0 ?"ak-num" : "ak-num")">@totalBaseBalanceUsd.ToString("N2")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> BsOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Where(i => !string.IsNullOrEmpty(i.Value)).Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? BsQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var balSuppFilter = new AkSearchFilterModel("Filter.Search", Model.Filter.Search,
+                "نام تأمین‌کننده، کشور، تماس یا کد...",
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.SupplierId", UiText.T(Context, "تأمین‌کننده", "Supplier"), "select", BsOpts(ViewBag.Suppliers), BsQ("Filter.SupplierId")),
+                    new("Filter.Country", UiText.T(Context, "کشور", "Country"), "select", BsOpts(ViewBag.Countries), BsQ("Filter.Country"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="balSuppFilter" />
+            <div class="ak-list-toolbar-actions">
+                <a class="btn btn-light ak-secondary-action" href="@(Url.Action("SuppliersCsv"))@(Context.Request.QueryString)">
+                    <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>Export CSV</span>
+                </a>
+                <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">
+                    <i class="bi bi-printer" aria-hidden="true"></i><span>@UiText.T(Context,"چاپ","Print")</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@UiText.T(Context,"تأمین‌کننده","Supplier")</th>
+                        <th>@UiText.T(Context,"کشور","Country")</th>
+                        <th class="ak-col-num">@UiText.T(Context,"قراردادها","Contracts")</th>
+                        <th>@UiText.T(Context,"فعال / بسته","Active / Closed")</th>
+                        <th class="ak-col-num">@UiText.T(Context,"جمع فروش","Total Sales")</th>
+                        <th class="ak-col-num">@UiText.T(Context,"جمع مصرف","Total Expenses")</th>
+                        <th class="ak-col-num">Ledger</th>
+                        <th class="ak-col-num">@UiText.T(Context,"تراز پایه","Base Balance")</th>
+                        <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="ak-col-grow"><a class="ak-name" asp-controller="Suppliers" asp-action="Details" asp-route-id="@item.Id">@item.Name</a></td>
+                            <td>@(item.Country ?? "-")</td>
+                            <td class="ak-col-num ak-num">@item.RelatedContractsCount</td>
+                            <td>@item.ActiveContractsCount / @item.ClosedContractsCount</td>
+                            <td class="ak-col-num ak-num">@item.TotalSalesUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@item.TotalExpensesUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@item.RelatedLedgerCount</td>
+                            <td class="ak-col-num ak-num @(item.BaseBalanceUsd >= 0 ?"ak-num" : "ak-num")">@item.BaseBalanceUsd.ToString("N2")</td>
+                            <td class="ak-col-actions"><a asp-controller="Suppliers" asp-action="Details" asp-route-id="@item.Id">@UiText.T(Context,"جزئیات","Details")</a></td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-building"></i> @UiText.T(Context,"تأمین‌کننده‌ای برای نمایش بیلانس پیدا نشد","No suppliers found for balance view")</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('balSuppFilterToggle');
+            var pop = document.getElementById('balSuppFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}

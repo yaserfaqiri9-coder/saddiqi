@@ -1,0 +1,209 @@
+/*
+ * PTG Page Loader (60-loader.css)
+ * لودر برند صدیقی — مرجع قطعی: saddiqi-loader-live-demo.html
+ * فقط transform/opacity انیمیت می‌شوند (GPU-friendly). بدون کارت، سایه سنگین یا گرادیان.
+ */
+
+.ptg-loader {
+    --ptg-loader-bg: #FCFCFC;
+    --ptg-loader-track: #E8EAED;
+    --ptg-loader-red: #E2232A;
+    --ptg-loader-green: #14915D;
+
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: grid;
+    place-items: center;
+    background: var(--ptg-loader-bg);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .18s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .18s;
+}
+
+.ptg-loader.is-active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .18s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* دسکتاپ: فقط ناحیهٔ محتوا پوشانده می‌شود؛ سایدبار دیده می‌ماند.
+   inset-inline-start در RTL به right و در LTR به left نگاشت می‌شود. */
+@media (min-width: 1200px) {
+    body.app-shell-authenticated .ptg-loader {
+        inset-inline-start: var(--layout-sidebar, 304px);
+    }
+
+    body.app-shell-authenticated.is-sidebar-collapsed .ptg-loader {
+        inset-inline-start: var(--layout-sidebar-mini, 56px);
+    }
+}
+
+.ptg-loader__box {
+    position: relative;
+    width: 148px;
+    height: 148px;
+    transform: translateY(-40px);
+}
+
+.ptg-loader__stage {
+    position: absolute;
+    inset: 0;
+}
+
+.ptg-loader.is-active .ptg-loader__stage {
+    animation: ptg-loader-enter .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.ptg-loader__ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.ptg-loader__track {
+    fill: none;
+    stroke: var(--ptg-loader-track);
+    stroke-width: 1.4;
+}
+
+.ptg-loader__arc {
+    fill: none;
+    stroke-linecap: round;
+    transform-box: view-box;
+    transform-origin: 74px 74px;
+    will-change: transform;
+}
+
+.ptg-loader__arc--red {
+    stroke: var(--ptg-loader-red);
+    stroke-width: 3.1;
+    stroke-dasharray: 78 248;
+    animation: ptg-loader-spin 1.25s linear infinite;
+}
+
+.ptg-loader__arc--red-soft {
+    stroke: var(--ptg-loader-red);
+    stroke-width: 2.2;
+    stroke-opacity: .42;
+    stroke-dasharray: 34 292;
+    transform: rotate(155deg);
+    animation: ptg-loader-spin 1.65s linear infinite;
+}
+
+.ptg-loader__arc--green {
+    stroke: var(--ptg-loader-green);
+    stroke-width: 3.1;
+    stroke-dasharray: 62 203;
+    animation: ptg-loader-spin-rev 2.1s linear infinite;
+}
+
+.ptg-loader__arc--green-soft {
+    stroke: var(--ptg-loader-green);
+    stroke-width: 2.1;
+    stroke-opacity: .4;
+    stroke-dasharray: 29 236;
+    transform: rotate(145deg);
+    animation: ptg-loader-spin-rev 2.45s linear infinite;
+}
+
+.ptg-loader__halo {
+    position: absolute;
+    inset: 26px;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(226, 35, 42, .08), rgba(20, 145, 93, .035) 48%, transparent 72%);
+    filter: blur(8px);
+    animation: ptg-loader-halo 1.8s ease-in-out infinite;
+}
+
+.ptg-loader__brand {
+    position: absolute;
+    left: 35px;
+    top: 35px;
+    width: 78px;
+    height: 78px;
+    object-fit: contain;
+    transform-origin: center;
+    filter: drop-shadow(0 8px 14px rgba(37, 42, 48, .08));
+    animation: ptg-loader-breathe 1.8s ease-in-out infinite;
+    user-select: none;
+    pointer-events: none;
+}
+
+.ptg-loader__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@keyframes ptg-loader-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ptg-loader-spin-rev {
+    to { transform: rotate(-360deg); }
+}
+
+@keyframes ptg-loader-breathe {
+    0%, 100% { transform: scale(.985); }
+    50% { transform: scale(1.018); }
+}
+
+@keyframes ptg-loader-halo {
+    0%, 100% { transform: scale(.95); opacity: .45; }
+    50% { transform: scale(1.08); opacity: .8; }
+}
+
+@keyframes ptg-loader-enter {
+    from { opacity: 0; transform: scale(.965); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+    .ptg-loader__box {
+        width: 128px;
+        height: 128px;
+        transform: none;
+    }
+
+    .ptg-loader__ring {
+        transform: scale(.865);
+        transform-origin: top left;
+    }
+
+    .ptg-loader__halo {
+        inset: 22px;
+        width: 84px;
+        height: 84px;
+    }
+
+    .ptg-loader__brand {
+        left: 31px;
+        top: 31px;
+        width: 66px;
+        height: 66px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ptg-loader__arc { animation: none; }
+    .ptg-loader__brand,
+    .ptg-loader__halo { animation-duration: 2.8s; }
+    .ptg-loader.is-active .ptg-loader__stage { animation: none; }
+}
+
+@media print {
+    .ptg-loader { display: none !important; }
+}

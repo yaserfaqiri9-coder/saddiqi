@@ -1,0 +1,247 @@
+@model PTGOilSystem.Web.Models.StorageTanks.StorageTankSettlementViewModel
+@using System.Globalization
+@using PTGOilSystem.Web.Models.StorageTanks
+@{
+    ViewData["Title"] = UiText.T(Context, "تسویه نهایی مخزن", "Final Tank Settlement");
+    ViewData["StorageTanksAssets"] = true;
+    var unit = string.IsNullOrWhiteSpace(Model.UnitOfMeasure) ? "MT" : Model.UnitOfMeasure.Trim();
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl!
+        : Url.Action("Details", new { id = Model.TankId });
+    string Fmt(decimal value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+    var isManual = Model.AllocationMode == TankLossAllocationMode.Manual;
+    // نگاشت قرارداد → اطلاعات نمایشی برای ردیف‌های ورود دستی.
+    var rowByContract = Model.ContractRows.ToDictionary(r => r.ContractId);
+}
+
+<div class="ak-form-page">
+    <section class="ak-form-section">
+        <div class="ak-section-head d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <h1 class="h5 mb-1">@UiText.T(Context, "تسویه نهایی مخزن", "Final Tank Settlement") — @Model.TankCode</h1>
+                <div class="text-muted small">@Model.TerminalName</div>
+            </div>
+            <a href="@cancelUrl" class="btn ak-secondary-action btn-sm">
+                <i class="bi bi-arrow-right"></i>
+                @UiText.T(Context, "بازگشت", "Back")
+            </a>
+        </div>
+
+        <div>
+            <p class="text-muted small mb-3">
+                @UiText.T(Context,
+                    "وقتی مخزن کاملاً مصرف/تخلیه شد، اختلاف بین موجودی دفتری و مقدار واقعی باقیمانده، ضایعات قطعی است و به قراردادهای خرید منبع وصل می‌شود. اگر چند قرارداد در مخزن باشد، می‌توانید ضایعه را به‌صورت نسبتی (خودکار) تقسیم کنید، یا اگر سهم واقعی هر قرارداد اندازه‌گیری شده، آن را دستی وارد کنید.",
+                    "When the tank is fully consumed/emptied, the gap between book inventory and the real remaining quantity is the final loss, attributed to the source purchase contracts. If several contracts share the tank, split the loss proportionally (automatic) or enter each contract's measured loss manually.")
+            </p>
+
+            <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+
+            <div class="ak-form-grid mb-3">
+                <div class="col-sm-6 ak-field">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-muted small">@UiText.T(Context, "موجودی دفتری فعلی", "Current Book Inventory")</div>
+                        <div class="fs-5 fw-bold">@Fmt(Model.CurrentQuantityMt) @unit</div>
+                    </div>
+                </div>
+                <div class="col-sm-6 ak-field">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-muted small">@UiText.T(Context, "قابل تسویه (قراردادهای منبع)", "Settleable (source contracts)")</div>
+                        <div class="fs-5 fw-bold" data-settleable="@Fmt(Model.SettleableQuantityMt)">@Fmt(Model.SettleableQuantityMt) @unit</div>
+                    </div>
+                </div>
+                <div class="col-sm-6 ak-field">
+                    <div class="border rounded p-3 h-100">
+                        <div class="text-muted small">@UiText.T(Context, "ضایعات قابل ثبت", "Loss to register")</div>
+                        <div class="fs-5 fw-bold text-danger"><span data-total-loss>@Fmt(Model.SettleableQuantityMt)</span> @unit</div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!Model.ContractRows.Any())
+            {
+                <div class="alert alert-info">
+                    @UiText.T(Context, "این مخزن موجودی قابل تسویه‌ای از قراردادهای منبع ندارد.", "This tank has no settleable source-contract inventory.")
+                </div>
+            }
+
+            <form asp-action="SettleFinal" method="post" data-tank-settle-form data-settleable="@Fmt(Model.SettleableQuantityMt)" class="ak-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="TankId" />
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                @* انتخاب روش تقسیم ضایعه *@
+                <div class="mb-3">
+                    <label class="ak-label d-block">@UiText.T(Context, "روش تقسیم ضایعه", "Loss Allocation Method")</label>
+                    <div class="btn-group" role="group" data-mode-toggle>
+                        <input type="radio" class="btn-check" name="AllocationMode" id="modeProportional"
+                               value="@nameof(TankLossAllocationMode.Proportional)" autocomplete="off"
+                               data-mode="proportional" @(isManual ? "" : "checked") />
+                        <label class="btn ak-secondary-action btn-sm" for="modeProportional">
+                            @UiText.T(Context, "تقسیم نسبتی (خودکار)", "Proportional (auto)")
+                        </label>
+
+                        <input type="radio" class="btn-check" name="AllocationMode" id="modeManual"
+                               value="@nameof(TankLossAllocationMode.Manual)" autocomplete="off"
+                               data-mode="manual" @(isManual ? "checked" : "") />
+                        <label class="btn ak-secondary-action btn-sm" for="modeManual">
+                            @UiText.T(Context, "ورود دستی هر قرارداد", "Manual per contract")
+                        </label>
+                    </div>
+                    <div class="form-text">
+                        @UiText.T(Context,
+                            "نسبتی = تقسیم خودکار به نسبت سهم دفتری (تخمینی). دستی = وارد کردن ضایعهٔ واقعی هر قرارداد (اندازه‌گیری‌شده).",
+                            "Proportional = automatic split by book share (estimated). Manual = enter each contract's measured loss.")
+                    </div>
+                </div>
+
+                <div class="ak-form-grid mb-3">
+                    <div class="col-sm-6 ak-field">
+                        <label asp-for="EventDate" class="ak-label">@UiText.T(Context, "تاریخ تسویه", "Settlement Date")</label>
+                        <input asp-for="EventDate" type="date" class="ak-input" />
+                        <span asp-validation-for="EventDate" class="text-danger small"></span>
+                    </div>
+                    <div class="col-sm-6 ak-field" data-mode-only="proportional" style="@(isManual ? "display:none" : "")">
+                        <label asp-for="ActualRemainingMt" class="ak-label">@UiText.T(Context, "مقدار واقعی باقیمانده", "Actual Remaining") (@unit)</label>
+                        <input asp-for="ActualRemainingMt" type="number" step="0.0001" min="0" class="ak-input" data-actual-remaining />
+                        <div class="form-text">@UiText.T(Context, "پیش‌فرض ۰ یعنی مخزن کاملاً خالی شده است.", "Default 0 means the tank is fully emptied.")</div>
+                        <span asp-validation-for="ActualRemainingMt" class="text-danger small"></span>
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="Notes" class="ak-label">@UiText.T(Context, "یادداشت تسویه", "Settlement Notes")</label>
+                        <textarea asp-for="Notes" rows="2" class="ak-input"></textarea>
+                        <span asp-validation-for="Notes" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                @if (Model.ContractRows.Any())
+                {
+                    <div class="ak-table-wrap mb-3">
+                        <table class="ak-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>@UiText.T(Context, "قرارداد خرید منبع", "Source Purchase Contract")</th>
+                                    <th>@UiText.T(Context, "جنس", "Product")</th>
+                                    <th class="text-center">@UiText.T(Context, "موجودی دفتری", "Book Balance")</th>
+                                    <th class="text-center">@UiText.T(Context, "سهم", "Share")</th>
+                                    <th class="text-center" data-mode-only="proportional" style="@(isManual ? "display:none" : "")">@UiText.T(Context, "ضایعات (نسبتی)", "Loss (proportional)")</th>
+                                    <th class="text-center" data-mode-only="manual" style="@(isManual ? "" : "display:none")">@UiText.T(Context, "ضایعات (اندازه‌گیری‌شده)", "Loss (measured)")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < Model.ManualLosses.Count; i++)
+                                {
+                                    var manual = Model.ManualLosses[i];
+                                    rowByContract.TryGetValue(manual.ContractId, out var display);
+                                    var bookBalance = display?.BookBalanceMt ?? manual.LossMt;
+                                    var sharePercent = display?.SharePercent ?? 0m;
+                                    var projectedLoss = display?.ProjectedLossMt ?? bookBalance;
+                                    <tr data-settle-row data-book-balance="@Fmt(bookBalance)">
+                                        <td>@(display?.ContractNumber ?? UiText.T(Context, "بدون قرارداد", "No contract"))</td>
+                                        <td>@(display?.ProductName)</td>
+                                        <td class="text-center">@Fmt(bookBalance) @unit</td>
+                                        <td class="text-center">@sharePercent.ToString("0.##", CultureInfo.InvariantCulture)%</td>
+                                        <td class="text-center fw-bold text-danger" data-mode-only="proportional" style="@(isManual ? "display:none" : "")">
+                                            <span data-row-loss>@Fmt(projectedLoss)</span> @unit
+                                        </td>
+                                        <td class="text-center" data-mode-only="manual" style="@(isManual ? "" : "display:none")">
+                                            <input type="hidden" asp-for="ManualLosses[i].ContractId" />
+                                            <input type="hidden" asp-for="ManualLosses[i].ProductId" />
+                                            <input asp-for="ManualLosses[i].LossMt" type="number" step="0.0001" min="0"
+                                                   max="@Fmt(bookBalance)" class="ak-input text-center"
+                                                   style="max-width:140px;margin-inline:auto" data-manual-loss />
+                                            <span asp-validation-for="ManualLosses[i].LossMt" class="text-danger small d-block"></span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="@cancelUrl" class="btn btn-light">@UiText.T(Context, "لغو", "Cancel")</a>
+                        <button type="submit" class="btn ak-primary-action">
+                            <i class="bi bi-clipboard-check me-1"></i>
+                            @UiText.T(Context, "ثبت تسویه نهایی", "Confirm Settlement")
+                        </button>
+                    </div>
+                }
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var form = document.querySelector('[data-tank-settle-form]');
+            if (!form) return;
+            var settleable = parseFloat(form.getAttribute('data-settleable')) || 0;
+            var actualInput = form.querySelector('[data-actual-remaining]');
+            var rows = form.querySelectorAll('[data-settle-row]');
+            var totalLossEl = document.querySelector('[data-total-loss]');
+            var modeRadios = form.querySelectorAll('[data-mode-toggle] input[name="AllocationMode"]');
+
+            function round4(value) { return Math.round((value + Number.EPSILON) * 10000) / 10000; }
+
+            function currentMode() {
+                var checked = form.querySelector('[data-mode-toggle] input[name="AllocationMode"]:checked');
+                return checked ? checked.getAttribute('data-mode') : 'proportional';
+            }
+
+            // نمایش/پنهان‌کردن ستون‌ها و فیلدها بر اساس حالت انتخابی.
+            function applyModeVisibility() {
+                var mode = currentMode();
+                form.querySelectorAll('[data-mode-only]').forEach(function (el) {
+                    el.style.display = (el.getAttribute('data-mode-only') === mode) ? '' : 'none';
+                });
+            }
+
+            function recomputeProportional() {
+                var actual = parseFloat(actualInput && actualInput.value) || 0;
+                if (actual < 0) actual = 0;
+                if (settleable > 0 && actual > settleable) actual = settleable;
+                var totalLoss = 0;
+                rows.forEach(function (row) {
+                    var book = parseFloat(row.getAttribute('data-book-balance')) || 0;
+                    var remainingShare = settleable > 0 ? round4(actual * book / settleable) : 0;
+                    var loss = round4(book - remainingShare);
+                    if (loss < 0) loss = 0;
+                    totalLoss += loss;
+                    var cell = row.querySelector('[data-row-loss]');
+                    if (cell) cell.textContent = loss.toString();
+                });
+                if (totalLossEl) totalLossEl.textContent = round4(totalLoss).toString();
+            }
+
+            function recomputeManual() {
+                var totalLoss = 0;
+                rows.forEach(function (row) {
+                    var book = parseFloat(row.getAttribute('data-book-balance')) || 0;
+                    var input = row.querySelector('[data-manual-loss]');
+                    var loss = parseFloat(input && input.value) || 0;
+                    if (loss < 0) loss = 0;
+                    if (loss > book) loss = book;
+                    totalLoss += loss;
+                });
+                if (totalLossEl) totalLossEl.textContent = round4(totalLoss).toString();
+            }
+
+            function recompute() {
+                if (currentMode() === 'manual') { recomputeManual(); }
+                else { recomputeProportional(); }
+            }
+
+            if (actualInput) actualInput.addEventListener('input', recompute);
+            form.querySelectorAll('[data-manual-loss]').forEach(function (el) {
+                el.addEventListener('input', recompute);
+            });
+            modeRadios.forEach(function (r) {
+                r.addEventListener('change', function () { applyModeVisibility(); recompute(); });
+            });
+
+            applyModeVisibility();
+            recompute();
+        })();
+    </script>
+}

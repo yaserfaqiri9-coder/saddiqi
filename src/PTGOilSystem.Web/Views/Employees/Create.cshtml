@@ -1,0 +1,25 @@
+@model PTGOilSystem.Web.Models.Employees.EmployeeFormViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت کارمند", "Create Employee");
+    var requestedReturnUrl = Context.Request.Query["returnUrl"].ToString();
+    var returnUrl = Url.IsLocalUrl(requestedReturnUrl) ? requestedReturnUrl : Url.Action("Index") ?? "/";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت کارمند جدید", "Create New Employee"), true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)returnUrl))" />
+
+    <form asp-action="Create" asp-route-returnUrl="@returnUrl" method="post" enctype="multipart/form-data" class="ak-form" data-no-spa>
+        @Html.AntiForgeryToken()
+        <partial name="_Form" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره", "Save"), returnUrl, UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

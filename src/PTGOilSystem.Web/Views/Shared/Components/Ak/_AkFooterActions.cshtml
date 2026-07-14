@@ -1,0 +1,11 @@
+@*
+    Akaunting form footer actions (phase-2 real markup).
+    Save (primary submit) + Cancel (neutral link), divider on top.
+    Model: (SaveLabel, CancelHref, CancelLabel). The Save button submits
+    the enclosing <form>, so this partial must sit inside it.
+*@
+@model (string SaveLabel, string CancelHref, string CancelLabel)
+<div class="ak-footer-actions">
+    <button type="submit" class="ak-save">@Model.SaveLabel</button>
+    <a href="@Model.CancelHref" class="ak-cancel">@Model.CancelLabel</a>
+</div>

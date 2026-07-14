@@ -1,0 +1,374 @@
+/*
+ * PTG design tokens — Akaunting 3.1.21 visual language (Design Audit PTG FA).
+ * Single visual source of truth for the authenticated ERP shell.
+ *
+ * Canonical Akaunting tokens live in the first block. Every legacy PTG/Boltz/DS
+ * variable name is preserved below and re-pointed at the canonical tokens, so
+ * existing consumers keep working while the whole app shifts to the flat,
+ * near-white Akaunting look: bg #FCFCFC, text #424242, purple #55588B for
+ * navigation/interactive, olive green #6EA152 for the primary action.
+ */
+
+:root {
+    /* ---- Akaunting canonical palette (extracted from presets.js 3.1.21) ---- */
+    --primary-lighter: #DCE2F9;   /* Lilac 900 — sidebar icon rail */
+    --primary-light: #7779A2;     /* Profit series / soft purple */
+    --primary-main: #55588B;      /* Purple 500 — nav, tabs, focus, links */
+    --primary-dark: #404268;      /* Purple 700 — hover */
+    --primary-darker: #2F3150;
+    --primary-contrast: #FFFFFF;
+    --primary-main-rgb: 85, 88, 139;
+
+    --text-primary: #424242;      /* Black 500 — text, titles, numbers */
+    --text-secondary: #7B7B7B;    /* Widget description / muted */
+    --text-disabled: #9E9E9E;
+
+    --background-default: #FCFCFC; /* Body */
+    --background-paper: #FFFFFF;   /* Overlay surfaces (dropdown/modal) */
+    --background-paper-rgb: 255, 255, 255;
+    --background-neutral: #F5F7FA; /* Lilac 100 — soft rows / hover */
+    --divider: #E5E7EB;            /* Gray 200 — dividers, table borders */
+    --grey-500-rgb: 158, 158, 158;
+
+    /* ---- Akaunting status colors ---- */
+    --error-main: #CC0000;
+    --error-rgb: 204, 0, 0;
+    --warning-main: #F59E0B;
+    --warning-rgb: 245, 158, 11;
+    --success-main: #6EA152;      /* Green 500 — action / incoming */
+    --success-rgb: 110, 161, 82;
+    --info-main: #006EA6;
+    --info-rgb: 0, 110, 166;
+
+    /* ---- Akaunting sidebar / shell ---- */
+    --ptg-sidebar-rail: #DCE2F9;      /* 56px toolbar rail surface */
+    --ptg-sidebar-panel: #EEF0FA;     /* menu panel surface (Akaunting lavender) */
+    --ptg-sidebar-ink: #43455F;       /* nav label text colour */
+    --ptg-sidebar-icon: #5C5E82;      /* nav icon colour (muted indigo) */
+    --ptg-sidebar-ink-strong: #2C2D45;/* active label colour */
+    --ptg-sidebar-accent: #6260C4;    /* active rail / accent indigo */
+    --ptg-sidebar-line: #D7D9E8;      /* submenu connector line */
+    --ptg-surface-tint: #F2F4FC;      /* soft lilac tint for chips / bulk bar */
+    --ptg-sidebar-rail-width: 56px;
+    --ptg-sidebar-menu-width: 224px;
+
+    /* ---- Radius (Akaunting: controls only, no card radius) ---- */
+    --radius-base: 8px;      /* input / modal / rounded-lg */
+    --radius-card-16: 8px;   /* flat: former big card radius collapses to 8 */
+    --radius-chip: 12px;     /* badge / button / rounded-xl */
+
+    /* ---- Shadows — flat content; depth only for overlay components ---- */
+    --shadow-card: none;
+    --shadow-dialog: 0 20px 25px -5px rgba(0, 0, 0, .10), 0 8px 10px -6px rgba(0, 0, 0, .10);
+    --shadow-dropdown: 0 20px 25px -5px rgba(0, 0, 0, .08), 0 8px 10px -6px rgba(0, 0, 0, .08);
+
+    /* ---- Layout metrics ---- */
+    --layout-rail: 56px;            /* Akaunting toolbar rail */
+    --layout-navpanel: 248px;       /* Akaunting main menu panel */
+    --layout-sidebar: 304px;        /* rail 56 + panel 248 */
+    --layout-sidebar-mini: 56px;    /* collapsed = icon rail only */
+    --layout-nav-mobile: 304px;
+    --layout-header: 56px;
+    --layout-header-mobile: 52px;
+    --layout-header-blur: 0px;
+    --layout-transition: 150ms ease-out;
+
+    /* ---- Akaunting motion ---- */
+    --ptg-motion-fast: 140ms;
+    --ptg-motion-normal: 190ms;
+
+    /* ---- Typography scale — quiet editorial (Vazirmatn) ---- */
+    --font-h1: 36px;  --lh-h1: 40px;  --fw-h1: 300;  /* page title desktop */
+    --font-h2: 28px;  --lh-h2: 36px;  --fw-h2: 400;
+    --font-h3: 22px;  --lh-h3: 30px;  --fw-h3: 500;
+    --font-h4: 18px;  --lh-h4: 26px;  --fw-h4: 500;
+    --font-h5: 16px;  --lh-h5: 24px;  --fw-h5: 500;  /* widget title */
+    --font-h6: 14px;  --lh-h6: 20px;  --fw-h6: 600;
+    --font-body1: 16px; --lh-body1: 24px;
+    --font-body2: 14px; --lh-body2: 20px;
+    --font-caption: 12px; --lh-caption: 16px;
+    --font-button: 14px; --lh-button: 24px; --fw-button: 500;
+
+    /* ---- Legacy app-* aliases (retargeted to Akaunting) ---- */
+    --app-bg: var(--background-default);
+    --app-surface: var(--background-default);
+    --app-surface-soft: var(--background-neutral);
+    --app-border: var(--divider);
+    --app-text: var(--text-primary);
+    --app-text-muted: var(--text-secondary);
+    --app-text-light: var(--text-disabled);
+    --app-primary: var(--primary-main);
+    --app-primary-hover: var(--primary-dark);
+    --app-success: var(--success-main);
+    --app-danger: var(--error-main);
+    --app-warning: var(--warning-main);
+    --app-shadow: var(--shadow-card);
+    --app-radius: var(--radius-card-16);
+
+    /* ---- Legacy ptg-* aliases (retargeted to Akaunting) ---- */
+    --ptg-bg: var(--background-default);
+    --ptg-surface: var(--background-default);
+    --ptg-surface-soft: var(--background-neutral);
+    --ptg-soft-section: var(--background-neutral);
+    --ptg-table-header: transparent;
+    --ptg-border: var(--divider);
+    --ptg-border-strong: #CFD1DE;   /* cool lavender-gray — field borders */
+    --ptg-input-border: #CFD1DE;
+    /* ---- Form-field surfaces — calibrated to the reference kit ----
+       canvas #FCFCFC (off-white)  ·  field fill #FFFFFF (pure white)
+       borders = cool lavender-gray  ·  disabled = soft cool gray-blue. */
+    --ptg-field-bg: #FFFFFF;
+    --ptg-field-border: #CFD1DE;
+    --ptg-field-border-hover: #BCBFD2;
+    --ptg-field-disabled-bg: #EEF0F5;
+    --ptg-field-placeholder: #9AA0B5;
+    --ptg-field-focus-ring: rgba(var(--primary-main-rgb), .12);
+
+    /* ---- Create/Edit form column — constrained, start-aligned ---- */
+    --ak-form-content-max: 760px;       /* normal forms */
+    --ak-form-content-wide-max: 1040px; /* line-item / table forms */
+    --ak-form-page-gutter: clamp(32px, 4vw, 64px);
+    --ak-form-section-gap: 48px;
+    --ptg-text: var(--text-primary);
+    --ptg-muted: var(--text-secondary);
+    --ptg-light: var(--text-disabled);
+    --ptg-primary: var(--primary-main);
+    --ptg-primary-dark: var(--primary-dark);
+    --ptg-primary-soft: rgba(85, 88, 139, 0.08);
+    --ptg-primary-tint: #EEEEF3;    /* Purple 100 */
+    --ptg-primary-contrast: var(--primary-contrast);
+    /* Action buttons — Akaunting olive green. */
+    --ptg-btn-primary: #6EA152;
+    --ptg-btn-primary-dark: #53793E;
+    --ptg-btn-primary-rgb: 110, 161, 82;
+    --ptg-btn-primary-tint: #F1F6EE;
+
+    /* دکمهٔ ثانویه/خنثی (Akaunting «Connect Your Bank»): خاکستری نرم، بدون بوردر. */
+    --ptg-btn-quiet: #F1F2F4;
+    --ptg-btn-quiet-hover: #E6E8EB;
+    --ptg-btn-quiet-text: #6C757D;
+    --ptg-accent-blue: var(--info-main);
+    --ptg-accent-blue-soft: #E6F1F6;
+    --ptg-danger: var(--error-main);
+    --ptg-danger-soft: #FAE6E6;
+    --ptg-danger-text: #B80000;
+    --ptg-warning: var(--warning-main);
+    --ptg-warning-soft: #FEF5E7;
+    --ptg-warning-text: #B87708;
+    --ptg-success: var(--success-main);
+    --ptg-success-soft: #F1F6EE;
+    --ptg-success-text: #63914A;
+    --ptg-info-soft: #E6F1F6;
+    --ptg-info-text: #006395;
+    --ptg-viewed-soft: #EEEEF3;
+    --ptg-viewed-text: #4D4F7D;
+    --ptg-draft-soft: #ECECEC;
+    --ptg-draft-text: #3B3B3B;
+
+    /* ---- Chart series (Akaunting) ---- */
+    --ptg-chart-incoming: #8BB475;
+    --ptg-chart-outgoing: #FB7185;
+    --ptg-chart-profit: #7779A2;
+    --ptg-chart-grid: #E5E7EB;
+
+    --ptg-radius-card: var(--radius-card-16);
+    --ptg-radius-input: 8px;
+    --ptg-radius-button: 13px;
+    --ptg-radius-badge: 12px;
+    --ptg-radius-avatar: 9999px;
+    --ptg-radius-sm: 6px;
+    --ptg-radius-md: 8px;
+    --ptg-radius-lg: 12px;
+    --ptg-radius-xl: 12px;
+
+    /* ---- Spacing (4px scale) ---- */
+    --ptg-space-page: 16px;
+    --ptg-page-top: 4px; /* slim top gap above header + sidebar */
+    --ptg-space-card: 16px;
+    --ptg-space-gap: 12px;
+    --ptg-space-gap-lg: 24px;
+    --ptg-space-field: 12px;
+
+    --ptg-shadow-soft: none;
+    --ptg-shadow-card: none;
+    --ptg-ring: 0 0 0 1px var(--primary-main), 0 0 0 4px rgba(85, 88, 139, 0.14);
+
+    --ptg-sidebar-width: var(--layout-sidebar);
+    --ptg-mini-sidebar: var(--layout-sidebar-mini);
+    --ptg-topbar-height: var(--layout-header);
+
+    --ptg-primary-rgb: var(--primary-main-rgb);
+    --ptg-primary-dark-rgb: 64, 66, 104;
+    --ptg-accent-blue-rgb: var(--info-rgb);
+    --ptg-danger-rgb: var(--error-rgb);
+    --ptg-success-rgb: var(--success-rgb);
+    --ptg-warning-rgb: var(--warning-rgb);
+
+    --radius-card: var(--ptg-radius-card);
+    --radius-input: var(--ptg-radius-input);
+    --radius-button: var(--ptg-radius-button);
+    --radius-badge: var(--ptg-radius-badge);
+    --radius-avatar: var(--ptg-radius-avatar);
+    --space-page: var(--ptg-space-page);
+    --space-card: var(--ptg-space-card);
+    --space-gap: var(--ptg-space-gap);
+    --space-gap-lg: var(--ptg-space-gap-lg);
+    --space-field: var(--ptg-space-field);
+
+    --bs-primary: var(--ptg-primary);
+    --bs-primary-rgb: var(--ptg-primary-rgb);
+    --bs-success: var(--ptg-success);
+    --bs-success-rgb: var(--ptg-success-rgb);
+    --bs-danger: var(--ptg-danger);
+    --bs-danger-rgb: var(--ptg-danger-rgb);
+    --bs-warning: var(--ptg-warning);
+    --bs-warning-rgb: var(--ptg-warning-rgb);
+
+    /* ---- Shared ak-* form component tokens (date picker / segmented / chip) ----
+       Single source for the three shared field components. Field surface tokens
+       reuse the calibrated --ptg-field-* above; component-specific values below. */
+    --ak-control-height: 42px;
+    --ak-control-bg: var(--ptg-field-bg);
+    --ak-control-border: var(--ptg-field-border);
+    --ak-control-border-focus: var(--primary-main);
+    --ak-control-radius: 8px;
+    --ak-control-text: var(--ptg-text);
+    --ak-control-placeholder: var(--ptg-field-placeholder);
+
+    /* Date picker popup */
+    --ak-date-panel-bg: #FFFFFF;
+    --ak-date-panel-border: #E4E5EB;
+    --ak-date-panel-radius: 8px;
+    --ak-date-panel-shadow: 0 8px 22px rgba(28, 37, 46, 0.08);
+    --ak-date-weekday: #777777;
+    --ak-date-day-text: #555555;
+    --ak-date-muted: #D1D2D8;
+    --ak-date-hover-bg: #F1F1F6;
+    --ak-date-selected-bg: var(--primary-main);
+    --ak-date-selected-text: #FFFFFF;
+    --ak-date-motion-duration: 140ms;
+
+    /* Segmented boolean */
+    --ak-segment-height: 32px;
+    --ak-segment-radius: 6px;
+    --ak-segment-padding-inline: 11px;
+    --ak-segment-off-bg: #ECECEC;
+    --ak-segment-off-text: #666666;
+    --ak-segment-no-bg: #E10600;
+    --ak-segment-no-text: #FFFFFF;
+    --ak-segment-yes-bg: var(--success-main);
+    --ak-segment-yes-text: #FFFFFF;
+
+    /* Selected chip */
+    --ak-selection-chip-bg: var(--primary-main);
+    --ak-selection-chip-bg-hover: #4D507C;
+    --ak-selection-chip-text: #FFFFFF;
+    --ak-selection-chip-remove: rgba(255, 255, 255, 0.74);
+    --ak-selection-chip-height: 27px;
+    --ak-selection-chip-radius: 4px;
+    --ak-selection-chip-padding-inline: 10px;
+    --ak-selection-chip-gap: 5px;
+    --ak-selection-chip-muted-bg: #E6E7EE;
+    --ak-selection-chip-muted-text: #6B6F7B;
+}
+
+/* Dark-mode calibration for the shared components. */
+:root[data-theme="dark"],
+[data-bs-theme="dark"] {
+    --ak-date-panel-bg: var(--background-paper);
+    --ak-date-panel-border: var(--divider);
+    --ak-date-panel-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    --ak-date-weekday: var(--text-secondary);
+    --ak-date-day-text: var(--text-primary);
+    --ak-date-muted: var(--text-disabled);
+    --ak-date-hover-bg: rgba(158, 158, 168, 0.14);
+    --ak-segment-off-bg: rgba(158, 158, 168, 0.16);
+    --ak-segment-off-text: var(--text-secondary);
+    --ak-selection-chip-muted-bg: rgba(158, 158, 168, 0.20);
+    --ak-selection-chip-muted-text: var(--text-secondary);
+}
+
+body.boltz-shell.app-shell-authenticated,
+body.ptg-modal-document {
+    /* Akaunting flat ground: the content sits directly on the near-white body.
+       Separation comes from 1px dividers and whitespace — not cards/shadows. */
+    --ptg-bg: #FCFCFC;
+    --ptg-shadow-card: none;
+    --boltz-bg: var(--ptg-bg);
+    --boltz-surface: var(--ptg-surface);
+    --boltz-surface-soft: var(--ptg-surface-soft);
+    --boltz-border: var(--ptg-border);
+    --boltz-text: var(--ptg-text);
+    --boltz-text-muted: var(--ptg-muted);
+    --boltz-primary: var(--ptg-primary);
+    --boltz-primary-dark: var(--ptg-primary-dark);
+    --boltz-primary-soft: var(--ptg-primary-soft);
+    --boltz-success: var(--ptg-success);
+    --boltz-danger: var(--ptg-danger);
+    --boltz-warning: var(--ptg-warning);
+    --boltz-shadow: var(--ptg-shadow-soft);
+    --boltz-shadow-card: var(--ptg-shadow-card);
+    --boltz-radius-xl: var(--ptg-radius-xl);
+    --boltz-radius-lg: var(--ptg-radius-lg);
+    --boltz-radius-md: var(--ptg-radius-md);
+    --boltz-sidebar-width: var(--ptg-sidebar-width);
+
+    --ds-bg: var(--ptg-bg);
+    --ds-surface: var(--ptg-surface);
+    --ds-surface-soft: var(--ptg-surface-soft);
+    --ds-border: var(--ptg-border);
+    --ds-border-strong: var(--ptg-border-strong);
+    --ds-blue: var(--ptg-primary);
+    --ds-blue-strong: var(--ptg-primary-dark);
+    --ds-blue-soft: var(--ptg-primary-soft);
+    --ds-success: var(--ptg-success);
+    --ds-success-soft: var(--ptg-success-soft);
+    --ds-danger: var(--ptg-danger);
+    --ds-danger-soft: var(--ptg-danger-soft);
+    --ds-warning: var(--ptg-warning);
+    --ds-warning-soft: var(--ptg-warning-soft);
+    --ds-info: var(--ptg-accent-blue);
+    --ds-info-soft: var(--ptg-accent-blue-soft);
+    --ds-accent: var(--ptg-accent-blue);
+    --ds-accent-soft: var(--ptg-accent-blue-soft);
+    --ds-slate-950: var(--text-primary);
+    --ds-slate-700: #4D4F7D;
+    --ds-slate-600: var(--text-secondary);
+    --ds-slate-500: var(--text-disabled);
+    --ds-radius-sm: var(--ptg-radius-input);
+    --ds-radius-md: var(--ptg-radius-md);
+    --ds-radius-lg: var(--ptg-radius-card);
+    --ds-shadow-sm: none;
+    --ds-shadow-md: none;
+    --ds-focus-ring: var(--ptg-ring);
+}
+
+/* ---- Dark mode ---- */
+:root[data-theme="dark"],
+[data-bs-theme="dark"] {
+    --text-primary: #FFFFFF;
+    --text-secondary: #9E9EA8;
+    --text-disabled: #6F6F7A;
+
+    --background-default: #16161D;
+    --background-paper: #1E1E27;
+    --background-paper-rgb: 30, 30, 39;
+    --background-neutral: #26262F;
+    --divider: rgba(158, 158, 168, 0.20);
+
+    /* field fill lifts above the darker canvas, mirroring the light theme */
+    --ptg-field-bg: #1E1E27;
+    --ptg-field-border: rgba(158, 158, 168, 0.28);
+    --ptg-field-border-hover: rgba(158, 158, 168, 0.42);
+    --ptg-field-disabled-bg: #26262F;
+    --ptg-field-placeholder: #6F6F7A;
+}
+
+/* Keep the dark shell dark — beats the body-level light near-white override. */
+:root[data-theme="dark"] body.boltz-shell.app-shell-authenticated,
+:root[data-bs-theme="dark"] body.boltz-shell.app-shell-authenticated,
+body.boltz-shell.app-shell-authenticated[data-bs-theme="dark"],
+:root[data-theme="dark"] body.ptg-modal-document,
+:root[data-bs-theme="dark"] body.ptg-modal-document {
+    --ptg-bg: #16161D;
+}

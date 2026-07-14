@@ -1,0 +1,54 @@
+@model PTGOilSystem.Web.Models.Auth.LoginViewModel
+@{
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEn = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEn ? en : fa;
+    ViewData["Title"] = T("ورود به سیستم", "Sign In");
+    ViewData["ModalDesignSystemAssets"] = false;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="@(isEn ? Url.Content("~/vendor/bootstrap/css/bootstrap.min.css") : Url.Content("~/vendor/bootstrap/css/bootstrap.rtl.min.css"))" />
+    <link rel="stylesheet" href="~/vendor/fonts/vazirmatn/vazirmatn.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/01-tokens.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/50-ak-components.css" asp-append-version="true" />
+}
+
+<div class="ak-form-page container py-5">
+    <partial name="Components/Ak/_AkPageHeader"
+             model='((T("ورود به سیستم", "Sign In"), false, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null))' />
+
+    <form asp-action="Login" method="post" class="ak-form" novalidate>
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly" class="ak-form-alert text-danger"></div>
+
+        <section class="ak-form-section">
+            <partial name="Components/Ak/_AkSectionHead"
+                     model='((T("اطلاعات ورود", "Account credentials"), T("نام کاربری و رمز عبور خود را وارد کنید.", "Enter your username and password.")))' />
+
+            <div class="ak-form-grid">
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Username" class="ak-label">@T("نام کاربری", "Username")</label>
+                    <input asp-for="Username" class="ak-input" autocomplete="username" />
+                    <span asp-validation-for="Username" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Password" class="ak-label">@T("رمز عبور", "Password")</label>
+                    <input asp-for="Password" class="ak-input" autocomplete="current-password" />
+                    <span asp-validation-for="Password" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <div class="ak-footer-actions">
+            <button type="submit" class="ak-save">@T("ورود", "Sign In")</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

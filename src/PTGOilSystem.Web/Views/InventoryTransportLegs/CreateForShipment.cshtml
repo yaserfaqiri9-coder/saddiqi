@@ -1,0 +1,270 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model PTGOilSystem.Web.Models.InventoryTransport.ShipmentTransportCreateViewModel
+@{
+    ViewData["Title"] = "صفحه قدیمی انتقال گروهی";
+    ViewData["ContentBodyClass"] = "boltz-content-body-fluid";
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var sourceTerminals = ViewBag.SourceTerminals as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var sourceTanks = ViewBag.SourceStorageTanks as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var serviceProviders = ViewBag.ServiceProviders as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var operationalAssets = ViewBag.OperationalAssets as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Details", "ShipmentPnl", new { id = Model.ShipmentId });
+    var truckRows = Model.TruckRows.Count > 0
+        ? Model.TruckRows
+        : Enumerable.Range(1, 50).Select(_ => new PTGOilSystem.Web.Models.InventoryTransport.ShipmentTransportTruckRow()).ToList();
+    var currentTotal = truckRows.Sum(row => row.QuantityMt.GetValueOrDefault());
+    var currentFreight = truckRows.Sum(row => row.FreightUsd.GetValueOrDefault());
+    string DecimalInput(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="page-stack ak-form-page" dir="rtl">
+    <form asp-action="CreateForShipment"
+          method="post"
+          class="ak-form"
+          data-bulk-loading-form
+          data-available="@DecimalInput(Model.AvailableLoadingQuantityMt)">
+        @Html.AntiForgeryToken()
+        <input asp-for="ShipmentId" type="hidden" />
+        <input asp-for="ShipmentCode" type="hidden" />
+        <input asp-for="ShipmentName" type="hidden" />
+        <input asp-for="ProductName" type="hidden" />
+        <input asp-for="GeneralDestinationName" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="TransportType" type="hidden" value="@((int)PTGOilSystem.Web.Models.Entities.LoadingTransportType.Truck)" />
+
+        <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+                 model="@((T("صفحه قدیمی انتقال گروهی", "Legacy batch transfer page"), false,
+                           T("این صفحه فقط برای لینک‌های قدیمی نگه داشته شده است.", "This page is kept only for old links."),
+                           (string?)null, (string?)null, (string?)null,
+                           T("بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+        <div class="ak-note" role="note">
+            @T("برای ثبت جدید بهتر است از صفحه انتقال گروهی استفاده کنید.", "For new records, use the batch transfer page.")
+            <a asp-action="CreateBatch" asp-route-shipmentId="@Model.ShipmentId" asp-route-returnUrl="@Model.ReturnUrl">@T("رفتن به انتقال گروهی", "Open batch transfer")</a>
+        </div>
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+        <section class="ak-summary">
+            <article class="ak-field is-primary">
+                <span>@T("باقی‌مانده قابل بارگیری", "Available to load")</span>
+                <strong>@NumberDisplay.Quantity(Model.AvailableLoadingQuantityMt) @T("تن", "MT")</strong>
+            </article>
+            <article class="ak-field">
+                <span>@T("قبلاً بارگیری‌شده", "Previously loaded")</span>
+                <strong>@NumberDisplay.Quantity(Model.PreviouslyLoadedQuantityMt) @T("تن", "MT")</strong>
+            </article>
+            <article class="ak-field">
+                <span>@T("موجودی مخزن", "Tank inventory")</span>
+                <strong>@NumberDisplay.Quantity(Model.SourceAvailableQuantityMt) @T("تن", "MT")</strong>
+            </article>
+        </section>
+
+        <section class="ak-form-section">
+            <h2><i class="bi bi-database"></i>@T("اطلاعات منبع بار", "Loading source information")</h2>
+            <div class="ak-form-grid">
+                <label>
+                    <span>@T("گدام منبع", "Source terminal")</span>
+                    <select asp-for="SourceTerminalId" asp-items="sourceTerminals" class="ak-input">
+                        <option value="">@T("انتخاب گدام", "Select terminal")</option>
+                    </select>
+                    <small asp-validation-for="SourceTerminalId"></small>
+                </label>
+                <label>
+                    <span>@T("مخزن منبع", "Source tank")</span>
+                    <select asp-for="SourceStorageTankId" asp-items="sourceTanks" class="ak-input">
+                        <option value="">@T("بدون مخزن", "No tank")</option>
+                    </select>
+                    <small asp-validation-for="SourceStorageTankId"></small>
+                </label>
+                <div><span>@T("محصول", "Product")</span><strong>@(string.IsNullOrWhiteSpace(Model.ProductName) ? "-" : Model.ProductName)</strong></div>
+                <div><span>@T("محموله مرتبط", "Related shipment")</span><strong>@(string.IsNullOrWhiteSpace(Model.ShipmentName) ? Model.ShipmentCode : Model.ShipmentName)</strong></div>
+                <div><span>@T("مقصد عمومی", "General destination")</span><strong>@(Model.GeneralDestinationName ?? "-")</strong></div>
+                <label>
+                    <span>@T("تاریخ بارگیری", "Loading date")</span>
+                    <input asp-for="LoadedDate" type="date" class="ak-input" />
+                    <small asp-validation-for="LoadedDate"></small>
+                </label>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <h2><i class="bi bi-gear"></i>@T("تنظیمات سریع", "Quick settings")</h2>
+            <div class="ak-form-grid">
+                <label><span>@T("تعداد موتر", "Truck count")</span><input type="number" min="1" max="100" value="@truckRows.Count" class="ak-input" data-truck-count /></label>
+                <label><span>@T("مقدار کل برای بارگیری (تن)", "Total loading quantity (MT)")</span><input type="number" min="0" step="0.0001" value="@DecimalInput(currentTotal)" class="ak-input" data-batch-total /></label>
+                <button type="button" class="btn btn-light ak-secondary-action" data-add-ten><i class="bi bi-plus-lg"></i>@T("افزودن ۱۰ موتر", "Add 10 trucks")</button>
+                <button type="button" class="btn btn-light ak-secondary-action" data-equal-split><i class="bi bi-distribute-horizontal"></i>@T("تقسیم مساوی", "Split equally")</button>
+                <button type="button" class="btn btn-light ak-secondary-action is-green" data-paste-excel><i class="bi bi-file-earmark-excel"></i>@T("کپی از اکسل", "Paste from Excel")</button>
+            </div>
+            <p class="ak-note" data-paste-status></p>
+        </section>
+
+        <section class="ak-form-section">
+            <h2><i class="bi bi-truck"></i>@T("لیست موترها", "Truck list")</h2>
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead><tr><th>@T("ردیف", "#")</th><th>@T("موتر", "Truck")</th><th>@T("راننده", "Driver")</th><th>@T("نمبر پلیت", "Plate")</th><th>@T("مقدار (تن)", "Quantity")</th><th>@T("مقصد", "Destination")</th><th>@T("کرایه (دالر)", "Freight")</th><th>@T("شماره سند", "Document")</th><th>@T("عملیات", "Actions")</th></tr></thead>
+                    <tbody data-truck-rows>
+                    @for (var i = 0; i < truckRows.Count; i++)
+                    {
+                        <tr data-truck-row>
+                            <td data-row-number>@(i + 1)</td>
+                            <td><input name="TruckRows[@i].TruckName" value="@truckRows[i].TruckName" maxlength="100" placeholder="@T("موتر", "Truck") @(i + 1)" /></td>
+                            <td><input name="TruckRows[@i].DriverName" value="@truckRows[i].DriverName" maxlength="200" /></td>
+                            <td><input name="TruckRows[@i].PlateNumber" value="@truckRows[i].PlateNumber" maxlength="50" /><small data-valmsg-for="TruckRows[@i].PlateNumber"></small></td>
+                            <td><input name="TruckRows[@i].QuantityMt" value="@(truckRows[i].QuantityMt?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))" type="number" min="0" step="0.0001" data-row-quantity /><small data-valmsg-for="TruckRows[@i].QuantityMt"></small></td>
+                            <td><input name="TruckRows[@i].DestinationName" value="@truckRows[i].DestinationName" maxlength="200" placeholder="@(Model.GeneralDestinationName ?? T("مقصد", "Destination"))" /></td>
+                            <td><input name="TruckRows[@i].FreightUsd" value="@(truckRows[i].FreightUsd?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))" type="number" min="0" step="0.01" data-row-freight /></td>
+                            <td><input name="TruckRows[@i].DocumentReference" value="@truckRows[i].DocumentReference" maxlength="100" /><small data-valmsg-for="TruckRows[@i].DocumentReference"></small></td>
+                            <td><button type="button" class="ak-row-menu-btn" data-delete-row aria-label="@T("حذف ردیف", "Delete row")"><i class="bi bi-trash"></i></button></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <details class="ak-advanced">
+            <summary>@T("تنظیمات تکمیلی", "Advanced settings")</summary>
+            <div>
+                <label><span>@T("تاریخ رسیدن تخمینی", "Expected arrival")</span><input asp-for="ExpectedArrivalDate" type="date" class="ak-input" /></label>
+                <label><span>@T("شرکت خدماتی", "Service provider")</span><select asp-for="ServiceProviderId" asp-items="serviceProviders" class="ak-input"><option value="">@T("بدون شرکت خدماتی", "No provider")</option></select></label>
+                <label><span>@T("دارایی عملیاتی", "Operational asset")</span><select asp-for="OperationalAssetId" asp-items="operationalAssets" class="ak-input"><option value="">@T("بدون دارایی", "No asset")</option></select></label>
+                <label><span>@T("یادداشت", "Notes")</span><input asp-for="Notes" class="ak-input" /></label>
+            </div>
+        </details>
+
+        <section class="ak-form-section ak-summary">
+            <h2><i class="bi bi-graph-up"></i>@T("خلاصه بارگیری", "Loading summary")</h2>
+            <div class="ak-form-grid">
+                <div><span>@T("تعداد موتر", "Truck count")</span><strong><b data-summary-count>@truckRows.Count</b> @T("موتر", "trucks")</strong></div>
+                <div><span>@T("جمع مقدار بارگیری", "Total loading")</span><strong><b data-summary-total>@NumberDisplay.Quantity(currentTotal)</b> @T("تن", "MT")</strong></div>
+                <div><span>@T("موجودی قبل از بارگیری", "Inventory before")</span><strong>@NumberDisplay.Quantity(Model.SourceAvailableQuantityMt) @T("تن", "MT")</strong></div>
+                <div><span>@T("باقی‌مانده بعد از ثبت", "Remaining after save")</span><strong class="is-green"><b data-summary-remaining>@NumberDisplay.Quantity(Math.Max(Model.SourceAvailableQuantityMt - currentTotal, 0m))</b> @T("تن", "MT")</strong></div>
+                <div><span>@T("جمع کرایه حمل", "Total freight")</span><strong><b data-summary-freight>@currentFreight.ToString("#,0.##")</b> @T("دالر", "USD")</strong></div>
+            </div>
+            <div class="ak-note" data-validity></div>
+        </section>
+
+        <footer class="ak-footer-actions no-print">
+            <button type="submit" class="btn ak-primary-action" data-submit-action><i class="bi bi-floppy"></i>@T("ثبت همه بارگیری‌ها", "Save all loadings")</button>
+            <button type="button" class="btn ak-secondary-action is-outline" data-print-list><i class="bi bi-printer"></i>@T("ثبت و چاپ لیست بارگیری", "Save and print loading list")</button>
+            <a href="@cancelUrl" class="btn ak-secondary-action is-neutral">@T("انصراف", "Cancel")</a>
+        </footer>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const form = document.querySelector('[data-bulk-loading-form]');
+            if (!form) return;
+            const body = form.querySelector('[data-truck-rows]');
+            const countInput = form.querySelector('[data-truck-count]');
+            const totalInput = form.querySelector('[data-batch-total]');
+            const available = Number.parseFloat(form.dataset.available || '0') || 0;
+            const destination = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.GeneralDestinationName ?? ""));
+            const t = value => Number.parseFloat(String(value || '').replace(/,/g, '')) || 0;
+            const f = value => value.toLocaleString('fa-AF', { maximumFractionDigits: 4 });
+
+            const rowHtml = index => `<tr data-truck-row>
+                <td data-row-number>${index + 1}</td>
+                <td><input name="TruckRows[${index}].TruckName" maxlength="100" placeholder="موتر ${index + 1}"></td>
+                <td><input name="TruckRows[${index}].DriverName" maxlength="200"></td>
+                <td><input name="TruckRows[${index}].PlateNumber" maxlength="50"><small data-valmsg-for="TruckRows[${index}].PlateNumber"></small></td>
+                <td><input name="TruckRows[${index}].QuantityMt" type="number" min="0" step="0.0001" data-row-quantity><small data-valmsg-for="TruckRows[${index}].QuantityMt"></small></td>
+                <td><input name="TruckRows[${index}].DestinationName" maxlength="200" placeholder="${destination || 'مقصد'}"></td>
+                <td><input name="TruckRows[${index}].FreightUsd" type="number" min="0" step="0.01" data-row-freight></td>
+                <td><input name="TruckRows[${index}].DocumentReference" maxlength="100"><small data-valmsg-for="TruckRows[${index}].DocumentReference"></small></td>
+                <td><button type="button" class="ak-row-menu-btn" data-delete-row aria-label="حذف ردیف"><i class="bi bi-trash"></i></button></td>
+            </tr>`;
+
+            const rows = () => Array.from(body.querySelectorAll('[data-truck-row]'));
+            const reindex = () => rows().forEach((row, index) => {
+                row.querySelector('[data-row-number]').textContent = String(index + 1);
+                row.querySelectorAll('[name]').forEach(input => input.name = input.name.replace(/TruckRows\[\d+\]/, `TruckRows[${index}]`));
+                row.querySelectorAll('[data-valmsg-for]').forEach(msg => msg.dataset.valmsgFor = msg.dataset.valmsgFor.replace(/TruckRows\[\d+\]/, `TruckRows[${index}]`));
+            });
+            const addRows = count => {
+                const start = rows().length;
+                body.insertAdjacentHTML('beforeend', Array.from({ length: count }, (_, offset) => rowHtml(start + offset)).join(''));
+                bindRows();
+                refresh();
+            };
+            const ensureCount = count => {
+                const target = Math.min(Math.max(count, 1), 100);
+                while (rows().length < target) addRows(Math.min(10, target - rows().length));
+                while (rows().length > target) rows()[rows().length - 1].remove();
+                reindex();
+                refresh();
+            };
+            const refresh = () => {
+                const all = rows();
+                const total = all.reduce((sum, row) => sum + t(row.querySelector('[data-row-quantity]')?.value), 0);
+                const freight = all.reduce((sum, row) => sum + t(row.querySelector('[data-row-freight]')?.value), 0);
+                countInput.value = all.length;
+                form.querySelector('[data-summary-count]').textContent = all.length.toLocaleString('fa-AF');
+                form.querySelector('[data-summary-total]').textContent = f(total);
+                form.querySelector('[data-summary-remaining]').textContent = f(Math.max(available - total, 0));
+                form.querySelector('[data-summary-freight]').textContent = f(freight);
+                const validity = form.querySelector('[data-validity]');
+                const valid = total > 0 && total <= available + .0001;
+                validity.className = `ak-note ${valid ? 'is-valid' : 'is-invalid'}`;
+                validity.textContent = valid
+                    ? 'اطلاعات بارگیری معتبر است و می‌توانید ثبت کنید.'
+                    : total <= 0 ? 'حداقل مقدار یک موتر را وارد کنید.' : 'جمع بارگیری از موجودی مخزن بیشتر است.';
+            };
+            const bindRows = () => rows().forEach(row => {
+                if (row.dataset.bound === '1') return;
+                row.dataset.bound = '1';
+                row.querySelectorAll('input').forEach(input => input.addEventListener('input', refresh));
+                row.querySelector('[data-delete-row]')?.addEventListener('click', () => { row.remove(); reindex(); refresh(); });
+            });
+
+            form.querySelector('[data-add-ten]')?.addEventListener('click', () => addRows(Math.min(10, 100 - rows().length)));
+            countInput?.addEventListener('change', () => ensureCount(Number.parseInt(countInput.value || '1', 10)));
+            form.querySelector('[data-equal-split]')?.addEventListener('click', () => {
+                const all = rows();
+                const total = t(totalInput.value);
+                if (!all.length || total <= 0) return;
+                const each = total / all.length;
+                let assigned = 0;
+                all.forEach((row, index) => {
+                    const value = index === all.length - 1 ? total - assigned : Number(each.toFixed(4));
+                    row.querySelector('[data-row-quantity]').value = value.toFixed(4).replace(/\.?0+$/, '');
+                    assigned += value;
+                });
+                refresh();
+            });
+            form.querySelector('[data-paste-excel]')?.addEventListener('click', async () => {
+                const status = form.querySelector('[data-paste-status]');
+                try {
+                    const text = await navigator.clipboard.readText();
+                    const lines = text.split(/\r?\n/).filter(line => line.trim()).map(line => line.split('\t'));
+                    if (!lines.length) throw new Error();
+                    ensureCount(lines.length);
+                    lines.forEach((cells, index) => {
+                        const inputs = rows()[index].querySelectorAll('input');
+                        cells.slice(0, 7).forEach((value, cell) => { inputs[cell].value = value.trim(); });
+                    });
+                    status.textContent = `${lines.length.toLocaleString('fa-AF')} ردیف از اکسل وارد شد.`;
+                    refresh();
+                } catch {
+                    status.textContent = 'اجازه خواندن Clipboard داده نشد؛ جدول اکسل را مستقیم داخل اولین خانه Paste کنید.';
+                }
+            });
+            form.querySelector('[data-print-list]')?.addEventListener('click', () => {
+                if (!form.reportValidity()) return;
+                window.print();
+                form.requestSubmit(form.querySelector('[data-submit-action]'));
+            });
+            bindRows();
+            refresh();
+        })();
+    </script>
+}

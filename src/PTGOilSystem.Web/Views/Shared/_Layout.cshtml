@@ -1,0 +1,796 @@
+@{
+    var title = ViewData["Title"] as string ?? "PTG Oil System";
+    // SPA partial render: spa-nav.js sends X-PTG-SPA and only reads <main>, body
+    // attributes, the shell-frame marker, page assets and #ptg-page-scripts.
+    // For those requests we skip the base CSS/JS bundle, sidebar, topbar, footer
+    // and modal (already present in the live document) to cut server render + transfer.
+    var isSpaRequest = string.Equals(Context.Request.Headers["X-PTG-SPA"], "1", StringComparison.Ordinal);
+    var renderShellChrome = !isSpaRequest;
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User";
+    var isAdmin = string.Equals(currentRole, PTGOilSystem.Web.Security.AuthRoles.Admin, StringComparison.Ordinal);
+    var canManageUsers = PTGOilSystem.Web.Security.RoleAccessRules.CanManageUsers(User);
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var isLoginPage = !isAuthenticated
+        && string.Equals(currentController, "Auth", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(currentAction, "Login", StringComparison.OrdinalIgnoreCase);
+    var useDashboardAssets = ViewData["DashboardAssets"] as bool? == true;
+    var useExpenseFormAssets = ViewData["ExpenseFormAssets"] as bool? == true;
+    var useContractJourneyAssets = ViewData["ContractJourneyAssets"] as bool? == true;
+    var useStorageTanksAssets = ViewData["StorageTanksAssets"] as bool? == true;
+    var useLoadingExpenseEditorAssets = ViewData["LoadingExpenseEditorAssets"] as bool? == true;
+    var useInventoryTransportLegFormAssets = ViewData["InventoryTransportLegFormAssets"] as bool? == true;
+    var useDetailRecordPagerAssets = ViewData["DetailRecordPagerAssets"] as bool? == true;
+    var useOperationalAssetDetailsAssets = ViewData["OperationalAssetDetailsAssets"] as bool? ?? (
+        string.Equals(currentController, "OperationalAssets", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(currentAction, "Details", StringComparison.OrdinalIgnoreCase));
+    var financeFormControllers = new[] { "AccountStatements", "Contracts", "Inventory", "LoadingReceipts", "Expenses", "LossEvents", "Sales", "Dispatch", "Payments", "ServiceProviders", "OperationalAssets", "Sarrafs", "SarrafSettlements" };
+    var financeFormActions = new[] { "Create", "Edit" };
+    var hasEmbeddedReceiptWizard = string.Equals(currentController, "Loading", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(currentAction, "Details", StringComparison.OrdinalIgnoreCase);
+    var modalDesignSystemControllers = new[]
+    {
+        "CashAccounts", "PlattsRates", "LoadingReceipts"
+    };
+    var usesModalDesignSystemBehavior = hasEmbeddedReceiptWizard
+        || modalDesignSystemControllers.Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase))
+        && (string.Equals(currentAction, "Index", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(currentAction, "Create", StringComparison.OrdinalIgnoreCase));
+    var useModalDesignSystemAssets = ViewData["ModalDesignSystemAssets"] as bool? ?? usesModalDesignSystemBehavior;
+    var useModalDesignSystemScript = ViewData["ModalDesignSystemScript"] as bool? ?? (
+        useModalDesignSystemAssets);
+    var useFinanceFormAssets = ViewData["FinanceFormAssets"] as bool? ?? (
+        hasEmbeddedReceiptWizard
+        || financeFormControllers.Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase))
+        && financeFormActions.Any(action => string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase)));
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEnglishUi = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    var htmlLanguage = isEnglishUi ? "en" : "fa";
+    var htmlDirection = isEnglishUi ? "ltr" : "rtl";
+
+    string T(string fa, string en) => isEnglishUi ? en : fa;
+    (string Controller, string Action, string Label, string Icon, string? RouteKey, string[] ActiveControllers) SidebarItem(
+        string controller,
+        string action,
+        string label,
+        string icon,
+        string? routeKey = null,
+        string[]? activeControllers = null)
+        => (controller, action, label, icon, routeKey, activeControllers ?? new[] { controller });
+
+    var foundationDefinitionControllers = new[] { "Products", "Units", "Currencies", "DailyFxRates", "Locations", "ExpenseTypes", "ExpenseRules" };
+    var foundationResourceControllers = new[] { "Terminals", "StorageTanks", "Trucks", "Wagons", "Drivers", "Vessels" };
+    var businessPartyControllers = new[] { "Partners", "Companies", "Suppliers", "Customers", "ServiceProviders", "Sarrafs", "Employees" };
+    var isFoundationCompactPage = foundationDefinitionControllers
+        .Concat(foundationResourceControllers)
+        .Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase));
+    var isBusinessPartyCompactPage = businessPartyControllers
+        .Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase));
+    var isDetailsPage = string.Equals(currentAction, "Details", StringComparison.OrdinalIgnoreCase);
+    var operationTabControllers = new[] { "Loading", "InventoryTransportLegs", "ShipmentPnl", "Dispatch", "TruckSettlements", "Expenses", "LossEvents", "LoadingReceipts", "CustomsDeclarations", "Sales" };
+    var operationSubPageHidesSectionTabs = !string.Equals(currentAction, "Index", StringComparison.OrdinalIgnoreCase)
+        && operationTabControllers.Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase));
+    var detailPageHidesSectionTabs = isDetailsPage
+        && foundationDefinitionControllers
+            .Concat(foundationResourceControllers)
+            .Concat(businessPartyControllers)
+            .Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase));
+    var hideSectionTabs = ViewData["HideSectionTabs"] as bool? == true || detailPageHidesSectionTabs || operationSubPageHidesSectionTabs;
+    var foundationCompactClass = isFoundationCompactPage || isBusinessPartyCompactPage ? "is-foundation-compact" : string.Empty;
+    var masterDataCompactClass = isFoundationCompactPage || isBusinessPartyCompactPage ? "is-master-data-compact" : string.Empty;
+    var genericActionClass = string.Empty;
+    if (!string.IsNullOrEmpty(currentAction))
+    {
+        if (currentAction.IndexOf("create", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            genericActionClass = " action-create";
+        }
+        else if (currentAction.IndexOf("edit", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            genericActionClass = " action-edit";
+        }
+    }
+
+    var routeBodyClass = $"controller-{currentController.ToLowerInvariant()} action-{currentAction.ToLowerInvariant()}{genericActionClass}";
+
+    var foundationItems = new (string Controller, string Action, string Label, string Icon)[]
+    {
+        ("Products",     "Index", T("محصولات",      "Products"),      "bi-box-seam"),
+        ("Units",        "Index", T("واحدها",        "Units"),         "bi-rulers"),
+        ("Currencies",   "Index", T("ارزها",         "Currencies"),    "bi-currency-exchange"),
+        ("DailyFxRates", "Index", T("نرخ ارز روزانه", "Daily FX Rates"), "bi-currency-exchange"),
+        ("Locations",    "Index", T("بنادر",       "Ports"),        "bi-geo-alt"),
+        ("ExpenseTypes", "Index", T("انواع مصرف",   "Expense Types"), "bi-tags"),
+        ("ExpenseRules", "Index", T("قواعد مصرف",   "Expense Rules"), "bi-sliders")
+    };
+
+    var businessPartyItems = new (string Controller, string Action, string Label, string Icon)[]
+    {
+        ("Partners",  "Index", T("شرکا",           "Partners"),  "bi-diagram-3"),
+        ("Companies", "Index", T("شرکت‌ها",         "Companies"), "bi-buildings"),
+        ("Suppliers", "Index", T("تأمین‌کنندگان",  "Suppliers"), "bi-briefcase"),
+        ("Customers", "Index", T("مشتریان",         "Customers"), "bi-people"),
+        ("ServiceProviders", "Index", T("شرکت‌های خدماتی", "Service Providers"), "bi-building-gear"),
+        ("Sarrafs", "Index", T("صراف‌ها", "Sarrafs"), "bi-currency-exchange"),
+        ("Employees", "Index", T("کارمندان",        "Employees"), "bi-person-lines-fill")
+    };
+
+    var operationalResourceItems = new (string Controller, string Action, string Label, string Icon)[]
+    {
+        ("StorageTanks", "Index", T("مخازن",      "Storage Tanks"), "bi-database"),
+        ("Terminals",    "Index", T("ترمینال‌ها", "Terminals"),     "bi-building")
+    };
+
+    // حمل و نقل: بخش مستقل سایدبار (از تعاریف پایه جدا شد).
+    var transportItems = new (string Controller, string Action, string Label, string Icon)[]
+    {
+        ("Trucks",  "Index", T("موترها",     "Trucks"),  "bi-truck"),
+        ("Wagons",  "Index", T("واگون‌ها",   "Wagons"),  "bi-train-front"),
+        ("Drivers", "Index", T("راننده‌ها", "Drivers"), "bi-person-badge"),
+        ("Vessels", "Index", T("کشتی‌ها",   "Vessels"), "bi-life-preserver")
+    };
+    var transportControllers = transportItems.Select(item => item.Controller).ToArray();
+
+    var reportItems = new (string Controller, string Action, string Label, string Icon)[]
+    {
+        ("Reports", "CompanyOverview",      T("نمای کلی مالی",       "Financial Overview"),      "bi-speedometer2"),
+        ("Reports", "ContractPnl",          T("سود و زیان قراردادها", "Contract P&L"),            "bi-graph-up-arrow"),
+        ("Reports", "CashFlow",             T("جریان نقدی",          "Cash Flow"),               "bi-cash-stack"),
+        ("Reports", "ReceivablesPayables",  T("بدهی‌ها و طلب‌ها",    "Receivables & Payables"),  "bi-people"),
+        ("Reports", "InventoryOperations",  T("موجودی و عملیات",     "Inventory & Operations"),  "bi-box-seam"),
+        ("Reports", "Warnings",             T("مغایرت‌ها",           "Warnings"),                "bi-exclamation-triangle"),
+        ("Inventory", "Index",              T("موجودی",              "Inventory"),               "bi-box-seam-fill")
+    };
+
+    var reportControllers = reportItems.Select(item => item.Controller).Distinct().ToArray();
+
+    var coreDataItems = foundationItems.Select(i => (i.Controller, i.Action, i.Label, i.Icon, (string?)null))
+        .Concat(operationalResourceItems.Select(i => (i.Controller, i.Action, i.Label, i.Icon, (string?)null)))
+        .ToArray();
+    var coreDataControllers = coreDataItems.Select(item => item.Controller).ToArray();
+    var businessPartyGroupControllers = businessPartyItems.Select(item => item.Controller).ToArray();
+    var adminSettingItems = canManageUsers
+        ? new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+        {
+            ("Users", "Index", T("کاربران", "Users"), "bi-person-gear", null),
+            ("Roles", "Index", T("نقش‌ها",  "Roles"), "bi-shield-lock", null),
+            ("AuditLogs", "Index", T("لاگ‌ها", "Logs"), "bi-journal-text", null)
+        }
+        : Array.Empty<(string Controller, string Action, string Label, string Icon, string? RouteKey)>();
+    var adminManagementControllers = new[] { "Users", "Roles", "AuditLogs" };
+
+    var dashboardSidebarItem = SidebarItem("Home", "Index", T("داشبورد", "Dashboard"), "nav-dashboard");
+    var contractControllers = new[] { "Contracts", "ContractAmendments", "ContractJourney" };
+    var operationsSidebarItem = SidebarItem(
+        "Loading",
+        "Index",
+        T("عملیات", "Operations"),
+        "nav-operations",
+        activeControllers: operationTabControllers);
+
+    var primarySidebarItems = new List<(string Controller, string Action, string Label, string Icon, string? RouteKey, string[] ActiveControllers)>
+    {
+        dashboardSidebarItem,
+        SidebarItem("Contracts", "Index", T("قراردادها", "Contracts"), "nav-contracts", activeControllers: contractControllers),
+        operationsSidebarItem,
+        SidebarItem("OperationalAssets", "Index", T("دارایی‌ها", "Assets"), "nav-assets"),
+        SidebarItem("Sales", "Index", T("فروش", "Sales"), "nav-sales"),
+        SidebarItem(
+            "Payments",
+            "Index",
+            T("مالی", "Finance"),
+            "nav-finance",
+            activeControllers: new[] { "CashAccounts", "Payments", "AccountStatements", "SarrafSettlements", "Ledger" })
+    };
+    primarySidebarItems.Add(SidebarItem("Reports", "Index", T("گزارشات", "Reports"), "nav-reports", activeControllers: reportControllers));
+
+    if (adminSettingItems.Length > 0)
+    {
+        primarySidebarItems.Add(SidebarItem("Users", "Index", T("کاربران", "Users"), "nav-users", activeControllers: adminManagementControllers));
+    }
+    primarySidebarItems.Add(SidebarItem("Suppliers", "Index", T("طرف حساب‌ها", "Parties"), "nav-parties", activeControllers: businessPartyGroupControllers));
+    primarySidebarItems.Add(SidebarItem("Trucks", "Index", T("حمل و نقل", "Transport"), "nav-truck", activeControllers: transportControllers));
+    primarySidebarItems.Add(SidebarItem("StorageTanks", "Index", T("تعاریف پایه", "Base Definitions"), "nav-settings", activeControllers: coreDataControllers));
+    primarySidebarItems = primarySidebarItems
+        .Where(item => !string.Equals(item.Controller, "Sales", StringComparison.OrdinalIgnoreCase))
+        .Where(item => PTGOilSystem.Web.Security.RoleAccessRules.CanAccessController(User, item.Controller))
+        .ToList();
+
+    bool IsSidebarItemActive(string controller, string action, string? routeKey, string[] activeControllers)
+    {
+        var controllerIsActive = activeControllers.Any(itemController => string.Equals(currentController, itemController, StringComparison.OrdinalIgnoreCase));
+        if (!controllerIsActive)
+        {
+            return false;
+        }
+
+        if (activeControllers.Length > 1)
+        {
+            return true;
+        }
+
+        if (!string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(routeKey))
+        {
+            return true;
+        }
+
+        var activeTab = Context.Request.Query["activeTab"].ToString();
+        if (string.IsNullOrWhiteSpace(activeTab) && string.Equals(routeKey, "Daily", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(activeTab, routeKey, StringComparison.OrdinalIgnoreCase);
+    }
+
+    List<(string Controller, string Action, string Label, string Icon, string? RouteKey, string[] ActiveControllers)> PickSidebarItems(params string[] controllers)
+        => primarySidebarItems
+            .Where(item => controllers.Any(controller => string.Equals(item.Controller, controller, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+    // ===== Two-rail Akaunting navigation model =====
+    // Top-level nodes; some expand into an inline submenu (accordion).
+    var emptyChildren = Array.Empty<(string Controller, string Action, string Label, string Icon)>();
+    var baseDefinitionChildren = foundationItems.Concat(operationalResourceItems).ToArray();
+
+    (string Controller, string Action, string Label, string Icon, string? RouteKey, string[] Active,
+        (string Controller, string Action, string Label, string Icon)[] Children) NavNode(
+        string controller, string action, string label, string icon, string[]? active = null,
+        (string Controller, string Action, string Label, string Icon)[]? children = null, string? routeKey = null)
+        => (controller, action, label, icon, routeKey, active ?? new[] { controller }, children ?? emptyChildren);
+
+    bool CanAccessController(string controller)
+        => PTGOilSystem.Web.Security.RoleAccessRules.CanAccessController(User, controller);
+
+    var navSource = new List<(string Controller, string Action, string Label, string Icon, string? RouteKey, string[] Active,
+        (string Controller, string Action, string Label, string Icon)[] Children)>
+    {
+        NavNode("Home", "Index", T("داشبورد", "Dashboard"), "nav-dashboard"),
+        NavNode("Contracts", "Index", T("قراردادها", "Contracts"), "nav-contracts", active: contractControllers),
+        NavNode("Loading", "Index", T("عملیات", "Operations"), "nav-operations", active: operationTabControllers),
+        NavNode("OperationalAssets", "Index", T("دارایی‌ها", "Assets"), "nav-assets"),
+        NavNode("Payments", "Index", T("مالی", "Finance"), "nav-finance",
+            active: new[] { "CashAccounts", "Payments", "AccountStatements", "SarrafSettlements", "Ledger" }),
+        NavNode("Reports", "Index", T("گزارشات", "Reports"), "nav-reports", active: reportControllers, children: reportItems),
+        NavNode("Suppliers", "Index", T("طرف حساب‌ها", "Parties"), "nav-parties", active: businessPartyGroupControllers, children: businessPartyItems),
+        NavNode("Trucks", "Index", T("حمل و نقل", "Transport"), "nav-truck", active: transportControllers, children: transportItems),
+        NavNode("StorageTanks", "Index", T("تعاریف پایه", "Base Definitions"), "nav-settings", active: coreDataControllers, children: baseDefinitionChildren)
+    };
+    if (adminSettingItems.Length > 0)
+    {
+        navSource.Add(NavNode("Users", "Index", T("مدیریت", "Administration"), "nav-users", active: adminManagementControllers,
+            children: adminSettingItems.Select(i => (i.Controller, i.Action, i.Label, i.Icon)).ToArray()));
+    }
+
+    // Access filtering: keep visible children; keep node if it (or any child) is reachable.
+    var navTree = navSource
+        .Select(node => (
+            node.Controller, node.Action, node.Label, node.Icon, node.RouteKey, node.Active,
+            Children: node.Children.Where(child => CanAccessController(child.Controller)).ToArray()))
+        .Where(node => CanAccessController(node.Controller) || node.Children.Length > 0)
+        .ToList();
+
+    bool NavNodeIsActive(string[] active)
+        => active.Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase));
+
+    bool NavChildIsActive(
+        (string Controller, string Action, string Label, string Icon) child,
+        bool controllersAreUnique)
+    {
+        if (!string.Equals(currentController, child.Controller, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return controllersAreUnique || string.Equals(currentAction, child.Action, StringComparison.OrdinalIgnoreCase);
+    }
+}
+<!DOCTYPE html>
+<html lang="@htmlLanguage" dir="@htmlDirection">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FCFCFC" />
+    <title>@title - PTG Oil System</title>
+    @if (!isLoginPage && renderShellChrome)
+    {
+        <link rel="preload" href="~/vendor/fonts/vazirmatn/files/vazirmatn-400.woff2" asp-append-version="true" as="font" type="font/woff2" crossorigin="anonymous" />
+        <link rel="preload" href="~/vendor/fonts/vazirmatn/files/vazirmatn-700.woff2" asp-append-version="true" as="font" type="font/woff2" crossorigin="anonymous" />
+        <link rel="preload" href="~/css/boltz-shell.css" as="style" asp-append-version="true" />
+    }
+    @if (!isLoginPage && renderShellChrome)
+    {
+        @if (isEnglishUi)
+        {
+            <link rel="stylesheet" href="~/vendor/bootstrap/css/bootstrap.min.css" asp-append-version="true" />
+        }
+        else
+        {
+            <link rel="stylesheet" href="~/vendor/bootstrap/css/bootstrap.rtl.min.css" asp-append-version="true" />
+        }
+    }
+    @if (!isLoginPage && renderShellChrome)
+    {
+        <link rel="stylesheet" href="~/vendor/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
+    }
+    @if (renderShellChrome)
+    {
+        <link rel="stylesheet" href="~/vendor/fonts/poppins/poppins.css" asp-append-version="true" />
+    }
+    @if (!isLoginPage && renderShellChrome)
+    {
+        <link rel="stylesheet" href="~/vendor/fonts/vazirmatn/vazirmatn.css" asp-append-version="true" />
+    }
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg" asp-append-version="true" />
+    @if (!isLoginPage)
+    {
+        @if (renderShellChrome)
+        {
+            <link rel="stylesheet" href="~/css/_variables.css" asp-append-version="true" />
+            <link rel="stylesheet" href="~/css/_utilities.css" asp-append-version="true" />
+            <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+            <link rel="stylesheet" href="~/css/boltz-shell.css" asp-append-version="true" />
+        }
+        @if (renderShellChrome)
+        {
+        <link rel="stylesheet" href="~/css/ptg/01-tokens.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/02-base.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/03-layout.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/04-sidebar.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/05-components.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/06-forms.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/07-tables.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/08-modals.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/09-pages.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/10-responsive.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/11-details.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/12-dashboard.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/13-compat.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/14-master-details.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/15-system-lists.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/17-system-forms.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/18-toasts.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/40-motion.css" asp-append-version="true" />
+        }
+    }
+    @await RenderSectionAsync("Styles", required: false)
+    @if (isAuthenticated && renderShellChrome)
+    {
+        <link rel="stylesheet" href="~/css/ptg/16-system-tabs.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/41-compact.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/45-akaunting.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/ptg/50-ak-components.css" asp-append-version="true" />
+    }
+    @* لودر برند صدیقی — استایل و رفتار در فایل‌های مستقل (60-loader.css / ptg-loader.js) *@
+    @if (renderShellChrome)
+    {
+        <link rel="stylesheet" href="~/css/ptg/60-loader.css" asp-append-version="true" />
+    }
+</head>
+<body class="app-body boltz-shell @(isAuthenticated ?"app-shell-authenticated" : "app-shell-public") @(isEnglishUi ? "boltz-ltr" : "boltz-rtl") @foundationCompactClass @masterDataCompactClass @routeBodyClass"
+      data-ui-language="@htmlLanguage"
+      data-theme-version="light"
+      data-layout="vertical"
+      data-sidebar-style="full"
+      data-sidebar-position="fixed"
+      data-header-position="fixed">
+    @if (renderShellChrome)
+    {
+        <partial name="Partials/_PageLoader" />
+        @* بلاکینگ و سبک: تایمر لود اولیه باید پیش از اسکریپت‌های defer مسلح شود. *@
+        <script src="~/js/ptg-loader.js" asp-append-version="true"></script>
+    }
+    @if (isAuthenticated)
+    {
+        <div class="boltz-shell-frame ptg-app">
+            @if (renderShellChrome)
+            {
+            <button type="button"
+                    class="boltz-shell-backdrop"
+                    data-shell-close="true"
+                    aria-label="@T("بستن منوی کناری", "Close Sidebar")">
+            </button>
+
+            <aside class="boltz-sidebar ptg-sidebar" id="boltzSidebar">
+                <partial name="_NavIconSprite" />
+
+                @* ===== 224px menu panel ===== *@
+                <div class="sidebar-panel ak-navpanel">
+                <div class="boltz-sidebar-scroll">
+                    <a class="boltz-brand boltz-brand-logo-only" asp-controller="Home" asp-action="Index">
+                        <span class="boltz-brand-mark">
+                            <img class="boltz-brand-logo" src="~/images/logo1-sidebar.png" asp-append-version="true" alt="Saddiqi Group" width="512" height="165" decoding="async" />
+                        </span>
+                    </a>
+
+                    <nav class="boltz-sidebar-nav" aria-label="@T("ناوبری اصلی", "Main Navigation")">
+                        <ul class="boltz-nav-list ptg-sidebar-nav">
+                            @foreach (var node in navTree)
+                            {
+                                var hasChildren = node.Children.Length > 0;
+                                var nodeActive = NavNodeIsActive(node.Active);
+                                if (hasChildren)
+                                {
+                                    var childControllersUnique = node.Children.Select(c => c.Controller).Distinct(StringComparer.OrdinalIgnoreCase).Count() == node.Children.Length;
+                                    var anyChildActive = node.Children.Any(child => NavChildIsActive(child, childControllersUnique));
+                                    var groupOpen = nodeActive || anyChildActive;
+                                    <li class="boltz-nav-item ptg-has-sub @(groupOpen ? "is-open" : null)" data-nav-group data-nav-item="@node.Controller">
+                                        <button type="button"
+                                                class="boltz-nav-link boltz-nav-group-toggle ptg-sidebar-link @(groupOpen ? "is-active" : null)"
+                                                data-nav-group-toggle="true"
+                                                aria-expanded="@(groupOpen ? "true" : "false")"
+                                                data-mini-label="@node.Label">
+                                            <i class="ptg-nav-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#@node.Icon"></use></svg></i>
+                                            <span>@node.Label</span>
+                                            <i class="ptg-nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#nav-chevron"></use></svg></i>
+                                        </button>
+                                        <ul class="boltz-nav-sub ptg-nav-sub">
+                                            @foreach (var child in node.Children)
+                                            {
+                                                var childActive = NavChildIsActive(child, childControllersUnique);
+                                                <li class="boltz-nav-subitem" data-nav-item="@child.Controller">
+                                                    <a class="boltz-nav-sublink @(childActive ? "is-active" : null)"
+                                                       asp-controller="@child.Controller"
+                                                       asp-action="@child.Action">
+                                                        <span class="ptg-nav-dot" aria-hidden="true"></span>
+                                                        <span>@child.Label</span>
+                                                    </a>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </li>
+                                }
+                                else
+                                {
+                                    <li class="boltz-nav-item" data-nav-item="@node.Controller">
+                                        <a class="boltz-nav-link ptg-sidebar-link @(nodeActive ? "is-active" : null)"
+                                           asp-controller="@node.Controller"
+                                           asp-action="@node.Action"
+                                           asp-route-activeTab="@node.RouteKey"
+                                           data-mini-label="@node.Label">
+                                            <i class="ptg-nav-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#@node.Icon"></use></svg></i>
+                                            <span>@node.Label</span>
+                                        </a>
+                                    </li>
+                                }
+                            }
+                        </ul>
+                    </nav>
+
+                    <div class="boltz-sidebar-foot">
+                        <a class="boltz-sidebar-foot-link" asp-controller="Auth" asp-action="ChangePassword">
+                            <i class="ptg-nav-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-key"></use></svg></i>
+                            <span>@T("تغییر رمز عبور", "Change Password")</span>
+                        </a>
+
+                        <form asp-controller="Auth" asp-action="Logout" method="post">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="boltz-sidebar-foot-link boltz-sidebar-foot-link-danger">
+                                <i class="ptg-nav-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-logout"></use></svg></i>
+                                <span>@T("خروج", "Logout")</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                </div>
+            </aside>
+            }
+
+            <div class="boltz-shell-main ptg-main">
+                @if (renderShellChrome)
+                {
+                <header class="boltz-topbar ptg-topbar">
+                    <div class="boltz-topbar-start">
+                        <button type="button"
+                                class="boltz-topbar-toggle"
+                                data-shell-toggle="true"
+                                aria-controls="boltzSidebar"
+                                aria-expanded="false"
+                                aria-label="@T("باز کردن منوی کناری", "Open Sidebar")">
+                            <span class="hamburger" aria-hidden="true">
+                                <span class="line"></span>
+                                <span class="line"></span>
+                                <span class="line"></span>
+                            </span>
+                        </button>
+                    </div>
+
+                    <div class="boltz-topbar-end ptg-header-cluster">
+                        @* Search trigger — opens the search dialog (Minimal small trigger + shortcut) *@
+                        <button type="button" class="ptg-hsearch ptg-hsearch-trigger" data-search-open aria-haspopup="dialog" aria-controls="ptgSearchDialog" aria-label="@T("جستجو", "Search")">
+                            <i class="bi bi-search ptg-hsearch-ico" aria-hidden="true"></i>
+                        </button>
+
+                        @* Language selector (UK flag) *@
+                        <div class="dropdown boltz-language-menu ptg-hflag-wrap">
+                            <button class="ptg-h3d ptg-hflag" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Language">
+                                <svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <defs><clipPath id="ptgUkFlag"><rect width="60" height="40" rx="9" /></clipPath></defs>
+                                    <g clip-path="url(#ptgUkFlag)">
+                                        <rect width="60" height="40" fill="#012169" />
+                                        <path d="M0 0 60 40M60 0 0 40" stroke="#ffffff" stroke-width="8" />
+                                        <path d="M0 0 60 40M60 0 0 40" stroke="#C8102E" stroke-width="3" />
+                                        <path d="M30 0V40M0 20H60" stroke="#ffffff" stroke-width="12" />
+                                        <path d="M30 0V40M0 20H60" stroke="#C8102E" stroke-width="7" />
+                                    </g>
+                                </svg>
+                                <span class="visually-hidden" data-current-language-label>@(isEnglishUi ? "EN" : "FA")</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end boltz-dropdown-menu boltz-language-dropdown">
+                                <button type="button"
+                                        class="dropdown-item @(isEnglishUi ? null :"active")"
+                                        data-language-option="fa"
+                                        aria-pressed="@(!isEnglishUi ? "true" : "false")">
+                                    <span class="boltz-language-code">FA</span>
+                                    <span>فارسی</span>
+                                </button>
+                                <button type="button"
+                                        class="dropdown-item @(isEnglishUi ?"active" : null)"
+                                        data-language-option="en"
+                                        aria-pressed="@(isEnglishUi ? "true" : "false")">
+                                    <span class="boltz-language-code">EN</span>
+                                    <span>English</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        @* Notifications bell (badge 4) *@
+                        <button type="button" class="ptg-h3d ptg-hbell" aria-label="@T("اعلان‌ها", "Notifications")">
+                            <i class="bi bi-bell" aria-hidden="true"></i>
+                            <span class="ptg-hbadge">4</span>
+                        </button>
+
+                        @* Settings gear (status dot) *@
+                        <a class="ptg-h3d ptg-hgear" asp-controller="StorageTanks" asp-action="Index" aria-label="@T("تنظیمات", "Settings")">
+                            <i class="bi bi-gear" aria-hidden="true"></i>
+                            <span class="ptg-hdot"></span>
+                        </a>
+
+                        @* 6) Avatar — opens the account drawer (not a dropdown) *@
+                        <button type="button" class="ptg-havatar-ring ptg-havatar-trigger" data-account-open aria-haspopup="dialog" aria-controls="ptgAccountDrawer" aria-expanded="false" aria-label="@T("حساب کاربری", "Account")">
+                            <img src="~/images/user.webp" alt="@T("پروفایل", "Profile")" />
+                        </button>
+                    </div>
+                </header>
+                }
+
+                <main class="boltz-content ptg-page">
+                    @await Html.PartialAsync("_ToastNotifications")
+
+                    @* Page-top cards slot: sections (e.g. Finance) can render their
+                       stat cards above the section tabs so the tab bar can fuse
+                       directly onto the list header below. *@
+                    @await RenderSectionAsync("PageTopCards", required: false)
+
+                    @if (ViewData["SummaryCards"] is List<(string Label, string Value)> summaryCards && summaryCards.Count > 0)
+                    {
+                        <div class="summary-strip summary-strip-page-top">
+                            @foreach (var card in summaryCards)
+                            {
+                                <div class="summary-tile"><div class="summary-tile-label">@card.Label</div><div class="summary-tile-value ak-num">@card.Value</div></div>
+                            }
+                        </div>
+                    }
+
+                    @* The tabs strip lives inside the content container so the rail
+                       lines up with the table/form below it. Each page sets its own
+                       max-width on .boltz-content-body; sitting outside it left the
+                       rail wider than its own content. *@
+                    <div class="boltz-content-body ak-form-page ptg-page-body">
+                        @if (!hideSectionTabs)
+                        {
+                            @await Html.PartialAsync("_SectionTabs")
+                        }
+
+                        @RenderBody()
+                    </div>
+                </main>
+
+                @if (renderShellChrome)
+                {
+                <footer class="boltz-footer">
+                    <span>&copy; @DateTime.Now.Year PTG Oil System</span>
+                </footer>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <main class="boltz-public-shell">
+            @RenderBody()
+        </main>
+    }
+
+    @if (isAuthenticated && renderShellChrome)
+    {
+        <div class="modal fade ak-page-modal" id="ptgPageModal" tabindex="-1" aria-labelledby="ptgPageModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title" id="ptgPageModalLabel">فرم عملیاتی</h2>
+                        </div>
+                        <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ak-empty" data-page-modal-loading hidden>
+                            <span class="spinner-border" role="status" aria-hidden="true"></span>
+                            <span>@T("در حال بارگذاری...", "Loading...")</span>
+                        </div>
+                        <iframe title="فرم عملیاتی" data-page-modal-frame></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (isAuthenticated && renderShellChrome)
+    {
+        var accountEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        var accountName = User.Identity?.Name ?? T("کاربر", "User");
+
+        @* ===== Search dialog (opened by the header search trigger) ===== *@
+        <div class="ptg-search-dialog" id="ptgSearchDialog" role="dialog" aria-modal="true" aria-label="@T("جستجو", "Search")" hidden>
+            <button type="button" class="ptg-search-backdrop" data-search-close aria-label="@T("بستن", "Close")"></button>
+            <div class="ptg-search-panel" role="document">
+                <label class="ptg-search-field">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input type="search"
+                           class="ptg-search-input"
+                           data-global-search
+                           autocomplete="off"
+                           placeholder="@T("جستجو در این صفحه...", "Search this page...")"
+                           aria-label="@T("جستجو", "Search")" />
+                    <kbd class="ptg-search-esc">Esc</kbd>
+                </label>
+                <p class="ptg-search-hint">@T("نتایج فهرست همین صفحه فیلتر می‌شود.", "Filters the list on this page.")</p>
+            </div>
+        </div>
+
+        @* ===== Account drawer (opens from the content edge, full height) ===== *@
+        <div class="ptg-account-root" data-account-root hidden>
+            <button type="button" class="ptg-account-backdrop" data-account-close aria-label="@T("بستن", "Close")"></button>
+            <aside class="ptg-account-drawer" id="ptgAccountDrawer" role="dialog" aria-modal="true" aria-labelledby="ptgAccountName" tabindex="-1">
+                <button type="button" class="ptg-account-close" data-account-close aria-label="@T("بستن", "Close")">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+                <div class="ptg-account-scroll">
+                    <div class="ptg-account-head">
+                        <span class="ptg-account-avatar">
+                            <img src="~/images/user.webp" alt="@T("پروفایل", "Profile")" />
+                        </span>
+                        <strong class="ptg-account-name" id="ptgAccountName">@accountName</strong>
+                        @if (!string.IsNullOrWhiteSpace(accountEmail))
+                        {
+                            <span class="ptg-account-email">@accountEmail</span>
+                        }
+                    </div>
+
+                    <div class="ptg-account-switch" role="group" aria-label="@T("حساب فعال", "Active account")">
+                        <button type="button" class="ptg-account-switch-avatar is-active" aria-current="true" aria-label="@accountName">
+                            <img src="~/images/user.webp" alt="" aria-hidden="true" />
+                        </button>
+                        <button type="button" class="ptg-account-switch-avatar" tabindex="-1" aria-hidden="true">
+                            <img src="~/images/user.webp" alt="" aria-hidden="true" />
+                        </button>
+                        <button type="button" class="ptg-account-switch-avatar" tabindex="-1" aria-hidden="true">
+                            <img src="~/images/user.webp" alt="" aria-hidden="true" />
+                        </button>
+                        <button type="button" class="ptg-account-switch-add" aria-label="@T("افزودن حساب", "Add account")">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <hr class="ptg-account-divider" aria-hidden="true" />
+
+                    <nav class="ptg-account-links" aria-label="@T("میان‌بر حساب", "Account shortcuts")">
+                        <a class="ptg-account-link" asp-controller="Home" asp-action="Index">
+                            <span class="ptg-account-link-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-dashboard"></use></svg></span>
+                            <span class="ptg-account-link-label">@T("صفحه اصلی", "Home")</span>
+                        </a>
+                        <a class="ptg-account-link" href="#" onclick="return false;">
+                            <span class="ptg-account-link-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-users"></use></svg></span>
+                            <span class="ptg-account-link-label">@T("پروفایل", "Profile")</span>
+                        </a>
+                        <a class="ptg-account-link" href="#" onclick="return false;">
+                            <span class="ptg-account-link-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-contracts"></use></svg></span>
+                            <span class="ptg-account-link-label">@T("پروژه‌ها", "Projects")</span>
+                            <span class="ptg-account-link-badge">3</span>
+                        </a>
+                        <a class="ptg-account-link" href="#" onclick="return false;">
+                            <span class="ptg-account-link-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-finance"></use></svg></span>
+                            <span class="ptg-account-link-label">@T("اشتراک", "Subscription")</span>
+                        </a>
+                        <a class="ptg-account-link" asp-controller="Auth" asp-action="ChangePassword">
+                            <span class="ptg-account-link-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-key"></use></svg></span>
+                            <span class="ptg-account-link-label">@T("امنیت", "Security")</span>
+                        </a>
+                    </nav>
+
+                    <form asp-controller="Auth" asp-action="Logout" method="post" class="ptg-account-logout-form">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="ptg-account-logout">
+                            @T("خروج", "Logout")
+                        </button>
+                    </form>
+                </div>
+            </aside>
+        </div>
+    }
+
+    @if (isAuthenticated)
+    {
+        @if (renderShellChrome)
+        {
+        <script src="~/vendor/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true" defer></script>
+        <script src="~/js/core.js" asp-append-version="true" defer></script>
+        <script src="~/js/ptg-toasts.js" asp-append-version="true" defer></script>
+        <script src="~/js/language.js" asp-append-version="true" defer></script>
+        <script src="~/js/auto-code-fields.js" asp-append-version="true" defer></script>
+        <script src="~/js/clone-entity.js" asp-append-version="true" defer></script>
+        <script src="~/js/navigation.js" asp-append-version="true" defer></script>
+        <script src="~/js/global-search.js" asp-append-version="true" defer></script>
+        <script src="~/js/header-ui.js" asp-append-version="true" defer></script>
+        <script src="~/js/tables.js" asp-append-version="true" defer></script>
+        <script src="~/js/ak-search-filter.js" asp-append-version="true" defer></script>
+        <script src="~/js/system-list-digits.js" asp-append-version="true" defer></script>
+        <script src="~/js/ptg-tabs.js" asp-append-version="true" defer></script>
+        <script src="~/js/ak-entity-combobox.js" asp-append-version="true" defer></script>
+        <script src="~/js/ak-datepicker.js" asp-append-version="true" defer></script>
+        }
+        @if (useFinanceFormAssets)
+        {
+            <script src="~/js/finance-forms.js" asp-append-version="true" defer data-ptg-page-asset="finance-forms"></script>
+        }
+        @if (useExpenseFormAssets)
+        {
+            <script src="~/js/expense-form.js" asp-append-version="true" defer data-ptg-page-asset="expense-form"></script>
+        }
+        @if (renderShellChrome)
+        {
+            <script src="~/js/spa-nav.js" asp-append-version="true" defer></script>
+        }
+        @if (useContractJourneyAssets)
+        {
+            <script src="~/js/contract-journey-tabs.js" asp-append-version="true" defer data-ptg-page-asset="contract-journey-tabs"></script>
+        }
+        @if (useModalDesignSystemScript)
+        {
+            <script src="~/js/modal-design-system.js" asp-append-version="true" defer data-ptg-page-asset="modal-design-system-script"></script>
+        }
+        @if (useStorageTanksAssets)
+        {
+            <script src="~/js/storage-tanks.js" asp-append-version="true" defer data-ptg-page-asset="storage-tanks-script"></script>
+        }
+        @if (useLoadingExpenseEditorAssets)
+        {
+            <script src="~/js/loading-expense-editor.js" asp-append-version="true" defer data-ptg-page-asset="loading-expense-editor"></script>
+        }
+        @if (useInventoryTransportLegFormAssets)
+        {
+            <script src="~/js/inventory-transport-leg-form.js" asp-append-version="true" defer data-ptg-page-asset="inventory-transport-leg-form"></script>
+        }
+        @if (useDetailRecordPagerAssets)
+        {
+            <script src="~/js/detail-record-pager.js" asp-append-version="true" defer data-ptg-page-asset="detail-record-pager"></script>
+        }
+        @if (useOperationalAssetDetailsAssets)
+        {
+            <script src="~/js/operational-asset-details.js" asp-append-version="true" defer data-ptg-page-asset="operational-asset-details"></script>
+        }
+        @if (useDashboardAssets)
+        {
+            <script src="~/js/dashboard.js" asp-append-version="true" defer data-ptg-page-asset="dashboard"></script>
+        }
+    }
+    <div id="ptg-page-scripts">
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+</body>
+</html>

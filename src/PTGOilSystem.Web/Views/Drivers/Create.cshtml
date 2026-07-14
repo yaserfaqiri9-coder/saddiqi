@@ -1,0 +1,10 @@
+@model Driver
+@{
+    ViewData["Title"] = UiText.T(Context,"راننده جدید","New Driver");
+    ViewData["CreatePageIndexLabel"] = "راننده‌ها";
+    ViewData["CreatePageSubtitle"] = "مشخصات هویتی و اطلاعات تماس راننده را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/Drivers/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,53 @@
+@model StorageTank
+@{
+    var terms = (ViewBag.CreateTerminals ?? ViewBag.Terminals) as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var prods = (ViewBag.CreateProducts ?? ViewBag.Products) as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+}
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات مخزن", (string?)"ترمینال، کد، جنس و ظرفیت مخزن را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="TerminalId" class="ak-label">ترمینال <span class="ak-req">*</span></label>
+            <select asp-for="TerminalId" asp-items="terms" class="ak-input">
+                <option value="">— انتخاب کنید —</option>
+            </select>
+            <span asp-validation-for="TerminalId" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="TankCode" class="ak-label">کد مخزن <span class="ak-req">*</span></label>
+            <input asp-for="TankCode" class="ak-input" />
+            <span asp-validation-for="TankCode" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="DisplayName" class="ak-label">نام نمایشی</label>
+            <input asp-for="DisplayName" class="ak-input" />
+            <span asp-validation-for="DisplayName" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="ProductId" class="ak-label">جنس</label>
+            <select asp-for="ProductId" asp-items="prods" class="ak-input">
+                <option value="">— بدون اختصاص —</option>
+            </select>
+        </div>
+        <div class="ak-field">
+            <label asp-for="CapacityMt" class="ak-label">ظرفیت (MT)</label>
+            <input asp-for="CapacityMt" class="ak-input" />
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

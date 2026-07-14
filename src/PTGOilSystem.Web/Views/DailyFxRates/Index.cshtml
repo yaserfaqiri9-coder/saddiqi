@@ -1,0 +1,88 @@
+@model IEnumerable<DailyFxRate>
+@{
+    ViewData["Title"] = "نرخ ارز روزانه";
+    var items = Model.ToList();
+    var baseCurrencies = ViewBag.BaseCurrencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var quoteCurrencies = ViewBag.QuoteCurrencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var hasFilters = !string.IsNullOrEmpty(ViewData["baseCcy"]?.ToString())
+        || !string.IsNullOrEmpty(ViewData["quoteCcy"]?.ToString())
+        || !string.IsNullOrEmpty(ViewData["from"]?.ToString())
+        || !string.IsNullOrEmpty(ViewData["to"]?.ToString());
+    var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "نرخ ارز روزانه", "Daily FX rates"), true,
+                       UiText.T(Context, "نرخ جدید", "New rate"), "bi-plus-lg",
+                       (string?)Url.Action("Create", new { returnUrl }), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @{
+        var fxBaseOptions = (baseCurrencies ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+            .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+        var fxQuoteOptions = (quoteCurrencies ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+            .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+        var fxRatesFilter = new AkSearchFilterModel(
+            "q", (string?)ViewData["q"],
+            "جستجو در ارز پایه، ارز مقصد یا منبع...",
+            new List<AkFilterDefinition>
+            {
+                new("baseCcy", "ارز پایه", "select", fxBaseOptions, ViewData["baseCcy"]?.ToString()),
+                new("quoteCcy", "ارز مقصد", "select", fxQuoteOptions, ViewData["quoteCcy"]?.ToString()),
+                new("from", "بازه تاریخ", "daterange", null,
+                    ViewData["from"]?.ToString(), "to", ViewData["to"]?.ToString())
+            });
+    }
+    <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="fxRatesFilter" />
+
+    <div class="ak-list">
+        <div class="ak-table-wrap">
+            <table class="ak-table" aria-label="لیست نرخ ارز روزانه">
+                <thead><tr>
+                    <th class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="انتخاب همه" /></th>
+                    <th class="ak-col-grow">جفت ارز</th>
+                    <th>تاریخ</th>
+                    <th class="ak-col-num">نرخ</th>
+                    <th>منبع</th>
+                    <th class="ak-col-spacer"></th>
+                    <th class="ak-col-actions"></th>
+                </tr></thead>
+                <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr>
+                            <td class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="انتخاب" /></td>
+                            <td class="ak-col-grow"><a asp-action="Details" asp-route-id="@item.Id" class="ak-name">@item.BaseCurrency / @item.QuoteCurrency</a></td>
+                            <td>@item.RateDate.ToDisplayDate()</td>
+                            <td class="ak-num ak-col-num">@item.Rate.ToString("N4")</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.Source) ? "منبع ثبت نشده" : item.Source)</td>
+                            <td class="ak-col-spacer"></td>
+                            <td class="ak-col-actions">
+                                <div class="dropdown ak-row-menu">
+                                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-action="Details" asp-route-id="@item.Id"><i class="bi bi-eye" aria-hidden="true"></i>مشاهده</a></li>
+                                        <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil" aria-hidden="true"></i>ویرایش</a></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><form asp-action="Delete" asp-route-id="@item.Id" method="post" data-ptg-confirm="true" data-ptg-confirm-title="حذف نرخ" data-ptg-confirm-message="این نرخ حذف شود؟">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="dropdown-item ak-danger"><i class="bi bi-trash" aria-hidden="true"></i>حذف</button>
+                                        </form></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!items.Any())
+                    {
+                        <tr><td colspan="7"><div class="ak-empty"><i class="bi bi-currency-exchange" aria-hidden="true"></i>نرخی یافت نشد</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @{ ViewData["ShownCount"] = items.Count; }
+        <div class="ak-pager">@await Html.PartialAsync("_PagedListFooter")</div>
+    </div>
+</div>

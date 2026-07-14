@@ -1,0 +1,11 @@
+@model Driver
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش راننده", "Edit Driver");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "راننده‌ها", "Drivers");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "اطلاعات تماس و وضعیت راننده را به‌روزرسانی کنید.", "Update contact info and status of this driver.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Drivers/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,167 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportLegIndexViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = UiText.T(Context,"انتقال از موجودی","Inventory Transfer");
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ContractId.HasValue || Model.Filter.ProductId.HasValue || Model.Filter.Status.HasValue;
+    var hasAnyFilter = hasAdvancedFilter || !string.IsNullOrWhiteSpace(Model.Filter.Query);
+}
+
+<div class="ak-form-page ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "انتقال از موجودی", "Inventory Transfer"), true, UiText.T(Context, "حمل جدید", "New transport"), "bi-plus-lg", Url.Action("CreateFromInventory"), (string?)null, UiText.T(Context, "انتقال گروهی", "Group transfer"), "bi-diagram-3", Url.Action("GroupTransfer")))" />
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> ItlOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? ItlQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var itlFilter = new AkSearchFilterModel("Filter.Query", Model.Filter.Query,
+                UiText.T(Context, "جست‌وجو...", "Search..."),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد", "Contract"), "select", ItlOpts(ViewBag.Contracts), ItlQ("Filter.ContractId")),
+                    new("Filter.ProductId", UiText.T(Context, "جنس", "Product"), "select", ItlOpts(ViewBag.Products), ItlQ("Filter.ProductId")),
+                    new("Filter.Status", UiText.T(Context, "وضعیت", "Status"), "select", ItlOpts(ViewBag.StatusOptions), ItlQ("Filter.Status"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="itlFilter" />
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="col-name">@UiText.T(Context,"قرارداد","Contract")</th>
+                        <th>@UiText.T(Context,"جنس","Product")</th>
+                        <th>@UiText.T(Context,"وسیله حمل","Transport")</th>
+                        <th>@UiText.T(Context,"مقدار","Quantity")</th>
+                        <th class="col-status">@UiText.T(Context,"وضعیت","Status")</th>
+                        <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @for (var index = 0; index < Model.Items.Count; index++)
+                {
+                    var item = Model.Items[index];
+                    var statusClass = item.Status switch
+                    {
+                        InventoryTransportLegStatus.Draft => "is-info",
+                        InventoryTransportLegStatus.Loaded => "is-pending",
+                        InventoryTransportLegStatus.InTransit => "is-info",
+                        InventoryTransportLegStatus.Received => "is-active",
+                        InventoryTransportLegStatus.Cancelled => "is-inactive",
+                        _ => "is-info"
+                    };
+                    var statusText = item.Status switch
+                    {
+                        InventoryTransportLegStatus.Draft => UiText.T(Context, "پیش‌نویس", "Draft"),
+                        InventoryTransportLegStatus.Loaded => UiText.T(Context, "بارگیری شده", "Loaded"),
+                        InventoryTransportLegStatus.InTransit => UiText.T(Context, "در جریان حمل", "In transit"),
+                        InventoryTransportLegStatus.Received => UiText.T(Context, "تکمیل‌شده", "Completed"),
+                        InventoryTransportLegStatus.Cancelled => UiText.T(Context, "لغو شده", "Cancelled"),
+                        _ => item.Status.ToString()
+                    };
+                    var transportText = item.TransportType switch
+                    {
+                        LoadingTransportType.Vessel => UiText.T(Context,"کشتی","Vessel"),
+                        LoadingTransportType.Wagon => UiText.T(Context,"واگون","Wagon"),
+                        LoadingTransportType.Truck => UiText.T(Context,"موتر","Truck"),
+                        _ => UiText.T(Context,"نامشخص","Unspecified")
+                    };
+                    var vehicleNo = item.TransportType switch
+                    {
+                        LoadingTransportType.Truck or LoadingTransportType.Wagon => item.WagonNumber,
+                        _ => item.WagonNumber ?? item.RwbNo
+                    };
+                    <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                        <td><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                        <td class="col-name">
+                            @await Html.PartialAsync("_OperationsListIdentity", ("bi-truck-front", item.ContractNumber, item.LoadedDate.ToDisplayDate(), true))
+                        </td>
+                        <td>
+                            <span class="ak-label">@item.ProductName</span>
+                            <span class="ak-section-desc col-ltr">@item.ContractNumber</span>
+                        </td>
+                        <td>
+                            <span class="ak-label">@transportText</span>
+                            <span class="ak-section-desc col-ltr">@(string.IsNullOrWhiteSpace(vehicleNo) ? "-" : vehicleNo)</span>
+                        </td>
+                        <td class="col-ltr">@NumberDisplay.Quantity(item.QuantityMt) MT</td>
+                        <td class="col-status"><span class="ak-status @statusClass">@statusText</span></td>
+                        <td class="col-actions">
+                            <div class="ak-row-menu">
+                                @if (item.Status == InventoryTransportLegStatus.Draft && !item.OutboundInventoryMovementId.HasValue)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"ویرایش","Edit")" aria-label="@UiText.T(Context,"ویرایش","Edit")"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                                }
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"جزئیات","Details")" aria-label="@UiText.T(Context,"جزئیات","Details")"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="ak-empty">
+                                <i class="bi bi-truck-front"></i>
+                                @UiText.T(Context,"فعلاً انتقالی ثبت نشده است","No inventory transfers found.")
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    <tfoot>
+                        <tr class="ak-table-total">
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="col-ltr fw-bold">@NumberDisplay.Quantity((decimal)ViewBag.SumQuantity)</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('itlFilterToggle');
+            var pop = document.getElementById('itlFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

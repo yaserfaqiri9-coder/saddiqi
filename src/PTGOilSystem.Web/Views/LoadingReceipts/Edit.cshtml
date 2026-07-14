@@ -1,0 +1,92 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingReceiptEditViewModel
+@{
+    var returnUrl = Model.ReturnUrl;
+    var detailsUrl = Url.Action("Details", "LoadingReceipts", new { id = Model.Id, returnUrl }) ?? $"/LoadingReceipts/Details/{Model.Id}";
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : detailsUrl;
+    ViewData["Title"] = UiText.T(Context, "ویرایش رسید بارگیری", "Edit Loading Receipt");
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"{ViewData["Title"]} #{Model.Id}", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", backUrl))" />
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="LoadingRegisterId" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <section class="ak-form-section" aria-label="@UiText.T(Context, "خلاصه رسید", "Receipt summary")">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "خلاصه رسید", "Receipt summary"), (string?)UiText.T(Context, "این معلومات فقط‌خواندنی است.", "This information is read-only.")))" />
+            <dl class="ak-form-grid">
+                <div class="ak-field"><dt>@UiText.T(Context, "قرارداد", "Contract")</dt><dd>@Model.ContractNumber</dd></div>
+                <div class="ak-field"><dt>@UiText.T(Context, "جنس", "Product")</dt><dd>@Model.ProductName</dd></div>
+                <div class="ak-field"><dt>@UiText.T(Context, "تاریخ رسید", "Receipt date")</dt><dd>@Model.ReceiptDate.ToDisplayDate()</dd></div>
+                <div class="ak-field"><dt>@UiText.T(Context, "مقدار رسید", "Received quantity")</dt><dd>@NumberDisplay.Quantity(Model.ReceivedQuantityMt) MT</dd></div>
+                @if (!string.IsNullOrWhiteSpace(Model.WagonNumber))
+                {
+                    <div class="ak-field"><dt>@UiText.T(Context, "واگن", "Wagon")</dt><dd>@Model.WagonNumber</dd></div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.BillOfLadingNumber))
+                {
+                    <div class="ak-field"><dt>@UiText.T(Context, "بارنامه", "Bill of lading")</dt><dd>@Model.BillOfLadingNumber</dd></div>
+                }
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "ردیابی رسیدن به مقصد", "Destination tracking"), (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ArrivalDate"></label>
+                    <input asp-for="ArrivalDate" type="date" class="ak-input" />
+                    <small>@UiText.T(Context, "تاریخ ورود واقعی به مقصد", "Actual arrival date")</small>
+                    <span asp-validation-for="ArrivalDate"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="LeakDate"></label>
+                    <input asp-for="LeakDate" type="date" class="ak-input" />
+                    <small>@UiText.T(Context, "در صورت نشت یا خرابی", "If leakage or damage occurred")</small>
+                    <span asp-validation-for="LeakDate"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ActualArrivedQuantityMt"></label>
+                    <input asp-for="ActualArrivedQuantityMt" type="number" step="0.0001" class="ak-input" placeholder="0.0000" />
+                    <span asp-validation-for="ActualArrivedQuantityMt"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "سند و یادداشت", "Document and notes"), (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field ak-span-2">
+                    <label asp-for="ReferenceDocument"></label>
+                    <input asp-for="ReferenceDocument" class="ak-input" />
+                    <span asp-validation-for="ReferenceDocument"></span>
+                </div>
+                <div class="ak-field ak-span-2">
+                    <label asp-for="Notes"></label>
+                    <textarea asp-for="Notes" rows="3" class="ak-input"></textarea>
+                    <span asp-validation-for="Notes"></span>
+                </div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره تغییرات", "Save changes"), backUrl, UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

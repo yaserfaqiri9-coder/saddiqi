@@ -1,0 +1,105 @@
+@model PTGOilSystem.Web.Models.Dispatch.DispatchDirectFromReceiptSaleCreateViewModel
+@{
+    ViewData["Title"] = "ثبت فروش از ارسال با موتر";
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="page-stack ak-form-page">
+    <div class="ak-page-header ">
+        <div class="ak-page-header-main">
+<h1 class="ak-page-title">ثبت فروش از ارسال با موتر</h1>
+            <p class="page-subtitle">این فروش اختیاری فقط SalesTransaction و Ledger می‌سازد. InventoryMovement جدید نمی‌سازد و StockService را صدا نمی‌زند.</p>
+        </div>
+        <div class="ak-page-actions ak-page-actions">
+            <a asp-action="Details" asp-route-id="@Model.TruckDispatchId" class="btn btn-light ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
+        </div>
+    </div>
+
+    <div class="warning-note">
+        <i class="bi bi-info-circle"></i>
+        <div>فروش برای ارسال با موتر اختیاری است. اگر این ارسال فقط انتقال/تحویل است، بدون فروش بگذارید؛ درآمد و Ledger ساخته نمی‌شود.</div>
+    </div>
+
+    <form asp-action="CreateSaleFromDirectDispatch" method="post" class="ak-form-section">
+        <div class="ak-section-head">Sale Information</div>
+        <div class="ak-section-body">
+            <div asp-validation-summary="All" class="text-danger mb-3"></div>
+            <input type="hidden" asp-for="TruckDispatchId" />
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div class="summary-strip mb-3 ak-summary">
+                <div class="summary-tile"><div class="summary-tile-label">ارسال با موتر</div><div class="summary-tile-value">#@Model.TruckDispatchId</div></div>
+                <div class="summary-tile"><div class="summary-tile-label">Contract</div><div class="summary-tile-value">@Model.ContractNumber</div></div>
+                <div class="summary-tile"><div class="summary-tile-label">Product</div><div class="summary-tile-value">@Model.ProductName</div></div>
+                <div class="summary-tile"><div class="summary-tile-label">Truck</div><div class="summary-tile-value">@Model.TruckPlateNumber</div></div>
+                <div class="summary-tile"><div class="summary-tile-label">مقدار ارسال MT</div><div class="summary-tile-value">@NumberDisplay.Quantity(Model.DispatchLoadedQuantityMt)</div></div>
+            </div>
+
+            <div class="ak-form-grid g-3">
+                <div class="ak-field">
+                    <label asp-for="CustomerId" class="ak-label"></label>
+                    <select asp-for="CustomerId" asp-items="ViewBag.Customers" class="ak-input">
+                        <option value="">Select customer</option>
+                    </select>
+                    <span asp-validation-for="CustomerId" class="text-danger"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SaleDate" class="ak-label"></label>
+                    <input asp-for="SaleDate" class="ak-input" type="date" />
+                    <span asp-validation-for="SaleDate" class="text-danger"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="InvoiceNumber" class="ak-label"></label>
+                    <input asp-for="InvoiceNumber" class="ak-input" />
+                    <span asp-validation-for="InvoiceNumber" class="text-danger"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="QuantityMt" class="ak-label"></label>
+                    <input asp-for="QuantityMt" class="ak-input" readonly />
+                    <span asp-validation-for="QuantityMt" class="text-danger"></span>
+                    <div class="ak-section-desc">Phase 5E supports full-dispatch sale only.</div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Currency" class="ak-label"></label>
+                    <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input">
+                        <option value="USD">USD</option>
+                    </select>
+                    <span asp-validation-for="Currency" class="text-danger"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="UnitPriceInCurrency" class="ak-label"></label>
+                    <input asp-for="UnitPriceInCurrency" class="ak-input" />
+                    <span asp-validation-for="UnitPriceInCurrency" class="text-danger"></span>
+                </div>
+                <div class="ak-field" data-fx-rate-group data-fx-currency-source="#Currency">
+                    <div data-fx-rate-field>
+                        <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                        <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input
+                               id="dispatchSaleFxDisplay" placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                        <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                        <small class="ak-section-desc text-muted">۱ دالر = چند واحد ارز سند؟</small>
+                        <span asp-validation-for="AppliedFxRateToUsd" class="text-danger"></span>
+                    </div>
+                    <div data-fx-usd-note class="d-none">
+                        <small class="ak-section-desc text-muted"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</small>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Notes" class="ak-label"></label>
+                    <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+                    <span asp-validation-for="Notes" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+        <div class="ak-footer-actions d-flex gap-2 justify-content-end">
+            <a asp-action="Details" asp-route-id="@Model.TruckDispatchId" class="btn btn-light ak-secondary-action">@UiText.T(Context,"لغو","Cancel")</a>
+            <button type="submit" class="btn btn-success ak-primary-action">Create Sale</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+}

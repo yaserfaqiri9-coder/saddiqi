@@ -1,0 +1,23 @@
+@model IReadOnlyList<PTGOilSystem.Web.Models.Reconciliation.NonZeroBalanceItemViewModel>
+@{
+    var title = ViewData["Title"] as string ?? "Balance";
+}
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((title, (string?)null))" />
+    <div class="ak-table-wrap">
+        <table class="ak-table">
+            <thead><tr><th class="ak-col-grow">@UiText.T(Context,"نام","Name")</th><th class="ak-col-num">Debit USD</th><th class="ak-col-num">Credit USD</th><th class="ak-col-num">Balance USD</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+            <tbody>
+            @foreach (var row in Model)
+            {
+                <tr><td class="ak-col-grow">@row.Name</td><td class="ak-col-num ak-num">@row.DebitUsd.ToString("N2")</td><td class="ak-col-num ak-num">@row.CreditUsd.ToString("N2")</td><td class="ak-col-num ak-num @(row.BalanceUsd >= 0 ?"ak-num" : "ak-num")">@row.BalanceUsd.ToString("N2")</td><td><span class="ak-status">@row.Status</span></td></tr>
+            }
+            @if (!Model.Any())
+            {
+                <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-check2-circle"></i> اگر مانده‌ای برای این دسته باقی نمانده باشد، این جدول خالی می‌ماند.</div></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

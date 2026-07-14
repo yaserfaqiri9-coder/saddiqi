@@ -1,0 +1,74 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseRuleEditViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    var postAction = ViewData["PostAction"] as string ?? "Create";
+    var submitText = ViewData["SubmitText"] as string ?? UiText.T(Context, "ذخیره", "Save");
+    var currencies = ViewBag.Currencies as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var requestedReturnUrl = Context.Request.Query["returnUrl"].ToString();
+    var returnUrl = Url.IsLocalUrl(requestedReturnUrl) ? requestedReturnUrl : Url.Action("Index") ?? "/";
+    var isCreate = string.Equals(postAction, "Create", StringComparison.OrdinalIgnoreCase);
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string?)ViewData["Title"] ?? UiText.T(Context, "قاعده مصرف", "Expense Rule"), true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)returnUrl))" />
+
+    <form asp-action="@postAction" asp-route-id="@Model.Id" asp-route-returnUrl="@(isCreate ? returnUrl : null)" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "تعریف قاعده", "Rule Definition"), (string?)UiText.T(Context, "نوع محاسبه، ارز و مبلغ پایه را مشخص کنید.", "Choose the calculation type, currency and base amount.")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Name" class="ak-label"></label>
+                    <input asp-for="Name" class="ak-input" />
+                    <span asp-validation-for="Name" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ExpenseTypeId" class="ak-label"></label>
+                    <select asp-for="ExpenseTypeId" asp-items="ViewBag.ExpenseTypes" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب نوع مصرف", "Select expense type")</option>
+                    </select>
+                    <span asp-validation-for="ExpenseTypeId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CalculationKind" class="ak-label"></label>
+                    <select asp-for="CalculationKind" asp-items="ViewBag.CalculationKinds" class="ak-input"></select>
+                    <span asp-validation-for="CalculationKind" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Amount" class="ak-label"></label>
+                    <input asp-for="Amount" class="ak-input ak-num" />
+                    <span asp-validation-for="Amount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Currency" class="ak-label"></label>
+                    <select asp-for="Currency" asp-items="currencies" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب ارز", "Select currency")</option>
+                    </select>
+                    <span asp-validation-for="Currency" class="ak-field-error"></span>
+                </div>
+                <div class="ak-toggle-field">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+            <p class="ak-note mt-3">@UiText.T(Context, "Flat مبلغ ثابت، PerMt نرخ هر تن و Percent درصد مبلغ پایه USD است.", "Flat is a fixed amount, PerMt is the rate per ton, and Percent uses the base USD amount.")</p>
+        </section>
+
+        <div class="ak-footer-actions">
+            <button type="submit" class="ak-save">@submitText</button>
+            <a href="@returnUrl" class="ak-cancel">@UiText.T(Context, "انصراف", "Cancel")</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

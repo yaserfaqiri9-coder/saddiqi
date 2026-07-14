@@ -1,0 +1,37 @@
+@model (string AriaLabel, string[] Tabs)
+@{
+    var tabs = Model.Tabs ?? Array.Empty<string>();
+    var tabsPrimary = false;
+    if (ViewData.ContainsKey("TabsPrimary"))
+    {
+        if (ViewData["TabsPrimary"] is bool tp) { tabsPrimary = tp; }
+        else { bool.TryParse(ViewData["TabsPrimary"]?.ToString() ?? "false", out tabsPrimary); }
+    }
+}
+
+@if (tabs.Length > 0)
+{
+    @* Text-only rail, per the canonical tab skin in 16-system-tabs.css.
+       The icon segment of each descriptor is still accepted but not rendered. *@
+    <nav class="ptg-tabs-rail" role="tablist" aria-label="@Model.AriaLabel" data-details-tabs>
+        @foreach (var tab in tabs)
+        {
+            var parts = tab.Split('|', 4);
+            if (parts.Length < 2)
+            {
+                continue;
+            }
+
+            var href = parts[0];
+            var label = parts[1];
+            var active = parts.Length > 3 && string.Equals(parts[3], "active", StringComparison.OrdinalIgnoreCase);
+
+            var classes = "ptg-tab-item" + (active ? " is-active" : "");
+            var controlId = href?.StartsWith("#") == true ? href.Substring(1) : null;
+
+            <a class="@classes" href="@href" role="tab" aria-controls="@controlId" aria-selected="@(active ? "true" : "false")">
+                <span data-tab-label="@label">@label</span>
+            </a>
+        }
+    </nav>
+}

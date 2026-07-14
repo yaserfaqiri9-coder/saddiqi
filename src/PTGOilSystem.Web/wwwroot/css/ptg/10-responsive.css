@@ -1,0 +1,83 @@
+/*
+ * PTG responsive rules.
+ */
+
+@media (max-width: 1199.98px) {
+    body.boltz-shell.app-shell-authenticated .boltz-content {
+        padding-inline: 0;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content :where(.ptg-split-layout, .split-layout, .loading-reference-layout, .operations-split-layout) {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 991.98px) {
+    body.boltz-shell.app-shell-authenticated .ptg-app {
+        overflow-x: clip;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-sidebar {
+        bottom: 0 !important;
+    }
+
+    /*
+     * The legacy drawer uses a physical translate direction. Logical inset
+     * properties put the RTL drawer on the left and leave part of it visible.
+     */
+    body.boltz-shell.app-shell-authenticated.boltz-rtl .ptg-sidebar {
+        right: 0 !important;
+        left: auto !important;
+        transform: translateX(100%) !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated.boltz-ltr .ptg-sidebar {
+        right: auto !important;
+        left: 0 !important;
+        transform: translateX(-100%) !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-shell-nav-open .ptg-sidebar {
+        transform: translateX(0) !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-sidebar .boltz-sidebar-scroll {
+        height: 100% !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content :where(.summary-strip, .ptg-summary-strip, .ds-detail-facts) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated,
+    body.ptg-modal-document {
+        --ptg-radius-card: 22px;
+        --ptg-radius-input: 20px;
+        --ptg-radius-button: 13px;
+        --ptg-radius-lg: 22px;
+        --ptg-radius-xl: 24px;
+        --ptg-field-height: 3rem;
+        --ptg-space-gap: 1rem;
+        --ptg-space-card: 1rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-page-body {
+        gap: 1rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated :where(.row.g-3, .row.g-4),
+    body.ptg-modal-document :where(.row.g-3, .row.g-4) {
+        --bs-gutter-x: .75rem;
+        --bs-gutter-y: .85rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content :where(.summary-strip, .ptg-summary-strip, .ds-detail-facts) {
+        grid-template-columns: 1fr;
+    }
+
+    body.boltz-shell.app-shell-authenticated :where(.card-footer, .form-actions, .ptg-action-bar, .modal-footer) {
+        flex-wrap: wrap;
+    }
+}

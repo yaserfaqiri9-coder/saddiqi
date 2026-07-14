@@ -1,0 +1,55 @@
+@model PTGOilSystem.Web.Models.ServiceProviders.ServiceProviderCreateViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش شرکت خدماتی", "Edit Service Provider");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ویرایش شرکت خدماتی", "Edit Service Provider"), true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Details", new { id = Model.Id })))" />
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "مشخصات ارائه‌دهنده", "Provider Details"), (string?)UiText.T(Context, "کد، نام، نوع خدمت و وضعیت را ثبت کنید.", "Enter code, name, service type and status.")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Code" class="ak-label">@UiText.T(Context, "کد", "Code")</label>
+                    <input asp-for="Code" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Code" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Name" class="ak-label">@UiText.T(Context, "نام شرکت", "Company Name") <span class="ak-req">*</span></label>
+                    <input asp-for="Name" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Name" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ProviderType" class="ak-label">@UiText.T(Context, "نوع خدمت", "Service Type")</label>
+                    <select asp-for="ProviderType" asp-items="ViewBag.ProviderTypes" class="ak-input"></select>
+                    <span asp-validation-for="ProviderType" class="ak-field-error"></span>
+                </div>
+                <div class="ak-toggle-field">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">@UiText.T(Context, "فعال", "Active")</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره تغییرات", "Save Changes"), Url.Action("Details", new { id = Model.Id }) ?? "#", UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

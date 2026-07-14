@@ -1,0 +1,162 @@
+@model PTGOilSystem.Web.Models.Ledger.LedgerIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"دفتر کل","General Ledger");
+    var query = Context.Request.Query;
+    bool HasQ(string key) => !string.IsNullOrWhiteSpace(query[key]);
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || HasQ("Filter.SourceType") || HasQ("Filter.Side") || HasQ("Filter.ContractId")
+        || HasQ("Filter.CustomerId") || HasQ("Filter.SupplierId");
+    var fm = Model.FinanceMetrics;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "دفتر کل", "General Ledger"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @* ===== خلاصهٔ مالی تخت (بدون کارت رنگی / نمودار تزئینی) ===== *@
+    <section class="ak-form-section ak-summary" aria-label="@fm.AriaLabel">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context,"جمع دریافتی","Total receipts")</dt><dd class="ak-num">@fm.TodayReceiptUsd.ToString("N2") USD</dd></div>
+            <div><dt>@UiText.T(Context,"جمع پرداختی","Total payments")</dt><dd class="ak-num">@fm.TodayPaymentUsd.ToString("N2") USD</dd></div>
+            <div><dt>@UiText.T(Context,"مانده نقدی","Cash balance")</dt><dd class="ak-num">@fm.CashAccountsBalanceUsd.ToString("N2") USD</dd></div>
+            <div><dt>@UiText.T(Context,"تعداد تراکنش‌ها","Transactions")</dt><dd class="ak-num">@fm.TransactionCount.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> LedgerOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Where(i => !string.IsNullOrEmpty(i.Value)).Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? LedgerQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var ledgerFilter = new AkSearchFilterModel("Filter.Reference", Model.Filter.Reference,
+                UiText.T(Context, "مرجع", "Reference"),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.SourceType", UiText.T(Context, "نوع منبع", "Source type"), "select", LedgerOpts(ViewBag.SourceTypes), LedgerQ("Filter.SourceType")),
+                    new("Filter.Side", UiText.T(Context, "سمت", "Side"), "select", LedgerOpts(ViewBag.Sides), LedgerQ("Filter.Side")),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد", "Contract"), "select", LedgerOpts(ViewBag.Contracts), LedgerQ("Filter.ContractId")),
+                    new("Filter.CustomerId", UiText.T(Context, "مشتری", "Customer"), "select", LedgerOpts(ViewBag.Customers), LedgerQ("Filter.CustomerId")),
+                    new("Filter.SupplierId", UiText.T(Context, "تأمین‌کننده", "Supplier"), "select", LedgerOpts(ViewBag.Suppliers), LedgerQ("Filter.SupplierId"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="ledgerFilter" />
+            <div class="ak-list-toolbar-actions">
+                <a class="btn btn-light ak-secondary-action" href="@(Url.Action("Csv"))@(Context.Request.QueryString)">
+                    <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>CSV</span>
+                </a>
+                <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">
+                    <i class="bi bi-printer" aria-hidden="true"></i><span>چاپ</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context,"تاریخ","Date")</th>
+                        <th>سمت</th>
+                        <th class="ak-col-num">مبلغ (USD)</th>
+                        <th>منبع ثبت</th>
+                        <th class="ak-col-grow">@UiText.T(Context,"مرجع","Reference")</th>
+                        <th>مربوط به</th>
+                        <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        var relatedTo = item.ContractNumber is not null
+                            ? $"قرارداد {item.ContractNumber}"
+                            : item.CustomerName is not null
+                                ? $"مشتری: {item.CustomerName}"
+                                : item.SupplierName is not null
+                                    ? $"تأمین‌کننده: {item.SupplierName}"
+                                    : item.EmployeeName is not null
+                                        ? $"کارمند: {item.EmployeeName}"
+                                        : item.ShipmentCode is not null
+                                            ? $"محموله {item.ShipmentCode}"
+                                            : "-";
+                        var referenceText = string.IsNullOrWhiteSpace(item.Reference)
+                            ? "-"
+                            : item.Reference.Length > 32
+                                ? $"{item.Reference[..32]}…"
+                                : item.Reference;
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td>@item.EntryDate.ToDisplayDate()</td>
+                            <td><span class="ak-status @(item.Side == PTGOilSystem.Web.Models.Entities.LedgerSide.Debit ?"is-inactive" : "is-active")">@item.SideName</span></td>
+                            <td class="ak-col-num ak-num">@item.AmountUsd.ToString("N2")</td>
+                            <td>
+                                <div>@item.SourceTypeLabel</div>
+                                @if (!string.IsNullOrWhiteSpace(item.SourceDetailsController) && !string.IsNullOrWhiteSpace(item.SourceDetailsAction) && item.SourceDetailsRouteId.HasValue)
+                                {
+                                    <a asp-controller="@item.SourceDetailsController" asp-action="@item.SourceDetailsAction" asp-route-id="@item.SourceDetailsRouteId.Value">@("#" + item.SourceId)</a>
+                                }
+                                else
+                                {
+                                    <span>@("#" + item.SourceId)</span>
+                                }
+                            </td>
+                            <td class="ak-col-grow" title="@item.Reference">@referenceText</td>
+                            <td>@relatedTo</td>
+                            <td class="ak-col-actions">
+                                <a asp-action="Details" asp-route-id="@item.Id" title="مشاهده" aria-label="مشاهده"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-journal-richtext"></i>
+                                    هیچ ثبت مالی برای فیلتر انتخابی یافت نشد
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('ledgerFilterToggle');
+            var pop = document.getElementById('ledgerFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

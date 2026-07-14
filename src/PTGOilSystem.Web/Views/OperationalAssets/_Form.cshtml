@@ -1,0 +1,64 @@
+@model PTGOilSystem.Web.Models.OperationalAssets.OperationalAssetFormViewModel
+@{
+    var isEdit = Model.Id > 0;
+    var actionName = isEdit ? "Edit" : "Create";
+}
+
+<form asp-action="@actionName" asp-route-id="@(isEdit ? Model.Id : null)" method="post" class="ak-form"
+      data-operational-asset-form="true"
+      data-asset-transport-types="@((int)OperationalAssetType.Truck) @((int)OperationalAssetType.Trailer) @((int)OperationalAssetType.TankerTruck) @((int)OperationalAssetType.Wagon)"
+      data-asset-storage-types="@((int)OperationalAssetType.StorageTank) @((int)OperationalAssetType.Warehouse) @((int)OperationalAssetType.Terminal)">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                 model="@((UiText.T(Context, "اطلاعات دارایی", "Asset Information"), (string?)UiText.T(Context, "کد، نام و نوع دارایی را ثبت کنید.", "Record the asset code, name and type.")))" />
+        <div class="ak-form-grid">
+            <div class="ak-field">
+                <label asp-for="AssetCode" class="ak-label">@UiText.T(Context, "کد دارایی", "Asset Code")</label>
+                <input asp-for="AssetCode" class="ak-input" />
+                <span asp-validation-for="AssetCode" class="ak-field-error"></span>
+            </div>
+            <div class="ak-field">
+                <label asp-for="Name" class="ak-label">@UiText.T(Context, "نام", "Name") <span class="ak-req">*</span></label>
+                <input asp-for="Name" class="ak-input" />
+                <span asp-validation-for="Name" class="ak-field-error"></span>
+            </div>
+            <div class="ak-field">
+                <label asp-for="AssetType" class="ak-label">@UiText.T(Context, "نوع دارایی", "Asset Type") <span class="ak-req">*</span></label>
+                <select asp-for="AssetType" asp-items="ViewBag.AssetTypes" class="ak-input"></select>
+                <span asp-validation-for="AssetType" class="ak-field-error"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                 model="@((UiText.T(Context, "مالکیت و وضعیت", "Ownership and Status"), (string?)UiText.T(Context, "سهم‌های مالکیت بعد از ذخیره از پروفایل دارایی مدیریت می‌شود.", "Ownership shares are managed from the asset profile after saving.")))" />
+        <div class="ak-form-grid">
+            <div class="ak-field">
+                <label asp-for="OwnershipMode" class="ak-label">@UiText.T(Context, "نوع مالکیت", "Ownership Mode")</label>
+                <select asp-for="OwnershipMode" asp-items="ViewBag.OwnershipModes" class="ak-input"></select>
+                <span asp-validation-for="OwnershipMode" class="ak-field-error"></span>
+            </div>
+            <div class="ak-field ak-col-full">
+                <label asp-for="Notes" class="ak-label">@UiText.T(Context, "یادداشت", "Notes")</label>
+                <textarea asp-for="Notes" class="ak-input"></textarea>
+                <span asp-validation-for="Notes" class="ak-field-error"></span>
+            </div>
+            <div class="ak-toggle-field">
+                <div class="form-check form-switch">
+                    <input asp-for="IsActive" class="form-check-input" role="switch" />
+                    <label asp-for="IsActive" class="form-check-label">@UiText.T(Context, "فعال", "Active")</label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="ak-footer-actions">
+        <button type="submit" class="ak-save">@UiText.T(Context, "ذخیره", "Save")</button>
+        <a asp-action="@(isEdit ? "Details" : "Index")" asp-route-id="@(isEdit ? Model.Id : null)" class="ak-cancel">@UiText.T(Context, "انصراف", "Cancel")</a>
+    </div>
+</form>

@@ -1,0 +1,132 @@
+@model PTGOilSystem.Web.Models.Employees.EmployeeSalaryTransactionCreateViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "تراکنش معاش";
+    var salaryPaymentValue = (int)EmployeeSalaryTransactionType.SalaryPayment;
+    var salaryAdvanceValue = (int)EmployeeSalaryTransactionType.SalaryAdvance;
+    var salaryAccrualValue = (int)EmployeeSalaryTransactionType.SalaryAccrual;
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("ثبت تراکنش معاش", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)Url.Action("Details", new { id = Model.EmployeeId })))" />
+
+    <form asp-action="CreateSalaryTransaction" asp-route-id="@Model.EmployeeId" method="post" class="ak-form">
+        <div>
+            @Html.AntiForgeryToken()
+            <input asp-for="EmployeeId" type="hidden" />
+            <input asp-for="EmployeeCode" type="hidden" />
+            <input asp-for="EmployeeName" type="hidden" />
+            <input asp-for="ReturnUrl" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0"></div>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">نوع و دوره</h2>
+                <p class="ak-note">برای معاش دوره، سال و ماه لازم است. برای پرداخت و برداشت، حساب نقد / بانک لازم است.</p>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="TransactionDate" class="ak-label"></label>
+                        <input asp-for="TransactionDate" class="ak-input" />
+                        <span asp-validation-for="TransactionDate" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="TransactionType" class="ak-label"></label>
+                        <select asp-for="TransactionType" asp-items="ViewBag.TransactionTypes" id="employeeTransactionType" class="ak-input"></select>
+                        <span asp-validation-for="TransactionType" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field" data-employee-period-field>
+                        <label asp-for="SalaryPeriodYear" class="ak-label"></label>
+                        <input asp-for="SalaryPeriodYear" class="ak-input" />
+                        <span asp-validation-for="SalaryPeriodYear" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field" data-employee-period-field>
+                        <label asp-for="SalaryPeriodMonth" class="ak-label"></label>
+                        <input asp-for="SalaryPeriodMonth" class="ak-input" />
+                        <span asp-validation-for="SalaryPeriodMonth" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">مبلغ و حساب</h2>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="Amount" class="ak-label"></label>
+                        <input asp-for="Amount" class="ak-input" />
+                        <span class="ak-note">برای اصلاحیه می‌تواند مثبت یا منفی باشد.</span>
+                        <span asp-validation-for="Amount" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="Currency" class="ak-label"></label>
+                        <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input"><option value="">انتخاب ارز</option></select>
+                        <span asp-validation-for="Currency" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <div data-fx-rate-group data-fx-currency-source="#Currency">
+                            <div data-fx-rate-field>
+                                <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                                <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input
+                                       id="salaryFxDisplay" placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                                <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                                <span class="ak-note">۱ دالر = چند واحد ارز سند؟</span>
+                                <span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span>
+                            </div>
+                            <div data-fx-usd-note class="d-none">
+                                <span class="ak-note"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ak-field" data-employee-cash-field>
+                        <label asp-for="CashAccountId" class="ak-label"></label>
+                        <select asp-for="CashAccountId" asp-items="ViewBag.CashAccounts" class="ak-input"><option value="">انتخاب حساب</option></select>
+                        <span asp-validation-for="CashAccountId" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">مرجع و توضیحات</h2>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="Reference" class="ak-label"></label>
+                        <input asp-for="Reference" class="ak-input" />
+                        <span asp-validation-for="Reference" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="Description" class="ak-label"></label>
+                        <input asp-for="Description" class="ak-input" />
+                        <span asp-validation-for="Description" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="ak-footer-actions">
+                <button type="submit" class="ak-save">ثبت تراکنش</button>
+                <a asp-action="Details" asp-route-id="@Model.EmployeeId" class="ak-cancel">انصراف</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+        (() => {
+            const typeSelect = document.getElementById('employeeTransactionType');
+            const cashFields = document.querySelectorAll('[data-employee-cash-field]');
+            const periodFields = document.querySelectorAll('[data-employee-period-field]');
+            const cashTypes = new Set(['@salaryPaymentValue', '@salaryAdvanceValue']);
+            const accrualType = '@salaryAccrualValue';
+            const sync = () => {
+                const selected = typeSelect?.value || '';
+                cashFields.forEach(el => el.classList.toggle('d-none', !cashTypes.has(selected)));
+                periodFields.forEach(el => el.classList.toggle('d-none', selected !== accrualType));
+            };
+            typeSelect?.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+}

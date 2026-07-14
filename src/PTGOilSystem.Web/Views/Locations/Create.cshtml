@@ -1,0 +1,10 @@
+@model Location
+@{
+    ViewData["Title"] = UiText.T(Context,"مکان جدید","New Location");
+    ViewData["CreatePageIndexLabel"] = "مکان‌ها";
+    ViewData["CreatePageSubtitle"] = "اطلاعات پایه مکان و نوع استفاده آن را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/Locations/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,73 @@
+@model PTGOilSystem.Web.Models.Entities.CashAccount
+@{
+    var currencies = ViewBag.Currencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+}
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("مشخصات حساب", (string?)"کد، نام، نوع و ارز حساب را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد حساب <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام حساب <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" autocomplete="off" data-modal-preview-source />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="AccountType" class="ak-label">نوع حساب</label>
+            <select asp-for="AccountType" class="ak-input">
+                <option value="1">نقد</option>
+                <option value="2">بانک</option>
+                <option value="3">مختلط (همه ارزها)</option>
+            </select>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Currency" class="ak-label">ارز حساب</label>
+            <select asp-for="Currency" asp-items="currencies" class="ak-input">
+                <option value="">انتخاب کنید</option>
+            </select>
+            <span asp-validation-for="Currency" class="ak-field-error"></span>
+            <p class="ak-note">برای حساب «مختلط» این ارز فقط ارز پیش‌فرض است؛ دریافت و پرداخت به همهٔ ارزها مجاز خواهد بود.</p>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات بانک", (string?)"در صورت حساب بانکی، شماره حساب و مشخصات بانک را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="AccountNumber" class="ak-label">شماره حساب</label>
+            <input asp-for="AccountNumber" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="AccountNumber" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="BankName" class="ak-label">نام بانک</label>
+            <input asp-for="BankName" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="BankName" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Branch" class="ak-label">شعبه</label>
+            <input asp-for="Branch" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="Branch" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

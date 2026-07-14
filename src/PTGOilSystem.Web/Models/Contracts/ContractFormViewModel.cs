@@ -1,0 +1,168 @@
+using System.ComponentModel.DataAnnotations;
+using PTGOilSystem.Web.Models.Entities;
+
+namespace PTGOilSystem.Web.Models.Contracts;
+
+public sealed class ContractPartnerShareInput
+{
+    [Display(Name = "شریک")]
+    public int? PartnerId { get; set; }
+
+    [Display(Name = "درصد سهم")]
+    [Range(typeof(decimal), "0.0001", "100", ErrorMessage = "درصد سهم باید بین 0 و 100 باشد.")]
+    public decimal? SharePercent { get; set; }
+}
+
+public sealed class ContractFormViewModel
+{
+    public int Id { get; set; }
+
+    [Display(Name = "شماره قرارداد")]
+    [Required(ErrorMessage = "شماره قرارداد الزامی است.")]
+    [StringLength(50)]
+    public string ContractNumber { get; set; } = string.Empty;
+
+    [Display(Name = "نوع قرارداد")]
+    public ContractType ContractType { get; set; } = ContractType.Purchase;
+
+    [Display(Name = "وضعیت")]
+    public ContractStatus Status { get; set; } = ContractStatus.Draft;
+
+    [Display(Name = "شرکت")]
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب شرکت الزامی است.")]
+    public int CompanyId { get; set; }
+
+    [Display(Name = "کالا")]
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب کالا الزامی است.")]
+    public int ProductId { get; set; }
+
+    [Display(Name = "واحد قرارداد")]
+    [Required(ErrorMessage = "انتخاب واحد الزامی است.")]
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب واحد الزامی است.")]
+    public int? UnitId { get; set; }
+
+    [Display(Name = "تأمین‌کننده")]
+    public int? SupplierId { get; set; }
+
+    [Display(Name = "مشتری")]
+    public int? CustomerId { get; set; }
+
+    [Display(Name = "مقصد")]
+    public int? DestinationLocationId { get; set; }
+
+    [Display(Name = "مالکیت")]
+    public ContractOwnershipType OwnershipType { get; set; } = ContractOwnershipType.Personal;
+
+    [Display(Name = "تاریخ قرارداد")]
+    [DataType(DataType.Date)]
+    public DateTime ContractDate { get; set; } = DateTime.UtcNow.Date;
+
+    [Display(Name = "شروع")]
+    [DataType(DataType.Date)]
+    public DateTime? StartDate { get; set; }
+
+    [Display(Name = "پایان")]
+    [DataType(DataType.Date)]
+    public DateTime? EndDate { get; set; }
+
+    [Display(Name = "روش قیمت‌گذاری")]
+    public PricingMethod PricingMethod { get; set; } = PricingMethod.Fixed;
+
+    [Display(Name = "نوع نرخ")]
+    public UiPricingType UiPricingType { get; set; } = UiPricingType.Agreed;
+
+    [Display(Name = "نوع Platt's")]
+    public PlattsUiMode PlattsUiMode { get; set; } = PlattsUiMode.ManualDescriptive;
+
+    [Display(Name = "قیمت نهایی USD/MT")]
+    [Range(typeof(decimal), "0.0001", "79228162514264337593543950335", ErrorMessage = "قیمت نهایی باید بزرگ‌تر از صفر باشد.")]
+    public decimal? FinalPriceUsdPerMt { get; set; }
+
+    [Display(Name = "یادداشت نرخ")]
+    [StringLength(500)]
+    public string? PricingNote { get; set; }
+
+    public bool IsPricingCompleted { get; set; }
+
+    [Display(Name = "مقدار (MT)")]
+    [Range(typeof(decimal), "0.0001", "79228162514264337593543950335", ErrorMessage = "مقدار باید بزرگ‌تر از صفر باشد.")]
+    public decimal QuantityMt { get; set; }
+
+    [Display(Name = "ارز")]
+    [Required(ErrorMessage = "ارز الزامی است.")]
+    [StringLength(50)]
+    public string Currency { get; set; } = "USD";
+
+    [Display(Name = "Settlement currency")]
+    [StringLength(10)]
+    public string SettlementCurrencyCode { get; set; } = "USD";
+
+    [Display(Name = "RUB rate method")]
+    public RubSettlementRatePolicy RubRatePolicy { get; set; } = RubSettlementRatePolicy.NotApplicable;
+
+    [Display(Name = "RUB per 1 USD")]
+    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335", ErrorMessage = "RUB/USD rate must be greater than zero.")]
+    public decimal? ContractRubPerUsdRate { get; set; }
+
+    [Display(Name = "RUB rate date")]
+    [DataType(DataType.Date)]
+    public DateTime? ContractRubRateDate { get; set; }
+
+    [Display(Name = "RUB rate source")]
+    [StringLength(200)]
+    public string? ContractRubRateSource { get; set; }
+
+    [Display(Name = "قیمت واحد")]
+    [Range(typeof(decimal), "0.0001", "79228162514264337593543950335", ErrorMessage = "قیمت واحد باید بزرگ‌تر از صفر باشد.")]
+    public decimal? UnitPriceInCurrency { get; set; }
+
+    [Display(Name = "نرخ تبدیل به USD")]
+    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335", ErrorMessage = "نرخ تبدیل باید بزرگ‌تر از صفر باشد.")]
+    public decimal? AppliedFxRateToUsd { get; set; }
+
+    public decimal? UnitPriceUsd { get; set; }
+
+    [Display(Name = "Benchmark")]
+    [StringLength(100)]
+    public string? BenchmarkCode { get; set; }
+
+    [Display(Name = "نوع دوره پلتس")]
+    public PlattsPeriodType? PlattsPeriodType { get; set; }
+
+    [Display(Name = "Premium / Discount USD/MT")]
+    public decimal? PremiumDiscountUsd { get; set; }
+
+    [Display(Name = "قیمت پایه Platt's")]
+    public decimal? PlattsManualPriceUsd { get; set; }
+
+    [Display(Name = "حداقل قیمت USD/MT")]
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "حداقل قیمت نمی‌تواند منفی باشد.")]
+    public decimal? MinimumPriceUsd { get; set; }
+
+    [Display(Name = "تاریخ مرجع")]
+    [DataType(DataType.Date)]
+    public DateTime? PlattsBasisDate { get; set; }
+
+    [Display(Name = "ماه مرجع")]
+    [DataType(DataType.Date)]
+    public DateTime? PlattsBasisMonth { get; set; }
+
+    [Display(Name = "قیمت نهایی توافقی USD/MT")]
+    [Range(typeof(decimal), "0.0001", "79228162514264337593543950335", ErrorMessage = "قیمت نهایی باید بزرگ‌تر از صفر باشد.")]
+    public decimal? ManualFinalPriceUsd { get; set; }
+
+    [Display(Name = "توضیح فرمول قیمت")]
+    [StringLength(500)]
+    public string? PricingFormulaNote { get; set; }
+
+    [Display(Name = "یادداشت")]
+    [StringLength(1000)]
+    public string? Notes { get; set; }
+
+    public List<ContractPartnerShareInput> PartnerShares { get; set; } = [];
+
+    public string? CompanyName { get; set; }
+    public string? ProductName { get; set; }
+    public string? UnitName { get; set; }
+    public string? CounterpartyName { get; set; }
+}

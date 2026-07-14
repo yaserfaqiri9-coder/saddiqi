@@ -1,0 +1,37 @@
+@model Terminal
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات ترمینال", (string?)"کد، نام و موقعیت ترمینال را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Location" class="ak-label">موقعیت</label>
+            <input asp-for="Location" class="ak-input" />
+            <span asp-validation-for="Location" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

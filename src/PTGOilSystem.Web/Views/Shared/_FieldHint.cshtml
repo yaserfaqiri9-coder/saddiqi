@@ -1,0 +1,6 @@
+@model string
+
+@if (!string.IsNullOrWhiteSpace(Model))
+{
+    <span class="ak-note ptg-field-hint">@Model</span>
+}

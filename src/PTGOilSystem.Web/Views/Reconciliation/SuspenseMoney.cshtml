@@ -1,0 +1,100 @@
+@model PTGOilSystem.Web.Models.Reconciliation.SuspenseMoneyViewModel
+@{
+    ViewData["Title"] = "پول‌های معلق";
+}
+
+<div class="ak-list-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("پول‌های معلق", false,
+                       "تسویه سه‌طرفه (پیش‌نمایش)", "bi-arrow-left-right", Url.Action("Index", "ThreeWaySettlement"), (string?)null,
+                       "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+    </div>
+
+    <p class="ak-note">این صفحه فقط خواندنی است و هیچ پول، Ledger یا پرداختی را اصلاح نمی‌کند. برای رفع هر مورد، از دکمهٔ «وصل کن» به فرم اصلی سند بروید و آن را دستی تکمیل کنید.</p>
+
+    <form asp-action="SuspenseMoney" method="get" class="ak-detail-toolbar no-print">
+        <div class="ak-field">
+            <label class="ak-label">شدت</label>
+            <select name="severity" class="ak-input">
+                <option value="" selected="@(string.IsNullOrEmpty(Model.SelectedSeverity))">همه</option>
+                <option value="critical" selected="@(Model.SelectedSeverity == "critical")">بررسی فوری</option>
+                <option value="warning" selected="@(Model.SelectedSeverity == "warning")">بررسی</option>
+            </select>
+        </div>
+        <div class="ak-field">
+            <label class="ak-label">از تاریخ</label>
+            <input type="date" name="fromDate" class="ak-input" value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="ak-field">
+            <label class="ak-label">تا تاریخ</label>
+            <input type="date" name="toDate" class="ak-input" value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <button type="submit" class="btn btn-primary">نمایش</button>
+        <a asp-action="SuspenseMoney" class="btn btn-light">پاک‌سازی</a>
+    </form>
+
+    <section class="ak-form-section ak-summary">
+        <dl class="ak-summary-list">
+            <div><dt>نیاز به بررسی فوری</dt><dd class="ak-num">@Model.CriticalCount.ToString("N0")</dd></div>
+            <div><dt>نیاز به بررسی</dt><dd class="ak-num">@Model.WarningCount.ToString("N0")</dd></div>
+            <div><dt>جمع مبلغ معلق USD</dt><dd class="ak-num">@Model.TotalAmountUsd.ToString("N2")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th>نوع سند</th>
+                        <th class="ak-col-num">مبلغ سند</th>
+                        <th class="ak-col-num">معادل USD</th>
+                        <th>طرف حساب</th>
+                        <th>قرارداد</th>
+                        <th class="ak-col-grow">منبع مشکل</th>
+                        <th>شدت</th>
+                        <th class="ak-col-actions no-print">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    var isCritical = item.Severity == PTGOilSystem.Web.Models.Reconciliation.SuspenseSeverity.Critical;
+                    var severityText = isCritical ? "بررسی فوری" : "بررسی";
+                    <tr>
+                        <td>@item.Date.ToDisplayDate()</td>
+                        <td>@item.DocumentType</td>
+                        <td class="ak-col-num ak-num">@item.Amount.ToString("N2") @item.Currency</td>
+                        <td class="ak-col-num ak-num">@item.AmountUsd.ToString("N2")</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.CounterpartyName) ? "نامشخص" : item.CounterpartyName)</td>
+                        <td>@(item.ContractNumber ?? "—")</td>
+                        <td class="ak-col-grow">
+                            <span class="ak-status @(isCritical ?"is-inactive" : "")">@item.IssueSource</span>
+                            <div class="ak-note">@item.PlainExplanation</div>
+                        </td>
+                        <td><span class="ak-status @(isCritical ?"is-inactive" : "")">@severityText</span></td>
+                        <td class="ak-col-actions no-print">
+                            @if (!string.IsNullOrEmpty(item.DetailsController) && item.DetailsRouteId.HasValue)
+                            {
+                                <a asp-controller="@item.DetailsController" asp-action="@item.DetailsAction" asp-route-id="@item.DetailsRouteId">جزئیات</a>
+                            }
+                            @if (item.HasConnectPath && item.ConnectRouteId.HasValue)
+                            {
+                                <a asp-controller="@item.ConnectController" asp-action="@item.ConnectAction" asp-route-id="@item.ConnectRouteId">وصل کن</a>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-check2-circle"></i> همهٔ پول‌ها به طرف حساب و سند مرتبط وصل هستند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

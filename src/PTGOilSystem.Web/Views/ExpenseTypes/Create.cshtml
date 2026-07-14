@@ -1,0 +1,10 @@
+@model ExpenseType
+@{
+    ViewData["Title"] = "نوع مصرف جدید";
+    ViewData["CreatePageIndexLabel"] = "انواع مصارف";
+    ViewData["CreatePageSubtitle"] = "کد، نام و دسته‌بندی نوع مصرف را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/ExpenseTypes/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,195 @@
+@model PTGOilSystem.Web.Models.Customs.CustomsPermitTurnoverViewModel
+@{
+    ViewData["Title"] = "گزارش جوازهای گمرکی";
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var selUsd = string.Equals(Model.SelectedCurrency, "USD", StringComparison.OrdinalIgnoreCase);
+    var hasFilter = Model.FromDate.HasValue || Model.ToDate.HasValue
+        || !string.IsNullOrWhiteSpace(Model.PermitHolderName)
+        || !string.IsNullOrWhiteSpace(Model.PermitNumber)
+        || !string.IsNullOrWhiteSpace(Model.AccdNumber)
+        || !string.IsNullOrWhiteSpace(Model.VehicleNumber)
+        || !string.IsNullOrWhiteSpace(Model.CustomsType)
+        || !string.IsNullOrWhiteSpace(Model.GoodsName)
+        || !string.IsNullOrWhiteSpace(Model.Route)
+        || Model.TaxPercent > 0m;
+
+    var mahsooliTotalPrimary = selUsd ? Model.TotalMahsooliUsd : Model.TotalMahsooliAfn;
+    var mahsooliTotalEquivalent = selUsd ? Model.TotalMahsooliAfn : Model.TotalMahsooliUsd;
+    var mahsooliCardValue = selUsd
+        ? Model.TotalMahsooliUsd.ToString("N2") + " USD"
+        : Model.TotalMahsooliAfn.ToString("N0") + " AFN";
+}
+
+<div class="ak-list-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("گزارش جوازهای گمرکی", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <p class="ak-note">بازهٔ تاریخ، جواز، موتر و نوع گمرک را برای جست‌وجو انتخاب کنید. کلیک روی هر سلولِ مبلغ، بین ارز اصلی و معادل جابه‌جا می‌شود.</p>
+
+    <div class="ak-list">
+        @{
+            string? PermitQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var permitFilter = new AkSearchFilterModel("", null, "فیلتر گردش جواز...",
+                new List<AkFilterDefinition>
+                {
+                    new("fromDate", "بازه تاریخ", "daterange", null,
+                        Model.FromDate?.ToString("yyyy-MM-dd"), "toDate", Model.ToDate?.ToString("yyyy-MM-dd")),
+                    new("permitHolder", "صاحب جواز", "text", null, Model.PermitHolderName),
+                    new("permitNumber", "نمبر جواز", "text", null, Model.PermitNumber),
+                    new("vehicle", "نمبر موتر", "text", null, Model.VehicleNumber),
+                    new("accd", "نمبر ACCD", "text", null, Model.AccdNumber),
+                    new("type", "نوع", "text", null, Model.CustomsType),
+                    new("goods", "جنس", "text", null, Model.GoodsName),
+                    new("route", "مسیر", "text", null, Model.Route),
+                    new("taxPercent", "فیصدی مالیه (%)", "text", null,
+                        Model.TaxPercent == 0m ? null : Model.TaxPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new("displayCurrency", "نمایش ارز", "select",
+                        new List<AkFilterOption> { new("USD", "USD"), new("AFN", "AFN") }, PermitQ("displayCurrency"))
+                });
+        }
+        <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="permitFilter" />
+
+        <section class="ak-form-section ak-summary" aria-label="آمار جوازهای گمرکی">
+            <dl class="ak-summary-list">
+                <div><dt>تعداد موترها</dt><dd class="ak-num">@Model.VehicleCount.ToString("N0")</dd></div>
+                <div><dt>مجموع مقدار</dt><dd class="ak-num">@Model.TotalQuantityMt.ToString("N3") MT</dd></div>
+                <div><dt>مجموع محصولی (مالیه‌پذیر)</dt><dd class="ak-num">@mahsooliCardValue</dd></div>
+            </dl>
+        </section>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table permit-report-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>تاریخ</th>
+                        <th>نمبر ACCD</th>
+                        <th>نمبر موتر</th>
+                        <th>نمبر جواز</th>
+                        <th class="ak-col-grow">صاحب جواز</th>
+                        <th>نوع</th>
+                        <th>جنس</th>
+                        <th class="ak-col-num">مقدار</th>
+                        <th class="ak-col-num">محصولی (مالیه‌پذیر)</th>
+                        <th class="ak-col-num">کل گمرکی</th>
+                        <th>مسیر</th>
+                        <th>یادداشت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Rows.Count; index++)
+                    {
+                        var row = Model.Rows[index];
+                        var mahUsd = row.MahsooliDisplayCurrency == "USD";
+                        var totUsd = row.TotalCustomsDisplayCurrency == "USD";
+                        <tr>
+                            <td>@((index + 1).ToString("00"))</td>
+                            <td>@row.DeclarationDate.ToDisplayDate()</td>
+                            <td><a asp-controller="CustomsDeclarations" asp-action="Details" asp-route-id="@row.Id" asp-route-returnUrl="@currentUrl">@(row.AccdNumber ?? "—")</a></td>
+                            <td><a asp-controller="CustomsDeclarations" asp-action="Details" asp-route-id="@row.Id" asp-route-returnUrl="@currentUrl">@(row.VehicleNumber ?? "—")</a></td>
+                            <td>@(row.PermitNumber ?? "—")</td>
+                            <td class="ak-col-grow">@(row.PermitHolderName ?? "—")</td>
+                            <td>@(row.CustomsType ?? "—")</td>
+                            <td>@(row.GoodsName ?? "—")</td>
+                            <td class="ak-col-num ak-num"><span class="permit-num permit-num-qty">@(row.QuantityMt?.ToString("N3") ?? "—")</span><small class="permit-unit"> MT</small></td>
+                            <td class="ak-col-num ak-num">
+                                <span class="currency-toggle-cell permit-num permit-num-mahsooli"
+                                      data-primary-amount="@row.MahsooliDisplayAmount"
+                                      data-primary-currency="@row.MahsooliDisplayCurrency"
+                                      data-equivalent-amount="@row.MahsooliEquivalentAmount"
+                                      data-equivalent-currency="@row.MahsooliEquivalentCurrency"
+                                      role="button" tabindex="0">@(mahUsd ? row.MahsooliDisplayAmount.ToString("N2") : row.MahsooliDisplayAmount.ToString("N0"))<small class="permit-unit"> @row.MahsooliDisplayCurrency</small></span>
+                            </td>
+                            <td class="ak-col-num ak-num">
+                                <span class="currency-toggle-cell permit-num permit-num-total"
+                                      data-primary-amount="@row.TotalCustomsDisplayAmount"
+                                      data-primary-currency="@row.TotalCustomsDisplayCurrency"
+                                      data-equivalent-amount="@row.TotalCustomsEquivalentAmount"
+                                      data-equivalent-currency="@row.TotalCustomsEquivalentCurrency"
+                                      role="button" tabindex="0">@(totUsd ? row.TotalCustomsDisplayAmount.ToString("N2") : row.TotalCustomsDisplayAmount.ToString("N0"))<small class="permit-unit"> @row.TotalCustomsDisplayCurrency</small></span>
+                            </td>
+                            <td>@(row.Route ?? "—")</td>
+                            <td>@(row.Notes ?? "—")</td>
+                        </tr>
+                    }
+                    @if (Model.Rows.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="13"><div class="ak-empty"><i class="bi bi-clipboard-data"></i> بازهٔ تاریخ یا فیلترها را تغییر دهید.</div></td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Rows.Count > 0)
+                {
+                    <tfoot>
+                        <tr class="permit-total-row">
+                            <td colspan="8" class="fw-bold">مجموع</td>
+                            <td class="ak-col-num ak-num"><span class="permit-num permit-num-qty">@Model.TotalQuantityMt.ToString("N3")</span><small class="permit-unit"> MT</small></td>
+                            <td class="ak-col-num ak-num">
+                                <span class="currency-toggle-cell permit-num permit-num-mahsooli"
+                                      data-primary-amount="@mahsooliTotalPrimary"
+                                      data-primary-currency="@Model.SelectedCurrency"
+                                      data-equivalent-amount="@mahsooliTotalEquivalent"
+                                      data-equivalent-currency="@(selUsd ? "AFN" : "USD")"
+                                      role="button" tabindex="0">@(selUsd ? mahsooliTotalPrimary.ToString("N2") : mahsooliTotalPrimary.ToString("N0"))<small class="permit-unit"> @Model.SelectedCurrency</small></span>
+                            </td>
+                            <td class="ak-col-num ak-num">
+                                <span class="currency-toggle-cell permit-num permit-num-total"
+                                      data-primary-amount="@Model.TotalCustomsDisplayAmount"
+                                      data-primary-currency="@Model.TotalCustomsDisplayCurrency"
+                                      data-equivalent-amount="@Model.TotalCustomsEquivalentAmount"
+                                      data-equivalent-currency="@Model.TotalCustomsEquivalentCurrency"
+                                      role="button" tabindex="0">@(selUsd ? Model.TotalCustomsDisplayAmount.ToString("N2") : Model.TotalCustomsDisplayAmount.ToString("N0"))<small class="permit-unit"> @Model.TotalCustomsDisplayCurrency</small></span>
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('permitFilterToggle');
+            var pop = document.getElementById('permitFilterPop');
+            if (toggle && pop) {
+                var close = function () { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); };
+                toggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var open = pop.hidden;
+                    pop.hidden = !open;
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                });
+                document.addEventListener('click', function (e) { if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close(); });
+                document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+            }
+        })();
+        // کلیک روی هر سلولِ مبلغ، بین ارز اصلی و معادل جابه‌جا می‌شود (نمایش تک‌ارزی، معادل با کلیک).
+        (function () {
+            function fmt(amount, currency) {
+                var n = Number(amount);
+                var num = currency === 'USD'
+                    ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                return num + '<small class="permit-unit"> ' + currency + '</small>';
+            }
+            document.addEventListener('click', function (e) {
+                var el = e.target.closest('.currency-toggle-cell');
+                if (!el) return;
+                var showingPrimary = el.getAttribute('data-showing') !== 'eq';
+                if (showingPrimary) {
+                    el.innerHTML = fmt(el.getAttribute('data-equivalent-amount'), el.getAttribute('data-equivalent-currency'));
+                    el.setAttribute('data-showing', 'eq');
+                } else {
+                    el.innerHTML = fmt(el.getAttribute('data-primary-amount'), el.getAttribute('data-primary-currency'));
+                    el.setAttribute('data-showing', 'primary');
+                }
+            });
+        })();
+    </script>
+}

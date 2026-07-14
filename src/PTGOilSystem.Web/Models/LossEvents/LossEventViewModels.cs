@@ -1,0 +1,177 @@
+using System.ComponentModel.DataAnnotations;
+using PTGOilSystem.Web.Models.Entities;
+
+namespace PTGOilSystem.Web.Models.LossEvents;
+
+public static class LossEventStageLabels
+{
+    public static string ToPersian(LossEventStage stage) => stage switch
+    {
+        LossEventStage.LoadingDifference => "اختلاف بارگیری",
+        LossEventStage.TransitLoss => "ضایعات در مسیر",
+        LossEventStage.ReceiptShortage => "کمبود هنگام رسید",
+        LossEventStage.TankNaturalLoss => "کاهش طبیعی مخزن",
+        LossEventStage.DispatchShortage => "کمبود دیسپچ",
+        LossEventStage.CustomsLoss => "ضایعات گمرکی",
+        LossEventStage.SalesDifference => "اختلاف فروش",
+        LossEventStage.ManualAdjustment => "اصلاح دستی",
+        LossEventStage.TankFinalSettlement => "تسویه نهایی مخزن",
+        _ => stage.ToString()
+    };
+}
+
+public sealed class LossEventCreateViewModel
+{
+    [Display(Name = "مرحله ضایعات / کمبود")]
+    public LossEventStage Stage { get; set; } = LossEventStage.ReceiptShortage;
+
+    [Display(Name = "جنس")]
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب جنس الزامی است.")]
+    public int ProductId { get; set; }
+
+    [Display(Name = "قرارداد")]
+    public int? ContractId { get; set; }
+
+    [Display(Name = "پرونده کشتی / محموله")]
+    public int? ShipmentId { get; set; }
+
+    [Display(Name = "بارگیری")]
+    public int? LoadingRegisterId { get; set; }
+
+    [Display(Name = "رسید بارگیری")]
+    public int? LoadingReceiptId { get; set; }
+
+    [Display(Name = "دیسپچ")]
+    public int? TruckDispatchId { get; set; }
+
+    [Display(Name = "فروش")]
+    public int? SalesTransactionId { get; set; }
+
+    [Display(Name = "ترمینال")]
+    public int? TerminalId { get; set; }
+
+    [Display(Name = "مخزن")]
+    public int? StorageTankId { get; set; }
+
+    [Display(Name = "تاریخ رویداد")]
+    [DataType(DataType.Date)]
+    public DateTime EventDate { get; set; } = DateTime.UtcNow.Date;
+
+    [Display(Name = "مقدار مورد انتظار (MT)")]
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "مقدار مورد انتظار نامعتبر است.")]
+    public decimal ExpectedQuantityMt { get; set; }
+
+    [Display(Name = "مقدار واقعی (MT)")]
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "مقدار واقعی نامعتبر است.")]
+    public decimal ActualQuantityMt { get; set; }
+
+    [Display(Name = "تلورانس (MT)")]
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "تلورانس نامعتبر است.")]
+    public decimal ToleranceQuantityMt { get; set; }
+
+    [Display(Name = "نوع مسئول")]
+    [StringLength(100)]
+    public string? ResponsiblePartyType { get; set; }
+
+    [Display(Name = "نام مسئول")]
+    [StringLength(200)]
+    public string? ResponsiblePartyName { get; set; }
+
+    [Display(Name = "نحوه برخورد مالی")]
+    [StringLength(200)]
+    public string? FinancialTreatment { get; set; }
+
+    [Display(Name = "بر موجودی اثر دارد")]
+    public bool AffectsInventory { get; set; }
+
+    [Display(Name = "مرجع")]
+    [StringLength(200)]
+    public string? Reference { get; set; }
+
+    [Display(Name = "یادداشت")]
+    [StringLength(1000)]
+    public string? Notes { get; set; }
+
+    [StringLength(1000)]
+    public string? ReturnUrl { get; set; }
+}
+
+public sealed class LossEventIndexFilterViewModel
+{
+    [Display(Name = "از تاریخ")]
+    [DataType(DataType.Date)]
+    public DateTime? FromDate { get; set; }
+
+    [Display(Name = "تا تاریخ")]
+    [DataType(DataType.Date)]
+    public DateTime? ToDate { get; set; }
+
+    [Display(Name = "جنس")]
+    public int? ProductId { get; set; }
+
+    [Display(Name = "قرارداد")]
+    public int? ContractId { get; set; }
+
+    [Display(Name = "مرحله")]
+    public LossEventStage? Stage { get; set; }
+
+    [Display(Name = "مسئول")]
+    [StringLength(200)]
+    public string? ResponsiblePartyName { get; set; }
+
+    [Display(Name = "اثر بر موجودی")]
+    public bool? AffectsInventory { get; set; }
+}
+
+public sealed class LossEventListItemViewModel
+{
+    public int Id { get; init; }
+    public DateTime EventDate { get; init; }
+    public LossEventStage Stage { get; init; }
+    public string ProductName { get; init; } = string.Empty;
+    public string? ContractNumber { get; init; }
+    public string? ShipmentCode { get; init; }
+    public decimal DifferenceQuantityMt { get; init; }
+    public decimal AllowableLossMt { get; init; }
+    public decimal ChargeableLossMt { get; init; }
+    public bool AffectsInventory { get; init; }
+    public string? ResponsiblePartyName { get; init; }
+}
+
+public sealed class LossEventIndexViewModel
+{
+    public LossEventIndexFilterViewModel Filter { get; init; } = new();
+    public IReadOnlyList<LossEventListItemViewModel> Items { get; init; } = [];
+    public int CurrentPage { get; init; } = 1;
+    public int PageCount { get; init; } = 1;
+    public int TotalCount { get; init; }
+}
+
+public sealed class LossEventDetailsViewModel
+{
+    public int Id { get; init; }
+    public DateTime EventDate { get; init; }
+    public LossEventStage Stage { get; init; }
+    public string ProductName { get; init; } = string.Empty;
+    public string? ContractNumber { get; init; }
+    public string? ShipmentCode { get; init; }
+    public string? LoadingRegisterLabel { get; init; }
+    public string? LoadingReceiptLabel { get; init; }
+    public string? TruckDispatchLabel { get; init; }
+    public string? SalesLabel { get; init; }
+    public string? TerminalName { get; init; }
+    public string? StorageTankCode { get; init; }
+    public decimal ExpectedQuantityMt { get; init; }
+    public decimal ActualQuantityMt { get; init; }
+    public decimal DifferenceQuantityMt { get; init; }
+    public decimal ToleranceQuantityMt { get; init; }
+    public decimal AllowableLossMt { get; init; }
+    public decimal ChargeableLossMt { get; init; }
+    public string? ResponsiblePartyType { get; init; }
+    public string? ResponsiblePartyName { get; init; }
+    public string? FinancialTreatment { get; init; }
+    public bool AffectsInventory { get; init; }
+    public int? InventoryMovementId { get; init; }
+    public string? Reference { get; init; }
+    public string? Notes { get; init; }
+}

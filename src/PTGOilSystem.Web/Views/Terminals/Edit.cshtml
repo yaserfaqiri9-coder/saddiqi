@@ -1,0 +1,11 @@
+@model Terminal
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش ترمینال", "Edit Terminal");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "ترمینال‌ها", "Terminals");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "اطلاعات پایه ترمینال را به‌روزرسانی کنید.", "Update the base information of this terminal.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Terminals/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

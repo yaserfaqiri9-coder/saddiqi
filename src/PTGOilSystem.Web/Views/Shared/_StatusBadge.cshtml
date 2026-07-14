@@ -1,0 +1,7 @@
+@model string
+
+@{
+    var badgeText = string.IsNullOrWhiteSpace(Model) ? "فعال" : Model;
+}
+
+<span class="ak-status is-inactive">@badgeText</span>

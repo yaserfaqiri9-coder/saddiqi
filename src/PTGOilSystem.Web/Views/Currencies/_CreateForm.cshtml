@@ -1,0 +1,114 @@
+@model Currency
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات ارز", (string?)"کد، نام و نماد ارز را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field" data-currency-symbol-field>
+            <label asp-for="Symbol" class="ak-label">نماد</label>
+            <select class="ak-input" data-ak-entity-combobox
+                    data-currency-symbol-picker
+                    data-ak-placeholder="نماد ارز را جستجو یا انتخاب کنید..."
+                    data-ak-empty="نمادی پیدا نشد"
+                    aria-label="نماد ارز">
+                <option value=""></option>
+                <option value="؋" data-meta="افغانی — AFN" data-avatar-text="؋">؋ افغانی</option>
+                <option value="$" data-meta="دالر آمریکا — USD" data-avatar-text="$">$ دالر آمریکا</option>
+                <option value="€" data-meta="یورو — EUR" data-avatar-text="€">€ یورو</option>
+                <option value="₽" data-meta="روبل روسیه — RUB" data-avatar-text="₽">₽ روبل روسیه</option>
+                <option value="£" data-meta="پوند انگلیس — GBP" data-avatar-text="£">£ پوند انگلیس</option>
+                <option value="﷼" data-meta="ریال ایران — IRR" data-avatar-text="﷼">﷼ ریال ایران</option>
+                <option value="Rs" data-meta="کلدار پاکستان — PKR" data-avatar-text="Rs">Rs کلدار پاکستان</option>
+                <option value="₹" data-meta="روپیه هند — INR" data-avatar-text="₹">₹ روپیه هند</option>
+                <option value="د.إ" data-meta="درهم امارات — AED" data-avatar-text="د.إ">د.إ درهم امارات</option>
+                <option value="ر.س" data-meta="ریال سعودی — SAR" data-avatar-text="ر.س">ر.س ریال سعودی</option>
+                <option value="₺" data-meta="لیره ترکیه — TRY" data-avatar-text="₺">₺ لیره ترکیه</option>
+                <option value="¥" data-meta="یوان چین — CNY" data-avatar-text="¥">¥ یوان چین</option>
+                <option value="soʻm" data-meta="سوم ازبکستان — UZS" data-avatar-text="сў">soʻm سوم ازبکستان</option>
+                <option value="SM" data-meta="سامانی تاجیکستان — TJS" data-avatar-text="SM">SM سامانی تاجیکستان</option>
+                <option value="₸" data-meta="تنگه قزاقستان — KZT" data-avatar-text="₸">₸ تنگه قزاقستان</option>
+                <option value="__custom__" data-meta="نماد دلخواه را دستی بنویسید" data-avatar-text="✎">نماد دیگر (ورود دستی)</option>
+            </select>
+            <input asp-for="Symbol" class="ak-input" autocomplete="off"
+                   data-currency-symbol-input
+                   placeholder="نماد دلخواه را بنویسید"
+                   hidden />
+            <span asp-validation-for="Symbol" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    [data-currency-symbol-field] [data-currency-symbol-input][hidden] {
+        display: none !important;
+    }
+
+    [data-currency-symbol-field] [data-currency-symbol-input] {
+        margin-top: 8px;
+    }
+</style>
+
+<script>
+    (function () {
+        var field = document.querySelector("[data-currency-symbol-field]");
+        if (!field || field.dataset.symbolReady === "true") return;
+        field.dataset.symbolReady = "true";
+
+        var picker = field.querySelector("[data-currency-symbol-picker]");
+        var input = field.querySelector("[data-currency-symbol-input]");
+        if (!picker || !input) return;
+
+        var CUSTOM = "__custom__";
+
+        function isKnown(value) {
+            return Array.prototype.some.call(picker.options, function (option) {
+                return option.value && option.value !== CUSTOM && option.value === value;
+            });
+        }
+
+        function showCustom(show) {
+            input.hidden = !show;
+        }
+
+        var current = (input.value || "").trim();
+        if (current && isKnown(current)) {
+            picker.value = current;
+            showCustom(false);
+        } else if (current) {
+            picker.value = CUSTOM;
+            showCustom(true);
+        } else {
+            picker.value = "";
+            showCustom(false);
+        }
+
+        picker.addEventListener("change", function () {
+            if (picker.value === CUSTOM) {
+                showCustom(true);
+                input.focus();
+                return;
+            }
+            input.value = picker.value;
+            showCustom(false);
+        });
+    })();
+</script>

@@ -1,0 +1,107 @@
+@model PTGOilSystem.Web.Models.Reports.ReportHubViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "گزارش‌ها", "Reports");
+
+    var reportGroups = new[]
+    {
+        new
+        {
+            Slug = "finance",
+            TitleFa = "مالی",
+            TitleEn = "Finance",
+            Keys = new[] { "Reports.CompanyOverview", "Reports.CashFlow", "Reports.ReceivablesPayables" },
+            IncludeUngrouped = false
+        },
+        new
+        {
+            Slug = "income-expense",
+            TitleFa = "درآمد و مصارف",
+            TitleEn = "Income & Expense",
+            Keys = new[] { "Reports.ContractPnl" },
+            IncludeUngrouped = false
+        },
+        new
+        {
+            Slug = "inventory",
+            TitleFa = "موجودی",
+            TitleEn = "Inventory",
+            Keys = new[] { "Inventory.Index", "Reports.InventoryOperations" },
+            IncludeUngrouped = false
+        },
+        new
+        {
+            Slug = "other",
+            TitleFa = "سایر گزارش‌ها",
+            TitleEn = "Other Reports",
+            Keys = new[] { "Reports.Warnings" },
+            IncludeUngrouped = true
+        }
+    };
+
+    var reportIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Reports.CompanyOverview"] = "bi-clipboard-data",
+        ["Reports.ContractPnl"] = "bi-graph-up-arrow",
+        ["Reports.CashFlow"] = "bi-wallet2",
+        ["Reports.ReceivablesPayables"] = "bi-people",
+        ["Inventory.Index"] = "bi-box-seam",
+        ["Reports.InventoryOperations"] = "bi-diagram-3",
+        ["Reports.Warnings"] = "bi-exclamation-triangle"
+    };
+
+    string ControllerFor(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
+        => string.IsNullOrWhiteSpace(card.Controller) ? "Reports" : card.Controller;
+
+    string CardKey(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
+        => $"{ControllerFor(card)}.{card.Action}";
+
+    string IconFor(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
+        => reportIcons.TryGetValue(CardKey(card), out var icon)
+            ? icon
+            : card.Icon.Replace("-fill", "", StringComparison.OrdinalIgnoreCase);
+
+    bool CanOpenCard(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
+        => PTGOilSystem.Web.Security.RoleAccessRules.CanAccessController(User, ControllerFor(card));
+
+    var visibleCards = Model.Cards.Where(CanOpenCard).ToList();
+    var groupedKeys = reportGroups.SelectMany(group => group.Keys).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    IReadOnlyList<PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel> CardsFor(string[] keys, bool includeUngrouped)
+    {
+        var keySet = keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cards = visibleCards.Where(card => keySet.Contains(CardKey(card))).ToList();
+
+        if (includeUngrouped)
+        {
+            cards.AddRange(visibleCards.Where(card => !groupedKeys.Contains(CardKey(card))));
+        }
+
+        return cards;
+    }
+
+    var orderedCards = reportGroups
+        .SelectMany(group => CardsFor(group.Keys, group.IncludeUngrouped))
+        .Distinct()
+        .ToList();
+}
+
+<div class="ak-reports-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+    <header class="ak-reports-header">
+        <h1 class="ak-reports-title">@UiText.T(Context, "گزارش‌ها", "Reports")</h1>
+    </header>
+
+    <div class="ak-reports-grid">
+        @foreach (var card in orderedCards)
+        {
+            <a class="ak-report-row" asp-controller="@ControllerFor(card)" asp-action="@card.Action" aria-label="@UiText.T(Context, card.TitleFa, card.TitleEn)">
+                <span class="ak-report-icon" aria-hidden="true">
+                    <i class="bi @IconFor(card)"></i>
+                </span>
+                <span class="ak-report-copy">
+                    <span class="ak-report-title">@UiText.T(Context, card.TitleFa, card.TitleEn)</span>
+                    <span class="ak-report-desc">@UiText.T(Context, card.DescriptionFa, card.DescriptionEn)</span>
+                </span>
+            </a>
+        }
+    </div>
+</div>

@@ -1,0 +1,1461 @@
+@model PTGOilSystem.Web.Models.ShipmentPnl.ShipmentPnlDetailsViewModel
+@{
+    ViewData["Title"] = "پرونده کشتی / محموله";
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string MoneyCard(decimal value) => value.ToString("#,0.##");
+    // آواتار سلول نام (سبک لیست فاکتور): حرف اول + رنگ ثابت بر اساس نام.
+    string InvInitial(string? name) => string.IsNullOrWhiteSpace(name) ? "؟" : name.Trim().Substring(0, 1).ToUpperInvariant();
+    string InvAvatarTone(string? name)
+    {
+        var tones = new[] { "is-gray", "is-purple", "is-green", "is-teal", "is-amber", "is-blue" };
+        var h = 0;
+        foreach (var c in name ?? string.Empty) { h = (h * 31 + c) & 0x7fffffff; }
+        return tones[h % tones.Length];
+    }
+    var selfUrl = Url.Action("Details", "ShipmentPnl", new { id = Model.Id });
+    var shipmentGroupKey = $"SHIP:{Model.Id}";
+    ViewData["LoadingExpenseEditorAssets"] = true;
+    var canRegisterDirectLoss = Model.TotalShortageRegisterableQuantityMt > 0m;
+    var todayValue = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+    string DecimalInput(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+    string MoneyInput(decimal value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    var defaultLossAmountUsd = Model.EstimateLossValueUsd(Model.TotalShortageRegisterableQuantityMt);
+    var shipmentTitle = !string.IsNullOrWhiteSpace(Model.VesselName) ? Model.VesselName : Model.ShipmentCode;
+    var primaryDate = Model.DepartureDate ?? Model.ArrivalDate;
+    var saleDisplayRows = Model.SaleDisplayRows;
+    var expenseDisplayRows = Model.ExpenseDisplayRows;
+    var customsDisplayRows = expenseDisplayRows.Where(e => e.IsCustoms).ToList();
+    var regularExpenseDisplayRows = expenseDisplayRows.Where(e => !e.IsCustoms).ToList();
+    var customsTotalUsd = customsDisplayRows.Sum(e => e.AmountUsd);
+    var regularExpenseTotalUsd = regularExpenseDisplayRows.Sum(e => e.AmountUsd);
+    var lossDisplayRows = Model.LossDisplayRows;
+    var transportDisplayGroups = Model.TransportDisplayRows;
+    var vesselMovementGroups = transportDisplayGroups.Where(group => group.IsOriginalVesselMovement).ToList();
+    // فقط سفرهای بعد از تخلیهٔ کشتی: مبدأ یک مخزن است (نه مرحلهٔ اولِ کشتی/بندر → مخزن).
+    var inventoryTransportItems = Model.TransportLegs
+        .Where(item => !item.IsOriginalVesselMovement && item.SourceIsStorageTank)
+        .OrderByDescending(item => item.LoadedDate)
+        .ThenByDescending(item => item.Id)
+        .ToList();
+    var currentPnlClass = Model.RealizedGrossMarginUsd >= 0 ? "ak-num" : "ak-num";
+    // خلاصهٔ حساب (فقط نمایش): سود/زیان کشتی = درآمد فروش − کل مصارف − قیمت خرید کل بار.
+    // این عدد کل‌بار است و جدا از RealizedGrossMarginUsd تب سود و زیان؛ منطق مالی تغییر نمی‌کند.
+    var accountSummaryPnlUsd = Model.TotalSalesUsd - Model.TotalOperationalExpensesUsd - Model.TotalPurchaseCostUsd;
+    var accountSummaryIsProfit = accountSummaryPnlUsd >= 0m;
+    var accountSummaryPnlClass = accountSummaryIsProfit ? "ak-num" : "ak-num";
+    var soldCoveragePercent = Model.OriginalShipmentQuantityMt > 0m
+        ? decimal.Round(Math.Min(Model.SoldQuantityMt / Model.OriginalShipmentQuantityMt, 1m) * 100m, 1, MidpointRounding.AwayFromZero)
+        : 0m;
+    var pendingOperationalExpensesUsd = Math.Max(Model.TotalOperationalExpensesUsd - Model.RealizedOperationalExpensesUsd, 0m);
+    bool ExpenseMatches(PTGOilSystem.Web.Models.ShipmentPnl.ShipmentExpenseDisplayRow item, params string[] terms)
+    {
+        var text = $"{item.ExpenseTypeName} {item.Description}".ToLowerInvariant();
+        return terms.Any(term => text.Contains(term.ToLowerInvariant(), StringComparison.Ordinal));
+    }
+    var freightExpenseUsd = regularExpenseDisplayRows.Where(e => ExpenseMatches(e, "freight", "کرایه", "حمل")).Sum(e => e.AmountUsd);
+    var customsExpenseUsd = customsTotalUsd;
+    var documentExpenseUsd = regularExpenseDisplayRows.Where(e => ExpenseMatches(e, "document", "permit", "abzardiya", "سند", "اسناد", "ابزاردیه")).Sum(e => e.AmountUsd);
+    var terminalExpenseUsd = regularExpenseDisplayRows.Where(e => ExpenseMatches(e, "terminal", "warehouse", "ترمینال", "انبار", "مخزن")).Sum(e => e.AmountUsd);
+    var otherExpenseUsd = Math.Max(regularExpenseTotalUsd - freightExpenseUsd - documentExpenseUsd - terminalExpenseUsd, 0m);
+
+    // ===== مقدارهای نمایشی مدیریتی (فقط نمایش؛ از همان فیلدهای موجود ViewModel مشتق می‌شوند) =====
+    var hasActiveLineage = Model.IsLineageCalculationActive && Model.HasLineageData;
+    var hasVerifiedLineage = hasActiveLineage
+        && string.Equals(Model.OverallLineageConfidence, "Verified", StringComparison.Ordinal);
+    var isApproxLineage = !hasVerifiedLineage;
+    var lineageBadgeClass = Model.LineageBadgeTone switch
+    {
+        "success" => "is-green",
+        "danger" => "is-red",
+        "muted" => "is-gray",
+        _ => "is-amber"
+    };
+    var totalSourceAllocationMt = Model.ContractLines.Sum(c => c.AllocatedQuantityMt);
+    var avgSalePriceUsd = Model.SoldQuantityMt > 0m ? Model.TotalSalesUsd / Model.SoldQuantityMt : 0m;
+    var lineageNoteFa = hasActiveLineage && isApproxLineage
+        ? T("بخشی از اطلاعات این پرونده از داده‌های قدیمی یا تخمینی ساخته شده است.",
+            "Some information in this file is based on legacy or estimated data.")
+        : !hasActiveLineage
+            ? T("این اعداد بر اساس اتصال‌های فعلی سیستم محاسبه شده‌اند و نیازمند ردیابی دقیق موجودی در فاز بعدی هستند.",
+                "These figures are computed from the system's current links and need exact inventory tracing in the next phase.")
+            : null;
+    // مرحله‌های ساده مسیر بار (نام، مکان، خروج، رسید، کسری، وضعیت). مرحله‌های بدون داده «ثبت نشده».
+    var vesselShortageMt = Model.VesselUnloadingShortageQuantityMt;
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((shipmentTitle, false, T("ویرایش محموله", "Edit shipment"), "bi-pencil-square", Url.Action("Edit", "Shipments", new { id = Model.Id }), (string?)null, T("برگشت", "Back"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <section class="ak-form-page">
+        <div class="ak-summary">
+            <div class="ak-field"><span class="ak-label">@T("نام کشتی", "Vessel")</span><strong>@(string.IsNullOrWhiteSpace(Model.VesselName) ? shipmentTitle : Model.VesselName)</strong></div>
+            @if (hasActiveLineage)
+            {
+                <div class="ak-field"><span class="ak-label">@T("وضعیت ردیابی", "Lineage status")</span><span class="ak-status @lineageBadgeClass">@Model.LineageBadgeText</span></div>
+            }
+        </div>
+
+        @{
+            // همان مقدار معتبر فعلی؛ فقط شکل نمایش به نوار آماری مرجع تغییر کرده است.
+            var remainingInVesselMt = Model.RemainingInVesselTankQuantityMt;
+        }
+
+        @if (hasActiveLineage)
+        {
+            <section class="ak-form-section" aria-label="@T("خلاصه ردیابی بار", "Cargo lineage summary")">
+                <div class="ak-section-head">
+                    <strong>@T("ردیابی بار", "Cargo lineage")</strong>
+                    <span class="ak-status @lineageBadgeClass"><span></span>@Model.LineageBadgeText</span>
+                </div>
+                <dl class="ak-form-grid">
+                    <div><dt>@T("بار داخل کشتی", "Cargo in vessel")</dt><dd>@NumberDisplay.Quantity(Model.LineageCargoInVesselMt ?? 0m) MT</dd></div>
+                    <div><dt>@T("موجودی در مخزن", "In stock")</dt><dd>@NumberDisplay.Quantity(Model.LineageInStockMt ?? 0m) MT</dd></div>
+                    <div><dt>@T("باقی‌مانده در مخزن", "Remaining in source tank")</dt><dd>@NumberDisplay.Quantity(Model.RemainingInSourceTankQuantityMt) MT</dd></div>
+                    <div><dt>@T("فروش وصل‌شده", "Linked sales")</dt><dd>@NumberDisplay.Quantity(Model.LineageSoldMt ?? 0m) MT</dd></div>
+                    <div><dt>@T("کسری وصل‌شده", "Linked shortage")</dt><dd>@NumberDisplay.Quantity(Model.LineageLossMt ?? 0m) MT</dd></div>
+                </dl>
+                @if (Model.LineageWarnings.Count > 0)
+                {
+                    <p class="ak-note"><i class="bi bi-info-circle"></i>@string.Join(" ", Model.LineageWarnings)</p>
+                }
+            </section>
+        }
+        @if (Model.DraftTransportQuantityMt > 0m || Model.CancelledTransportQuantityMt > 0m)
+        {
+            <p class="small text-muted mb-2">
+                @T("انتقال پیش‌نویس", "Draft transport"): @NumberDisplay.Quantity(Model.DraftTransportQuantityMt) MT
+                · @T("انتقال لغوشده", "Cancelled transport"): @NumberDisplay.Quantity(Model.CancelledTransportQuantityMt) MT
+            </p>
+        }
+
+        <nav class="ptg-tabs-rail no-print" data-shipment-file-tabs role="tablist" aria-label="@T("بخش‌های پرونده محموله", "Shipment file sections")">
+            <a class="ptg-tab-item active" href="#shipment-summary" role="tab" aria-selected="true"><span>@T("خلاصه", "Summary")</span><span class="ak-status is-dark">@Model.ContractLines.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-flow" role="tab" aria-selected="false"><span>@T("رسیدها", "Receipts")</span><span class="ak-status is-green">@Model.RegisteredVesselReceipts.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-compliance" role="tab" aria-selected="false"><span>@T("مصارف و گمرک", "Expenses & customs")</span><span class="ak-status is-amber">@expenseDisplayRows.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-balance" role="tab" aria-selected="false"><span>@T("کسری‌ها", "Shortages")</span><span class="ak-status is-red">@lossDisplayRows.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-sales" role="tab" aria-selected="false"><span>@T("فروش‌ها", "Sales")</span><span class="ak-status is-green">@saleDisplayRows.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-finance" role="tab" aria-selected="false"><span>@T("سود و زیان", "Profit & loss")</span><span class="ak-status is-amber">@saleDisplayRows.Count</span></a>
+            <a class="ptg-tab-item" href="#shipment-trips" role="tab" aria-selected="false"><span>@T("موجودی و انتقالات", "Inventory & transfers")</span><span class="ak-status is-gray">@inventoryTransportItems.Count</span></a>
+        </nav>
+    </section>
+
+    <div class="tab-content ak-tab-content">
+
+        <div class="tab-pane fade show active ak-form-section" id="shipment-summary" role="tabpanel">
+            <div class="ak-summary" aria-label="@T("شاخص‌های خلاصه محموله", "Shipment KPI summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt-cutoff"></i></span><div class="ak-field"><span class="ak-label">@T("کل بار محموله", "Total cargo")</span><span class="ak-section-desc">@Model.ShipmentCode</span><span class="ak-num">@NumberDisplay.Quantity(Model.OriginalShipmentQuantityMt) @T("تن", "MT")</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-file-earmark-check"></i></span><div class="ak-field"><span class="ak-label">@T("تخلیه‌شده", "Received")</span><span class="ak-section-desc">@Model.RegisteredVesselReceipts.Count @T("رسید", "receipts")</span><span class="ak-num">@NumberDisplay.Quantity(Model.RegisteredVesselReceiptQuantityMt) @T("تن", "MT")</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-clock-history"></i></span><div class="ak-field"><span class="ak-label">@T("حمل‌شده", "Transported")</span><span class="ak-section-desc">@inventoryTransportItems.Count @T("سفر", "trips")</span><span class="ak-num">@NumberDisplay.Quantity(Model.InventoryTransportedOutQuantityMt) @T("تن", "MT")</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-bell-fill"></i></span><div class="ak-field"><span class="ak-label">@T("کسری و ضایعات", "Shortage")</span><span class="ak-section-desc">@lossDisplayRows.Count @T("رویداد", "events")</span><span class="ak-num">@NumberDisplay.Quantity(Model.TotalLossAndShortageMt) @T("تن", "MT")</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@T("باقی‌مانده", "Remaining")</span><span class="ak-section-desc">@T("در کشتی / مخزن", "in vessel / tank")</span><span class="ak-num">@NumberDisplay.Quantity(remainingInVesselMt) @T("تن", "MT")</span></div></div>
+            </div>
+            <div class="ak-form-grid">
+                <div class="ak-form-section">
+                    <section class="ak-form-section">
+                        <h3>@T("منابع بار", "Cargo sources")</h3>
+                        <div class="ak-list">
+                            @if (totalSourceAllocationMt > 0m)
+                            {
+                                foreach (var line in Model.ContractLines.Where(c => c.AllocatedQuantityMt > 0m).OrderByDescending(c => c.AllocatedQuantityMt))
+                                {
+                                    var sharePercent = decimal.Round(line.AllocatedQuantityMt / totalSourceAllocationMt * 100m, 1, MidpointRounding.AwayFromZero);
+                                    var shareWidth = sharePercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                                    <div class="ak-list-row">
+                                        <div class="ak-section-head">
+                                            <span class="ak-label">
+                                                <strong>@(line.SupplierName ?? line.ContractNumber)</strong>
+                                                <small>@line.ContractNumber</small>
+                                            </span>
+                                            <span class="ak-num">
+                                                <strong>@NumberDisplay.Quantity(line.AllocatedQuantityMt) @T("تن", "MT")</strong>
+                                                <small>@sharePercent.ToString("0.#")٪</small>
+                                            </span>
+                                        </div>
+                                        <div class="ak-summary" role="progressbar" aria-valuenow="@shareWidth" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="ak-empty">@T("ثبت نشده است.", "Not recorded.")</p>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="ak-form-section">
+                        <h3>@T("عملیات محموله", "Shipment actions")</h3>
+                        <div class="ak-page-actions no-print">
+                            <a asp-controller="InventoryTransportLegs"
+                               asp-action="CreateGroupOperation"
+                               asp-route-groupKey="SHIP:@Model.Id"
+                               asp-route-mode="ToInventory"
+                               asp-route-returnUrl="@selfUrl"
+                               class="btn ak-secondary-action is-outline"
+                               title="@T("رسید گروهی و انتقال به مخزن مقصد", "Group receipt into destination tank")">
+                                <i class="bi bi-box-seam"></i>@T("رسید به مخزن", "Receipt to tank")
+                            </a>
+                            <a asp-controller="InventoryTransportLegs"
+                               asp-action="CreateGroupOperation"
+                               asp-route-groupKey="SHIP:@Model.Id"
+                               asp-route-mode="DirectDispatch"
+                               asp-route-returnUrl="@selfUrl"
+                               class="btn ak-secondary-action is-outline"
+                               title="@T("تحویل موتر به مشتری/مقصد نهایی", "Truck delivery to customer/final destination")">
+                                <i class="bi bi-truck"></i>@T("ارسال موتر", "Dispatch truck")
+                            </a>
+                            <a asp-controller="InventoryTransportLegs"
+                               asp-action="CreateFromInventory"
+                               asp-route-shipmentId="@Model.Id"
+                               asp-route-returnUrl="@selfUrl"
+                               class="btn ak-secondary-action is-outline"
+                               title="@T("حمل عمده جدید (واگون/کشتی) از موجودی", "New bulk transport leg (wagon/vessel) from inventory")">
+                                <i class="bi bi-diagram-3"></i>@T("حمل جدید", "New transport")
+                            </a>
+                            <a asp-controller="Sales"
+                               asp-action="Create"
+                               asp-route-returnUrl="@selfUrl"
+                               class="btn ak-secondary-action is-outline">
+                                <i class="bi bi-cart-plus"></i>@T("ثبت فروش", "New sale")
+                            </a>
+                            <a asp-controller="Shipments"
+                               asp-action="Edit"
+                               asp-route-id="@Model.Id"
+                               asp-route-returnUrl="@selfUrl"
+                               class="btn ak-secondary-action is-outline">
+                                <i class="bi bi-pencil-square"></i>@T("ویرایش محموله", "Edit shipment")
+                            </a>
+                        </div>
+                    </section>
+
+                </div>
+
+                <aside class="ak-form-section">
+                    <section class="ak-form-section">
+                        <h3>@T("خلاصه حساب", "Account summary")</h3>
+                        <div class="ak-list">
+                            <div class="ak-list-row">
+                                <span class="ak-label"><i class="bi bi-bag"></i>@T("قیمت خرید کل بار", "Total cargo purchase")</span>
+                                <strong>@MoneyCard(Model.TotalPurchaseCostUsd)</strong>
+                            </div>
+                            <div class="ak-list-row">
+                                <span class="ak-label"><i class="bi bi-truck"></i>@T("کل مصارف (با گمرک)", "Total expenses")</span>
+                                <strong>@MoneyCard(Model.TotalOperationalExpensesUsd)</strong>
+                            </div>
+                            <div class="ak-list-row">
+                                <span class="ak-label"><i class="bi bi-exclamation-diamond"></i>@T("ضایعات کل", "Total losses")</span>
+                                <strong class="text-muted">@NumberDisplay.Quantity(Model.TotalLossAndShortageMt) @T("تن", "MT")</strong>
+                            </div>
+                            <div class="ak-list-row">
+                                <span class="ak-label"><i class="bi bi-cash-stack"></i>@T("درآمد فروش", "Sales revenue")</span>
+                                <strong>@MoneyCard(Model.TotalSalesUsd)</strong>
+                            </div>
+                            <div class="ak-list-row is-total">
+                                <span class="ak-label"><i class="bi bi-graph-up-arrow"></i>@(accountSummaryIsProfit ? T("سود کشتی", "Vessel profit") : T("زیان کشتی", "Vessel loss"))</span>
+                                <strong class="@accountSummaryPnlClass">@MoneyCard(accountSummaryPnlUsd)</strong>
+                            </div>
+                    </div>
+
+                </section>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                    {
+                        <section class="ak-form-section">
+                            <h3><span><i class="bi bi-card-text"></i>@T("یادداشت", "Notes")</span></h3>
+                            <div class="ak-section-body">
+                                <p>@Model.Notes</p>
+                            </div>
+                        </section>
+                    }
+                </aside>
+            </div>
+        </div>
+
+        @* ============ تب: مسیر بار (داستان حرکت بار از کشتی تا فروش) ============ *@
+        <div class="tab-pane fade ak-form-section" id="shipment-flow" role="tabpanel">
+            <div class="ak-summary" aria-label="@T("خلاصه رسیدها", "Receipt summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt"></i></span><div class="ak-field"><span class="ak-label">@T("کل رسیدها", "Receipts")</span><span class="ak-section-desc">@Model.RegisteredVesselReceipts.Count @T("رسید", "receipts")</span><span class="ak-num">@NumberDisplay.Quantity(Model.RegisteredVesselReceiptQuantityMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-file-earmark-check"></i></span><div class="ak-field"><span class="ak-label">@T("تخلیه‌شده", "Unloaded")</span><span class="ak-section-desc">@T("ثبت‌شده", "registered")</span><span class="ak-num">@NumberDisplay.Quantity(Model.RegisteredVesselReceiptQuantityMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-clock-history"></i></span><div class="ak-field"><span class="ak-label">@T("بار مرجع", "Source cargo")</span><span class="ak-section-desc">@Model.ShipmentCode</span><span class="ak-num">@NumberDisplay.Quantity(Model.OriginalShipmentQuantityMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-bell-fill"></i></span><div class="ak-field"><span class="ak-label">@T("کسری تخلیه", "Unload shortage")</span><span class="ak-section-desc">@T("کشتی تا مخزن", "vessel to tank")</span><span class="ak-num">@NumberDisplay.Quantity(vesselShortageMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@T("باقی‌مانده", "Remaining")</span><span class="ak-section-desc">@T("کشتی / مخزن", "vessel / tank")</span><span class="ak-num">@NumberDisplay.Quantity(remainingInVesselMt) MT</span></div></div>
+            </div>
+            <section class="ak-form-section">
+                <div class="ak-section-head">
+                    <h3>@T("رسیدهای ثبت‌شده از کشتی", "Registered vessel receipts") (@Model.RegisteredVesselReceipts.Count)</h3>
+                    <a asp-controller="InventoryTransportLegs"
+                       asp-action="CreateGroupReceipt"
+                       asp-route-groupKey="SHIP:@Model.Id"
+                       asp-route-returnUrl="@selfUrl"
+                       class="btn ak-secondary-action is-primary no-print">
+                        <i class="bi bi-box-arrow-in-down"></i>@T("ثبت رسید", "Register receipt")
+                    </a>
+                </div>
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th>@T("تعداد رسید", "Receipts")</th>
+                                <th class="text-end">@T("مقدار کل رسید/تخلیه‌شده", "Total received/unloaded")</th>
+                                <th class="no-print text-end">@T("جزئیات", "Details")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @if (Model.RegisteredVesselReceipts.Any())
+                        {
+                            <tr data-breakdown-parent="vessel-receipts">
+                                <td>@Model.RegisteredVesselReceipts.Count @T("رسید", "receipts")</td>
+                                <td class="text-end ak-num">@NumberDisplay.Quantity(Model.RegisteredVesselReceiptQuantityMt) MT</td>
+                                <td class="no-print text-end">
+                                    <button type="button"
+                                            class="ak-text-action"
+                                            data-contract-breakdown-toggle="vessel-receipts"
+                                            aria-expanded="false">
+                                        <i class="bi bi-diagram-3"></i>
+                                        @T("جزئیات", "Details")
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="ak-list-row" data-contract-breakdown-row="vessel-receipts" hidden>
+                                <td colspan="3">
+                                    <div class="ak-form-section">
+                                        <table class="ak-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>@T("تاریخ", "Date")</th>
+                                                    <th>@T("شماره رسید", "Receipt no.")</th>
+                                                    <th>@T("قرارداد", "Contract")</th>
+                                                    <th>@T("مقصد", "Destination")</th>
+                                                    <th>@T("مخزن تخلیه", "Unload tank")</th>
+                                                    <th class="text-end">@T("مقدار رسید", "Received")</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var receipt in Model.RegisteredVesselReceipts)
+                                                {
+                                                    <tr>
+                                                        <td>@receipt.ReceiptDate.ToDisplayDate()</td>
+                                                        <td><a asp-controller="InventoryTransportReceipts" asp-action="Details" asp-route-id="@receipt.Id" asp-route-returnUrl="@selfUrl">#@receipt.Id</a></td>
+                                                        <td>@receipt.ContractNumber</td>
+                                                        <td>
+                                                            @receipt.DestinationTerminalName
+                                                            @if (receipt.CanChainOnward)
+                                                            {
+                                                                <a class="btn ak-secondary-action is-outline is-xs no-print"
+                                                                   asp-controller="InventoryTransportLegs"
+                                                                   asp-action="CreateFromInventory"
+                                                                   asp-route-shipmentId="@Model.Id"
+                                                                   asp-route-sourceTerminalId="@receipt.DestinationTerminalId"
+                                                                   asp-route-sourceStorageTankId="@receipt.DestinationStorageTankId"
+                                                                   asp-route-productId="@receipt.ProductId"
+                                                                   asp-route-returnUrl="@selfUrl"
+                                                                   title="@T("حمل بعدی از همین مخزن (واگون/موتر)", "Next transport leg from this tank (wagon/truck)")">
+                                                                    <i class="bi bi-arrow-right-circle"></i>@T("حمل بعدی", "Next leg")
+                                                                </a>
+                                                            }
+                                                        </td>
+                                                        <td>@(string.IsNullOrWhiteSpace(receipt.DestinationTankName) ? "—" : receipt.DestinationTankName)</td>
+                                                        <td class="text-end ak-num">@NumberDisplay.Quantity(receipt.ReceivedQuantityMt) MT</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="3" class="ak-empty">@T("هنوز رسیدی از فورم ثبت رسید کشتی برای این محموله ثبت نشده است.", "No vessel receipt has been registered from the receipt form for this shipment.")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        @* ============ تب ۲: مصارف و کسورات ============ *@
+        <div class="tab-pane fade" id="shipment-compliance" role="tabpanel">
+
+            @{
+                // دسته‌بندی عام‌فهم همهٔ هزینه‌ها (کرایه، ترمینال، اسناد، گمرک، سایر). فقط نمایش؛ منطق مالی دست‌نخورده.
+                // گمرک هم مثل بقیه یک دسته است و در «جمع کل» شمرده می‌شود.
+                var grandExpenseTotalUsd = regularExpenseTotalUsd + customsTotalUsd;
+                var catFreight = new List<PTGOilSystem.Web.Models.ShipmentPnl.ShipmentExpenseDisplayRow>();
+                var catTerminal = new List<PTGOilSystem.Web.Models.ShipmentPnl.ShipmentExpenseDisplayRow>();
+                var catDocs = new List<PTGOilSystem.Web.Models.ShipmentPnl.ShipmentExpenseDisplayRow>();
+                var catOther = new List<PTGOilSystem.Web.Models.ShipmentPnl.ShipmentExpenseDisplayRow>();
+                foreach (var e in regularExpenseDisplayRows)
+                {
+                    if (ExpenseMatches(e, "freight", "کرایه", "حمل")) { catFreight.Add(e); }
+                    else if (ExpenseMatches(e, "terminal", "warehouse", "ترمینال", "انبار", "مخزن", "گدام")) { catTerminal.Add(e); }
+                    else if (ExpenseMatches(e, "document", "permit", "abzardiya", "سند", "اسناد", "ابزاردیه", "مجوز")) { catDocs.Add(e); }
+                    else { catOther.Add(e); }
+                }
+                var expenseGroups = new[]
+                {
+                    (Slug: "freight", Icon: "bi-truck", Fa: "کرایه و حمل", En: "Freight & transport", Rows: catFreight),
+                    (Slug: "customs", Icon: "bi-shield-check", Fa: "گمرک", En: "Customs", Rows: customsDisplayRows),
+                    (Slug: "terminal", Icon: "bi-buildings", Fa: "ترمینال و گدام", En: "Terminal & storage", Rows: catTerminal),
+                    (Slug: "docs", Icon: "bi-file-earmark-text", Fa: "اسناد و مجوز", En: "Documents & permits", Rows: catDocs),
+                    (Slug: "other", Icon: "bi-three-dots", Fa: "سایر مصارف", En: "Other expenses", Rows: catOther),
+                }.Where(c => c.Rows.Count > 0).ToList();
+            }
+
+            <div class="ak-summary" aria-label="@T("خلاصه مصارف", "Expense summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt-cutoff"></i></span><div class="ak-field"><span class="ak-label">@T("کل مصارف", "Total")</span><span class="ak-section-desc">@expenseDisplayRows.Count @T("رکورد", "records")</span><span class="ak-num">@MoneyCard(grandExpenseTotalUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-truck"></i></span><div class="ak-field"><span class="ak-label">@T("کرایه و حمل", "Freight")</span><span class="ak-section-desc">@catFreight.Count @T("رکورد", "records")</span><span class="ak-num">@MoneyCard(freightExpenseUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-shield-check"></i></span><div class="ak-field"><span class="ak-label">@T("گمرک", "Customs")</span><span class="ak-section-desc">@customsDisplayRows.Count @T("رکورد", "records")</span><span class="ak-num">@MoneyCard(customsExpenseUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-building"></i></span><div class="ak-field"><span class="ak-label">@T("ترمینال و اسناد", "Terminal & docs")</span><span class="ak-section-desc">@(catTerminal.Count + catDocs.Count) @T("رکورد", "records")</span><span class="ak-num">@MoneyCard(terminalExpenseUsd + documentExpenseUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@T("سایر مصارف", "Other")</span><span class="ak-section-desc">@catOther.Count @T("رکورد", "records")</span><span class="ak-num">@MoneyCard(otherExpenseUsd) USD</span></div></div>
+            </div>
+
+            <section class="ak-form-section mb-3">
+                <div class="ak-section-head">
+                    <h3>@T("هزینه‌های محموله (بار تا فروش)", "Shipment costs (cargo to sale)")</h3>
+                    <button type="button" class="btn ak-secondary-action is-primary no-print"
+                            data-bs-toggle="modal" data-bs-target="#shipmentExpensesModal"
+                            data-expense-url="@Url.Action("CreateGroupExpenseModal", "InventoryTransportLegs", new { groupKey = shipmentGroupKey, returnUrl = selfUrl })"><i class="bi bi-receipt-cutoff me-1"></i> @T("ثبت مصرف", "Add expense")</button>
+                </div>
+                <p class="sf-exp-hint no-print">@T("این هزینه‌ها همهٔ مراحل بار تا فروش را پوشش می‌دهند. روی هر دسته کلیک کنید تا رکوردها و جزئیاتش باز شود.", "These costs cover every stage from cargo to sale. Click a category to expand its records.")</p>
+            </section>
+
+            @if (expenseGroups.Count == 0)
+            {
+                <section class="ak-form-section">
+                    <div class="ak-empty">@T("هیچ مصرف یا گمرکی برای این محموله ثبت نشده است.", "No expenses or customs recorded for this shipment.")</div>
+                </section>
+            }
+            @foreach (var cat in expenseGroups)
+            {
+                var catTotal = cat.Rows.Sum(r => r.AmountUsd);
+                var isFirst = cat.Slug == expenseGroups[0].Slug;
+                <details class="ak-form-section mb-3" @(isFirst ? "open" : null)>
+                    <summary class="ak-form-section">
+                        <span class="sf-exp-group-title"><i class="bi @cat.Icon"></i> @T(cat.Fa, cat.En)</span>
+                        <span class="sf-exp-group-meta">
+                            <span class="sf-exp-count">@cat.Rows.Count.ToString("N0") @T("رکورد", "records")</span>
+                            <strong class="ak-num">@MoneyCard(catTotal) @T("دالر", "USD")</strong>
+                            <i class="bi bi-chevron-down sf-exp-chevron"></i>
+                        </span>
+                    </summary>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead><tr><th>@T("تاریخ", "Date")</th><th>@T("نوع", "Type")</th><th>@T("شرح", "Description")</th><th>@T("مبلغ", "Amount")</th><th class="no-print">@T("قراردادها", "Contracts")</th></tr></thead>
+                            <tbody>
+                            @foreach (var item in cat.Rows)
+                            {
+                                var breakdownKey = $"expcat-{cat.Slug}-{item.Id}";
+                                <tr data-breakdown-parent="@breakdownKey">
+                                    <td>@item.ExpenseDate.ToDisplayDate()</td>
+                                    <td>@item.ExpenseTypeName</td>
+                                    <td>@(item.Description ?? "-")</td>
+                                    <td class="ak-num">@MoneyCard(item.AmountUsd) @T("دالر", "USD")</td>
+                                    <td class="no-print">
+                                        <button type="button"
+                                                class="ak-text-action"
+                                                data-contract-breakdown-toggle="@breakdownKey"
+                                                aria-expanded="false"
+                                                @(item.ContractBreakdownLines.Count == 0 ? "disabled" : null)>
+                                            <i class="bi bi-diagram-3"></i>
+                                            @T("جزئیات", "Details")
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="ak-list-row" data-contract-breakdown-row="@breakdownKey" hidden>
+                                    <td colspan="5">
+                                        <div class="ak-form-section">
+                                            <table class="ak-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>@T("قرارداد", "Contract")</th>
+                                                        <th>@T("سهم مقدار", "Quantity share")</th>
+                                                        <th>@T("سهم مبلغ", "Amount share")</th>
+                                                        <th>@T("توضیح", "Description")</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var line in item.ContractBreakdownLines)
+                                                    {
+                                                        <tr>
+                                                            <td>@line.ContractNumber</td>
+                                                            <td>@NumberDisplay.Quantity(line.QuantityMt) @T("تن", "MT")</td>
+                                                            <td>@MoneyCard(line.AmountUsd) @T("دالر", "USD")</td>
+                                                            <td>@(line.Description ?? "-")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                            <tfoot>
+                                <tr class="ak-table-total">
+                                    <th colspan="3">@T("جمع این دسته", "Category subtotal")</th>
+                                    <td class="ak-num">@MoneyCard(catTotal) @T("دالر", "USD")</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </details>
+            }
+
+            @* کسری‌ها به تب مستقل «کسری‌ها» منتقل شده‌اند. *@
+        </div>
+
+        @* ============ تب: فروش‌ها ============ *@
+        <div class="tab-pane fade" id="shipment-sales" role="tabpanel">
+            @{
+                var salesCustomerCount = saleDisplayRows
+                    .Select(s => s.CustomerName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+            }
+
+            @* کارت‌های آماری تب فروش — سبک لیست فاکتور *@
+            <div class="ak-summary" aria-label="@T("خلاصه فروش", "Sales summary")">
+                <div class="ak-field">
+                    <span class="ak-page-icon is-blue"><i class="bi bi-receipt"></i></span>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("کل فروش", "Total sales")</span>
+                        <span class="ak-section-desc">@saleDisplayRows.Count @T("فاکتور", "invoices")</span>
+                        <span class="ak-num">@MoneyCard(Model.TotalSalesUsd) @T("دالر", "USD")</span>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <span class="ak-page-icon is-green"><i class="bi bi-box-seam"></i></span>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("فروخته‌شده", "Sold")</span>
+                        <span class="ak-section-desc">@NumberDisplay.Quantity(Model.SoldQuantityMt) @T("تن", "MT")</span>
+                        <span class="ak-num">@MoneyCard(avgSalePriceUsd) @T("دالر/تن", "USD/MT")</span>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <span class="ak-page-icon is-amber"><i class="bi bi-tag"></i></span>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("میانگین قیمت", "Avg price")</span>
+                        <span class="ak-section-desc">@T("هر تن", "per MT")</span>
+                        <span class="ak-num">@MoneyCard(avgSalePriceUsd) @T("دالر", "USD")</span>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <span class="ak-page-icon is-teal"><i class="bi bi-people"></i></span>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("مشتریان", "Customers")</span>
+                        <span class="ak-section-desc">@salesCustomerCount @T("نفر", "people")</span>
+                        <span class="ak-num">—</span>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <span class="ak-page-icon is-gray"><i class="bi bi-hourglass-split"></i></span>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("باقی‌مانده", "Remaining")</span>
+                        <span class="ak-section-desc">@NumberDisplay.Quantity(Model.RemainingUnsoldQuantityMt) @T("تن", "MT")</span>
+                        <span class="ak-num">@T("فروش‌نشده", "unsold")</span>
+                    </div>
+                </div>
+            </div>
+
+            @* جدول فروش — سبک لیست فاکتور (آواتار، خط‌چین، پیل وضعیت) *@
+            <section class="ak-form-section">
+                <div class="ak-section-head">
+                    <h3 class="ak-section-title">@T("فروش‌ها", "Sales") <span class="ak-status">@saleDisplayRows.Count</span></h3>
+                    <a asp-controller="Sales" asp-action="CreateFromShipment" asp-route-shipmentId="@Model.Id" asp-route-returnUrl="@selfUrl" class="ak-primary-action no-print"><i class="bi bi-plus-lg"></i> @T("ثبت فروش", "Add sale")</a>
+                </div>
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th>@T("مشتری", "Customer")</th>
+                                <th>@T("تاریخ", "Date")</th>
+                                <th>@T("مقدار", "Quantity")</th>
+                                <th>@T("قیمت واحد", "Unit price")</th>
+                                <th>@T("مبلغ", "Amount")</th>
+                                <th>@T("وضعیت", "Status")</th>
+                                <th class="no-print"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in saleDisplayRows)
+                        {
+                            var breakdownKey = $"sales-sale-{item.Id}";
+                            var hasTime = item.SaleDate.TimeOfDay != TimeSpan.Zero;
+                            <tr data-breakdown-parent="@breakdownKey">
+                                <td>
+                                    <div class="ak-field">
+                                        <span class="ak-page-icon @InvAvatarTone(item.CustomerName)">@InvInitial(item.CustomerName)</span>
+                                        <span class="ak-field">
+                                            <strong class="ak-label">@(item.CustomerName ?? "-")</strong>
+                                            <span class="ak-section-desc">@item.InvoiceNumber</span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="ak-num">@item.SaleDate.ToDisplayDate()</span>
+                                    @if (hasTime)
+                                    { <span class="ak-section-desc">@item.SaleDate.ToString("h:mm tt")</span> }
+                                </td>
+                                <td>@NumberDisplay.Quantity(item.QuantityMt) @T("تن", "MT")</td>
+                                <td>@MoneyCard(item.UnitPriceUsd) @T("دالر", "USD")</td>
+                                <td class="ak-num">@MoneyCard(item.TotalUsd) @T("دالر", "USD")</td>
+                                <td><span class="ak-status is-green">@T("فروخته‌شده", "Sold")</span></td>
+                                <td class="no-print ak-col-actions">
+                                    <button type="button"
+                                            class="ak-row-menu-btn"
+                                            title="@T("جزئیات قراردادها", "Contract details")"
+                                            data-contract-breakdown-toggle="@breakdownKey"
+                                            aria-expanded="false"
+                                            @(item.ContractBreakdownLines.Count == 0 ? "disabled" : null)>
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="ak-list-row" data-contract-breakdown-row="@breakdownKey" hidden>
+                                <td colspan="7">
+                                    <div class="ak-form-section">
+                                        <table class="ak-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>@T("قرارداد", "Contract")</th>
+                                                    <th>@T("سهم مقدار", "Quantity share")</th>
+                                                    <th>@T("سهم مبلغ", "Amount share")</th>
+                                                    <th>@T("توضیح", "Description")</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var line in item.ContractBreakdownLines)
+                                                {
+                                                    <tr>
+                                                        <td>@line.ContractNumber</td>
+                                                        <td>@NumberDisplay.Quantity(line.QuantityMt) @T("تن", "MT")</td>
+                                                        <td>@MoneyCard(line.AmountUsd) @T("دالر", "USD")</td>
+                                                        <td>@(line.Description ?? "-")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!saleDisplayRows.Any())
+                        { <tr><td colspan="7" class="ak-empty">@T("فروشی ثبت نشده است.", "No sales recorded.")</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        @* ============ تب: سود و زیان — یک منبع، یک عدد، ساده ============ *@
+        <div class="tab-pane fade" id="shipment-finance" role="tabpanel">
+            @{
+                var netResultClass = Model.NetResultIsProfit ? "ak-num" : "ak-num";
+                var netResultLabel = Model.NetResultIsProfit ? T("سود خالص", "Net profit") : T("زیان خالص", "Net loss");
+                var pnlUnpricedContracts = Model.ContractLines
+                    .Where(c => c.AllocatedQuantityMt > 0.0001m && !c.HasFinalPrice)
+                    .ToList();
+                // دسته‌های هزینه فقط برای جدول جزئیات؛ جمعشان = کل مصارف عملیاتی محموله.
+                var expenseCategories = new (string Fa, string En, decimal Amount)[]
+                {
+                    ("کرایه حمل", "Freight", freightExpenseUsd),
+                    ("گمرک و مصارف گمرکی", "Customs", customsExpenseUsd),
+                    ("اسناد و مجوز", "Documents & permits", documentExpenseUsd),
+                    ("ترمینال و انبار", "Terminal & storage", terminalExpenseUsd),
+                    ("سایر مصارف", "Other", otherExpenseUsd)
+                };
+            }
+
+            <div class="ak-summary" aria-label="@T("خلاصه سود و زیان", "Profit and loss summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt-cutoff"></i></span><div class="ak-field"><span class="ak-label">@T("درآمد فروش", "Revenue")</span><span class="ak-section-desc">@saleDisplayRows.Count @T("فروش", "sales")</span><span class="ak-num">@MoneyCard(Model.TotalSalesUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-bag-check"></i></span><div class="ak-field"><span class="ak-label">@T("بهای خرید تحقق‌یافته", "Realized purchase")</span><span class="ak-section-desc">@NumberDisplay.Quantity(Model.SoldQuantityMt) MT</span><span class="ak-num">@MoneyCard(Model.RealizedPurchaseCostUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-clock-history"></i></span><div class="ak-field"><span class="ak-label">@T("مصارف تحقق‌یافته", "Realized expenses")</span><span class="ak-section-desc">@T("سهم فروخته‌شده", "sold share")</span><span class="ak-num">@MoneyCard(Model.RealizedOperationalExpensesUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-bell-fill"></i></span><div class="ak-field"><span class="ak-label">@T("زیان شرکت", "Company loss")</span><span class="ak-section-desc">@NumberDisplay.Quantity(Model.CompanyLossQuantityMt) MT</span><span class="ak-num">@MoneyCard(Model.CompanyLossDeductionUsd) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@netResultLabel</span><span class="ak-section-desc">@T("نتیجه تحقق‌یافته", "realized result")</span><span class="ak-num @netResultClass">@MoneyCard(Model.RealizedGrossMarginUsd) USD</span></div></div>
+            </div>
+
+            @if (Model.PurchasePricingIncomplete)
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    @T("نرخ نهاییِ خرید این قرارداد(ها) هنوز ثبت نشده، پس بهای خرید آن مقدار ناقص است و سود/زیان زیر قطعی نیست:",
+                       "Final purchase price is not set for these contract(s), so the purchase cost is incomplete and the profit/loss below is not definite yet:")
+                    <strong>@string.Join("، ", pnlUnpricedContracts.Select(c => $"{c.ContractNumber} ({NumberDisplay.Quantity(c.AllocatedQuantityMt)} MT)"))</strong>.
+                    @T("ابتدا نرخ نهایی خرید این قراردادها را ثبت کنید.", "Set the final purchase price for these contracts first.")
+                </div>
+            }
+
+            @* نتیجهٔ اصلی و کاملاً واضح: سبز = سود، قرمز = زیان. *@
+            <section class="ak-form-section">
+                <div class="ak-field @netResultClass">
+                    <span class="ak-label">@netResultLabel</span>
+                    <strong class="ak-num">@MoneyCard(Model.NetResultAbsUsd) <span class="ak-section-desc">@T("دالر", "USD")</span></strong>
+                    <small class="ak-note">@T("سود/زیان قطعیِ تحقق‌یافته روی مقدار فروخته‌شده", "Definite realized profit/loss on the sold quantity")</small>
+                </div>
+            </section>
+
+            @* محاسبهٔ شفاف؛ همان عددِ نتیجه بالا از همین ردیف‌ها می‌آید. *@
+            <section class="ak-form-section">
+                <h3>@T("محاسبهٔ سود و زیان", "Profit & loss calculation")</h3>
+                <div class="ak-summary">
+                    <div><span>@T("درآمد کل فروش", "Total sales revenue")</span><strong>@MoneyCard(Model.TotalSalesUsd) @T("دالر", "USD")</strong></div>
+                    <div><span>@T("− بهای خرید مقدار فروخته‌شده", "− Cost of sold quantity")</span><strong>@MoneyCard(Model.RealizedPurchaseCostUsd) @T("دالر", "USD")</strong></div>
+                    <div><span>@T("− مجموع هزینه‌های مسیر و عملیات (سهم فروخته‌شده)", "− Route & operation costs (sold share)")</span><strong>@MoneyCard(Model.RealizedOperationalExpensesUsd) @T("دالر", "USD")</strong></div>
+                    @if (Model.CompanyLossQuantityMt > 0m)
+                    {
+                        <div><span>@T("− زیان قطعی غیرقابل وصول (ضرر شرکت)", "− Definite unrecoverable loss (company loss)")</span><strong>@MoneyCard(Model.CompanyLossDeductionUsd) @T("دالر", "USD")</strong></div>
+                    }
+                    <div class="is-total"><span>= @netResultLabel</span><strong class="@netResultClass">@MoneyCard(Model.RealizedGrossMarginUsd) @T("دالر", "USD")</strong></div>
+                </div>
+            </section>
+
+            @* مقدار فروخته‌شده و باقی‌مانده — ارزش موجودی باقی‌مانده جدا و هرگز سود شمرده نمی‌شود. *@
+            <section class="ak-form-section">
+                <h3>@T("مقدار فروخته‌شده و باقی‌مانده", "Sold & remaining quantity")</h3>
+                <div class="ak-summary">
+                    <div><span>@T("مقدار فروخته‌شده", "Sold quantity")</span><strong>@NumberDisplay.Quantity(Model.SoldQuantityMt) @T("تن", "MT")</strong></div>
+                    <div><span>@T("باقی‌مانده فروش‌نشده", "Unsold balance")</span><strong>@NumberDisplay.Quantity(Model.RemainingUnsoldQuantityMt) @T("تن", "MT")</strong></div>
+                    <div><span>@T("ارزش موجودی باقی‌مانده (بهای خرید)", "Remaining inventory value (at cost)")</span><strong>@MoneyCard(Model.RemainingInventoryValueUsd) @T("دالر", "USD")</strong></div>
+                </div>
+                @if (!Model.IsFullySold)
+                {
+                    <p class="small text-muted mb-0 mt-2"><i class="bi bi-info-circle"></i> @T("ارزش موجودی باقی‌مانده جدا از سود است؛ تا فروخته نشود سود محسوب نمی‌شود.", "Remaining inventory value is separate from profit; it is not counted as profit until sold.")</p>
+                }
+            </section>
+
+            @* جدول سادهٔ جزئیات هزینه‌ها بر اساس دسته. جمع = کل مصارف عملیاتی محموله. *@
+            <section class="ak-form-section">
+                <h3>@T("جزئیات هزینه‌ها بر اساس دسته", "Expense details by category")</h3>
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr><th>@T("دستهٔ هزینه", "Category")</th><th class="text-end">@T("مبلغ (کل محموله)", "Amount (whole cargo)")</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var category in expenseCategories.Where(c => c.Amount > 0m))
+                        {
+                            <tr>
+                                <td>@T(category.Fa, category.En)</td>
+                                <td class="text-end ak-num">@MoneyCard(category.Amount) @T("دالر", "USD")</td>
+                            </tr>
+                        }
+                        @if (Model.TotalOperationalExpensesUsd <= 0m)
+                        { <tr><td colspan="2" class="ak-empty">@T("مصرفی ثبت نشده است.", "No expenses recorded.")</td></tr> }
+                        </tbody>
+                        <tfoot>
+                            <tr class="ak-table-total">
+                                <th>@T("کل هزینه‌های مسیر و عملیات", "Total route & operation costs")</th>
+                                <td class="ak-num">@MoneyCard(Model.TotalOperationalExpensesUsd) @T("دالر", "USD")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <p class="small text-muted mb-0 mt-2"><i class="bi bi-info-circle"></i> @T("این جدول کل مصارف محموله است؛ در محاسبهٔ سود بالا فقط سهم مقدار فروخته‌شده کسر می‌شود.", "This table is the whole-cargo expense; only the sold share is deducted in the profit calculation above.")</p>
+            </section>
+
+        </div>
+
+        <div class="tab-pane fade" id="shipment-balance" role="tabpanel">
+            <div class="ak-summary" aria-label="@T("خلاصه کسری‌ها", "Shortage summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt"></i></span><div class="ak-field"><span class="ak-label">@T("رویدادها", "Events")</span><span class="ak-section-desc">@lossDisplayRows.Count @T("رکورد", "records")</span><span class="ak-num">@NumberDisplay.Quantity(Model.TotalLossAndShortageMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-file-earmark-check"></i></span><div class="ak-field"><span class="ak-label">@T("کسری ثبت‌شده", "Recorded shortage")</span><span class="ak-section-desc">@T("مجموع مقدار", "total quantity")</span><span class="ak-num">@NumberDisplay.Quantity(lossDisplayRows.Sum(x => x.QuantityMt)) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-cash-coin"></i></span><div class="ak-field"><span class="ak-label">@T("ارزش تخمینی", "Estimated value")</span><span class="ak-section-desc">@T("دالر", "USD")</span><span class="ak-num">@MoneyCard(lossDisplayRows.Sum(x => x.EstimatedValueUsd)) USD</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-bell-fill"></i></span><div class="ak-field"><span class="ak-label">@T("ضرر شرکت", "Company loss")</span><span class="ak-section-desc">@T("غیرقابل وصول", "unrecoverable")</span><span class="ak-num">@NumberDisplay.Quantity(Model.CompanyLossQuantityMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@T("قابل ثبت", "Registerable")</span><span class="ak-section-desc">@T("مقدار باقی‌مانده", "remaining quantity")</span><span class="ak-num">@NumberDisplay.Quantity(Model.TotalShortageRegisterableQuantityMt) MT</span></div></div>
+            </div>
+
+            <section class="ak-form-section">
+                <div class="ak-section-head">
+                    <h3>@T("کسری‌ها و ضایعات ثبت‌شده", "Recorded losses & shortages") <span class="ak-status">@lossDisplayRows.Count</span></h3>
+                    <button type="button" class="btn ak-secondary-action is-primary no-print" data-bs-toggle="modal" data-bs-target="#shipmentDirectLossModal" @(canRegisterDirectLoss ? null : "disabled")><i class="bi bi-plus-lg"></i> @T("ثبت کسری", "Add loss")</button>
+                </div>
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead><tr><th>@T("تاریخ", "Date")</th><th>@T("مقدار کل کسرات", "Total shortage")</th><th>@T("ارزش تخمینی", "Estimated value")</th><th>@T("نوع مسئولیت", "Responsibility")</th><th class="no-print">@T("جزئیات", "Details")</th></tr></thead>
+                        <tbody>
+                        @foreach (var item in lossDisplayRows)
+                        {
+                            var breakdownKey = $"loss-{item.Id}";
+                            <tr data-breakdown-parent="@breakdownKey">
+                                <td>@item.EventDate.ToDisplayDate()</td>
+                                <td class="ak-num">@NumberDisplay.Quantity(item.QuantityMt) @T("تن", "MT")</td>
+                                <td class="ak-num">@MoneyCard(item.EstimatedValueUsd) @T("دالر", "USD")</td>
+                                <td>@item.ResponsibilityTypeName</td>
+                                <td class="no-print">
+                                    <button type="button"
+                                            class="ak-text-action"
+                                            data-contract-breakdown-toggle="@breakdownKey"
+                                            aria-expanded="false"
+                                            @(item.ContractBreakdownLines.Count == 0 ? "disabled" : null)>
+                                        <i class="bi bi-diagram-3"></i>
+                                        @T("جزئیات", "Details")
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="ak-list-row" data-contract-breakdown-row="@breakdownKey" hidden>
+                                <td colspan="5">
+                                    <div class="ak-form-section">
+                                        <table class="ak-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>@T("قرارداد", "Contract")</th>
+                                                    <th>@T("سهم مقدار", "Quantity share")</th>
+                                                    <th>@T("سهم مبلغ", "Amount share")</th>
+                                                    <th>@T("توضیح", "Description")</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var line in item.ContractBreakdownLines)
+                                                {
+                                                    <tr>
+                                                        <td>@line.ContractNumber</td>
+                                                        <td>@NumberDisplay.Quantity(line.QuantityMt) @T("تن", "MT")</td>
+                                                        <td>@MoneyCard(line.AmountUsd) @T("دالر", "USD")</td>
+                                                        <td>@(line.Description ?? item.Description ?? "-")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!lossDisplayRows.Any())
+                        { <tr><td colspan="5" class="ak-empty">@T("ثبت نشده است.", "Not recorded.")</td></tr> }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.Warnings.Any())
+                {
+                    <div class="ak-list">
+                        @foreach (var warning in Model.Warnings)
+                        {
+                            <div><i class="bi bi-info-circle"></i>@warning</div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+
+        @* ============ تب: سفره‌های موتر/واگن ============ *@
+        <div class="tab-pane fade" id="shipment-trips" role="tabpanel">
+            @{
+                var inventoryLoadedMt = inventoryTransportItems.Sum(x => x.QuantityMt);
+                var inventoryReceivedMt = inventoryTransportItems.Sum(x => x.ReceivedQuantityMt);
+                var inventoryShortageMt = inventoryTransportItems.Sum(x => x.ShortageQuantityMt);
+                var inventoryInTransitMt = Math.Max(inventoryLoadedMt - inventoryReceivedMt - inventoryShortageMt, 0m);
+            }
+            <div class="ak-summary" aria-label="@T("خلاصه انتقالات", "Transfer summary")">
+                <div class="ak-field"><span class="ak-page-icon is-teal"><i class="bi bi-receipt"></i></span><div class="ak-field"><span class="ak-label">@T("کل سفرها", "Trips")</span><span class="ak-section-desc">@inventoryTransportItems.Count @T("سفر", "trips")</span><span class="ak-num">@NumberDisplay.Quantity(inventoryLoadedMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-green"><i class="bi bi-truck"></i></span><div class="ak-field"><span class="ak-label">@T("بارگیری‌شده", "Transported")</span><span class="ak-section-desc">@T("مجموع انتقال", "total transfer")</span><span class="ak-num">@NumberDisplay.Quantity(inventoryLoadedMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-amber"><i class="bi bi-file-earmark-check"></i></span><div class="ak-field"><span class="ak-label">@T("رسیده", "Received")</span><span class="ak-section-desc">@T("تخلیه مقصد", "destination receipt")</span><span class="ak-num">@NumberDisplay.Quantity(inventoryReceivedMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-red"><i class="bi bi-bell-fill"></i></span><div class="ak-field"><span class="ak-label">@T("کسری", "Shortage")</span><span class="ak-section-desc">@T("در مسیر", "in transport")</span><span class="ak-num">@NumberDisplay.Quantity(inventoryShortageMt) MT</span></div></div>
+                <div class="ak-field"><span class="ak-page-icon is-gray"><i class="bi bi-archive-fill"></i></span><div class="ak-field"><span class="ak-label">@T("در مسیر", "In transit")</span><span class="ak-section-desc">@T("باقی‌مانده سفرها", "trip balance")</span><span class="ak-num">@NumberDisplay.Quantity(inventoryInTransitMt) MT</span></div></div>
+            </div>
+            <section class="ak-form-section ak-table-wrap">
+                <div class="ak-section-head">
+                    <h3 class="card-title">@T("سفره‌های موتر/واگن", "Truck/wagon trips") (@inventoryTransportItems.Count)</h3>
+                    <a asp-controller="InventoryTransportLegs" asp-action="CreateFromInventory" asp-route-shipmentId="@Model.Id" asp-route-returnUrl="@selfUrl" class="btn btn-primary ak-primary-action no-print">
+                        <i class="bi bi-truck"></i>@T("ثبت سفر جدید", "New trip")
+                    </a>
+                </div>
+                <div class="ak-detail-toolbar no-print">
+                    <input type="search" class="ak-input" data-shipment-trip-search placeholder="@T("جستجو: شماره سفر، موتر/واگن، مقصد، وضعیت", "Search trip, vehicle, destination, status")" />
+                    <div class="ak-detail-toolbar" data-shipment-batch-bar hidden aria-label="@T("عملیات گروهی سفرها", "Trip bulk actions")">
+                        <span><strong data-shipment-selected-count>0</strong> @T("سفر انتخاب شده", "trips selected")</span>
+                        <button type="button" disabled>@T("ثبت گمرک", "Customs")</button>
+                        <button type="button" disabled>@T("ثبت مصرف", "Expense")</button>
+                        <button type="button" disabled>@T("ثبت کسری", "Loss")</button>
+                        <button type="button" disabled>@T("ثبت تخلیه", "Receipt")</button>
+                        <button type="button" onclick="window.print()">@T("چاپ لیست", "Print list")</button>
+                    </div>
+                </div>
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="no-print"><input type="checkbox" class="form-check-input" data-shipment-trip-select-all aria-label="@T("انتخاب همه", "Select all")" /></th>
+                                <th>@T("تاریخ", "Date")</th>
+                                <th>@T("نمبر CMR", "CMR no.")</th>
+                                <th>@T("نمبر پلیت", "Plate no.")</th>
+                                <th>@T("مقادیر", "Quantities")</th>
+                                <th>@T("مسیر", "Route")</th>
+                                <th>@T("وضعیت", "Status")</th>
+                                <th class="no-print ak-col-actions">@T("اقدام‌ها", "Actions")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in inventoryTransportItems)
+                        {
+                            var searchText = $"{item.Id} {item.TransportReference} {item.TransportTypeName} {item.SourceName} {item.DestinationName} {item.TransportStatusName}".ToLowerInvariant();
+                            var normalizedStatus = item.TransportStatusName.ToLowerInvariant();
+                            var statusClass = item.IsDraft
+                                ? "is-pending"
+                                : normalizedStatus.Contains("لغو") || normalizedStatus.Contains("cancel")
+                                    ? "is-inactive"
+                                    : normalizedStatus.Contains("رسید") || normalizedStatus.Contains("received") || normalizedStatus.Contains("تکمیل") || normalizedStatus.Contains("complete")
+                                        ? "is-active"
+                                        : normalizedStatus.Contains("مسیر") || normalizedStatus.Contains("transit") || normalizedStatus.Contains("بارگیری") || normalizedStatus.Contains("loaded")
+                                            ? "is-pending"
+                                            : "is-inactive";
+                            <tr data-shipment-trip-row data-trip-search-text="@searchText">
+                                <td class="no-print"><input type="checkbox" class="form-check-input" data-shipment-trip-select aria-label="@T("انتخاب سفر", "Select trip")" /></td>
+                                <td class="ak-section-desc">
+                                    <strong dir="ltr">@item.LoadedDate.ToDisplayDate()</strong>
+                                    <span>#@item.Id</span>
+                                </td>
+                                <td class="ak-num"><code dir="ltr">@(string.IsNullOrWhiteSpace(item.DocumentReference) ? "—" : item.DocumentReference)</code></td>
+                                <td class="ak-num"><code dir="ltr">@(item.TransportReference ?? item.TransportTypeName)</code></td>
+                                <td class="ak-col-num">
+                                    <strong class="ak-num">@NumberDisplay.Quantity(item.QuantityMt) MT</strong>
+                                    <small class="ak-section-desc">
+                                        <span>@T("تخلیه", "Received"): <b>@NumberDisplay.Quantity(item.ReceivedQuantityMt)</b></span>
+                                        @if (item.ShortageQuantityMt > 0m)
+                                        {
+                                            <span>@T("کسری", "Shortage"): <b>@NumberDisplay.Quantity(item.ShortageQuantityMt)</b></span>
+                                        }
+                                    </small>
+                                </td>
+                                <td class="ak-section-desc">
+                                    <span>@item.SourceName</span>
+                                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                                    <strong>@item.DestinationName</strong>
+                                </td>
+                                <td><span class="ak-status @statusClass">@item.TransportStatusName</span></td>
+                                <td class="no-print ak-col-actions">
+                                    <div class="dropdown-menu">
+                                        <a class="btn btn-sm btn-primary ak-primary-action ak-name" asp-controller="InventoryTransportReceipts" asp-action="Create" asp-route-transportLegId="@item.Id">
+                                            <i class="bi bi-box-arrow-in-down"></i>@T("ثبت تخلیه", "Register receipt")
+                                        </a>
+                                        <div class="dropdown ak-row-menu">
+                                            <button type="button" class="btn btn-sm btn-light ak-secondary-action ak-row-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" aria-label="@T("سایر اقدام‌ها", "More actions")">
+                                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <a class="dropdown-item" asp-controller="LossEvents" asp-action="Create" asp-route-transportLegId="@item.Id" asp-route-returnUrl="@selfUrl"><i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i><span>@T("ثبت کسری", "Register loss")</span></a>
+                                                <a class="dropdown-item" asp-controller="CustomsDeclarations" asp-action="Create" asp-route-transportLegId="@item.Id" asp-route-returnUrl="@selfUrl"><i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i><span>@T("ثبت گمرک", "Customs")</span></a>
+                                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shipmentExpensesModal" data-expense-url="@Url.Action("CreateGroupExpenseModal", "InventoryTransportLegs", new { legId = item.Id, returnUrl = selfUrl })"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i><span>@T("ثبت مصرف", "Expense")</span></a>
+                                                <a class="dropdown-item" asp-controller="Sales" asp-action="CreateFromShipment" asp-route-shipmentId="@Model.Id" asp-route-returnUrl="@selfUrl"><i class="bi bi-cart-fill" aria-hidden="true"></i><span>@T("ثبت فروش", "Register sale")</span></a>
+                                                <a class="dropdown-item" asp-controller="InventoryTransportLegs" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@selfUrl"><i class="bi bi-eye-fill" aria-hidden="true"></i><span>@T("مشاهده رسید", "View receipt")</span></a>
+                                                <a class="dropdown-item" asp-controller="InventoryTransportLegs" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@selfUrl"><i class="bi bi-folder-fill" aria-hidden="true"></i><span>@T("مشاهده اسناد", "View documents")</span></a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!inventoryTransportItems.Any())
+                        {
+                            <tr>
+                                <td colspan="8" class="ak-empty">@T("ثبت نشده است.", "Not recorded.")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="shipmentDirectLossModal" tabindex="-1"
+         aria-labelledby="shipmentDirectLossModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content ak-modal-content">
+                <form asp-action="RegisterDirectLoss"
+                      method="post"
+                      class="ak-form"
+                      data-ship-shortage-form
+                      data-loaded="@DecimalInput(Model.ShipShortageLoadedQuantityMt)"
+                      data-sold="@DecimalInput(Model.SoldQuantityMt)"
+                      data-current-shortage="@DecimalInput(Model.ShipShortageQuantityMt)"
+                      data-current-remaining="@DecimalInput(Model.TotalShortageRegisterableQuantityMt)"
+                      data-unit-cost="@MoneyInput(Model.AverageCostPerMtUsd)">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ShipmentId" value="@Model.Id" />
+                    <input type="hidden" name="ReturnUrl" value="@selfUrl" />
+                    <div class="ak-modal-head ak-section-head">
+                        <div>
+                            <h2 class="modal-title" id="shipmentDirectLossModalLabel">
+                                <i class="bi bi-clipboard2-check text-primary"></i>
+                                @T("ثبت کسری کشتی", "Register ship shortage")
+                            </h2>
+                        </div>
+                        <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
+                    </div>
+                    <div class="ak-modal-body ak-section-body">
+                        <div class="ak-summary">
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">@T("بار کشتی برای کسری", "Vessel cargo for shortage")</div>
+                                <div class="summary-tile-value ak-num"><span data-shortage-loaded>@NumberDisplay.Quantity(Model.ShipShortageLoadedQuantityMt)</span> <span class="small text-muted">@T("تن", "MT")</span></div>
+                                <i class="bi bi-ship text-primary"></i>
+                            </div>
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">@T("مقدار فروخته‌شده", "Sold quantity")</div>
+                                <div class="summary-tile-value ak-num"><span data-shortage-sold>@NumberDisplay.Quantity(Model.SoldQuantityMt)</span> <span class="small text-muted">@T("تن", "MT")</span></div>
+                                <i class="bi bi-cart-check text-success"></i>
+                            </div>
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">@T("کسری", "Shortage")</div>
+                                <div class="summary-tile-value ak-num"><span data-shortage-qty>@NumberDisplay.Quantity(Model.ShipShortageQuantityMt)</span> <span class="small text-muted">@T("تن", "MT")</span></div>
+                                <i class="bi bi-exclamation-triangle text-warning"></i>
+                            </div>
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">@T("درصد کسری", "Shortage percent")</div>
+                                <div class="summary-tile-value ak-num"><span data-shortage-percent>@Model.ShipShortagePercent.ToString("N2")</span>%</div>
+                                <i class="bi bi-percent text-info"></i>
+                            </div>
+                            <div class="summary-tile">
+                                <div class="summary-tile-label">@T("ارزش تخمینی", "Estimated value")</div>
+                                <div class="summary-tile-value ak-num"><span data-shortage-value>@MoneyCard(Model.EstimatedShortageValueUsd)</span> <span class="small text-muted">@T("دالر", "USD")</span></div>
+                                <i class="bi bi-coin text-warning"></i>
+                            </div>
+                        </div>
+                        <div class="ak-section-title">
+                            <h3>@T("مسئول کسری", "Shortage responsibility")</h3>
+                        </div>
+                        <div class="ak-form-grid" role="radiogroup" aria-label="@T("نوع مسئولیت کسری", "Shortage responsibility")">
+                            <label class="ak-toggle-field is-selected">
+                                <input type="radio" name="ResponsibilityType" value="CompanyLoss" checked data-shortage-option />
+                                <i class="bi bi-building"></i><span>@T("ضرر شرکت", "Company loss")</span>
+                            </label>
+                            <label class="ak-toggle-field">
+                                <input type="radio" name="ResponsibilityType" value="SupplierDeduction" data-shortage-option />
+                                <i class="bi bi-person-lines-fill"></i><span>@T("کسر از حساب تأمین‌کننده", "Supplier deduction")</span>
+                            </label>
+                            <label class="ak-toggle-field">
+                                <input type="radio" name="ResponsibilityType" value="ServiceProviderClaim" data-shortage-option />
+                                <i class="bi bi-truck"></i><span>@T("طلب از شرکت خدماتی", "Service claim")</span>
+                            </label>
+                            <label class="ak-toggle-field">
+                                <input type="radio" name="ResponsibilityType" value="PartnerShareDeduction" data-shortage-option />
+                                <i class="bi bi-people"></i><span>@T("کسر از سهم شریک", "Partner share")</span>
+                            </label>
+                            <label class="ak-toggle-field">
+                                <input type="radio" name="ResponsibilityType" value="Split" data-shortage-option />
+                                <i class="bi bi-diagram-3"></i><span>@T("تقسیم بین چند طرف", "Split")</span>
+                            </label>
+                        </div>
+                        <div class="ak-form-grid">
+                            <section class="ak-form-section">
+                        <div class="ak-form-grid g-3">
+                            <div class="ak-field" data-shortage-field="party">
+                                <label class="ak-label fw-semibold" for="shipmentLossPartyName">@T("نام طرف", "Party name") <span class="text-danger">*</span></label>
+                                <input id="shipmentLossPartyName" name="ResponsiblePartyName" class="ak-input" maxlength="200" />
+                            </div>
+                            <div class="ak-field" data-shortage-field="contract">
+                                <label class="ak-label fw-semibold" for="shipmentLossContract">@T("قرارداد مربوطه", "Related contract")</label>
+                                <select id="shipmentLossContract" name="ContractId" class="ak-input">
+                                    <option value="" data-unit-cost="@MoneyInput(Model.AverageCostPerMtUsd)">@T("تقسیم نسبتی بین قراردادها", "Proportional by contracts")</option>
+                                    @foreach (var line in Model.ContractLines)
+                                    {
+                                        <option value="@line.ContractId" data-unit-cost="@MoneyInput(line.UnitPriceUsd ?? 0m)">@line.ContractNumber - @NumberDisplay.Quantity(line.ShortageRegisterableQuantityMt) @T("تن قابل ثبت", "MT available")</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="ak-field" data-shortage-field="status">
+                                <label class="ak-label fw-semibold" for="shipmentLossStatus">@T("وضعیت", "Status") <span class="text-danger">*</span></label>
+                                <select id="shipmentLossStatus" name="ClaimStatus" class="ak-input">
+                                    <option>@T("در انتظار", "Pending")</option>
+                                    <option>@T("تأیید شده", "Confirmed")</option>
+                                    <option>@T("دریافت شده", "Collected")</option>
+                                </select>
+                            </div>
+                            <div class="ak-field">
+                                <label class="ak-label fw-semibold" for="shipmentLossQuantity">@T("مقدار ضایعات (MT)", "Loss quantity (MT)")</label>
+                                <input id="shipmentLossQuantity"
+                                       name="LossQuantityMt"
+                                       type="number"
+                                       step="0.0001"
+                                       min="0.0001"
+                                       max="@DecimalInput(Model.TotalShortageRegisterableQuantityMt)"
+                                       class="ak-input text-end"
+                                       data-shortage-quantity
+                                       required />
+                            </div>
+                            <div class="ak-field">
+                                <label class="ak-label fw-semibold" for="shipmentLossAmount">@T("مبلغ قابل مطالبه", "Claimable amount")</label>
+                                <div class="input-group">
+                                    <input id="shipmentLossAmount"
+                                           name="LossAmountUsd"
+                                           type="number"
+                                           step="0.01"
+                                           min="0"
+                                           value="@MoneyInput(defaultLossAmountUsd)"
+                                           class="ak-input text-end"
+                                           data-shortage-amount />
+                                    <span class="input-group-text">@T("دالر", "USD")</span>
+                                </div>
+                                <div class="ak-section-desc">
+                                    @T("قیمت خرید هر تن:", "Purchase price per MT:")
+                                    <strong data-shortage-unit-cost-text>@MoneyCard(Model.AverageCostPerMtUsd)</strong>
+                                    @T("دالر", "USD")
+                                </div>
+                            </div>
+                            <div class="ak-field">
+                                <label class="ak-label fw-semibold" for="shipmentLossDate">@T("تاریخ", "Date")</label>
+                                <input id="shipmentLossDate" name="EventDate" type="date" value="@todayValue" class="ak-input" required />
+                            </div>
+                            <div class="ak-field">
+                                <label class="ak-label fw-semibold" for="shipmentLossNotes">@T("توضیحات", "Notes")</label>
+                                <textarea id="shipmentLossNotes" name="Notes" rows="3" maxlength="1000" class="ak-input"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="ak-form-grid" data-shortage-field="split">
+                            <div class="ak-section-head">
+                                <strong>@T("تقسیم کسری", "Split shortage")</strong>
+                                <span>@T("جمع مقدار ردیف‌ها باید برابر مقدار کل کسری باشد.", "Line quantities must equal the total shortage.")</span>
+                            </div>
+                            <div class="ak-table-wrap">
+                                <table class="ak-table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>@T("نوع حساب", "Type")</th>
+                                            <th>@T("طرف مسئول", "Party")</th>
+                                            <th class="text-end">@T("مقدار تن", "MT")</th>
+                                            <th class="text-end">@T("مبلغ", "Amount")</th>
+                                            <th>@T("وضعیت", "Status")</th>
+                                            <th>@T("یادداشت کوتاه", "Note")</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    @for (var i = 0; i < 4; i++)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <select name="SplitLines[@i].ResponsibilityType" class="ak-input">
+                                                    <option value="">-</option>
+                                                    <option value="CompanyLoss">@T("ضرر شرکت", "Company loss")</option>
+                                                    <option value="SupplierDeduction">@T("کسر از تأمین‌کننده", "Supplier deduction")</option>
+                                                    <option value="ServiceProviderClaim">@T("طلب از خدماتی", "Service claim")</option>
+                                                    <option value="PartnerShareDeduction">@T("سهم شریک", "Partner share")</option>
+                                                </select>
+                                            </td>
+                                            <td><input name="SplitLines[@i].ResponsiblePartyName" class="ak-input" maxlength="200" /></td>
+                                            <td><input name="SplitLines[@i].QuantityMt" type="number" step="0.0001" min="0" class="ak-input text-end" /></td>
+                                            <td><input name="SplitLines[@i].AmountUsd" type="number" step="0.01" min="0" class="ak-input text-end" /></td>
+                                            <td><input name="SplitLines[@i].Status" class="ak-input" maxlength="100" /></td>
+                                            <td><input name="SplitLines[@i].Notes" class="ak-input" maxlength="200" /></td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                            </section>
+
+                            <aside class="ak-note">
+                                <div class="ak-page-icon"><i class="bi bi-bank"></i></div>
+                                <h3>@T("اثر حسابداری", "Accounting effect")</h3>
+                                <ul>
+                                    <li><span></span><strong>@T("مقدار:", "Quantity:")</strong> <span data-effect-qty>@NumberDisplay.Quantity(Model.TotalShortageRegisterableQuantityMt)</span> @T("تن کسری", "MT shortage")</li>
+                                    <li><span></span><span data-effect-line-1>@T("ثبت ضرر شرکت", "Register company loss")</span></li>
+                                    <li><span></span><span data-effect-line-2>@T("کاهش سود/سرمایه شرکت", "Reduce company profit/capital")</span></li>
+                                    <li><span></span><span data-effect-line-3>@T("صندوق و بانک تغییر نمی‌کند", "Cash and bank do not change")</span></li>
+                                </ul>
+                            </aside>
+                        </div>
+                    </div>
+                    <div class="ak-modal-foot ak-footer-actions">
+                        <button type="button" class="btn btn-light ak-secondary-action" data-bs-dismiss="modal">@T("انصراف", "Cancel")</button>
+                        <button type="submit" class="btn btn-primary ak-primary-action" @(canRegisterDirectLoss ? null : "disabled")><i class="bi bi-clipboard-check me-1"></i> @T("ثبت نهایی کسری", "Save shortage")</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @* مودال «ثبت مصرف» — همان مودال و منطق صفحه جزئیات جریان حمل؛ فرم AJAX از CreateGroupExpenseModal با groupKey محموله بارگذاری می‌شود. *@
+    <div class="modal fade" id="shipmentExpensesModal" tabindex="-1"
+         aria-labelledby="shipmentExpensesModalLabel" aria-hidden="true" data-loading-expense-remote-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content ak-modal-content">
+                <div class="ak-modal-head">
+                    <h2 class="modal-title" id="shipmentExpensesModalLabel">
+                        <i class="bi bi-receipt-cutoff text-primary"></i>
+                        @T("ثبت مصرف این محموله", "Add shipment expense")
+                    </h2>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
+                </div>
+                <div class="ak-modal-body" data-loading-expense-remote-body>
+                    <div class="ak-empty">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                        <span>@T("در حال بارگذاری فرم مصارف...", "Loading expense form...")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        @* The shipment file rail is driven by the shared engine in ptg-tabs.js. *@
+        (function () {
+            const detailRows = Array.from(document.querySelectorAll('[data-contract-breakdown-row]'));
+            document.querySelectorAll('[data-contract-breakdown-toggle]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const key = button.dataset.contractBreakdownToggle;
+                    const detailRow = detailRows.find(row => row.dataset.contractBreakdownRow === key);
+                    if (!detailRow) {
+                        return;
+                    }
+
+                    const shouldOpen = detailRow.hidden;
+                    detailRow.hidden = !shouldOpen;
+                    button.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+                });
+            });
+        })();
+
+        (function () {
+            const input = document.querySelector('[data-shipment-trip-search]');
+            const rows = Array.from(document.querySelectorAll('[data-shipment-trip-row]'));
+            if (!input || rows.length === 0) {
+                return;
+            }
+
+            input.addEventListener('input', () => {
+                const query = input.value.trim().toLowerCase();
+                rows.forEach(row => {
+                    row.hidden = query.length > 0 && !row.dataset.tripSearchText?.includes(query);
+                });
+            });
+        })();
+
+        (function () {
+            const rowChecks = Array.from(document.querySelectorAll('[data-shipment-trip-select]'));
+            const selectAll = document.querySelector('[data-shipment-trip-select-all]');
+            const batchBar = document.querySelector('[data-shipment-batch-bar]');
+            const selectedCount = document.querySelector('[data-shipment-selected-count]');
+            if (!batchBar || rowChecks.length === 0) {
+                return;
+            }
+
+            function syncBatchBar() {
+                const selected = rowChecks.filter(check => check.checked);
+                batchBar.hidden = selected.length === 0;
+                if (selectedCount) {
+                    selectedCount.textContent = selected.length.toString();
+                }
+                if (selectAll) {
+                    selectAll.checked = selected.length === rowChecks.length;
+                    selectAll.indeterminate = selected.length > 0 && selected.length < rowChecks.length;
+                }
+            }
+
+            rowChecks.forEach(check => check.addEventListener('change', syncBatchBar));
+            if (selectAll) {
+                selectAll.addEventListener('change', () => {
+                    rowChecks.forEach(check => {
+                        check.checked = selectAll.checked;
+                    });
+                    syncBatchBar();
+                });
+            }
+            syncBatchBar();
+        })();
+
+        (function () {
+            const pageSize = 8;
+            const tables = Array.from(document.querySelectorAll('.ak-tab-content .ak-table'));
+
+            function buildPager(table) {
+                if (table.dataset.shipmentPagerReady === 'true') {
+                    return;
+                }
+
+                const tbody = table.tBodies && table.tBodies[0];
+                if (!tbody) {
+                    return;
+                }
+
+                const rows = Array.from(tbody.rows);
+                const realRows = rows.filter(row =>
+                    !row.hasAttribute('data-contract-breakdown-row')
+                    && !row.querySelector('.ak-empty'));
+                if (realRows.length <= pageSize) {
+                    return;
+                }
+
+                table.dataset.shipmentPagerReady = 'true';
+                let page = 1;
+                const pageCount = Math.ceil(realRows.length / pageSize);
+                const host = table.closest('.ak-table-wrap') || table.parentElement;
+                const pager = document.createElement('div');
+                pager.className = 'ak-pager no-print';
+                pager.innerHTML = '<span data-page-info></span><div class="ak-pager"><button type="button" data-page-prev>‹</button><span data-page-numbers></span><button type="button" data-page-next>›</button></div>';
+                host.appendChild(pager);
+
+                const info = pager.querySelector('[data-page-info]');
+                const numbers = pager.querySelector('[data-page-numbers]');
+                const prev = pager.querySelector('[data-page-prev]');
+                const next = pager.querySelector('[data-page-next]');
+
+                function render() {
+                    const start = (page - 1) * pageSize;
+                    const end = start + pageSize;
+                    realRows.forEach((row, index) => {
+                        const isHidden = index < start || index >= end;
+                        row.hidden = isHidden;
+                        if (isHidden && row.dataset.breakdownParent) {
+                            const detailRow = rows.find(item =>
+                                item.dataset.contractBreakdownRow === row.dataset.breakdownParent);
+                            const toggle = row.querySelector('[data-contract-breakdown-toggle]');
+                            if (detailRow) {
+                                detailRow.hidden = true;
+                            }
+                            if (toggle) {
+                                toggle.setAttribute('aria-expanded', 'false');
+                            }
+                        }
+                    });
+
+                    info.textContent = `صفحه ${page} از ${pageCount} · ${realRows.length} ردیف`;
+                    prev.disabled = page === 1;
+                    next.disabled = page === pageCount;
+                    numbers.innerHTML = '';
+
+                    for (let i = 1; i <= pageCount; i += 1) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.textContent = i.toLocaleString('fa-AF');
+                        button.className = i === page ? 'is-active' : '';
+                        button.addEventListener('click', () => {
+                            page = i;
+                            render();
+                        });
+                        numbers.appendChild(button);
+                    }
+                }
+
+                prev.addEventListener('click', () => {
+                    if (page > 1) {
+                        page -= 1;
+                        render();
+                    }
+                });
+
+                next.addEventListener('click', () => {
+                    if (page < pageCount) {
+                        page += 1;
+                        render();
+                    }
+                });
+
+                render();
+            }
+
+            tables.forEach(buildPager);
+        })();
+
+        (function () {
+            const form = document.querySelector('[data-ship-shortage-form]');
+            if (!form) { return; }
+
+            const number = (value) => Number.parseFloat(value || '0') || 0;
+            const loaded = number(form.dataset.loaded);
+            const sold = number(form.dataset.sold);
+            const currentShortage = number(form.dataset.currentShortage);
+            const defaultUnitCost = number(form.dataset.unitCost);
+            const quantityInput = form.querySelector('[data-shortage-quantity]');
+            const amountInput = form.querySelector('[data-shortage-amount]');
+            const contractSelect = form.querySelector('#shipmentLossContract');
+            const unitCostText = form.querySelector('[data-shortage-unit-cost-text]');
+            const optionInputs = Array.from(form.querySelectorAll('[data-shortage-option]'));
+            const fields = Array.from(form.querySelectorAll('[data-shortage-field]'));
+            const effectQty = form.querySelector('[data-effect-qty]');
+            const effectLine1 = form.querySelector('[data-effect-line-1]');
+            const effectLine2 = form.querySelector('[data-effect-line-2]');
+            const effectLine3 = form.querySelector('[data-effect-line-3]');
+
+            const effectText = {
+                CompanyLoss: ['ثبت ضرر شرکت', 'کاهش سود/سرمایه شرکت', 'صندوق و بانک تغییر نمی‌کند'],
+                SupplierDeduction: ['کاهش بدهی تأمین‌کننده', 'برای مقدار پذیرفته‌شده ضرر شرکت ثبت نمی‌شود', 'صندوق و بانک تغییر نمی‌کند'],
+                ServiceProviderClaim: ['ثبت طلب از شرکت خدماتی', 'تا زمان وصول، نقد/بانک تغییر نمی‌کند', 'کاهش سود کشتی تا زمان وصول'],
+                PartnerShareDeduction: ['کسر از سهم شریک', 'اثر از حساب شریک پیگیری می‌شود', 'صندوق و بانک تغییر نمی‌کند'],
+                Split: ['تقسیم مسئولیت بین چند طرف', 'جمع ردیف‌ها باید کامل باشد', 'صندوق و بانک تغییر نمی‌کند']
+            };
+
+            function formatQuantity(value) {
+                return value.toLocaleString('fa-AF', { maximumFractionDigits: 4 });
+            }
+
+            function formatMoney(value) {
+                return value.toLocaleString('fa-AF', { maximumFractionDigits: 2 });
+            }
+
+            function selectedType() {
+                return optionInputs.find(input => input.checked)?.value || 'CompanyLoss';
+            }
+
+            function currentUnitCost() {
+                const selectedOption = contractSelect?.selectedOptions?.[0];
+                const selectedCost = number(selectedOption?.dataset.unitCost);
+                return selectedCost > 0 ? selectedCost : defaultUnitCost;
+            }
+
+            function setFieldVisibility(type) {
+                fields.forEach(field => {
+                    const key = field.dataset.shortageField;
+                    const show = key === 'split'
+                        ? type === 'Split'
+                        : key === 'party'
+                            ? ['SupplierDeduction', 'ServiceProviderClaim', 'PartnerShareDeduction'].includes(type)
+                            : key === 'contract'
+                                ? true
+                                : key === 'status'
+                                    ? ['ServiceProviderClaim', 'Split'].includes(type)
+                                    : true;
+                    field.classList.toggle('d-none', !show);
+                });
+
+                optionInputs.forEach(input => {
+                    input.closest('.ak-toggle-field')?.classList.toggle('is-selected', input.checked);
+                });
+            }
+
+            function updateNumbers() {
+                const inputQuantity = number(quantityInput?.value);
+                const unitCost = currentUnitCost();
+                const displayShortage = inputQuantity > 0 ? inputQuantity : currentShortage;
+                const percent = loaded > 0 ? (displayShortage / loaded * 100) : 0;
+                const value = displayShortage * unitCost;
+                const inputValue = inputQuantity * unitCost;
+
+                const qtyEl = form.querySelector('[data-shortage-qty]');
+                const soldEl = form.querySelector('[data-shortage-sold]');
+                const percentEl = form.querySelector('[data-shortage-percent]');
+                const valueEl = form.querySelector('[data-shortage-value]');
+                if (qtyEl) { qtyEl.textContent = formatQuantity(displayShortage); }
+                if (soldEl) { soldEl.textContent = formatQuantity(sold); }
+                if (percentEl) { percentEl.textContent = percent.toLocaleString('fa-AF', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+                if (valueEl) { valueEl.textContent = formatMoney(value); }
+                if (unitCostText) { unitCostText.textContent = formatMoney(unitCost); }
+                if (amountInput && inputQuantity > 0) { amountInput.value = inputValue.toFixed(2); }
+                if (effectQty) { effectQty.textContent = formatQuantity(inputQuantity > 0 ? inputQuantity : currentShortage); }
+            }
+
+            function updateEffect() {
+                const type = selectedType();
+                const lines = effectText[type] || effectText.CompanyLoss;
+                if (effectLine1) { effectLine1.textContent = lines[0]; }
+                if (effectLine2) { effectLine2.textContent = lines[1]; }
+                if (effectLine3) { effectLine3.textContent = lines[2]; }
+                setFieldVisibility(type);
+                updateNumbers();
+            }
+
+            optionInputs.forEach(input => input.addEventListener('change', updateEffect));
+            contractSelect?.addEventListener('change', updateNumbers);
+            quantityInput?.addEventListener('input', updateNumbers);
+            updateEffect();
+        })();
+    </script>
+}

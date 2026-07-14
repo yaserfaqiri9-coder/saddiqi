@@ -1,0 +1,435 @@
+@model PTGOilSystem.Web.Models.StorageTanks.StorageTankDetailsViewModel
+@using System.Globalization
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.StorageTanks
+@{
+    ViewData["Title"] = UiText.T(Context, "جزئیات مخزن", "Tank Details");
+    ViewData["StorageTanksAssets"] = true;
+
+    var tankName = string.IsNullOrWhiteSpace(Model.DisplayName) ? Model.TankCode : Model.DisplayName!;
+    var unitText = string.IsNullOrWhiteSpace(Model.UnitOfMeasure) ? "MT" : Model.UnitOfMeasure.Trim();
+    var stockCardUrl = Model.ProductId.HasValue
+        ? $"/Inventory/StockCard?Filter.ProductId={Model.ProductId.Value}&Filter.TerminalId={Model.TerminalId}"
+        : $"/Inventory/StockCard?Filter.TerminalId={Model.TerminalId}";
+    var fillPercentValue = Math.Max(0m, Math.Min(100m, Model.FillPercent));
+    const int storageLedgerPageSize = 7;
+    const int contractMovementModalPageSize = 7;
+    var storageLedgerTotalCount = Model.Movements.Count;
+    var storageLedgerPageCount = Math.Max(1, (int)Math.Ceiling(storageLedgerTotalCount / (double)storageLedgerPageSize));
+    var storageLedgerPage = Math.Min(ReadPositivePage("tankLedgerPage"), storageLedgerPageCount);
+    var storageLedgerRows = Model.Movements
+        .Skip((storageLedgerPage - 1) * storageLedgerPageSize)
+        .Take(storageLedgerPageSize)
+        .ToList();
+
+    int ReadPositivePage(string key)
+    {
+        if (!Context.Request.Query.TryGetValue(key, out var raw)
+            || !int.TryParse(raw.FirstOrDefault(), out var page)
+            || page < 1)
+        {
+            return 1;
+        }
+
+        return page;
+    }
+
+    IEnumerable<int> PageWindow(int current, int total)
+    {
+        var start = Math.Max(1, current - 2);
+        var end = Math.Min(total, start + 4);
+        if (end - start < 4)
+        {
+            start = Math.Max(1, end - 4);
+        }
+
+        for (var i = start; i <= end; i++)
+        {
+            yield return i;
+        }
+    }
+
+    string StorageLedgerPageUrl(int page)
+    {
+        var queryParts = Context.Request.Query
+            .Where(kv => !string.Equals(kv.Key, "tankLedgerPage", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(kv => kv.Value.Select(value => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(value ?? string.Empty)}"))
+            .ToList();
+
+        queryParts.Add($"tankLedgerPage={page}");
+        return $"{Context.Request.Path}?{string.Join("&", queryParts)}#tank-ledger";
+    }
+
+    IReadOnlyList<StorageTankMovementRowViewModel> MovementRowsFor(StorageTankContractStockBreakdownRowViewModel row, string kind)
+    {
+        var query = Model.Movements.Where(m => m.ProductId == row.ProductId && m.ContractId == row.ContractId);
+        query = kind switch
+        {
+            "in" => query.Where(m => m.SignedQuantityMt > 0m),
+            "out" => query.Where(m => m.SignedQuantityMt < 0m),
+            _ => query
+        };
+
+        return query
+            .OrderByDescending(m => m.MovementDate)
+            .ThenByDescending(m => m.MovementId)
+            .ToList();
+    }
+
+    string MovementModalTitle(StorageTankContractStockBreakdownRowViewModel row, string kind)
+    {
+        var contractNumber = row.ContractNumber ?? UiText.T(Context, "بدون قرارداد", "No contract");
+        var metric = kind switch
+        {
+            "in" => UiText.T(Context, "جزئیات مقدار وارد شده", "Inbound Details"),
+            "out" => UiText.T(Context, "جزئیات مقدار خارج شده", "Outbound Details"),
+            _ => UiText.T(Context, "جزئیات موجودی فعلی", "Current Inventory Details")
+        };
+
+        return $"{metric} - {contractNumber}";
+    }
+
+    decimal MovementRowsTotal(IEnumerable<StorageTankMovementRowViewModel> rows, string kind)
+        => kind == "balance"
+            ? rows.Sum(m => m.SignedQuantityMt)
+            : rows.Sum(m => Math.Abs(m.SignedQuantityMt));
+
+    string DirectionText(MovementDirection direction) => direction switch
+    {
+        MovementDirection.In => UiText.T(Context, "ورود", "In"),
+        MovementDirection.Out => UiText.T(Context, "خروج", "Out"),
+        MovementDirection.Transfer => UiText.T(Context, "انتقال", "Transfer"),
+        MovementDirection.Adjustment => UiText.T(Context, "تعدیل", "Adjustment"),
+        _ => direction.ToString()
+    };
+
+    string DirectionClass(MovementDirection direction) => direction switch
+    {
+        MovementDirection.In => "is-active",
+        MovementDirection.Out => "is-inactive",
+        MovementDirection.Transfer => "is-pending",
+        MovementDirection.Adjustment => "is-pending",
+        _ => "is-inactive"
+    };
+
+    string FormatQuantity(decimal value, int maxDecimals = 2)
+    {
+        var rounded = decimal.Round(value, maxDecimals);
+        return rounded == decimal.Truncate(rounded)
+            ? rounded.ToString("N0")
+            : rounded.ToString($"N{maxDecimals}").TrimEnd('0').TrimEnd('.');
+    }
+
+    string FormatPlainQuantity(decimal value, int maxDecimals = 2)
+    {
+        var rounded = decimal.Round(value, maxDecimals);
+        return rounded == decimal.Truncate(rounded)
+            ? rounded.ToString("0", CultureInfo.InvariantCulture)
+            : rounded.ToString($"0.{new string('#', maxDecimals)}", CultureInfo.InvariantCulture);
+    }
+
+    string FormatLedgerSignedQuantity(decimal value)
+        => value > 0m ? $"+{FormatPlainQuantity(value)}" : FormatPlainQuantity(value);
+
+    string LedgerOperationText(StorageTankMovementRowViewModel row)
+    {
+        var context = row.MovementContext ?? string.Empty;
+        var prefix = row.SignedQuantityMt >= 0m
+            ? UiText.T(Context, "ورود", "In")
+            : UiText.T(Context, "خروج", "Out");
+
+        if (context.Contains("انتقال", StringComparison.OrdinalIgnoreCase)
+            || (row.ReferenceDocument ?? string.Empty).Contains("TRANSPORT", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{prefix} ({UiText.T(Context, "انتقال", "Transfer")})";
+        }
+
+        if (context.Contains("رسید", StringComparison.OrdinalIgnoreCase)
+            || (row.ReferenceDocument ?? string.Empty).Contains("RECEIPT", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{prefix} ({UiText.T(Context, "رسید", "Receipt")})";
+        }
+
+        if (context.Contains("بارگیری", StringComparison.OrdinalIgnoreCase)
+            || context.Contains("دیسپچ", StringComparison.OrdinalIgnoreCase)
+            || (row.ReferenceDocument ?? string.Empty).Contains("DISPATCH", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{prefix} ({UiText.T(Context, "بارگیری", "Loading")})";
+        }
+
+        if (context.Contains("فروش", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{prefix} ({UiText.T(Context, "فروش", "Sale")})";
+        }
+
+        if (context.Contains("کسری", StringComparison.OrdinalIgnoreCase)
+            || context.Contains("ضایعات", StringComparison.OrdinalIgnoreCase)
+            || (row.ReferenceDocument ?? string.Empty).StartsWith("LOSS-", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{prefix} ({UiText.T(Context, "کسری", "Loss")})";
+        }
+
+        return DirectionText(row.Direction);
+    }
+
+    var activeContractCount = Model.ContractStockBreakdownRows.Count(row => row.BalanceQuantityMt > 0m);
+    var tankStatusText = Model.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive");
+    var tankTabs = new[]
+    {
+        "#tank-summary|قراردادها|bi-database|active",
+        "#tank-ledger|ورودی/خروجی|bi-arrow-left-right"
+    };
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جزئیات مخزن", "Tank Details") + " " + tankName, false,
+                       UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های مخزن", tankTabs)" />
+
+    <section class="ak-footer-actions" aria-label="@UiText.T(Context, "عملیات مخزن", "Tank Actions")">
+        <a asp-action="SettleFinal" asp-route-id="@Model.Id" class="btn btn-light ak-secondary-action">@UiText.T(Context, "تسویه مخزن", "Settle Tank")</a>
+        <a href="@stockCardUrl" class="btn btn-light ak-secondary-action">@UiText.T(Context, "کارت موجودی", "Stock Card")</a>
+        <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">@UiText.T(Context, "چاپ", "Print")</button>
+    </section>
+
+    <section id="tank-summary" class="ak-form-section">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "خلاصه مخزن", "Tank Summary"), (string?)null))
+            <dl class="ak-list">
+                <div class="ak-list-row">
+                    <dt>@UiText.T(Context, "نام مخزن", "Tank Name")</dt>
+                    <dd><strong>@tankName</strong></dd>
+                </div>
+                <div class="ak-list-row">
+                    <dt>@UiText.T(Context, "ظرفیت کل", "Total Capacity")</dt>
+                    <dd><strong>@FormatQuantity(Model.CapacityMt)</strong><small>@unitText</small></dd>
+                </div>
+                <div class="ak-list-row">
+                    <dt>@UiText.T(Context, "موجودی دفتری", "Book Inventory")</dt>
+                    <dd><strong>@FormatQuantity(Model.CurrentQuantityMt)</strong><small>@unitText</small></dd>
+                </div>
+                <div class="ak-list-row">
+                    <dt>@UiText.T(Context, "ظرفیت خالی", "Empty Capacity")</dt>
+                    <dd><strong>@FormatQuantity(Model.EmptyQuantityMt)</strong><small>@unitText</small></dd>
+                </div>
+                <div class="ak-list-row">
+                    <dt>@UiText.T(Context, "قراردادهای فعال", "Active Contracts")</dt>
+                    <dd><strong>@activeContractCount</strong><small>@UiText.T(Context, "مورد", "Items")</small></dd>
+                </div>
+                <div class="ak-list-row"><dt>@UiText.T(Context, "وضعیت", "Status")</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@tankStatusText</span></dd></div>
+            </dl>
+    </section>
+
+    <section id="tank-contracts" class="ak-form-section" data-ak-tab="tank-summary">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "قراردادهای دارای موجودی", "Contracts With Inventory"), (string?)UiText.T(Context, "برای مشاهده جزئیات حرکات، روی مقادیر کلیک کنید", "Click values to view movement details")))
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context, "شماره قرارداد", "Contract No.")</th>
+                        <th>@UiText.T(Context, "جنس", "Product")</th>
+                        <th>@UiText.T(Context, "سهم در مخزن", "Tank Share")</th>
+                        <th>@UiText.T(Context, "کل ورود", "Total In") (@unitText)</th>
+                        <th>@UiText.T(Context, "کل خروج", "Total Out") (@unitText)</th>
+                        <th>@UiText.T(Context, "موجودی فعلی", "Current Inventory") (@unitText)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.ContractStockBreakdownRows.Any())
+                {
+                    @foreach (var contractRow in Model.ContractStockBreakdownRows.Select((value, index) => new { value, index }))
+                    {
+                        var row = contractRow.value;
+                        var modalBaseId = $"stContractMovement{contractRow.index}";
+                        var inModalId = $"{modalBaseId}In";
+                        var outModalId = $"{modalBaseId}Out";
+                        var balanceModalId = $"{modalBaseId}Balance";
+                        <tr>
+                            <td>@(row.ContractNumber ?? UiText.T(Context, "بدون قرارداد", "No contract"))</td>
+                            <td>
+                                <div>@row.ProductName</div>
+                            </td>
+                            <td>
+                                <span>@FormatQuantity(row.SharePercent)%</span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#@inModalId">
+                                    @FormatQuantity(row.TotalInQuantityMt)
+                                </button>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#@outModalId">
+                                    @FormatQuantity(row.TotalOutQuantityMt)
+                                </button>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#@balanceModalId">
+                                    @FormatQuantity(row.BalanceQuantityMt)
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6">@await Html.PartialAsync("_EmptyState", (UiText.T(Context, "هنوز قراردادی با موجودی در این مخزن ثبت نشده است", "No contract inventory exists for this tank yet"), UiText.T(Context, "پس از ثبت ورود یا خروج مخزن، جزئیات قراردادها اینجا نمایش داده می‌شود.", "After tank in/out movements are recorded, contract details will appear here."), "bi-journal-text"))</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ak-form-section" id="tank-ledger">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "آخرین حرکات (دفتر ورود/خروج)", "Recent Movements"), (string?)null))
+        <a href="@stockCardUrl" class="btn btn-light ak-secondary-action">@UiText.T(Context, "مشاهده همه", "View All")</a>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context, "تاریخ", "Date")</th>
+                        <th>@UiText.T(Context, "شماره قرارداد", "Contract No.")</th>
+                        <th>@UiText.T(Context, "نوع عملیات", "Operation Type")</th>
+                        <th>@UiText.T(Context, "مبدأ / مقصد", "Source / Destination")</th>
+                        <th>@UiText.T(Context, "مقدار", "Quantity") (@unitText)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (storageLedgerRows.Any())
+                {
+                    @foreach (var row in storageLedgerRows)
+                    {
+                        var movementPath = string.Join(" - ", new[] { row.SourceName, row.DestinationName }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                        <tr>
+                            <td>@row.MovementDate.ToDisplayDate()</td>
+                            <td><span>@(row.ContractNumber ?? "-")</span></td>
+                            <td><span>@LedgerOperationText(row)</span></td>
+                            <td>@(string.IsNullOrWhiteSpace(movementPath) ? "-" : movementPath)</td>
+                            <td><span>@FormatLedgerSignedQuantity(row.SignedQuantityMt)</span></td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5">@await Html.PartialAsync("_EmptyState", (UiText.T(Context, "حرکت ورود یا خروجی برای این مخزن وجود ندارد", "No in/out movement exists for this tank"), UiText.T(Context, "دفتر حرکات پس از ثبت رسید، انتقال یا بارگیری تکمیل می‌شود.", "The movement ledger is completed after receipts, transfers, or loadings are recorded."), "bi-arrow-left-right"))</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @if (storageLedgerPageCount > 1)
+        {
+            <nav class="ak-pager" aria-label="@UiText.T(Context, "صفحه‌بندی دفتر ورود و خروج مخزن", "Tank ledger pagination")">
+                <a class="@(storageLedgerPage == 1 ?"is-disabled" : null)" href="@(storageLedgerPage == 1 ? "#" : StorageLedgerPageUrl(storageLedgerPage - 1))">@UiText.T(Context, "قبلی", "Prev")</a>
+                <div>
+                    @foreach (var pageNumber in PageWindow(storageLedgerPage, storageLedgerPageCount))
+                    {
+                        <a class="@(pageNumber == storageLedgerPage ?"is-active" : null)" href="@StorageLedgerPageUrl(pageNumber)">@pageNumber</a>
+                    }
+                </div>
+                <a class="@(storageLedgerPage == storageLedgerPageCount ?"is-disabled" : null)" href="@(storageLedgerPage == storageLedgerPageCount ? "#" : StorageLedgerPageUrl(storageLedgerPage + 1))">@UiText.T(Context, "بعدی", "Next")</a>
+            </nav>
+        }
+    </section>
+    @foreach (var contractRow in Model.ContractStockBreakdownRows.Select((value, index) => new { value, index }))
+    {
+        var row = contractRow.value;
+        var modalBaseId = $"stContractMovement{contractRow.index}";
+        foreach (var modalKind in new[] { "in", "out", "balance" })
+        {
+            var modalRows = MovementRowsFor(row, modalKind);
+            var modalTotal = MovementRowsTotal(modalRows, modalKind);
+            var modalId = modalKind switch
+            {
+                "in" => $"{modalBaseId}In",
+                "out" => $"{modalBaseId}Out",
+                _ => $"{modalBaseId}Balance"
+            };
+            var modalLabelId = $"{modalId}Label";
+            var modalPageCount = Math.Max(1, (int)Math.Ceiling(modalRows.Count / (double)contractMovementModalPageSize));
+            <div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="@modalLabelId" aria-hidden="true" data-storage-contract-modal>
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content ak-modal-content">
+                        <div class="modal-header ak-modal-head">
+                            <div>
+                                <div>
+                                <h5 class="modal-title" id="@modalLabelId">@MovementModalTitle(row, modalKind)</h5>
+                                <div class="ak-note">
+                                    @(string.IsNullOrWhiteSpace(row.ProductCode) ? row.ProductName : $"{row.ProductCode} - {row.ProductName}")
+                                    <span>@UiText.T(Context, "جمع", "Total"): <strong class="ak-num">@modalTotal.ToString("N4") @unitText</strong></span>
+                                </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body ak-modal-body">
+                            @if (modalRows.Any())
+                            {
+                                <div class="ak-table-wrap">
+                                    <table class="ak-table" data-st-modal-table>
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>@UiText.T(Context, "تاریخ", "Date")</th>
+                                                <th>@UiText.T(Context, "نوع", "Type")</th>
+                                                <th class="text-end">@UiText.T(Context, "مقدار", "Quantity")</th>
+                                                <th>@UiText.T(Context, "از کجا", "From")</th>
+                                                <th>@UiText.T(Context, "به کجا", "To")</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        @foreach (var movement in modalRows)
+                                        {
+                                            <tr data-st-modal-row>
+                                                <td>@movement.MovementId</td>
+                                                <td>@movement.MovementDate.ToDisplayDate()</td>
+                                                <td><span class="ak-status @DirectionClass(movement.Direction)">@DirectionText(movement.Direction)</span></td>
+                                                <td class="text-end">
+                                                    <span>@UiText.T(Context, "مقدار", "Quantity")</span>
+                                                    <strong class="ak-num">@movement.QuantityMt.ToString("N4")</strong>
+                                                    <small>@unitText</small>
+                                                </td>
+                                                <td>@movement.SourceName</td>
+                                                <td>@movement.DestinationName</td>
+                                            </tr>
+                                        }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                @if (modalRows.Count > contractMovementModalPageSize)
+                                {
+                                    <nav class="ak-pager"
+                                         aria-label="@UiText.T(Context, "صفحه‌بندی حرکات قرارداد", "Contract movement pagination")"
+                                         data-st-modal-pager
+                                         data-page-size="@contractMovementModalPageSize"
+                                         data-label-page="@UiText.T(Context, "صفحه", "Page")"
+                                         data-label-of="@UiText.T(Context, "از", "of")">
+                                        <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-prev>@UiText.T(Context, "قبلی", "Prev")</button>
+                                        <div aria-hidden="false">
+                                            @for (var modalPage = 1; modalPage <= modalPageCount; modalPage++)
+                                            {
+                                                <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-page="@modalPage">@modalPage</button>
+                                            }
+                                        </div>
+                                        <span data-st-modal-status></span>
+                                        <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-next>@UiText.T(Context, "بعدی", "Next")</button>
+                                    </nav>
+                                }
+                            }
+                            else
+                            {
+                                <div class="ak-empty">
+                                    <span>@UiText.T(Context, "برای این بخش حرکتی ثبت نشده است.", "No movement is recorded for this section.")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>

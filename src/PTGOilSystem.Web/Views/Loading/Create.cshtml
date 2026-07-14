@@ -1,0 +1,1833 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Loading
+@model PTGOilSystem.Web.Models.Loading.LoadingCreateViewModel
+@{
+    ViewData["Title"] = "ثبت بارگیری";
+    var contractCheckboxOptions = (ViewBag.Contracts as IEnumerable<SelectListItem>)?.ToList() ?? new List<SelectListItem>();
+    var contractProductIds = ViewBag.ContractProductIds as IReadOnlyDictionary<int, int> ?? new Dictionary<int, int>();
+    var contractProductNames = ViewBag.ContractProductNames as IReadOnlyDictionary<int, string> ?? new Dictionary<int, string>();
+    var productNames = ViewBag.ProductNames as IReadOnlyDictionary<int, string> ?? new Dictionary<int, string>();
+    var selectedProductName = productNames.TryGetValue(Model.ProductId, out var productName) ? productName : "";
+    var isContractLocked = Model.LockContract;
+    var rowContractOptions = ViewBag.RowContractOptions as IReadOnlyList<SelectListItem> ?? Array.Empty<SelectListItem>();
+    var showRowContractSelector = ViewBag.ShowRowContractSelector as bool? == true;
+    var rowEditors = Model.Rows
+        .Select((row, index) => new LoadingCreateRowEditorViewModel
+        {
+            RowKey = row.RowKey,
+            Sequence = index + 1,
+            TransportType = Model.TransportType,
+            Row = row,
+            ShowContractSelector = showRowContractSelector,
+            ContractOptions = rowContractOptions,
+            RecordFreight = Model.RecordFreight
+        })
+        .ToList();
+    var recordFreight = Model.RecordFreight;
+    var freightColumnCss = recordFreight ? "" : "d-none";
+    var logisticsServiceProviderOptions = ViewBag.LogisticsServiceProviders as IReadOnlyList<SelectListItem> ?? Array.Empty<SelectListItem>();
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index");
+    var initialTotalQuantityMt = Model.Rows.Sum(row => row.LoadedQuantityMt);
+    var initialLoadingValueUsd = Model.Rows.Sum(row => row.LoadedQuantityMt * (row.LoadingPriceUsd ?? 0m));
+    var initialAverageLoadingUsd = initialTotalQuantityMt > 0m ? initialLoadingValueUsd / initialTotalQuantityMt : 0m;
+    var initialPendingPriceRows = Model.Rows.Count(row => !row.LoadingPriceUsd.HasValue || row.LoadingPriceUsd.Value <= 0m);
+    var initialAllPriced = Model.Rows.Count > 0 && initialPendingPriceRows == 0;
+    var initialTransportExpensesUsd = Model.Rows.Sum(row =>
+        (row.TransportExpenseUsd ?? 0m)
+        + (row.WarehouseExpenseUsd ?? 0m)
+        + (row.OtherExpenseUsd ?? 0m)
+        + (row.RailwayExpenseUsd ?? 0m));
+    var initialLockedRubValue = Model.Rows.Sum(row =>
+        row.AmountRubAtRubLock
+        ?? (string.Equals(row.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase)
+            && row.LoadingPriceUsd.HasValue
+            && row.RubPerUsdRate.HasValue
+                ? row.LoadedQuantityMt * row.LoadingPriceUsd.Value * row.RubPerUsdRate.Value
+                : 0m));
+    var initialPendingRubRows = Model.Rows.Count(row =>
+        string.Equals(row.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase)
+        && !row.AmountRubAtRubLock.HasValue
+        && (!row.LoadingPriceUsd.HasValue || !row.RubPerUsdRate.HasValue));
+    // ارقام روبلی خوانده‌شده از فایل (مستقل از نرخ تبادله). اگر موجود باشد، جای «در انتظار نرخ» نشان داده می‌شود.
+    var initialFileRubValue = Model.Rows.Sum(row =>
+        row.SettlementValueRub
+        ?? (row.SettlementUnitPriceRub.HasValue ? row.LoadedQuantityMt * row.SettlementUnitPriceRub.Value : 0m));
+    var hasFileRub = Model.Rows.Any(row => row.SettlementValueRub.HasValue || row.SettlementUnitPriceRub.HasValue);
+    var frubColumnCss = hasFileRub ? "" : "d-none";
+    var initialAverageRub = hasFileRub && initialTotalQuantityMt > 0m ? initialFileRubValue / initialTotalQuantityMt : 0m;
+    var initialRubSummaryText = hasFileRub
+        ? $"₽ {NumberDisplay.Money(initialFileRubValue)}"
+        : initialLockedRubValue > 0m
+            ? $"₽ {NumberDisplay.Money(initialLockedRubValue)}"
+            : initialPendingRubRows > 0 ? "در انتظار نرخ" : "-";
+    var initialRubAverageText = hasFileRub ? $"₽ {NumberDisplay.Money(initialAverageRub)}" : "-";
+    var createPostUrl = Url.Action("Create", "Loading");
+}
+
+<div class="ak-form-page loading-import-workbook" data-loading-create-page>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت بارگیری", "Loading Registration"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+    <form asp-action="Create" method="post" enctype="multipart/form-data" class="ak-form" data-loading-create-form data-create-action="@createPostUrl">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="LockContract" type="hidden" />
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+        <div id="platts-pricing-notice" class="alert alert-warning d-flex align-items-start gap-2 d-none" role="alert">
+                <i class="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0"></i>
+                <div>
+                    <strong>قیمت پلتس ماهانه هنوز ثبت نشده است</strong>
+                    <div id="platts-pricing-notice-reason" class="small mt-1"></div>
+                </div>
+            </div>
+
+        <section class="ak-form-section" aria-label="مشخصات بارگیری">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "اطلاعات عمومی", "General Information"), (string?)UiText.T(Context, "قرارداد، محصول و نوع حمل را مشخص کنید.", "Select the contract, product and transport type.")))" />
+            <div class="ak-form-grid">
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="ContractId" class="ak-label"></label>
+                        <div data-loading-contract-field>
+                            <input asp-for="ContractId" type="hidden" data-loading-primary-contract />
+                            <button type="button" class="ak-input" data-loading-contract-toggle aria-haspopup="listbox" aria-expanded="false" disabled="@(isContractLocked ? "disabled" : null)">
+                                <span data-loading-contract-summary>انتخاب قرارداد</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                            <div class="loading-contract-checklist" data-loading-contract-select data-loading-contract-menu>
+                                @foreach (var option in contractCheckboxOptions)
+                                {
+                                    var checkboxId = $"loading_contract_{option.Value}";
+                                    var optionContractId = int.TryParse(option.Value, out var parsedContractId) ? parsedContractId : 0;
+                                    var optionProductId = contractProductIds.TryGetValue(optionContractId, out var productId) ? productId : 0;
+                                    var optionProductName = contractProductNames.TryGetValue(optionContractId, out var contractProductName) ? contractProductName : "";
+                                    <label class="loading-contract-check" for="@checkboxId" data-loading-contract-option>
+                                        <input id="@checkboxId" type="checkbox" name="SelectedContractIds" value="@option.Value"
+                                               checked="@option.Selected" disabled="@(isContractLocked ? "disabled" : null)"
+                                               data-contract-product-id="@(optionProductId > 0 ? optionProductId.ToString() : null)"
+                                               data-contract-product-name="@optionProductName" data-loading-contract-checkbox />
+                                        <span data-loading-contract-label>@option.Text</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                        <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ProductId" class="ak-label">جنس</label>
+                        <input asp-for="ProductId" type="hidden" data-loading-product-id />
+                        <div class="ak-input" data-loading-product-summary>
+                            @(string.IsNullOrWhiteSpace(selectedProductName) ? "از قرارداد تعیین می‌شود" : selectedProductName)
+                        </div>
+                        <span asp-validation-for="ProductId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="OriginLocationId" class="ak-label"></label>
+                        <select asp-for="OriginLocationId" asp-items="ViewBag.Origins" class="ak-input"><option value=""></option></select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="TransportType" class="ak-label"></label>
+                        <select asp-for="TransportType" class="ak-input" data-loading-transport-type>
+                            <option value="0"></option>
+                            <option value="@((int)LoadingTransportType.Vessel)">کشتی</option>
+                            <option value="@((int)LoadingTransportType.Wagon)">واگن</option>
+                            <option value="@((int)LoadingTransportType.Truck)">موتر</option>
+                        </select>
+                    </div>
+                    <div class="ak-toggle-field">
+                        <label class="ak-label" for="RecordFreight">کرایه و ترانسپورت</label>
+                        <label class="form-check">
+                            <input type="checkbox" asp-for="RecordFreight" class="form-check-input" data-loading-freight-toggle />
+                            <span class="form-check-label" data-loading-freight-toggle-text>کرایه ثبت شود</span>
+                        </label>
+                    </div>
+                    <div class="ak-field @freightColumnCss" data-loading-freight-responsibility>
+                        <label asp-for="FreightCostResponsibility" class="ak-label"></label>
+                        <select asp-for="FreightCostResponsibility" class="ak-input">
+                            <option value=""></option><option value="1">بدوش خریدار</option><option value="2">بدوش فروشنده</option><option value="3">مشترک</option>
+                        </select>
+                    </div>
+                    <input asp-for="Notes" type="hidden" />
+            </div>
+        </section>
+
+        <section class="ak-form-section" aria-label="خلاصه بارگیری">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه ثبت", (string?)null))" />
+            <div class="ak-form-grid lic-summary-strip">
+                <div class="ak-field"><span class="ak-label">مقدار بارگیری</span><strong class="ak-num" data-summary-quantity>@NumberDisplay.Quantity(initialTotalQuantityMt) TON</strong></div>
+                <div class="ak-field"><span class="ak-label">ارزش بارگیری</span><strong class="ak-num" data-summary-value>$ @NumberDisplay.Money(initialLoadingValueUsd)</strong></div>
+                <div class="ak-field"><span class="ak-label">اوسط بارگیری</span><strong class="ak-num" data-summary-average>$ @NumberDisplay.Money(initialAverageLoadingUsd)</strong></div>
+                <div class="ak-field"><span class="ak-label">ارزش روبلی</span><strong class="ak-num" data-summary-rub-value>@initialRubSummaryText</strong></div>
+                <div class="ak-field ak-col-full @(hasFileRub ?"d-none" : "")" data-summary-rub-note>قیمت روبلی در فایل نبود؛ برای معادل روبلی نرخ قرارداد لازم است.</div>
+                <div class="ak-field @freightColumnCss" data-loading-freight-summary><span class="ak-label">کرایه حمل</span><strong class="ak-num" data-summary-expense>$ @NumberDisplay.Money(initialTransportExpensesUsd)</strong></div>
+            </div>
+        </section>
+
+        <section class="ak-form-section" aria-label="سطرهای بارگیری">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@(("سطرهای بارگیری", (string?)"برای هر وسیله یا سند حمل یک ردیف ثبت کنید."))" />
+            <div class="lic-table-toolbar" data-lic-toolbar>
+                <div class="lic-toolbar-counts">
+                    <span>کل ردیف‌ها: <strong data-lic-count-total>0</strong></span>
+                    <span class="lic-count-ok">معتبر: <strong data-lic-count-valid>0</strong></span>
+                    <span class="lic-count-err">دارای خطا: <strong data-lic-count-error>0</strong></span>
+                </div>
+                <div class="lic-toolbar-controls">
+                    <input type="search" class="lic-search" data-lic-search placeholder="جستجو در RWB، واگن، گیرنده، مقصد" aria-label="جستجو در سطرها" />
+                    <select class="lic-filter" data-lic-filter aria-label="فیلتر وضعیت سطرها">
+                        <option value="all">همه</option>
+                        <option value="valid">معتبر</option>
+                        <option value="error">دارای خطا</option>
+                    </select>
+                    <select class="lic-pagesize" data-lic-pagesize aria-label="تعداد در هر صفحه">
+                        <option value="50">۵۰ در صفحه</option>
+                        <option value="100" selected>۱۰۰ در صفحه</option>
+                        <option value="250">۲۵۰ در صفحه</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead data-loading-table-head><tr>
+                        <th>#</th>
+                        <th class="@(showRowContractSelector ?"" : "d-none")" data-loading-contract-column>قرارداد</th>
+                        <th>تاریخ</th><th data-loading-column-reference>RWB / CMR / Bill of Lading</th><th data-loading-column-transport>وسیله حمل</th>
+                        <th class="ak-col-num">مقدار</th><th class="ak-col-num">قیمت فی تن</th><th class="ak-col-num">ارزش بارگیری</th>
+                        <th class="ak-col-num @frubColumnCss" data-loading-frub-column>قیمت روبلی فی تن</th><th class="ak-col-num @frubColumnCss" data-loading-frub-column>ارزش روبلی</th>
+                        <th class="ak-col-num @(hasFileRub ?"d-none" : "")" data-loading-rub-column>هر 1 دالر چند روبل است؟</th>
+                        <th class="ak-col-num @(hasFileRub ?"d-none" : "")" data-loading-rub-column>معادل روبلی</th>
+                        <th class="@freightColumnCss" data-loading-freight-column>شرکت خدماتی / لوجستیکی</th>
+                        <th class="ak-col-num @freightColumnCss" data-loading-freight-column>کرایه فی تن</th>
+                        <th>گیرنده</th><th>مقصد</th><th class="ak-col-actions"></th>
+                    </tr></thead>
+                    <tbody data-loading-rows>
+                                @foreach (var rowEditor in rowEditors)
+                                {
+                                    await Html.RenderPartialAsync("_LoadingRowEditor", rowEditor, ViewData);
+                                }
+                    </tbody>
+                    <tfoot data-loading-table-total><tr>
+                        <td></td><td class="@(showRowContractSelector ?"" : "d-none")"></td><td></td><td></td><td></td>
+                        <td class="ak-num" data-summary-table-quantity>@NumberDisplay.Quantity(initialTotalQuantityMt) TON</td><td></td>
+                        <td class="ak-num" data-summary-table-value>$ @NumberDisplay.Money(initialLoadingValueUsd)</td>
+                        <td class="ak-num @frubColumnCss" data-loading-frub-column data-summary-table-frub-average>@initialRubAverageText</td>
+                        <td class="ak-num @frubColumnCss" data-loading-frub-column data-summary-table-frub-value>@initialRubSummaryText</td>
+                        <td class="@(hasFileRub ?"d-none" : "")" data-loading-rub-column></td>
+                        <td class="ak-num @(hasFileRub ?"d-none" : "")" data-loading-rub-column data-summary-table-rub-value>@initialRubSummaryText</td>
+                        <td class="@freightColumnCss" data-loading-freight-column></td>
+                        <td class="ak-num @freightColumnCss" data-loading-freight-column data-summary-table-expense>$ @NumberDisplay.Money(initialTransportExpensesUsd)</td>
+                        <td></td><td></td><td></td>
+                    </tr></tfoot>
+                </table>
+            </div>
+            <div class="lic-pagination" data-lic-pagination hidden>
+                <button type="button" class="lic-page-btn" data-lic-prev>‹ قبلی</button>
+                <span class="lic-page-info" data-lic-page-info></span>
+                <button type="button" class="lic-page-btn" data-lic-next>بعدی ›</button>
+            </div>
+            <button type="button" class="ak-form-secondary-action" data-loading-row-add><i class="bi bi-plus-lg"></i> افزودن سطر</button>
+        </section>
+
+        <input asp-for="ImportWorkbookFile" type="file" accept=".xlsx" class="d-none" id="excelFile" />
+        <div class="ak-footer-actions" data-loading-footer-actions>
+            <span class="lic-footer-count">کل: <strong data-lic-count-total>0</strong> ردیف · <span class="lic-count-err">خطا: <strong data-lic-count-error>0</strong></span></span>
+            <button type="submit" class="ak-save">ذخیره</button>
+            <button type="button" class="ak-form-secondary-action" id="excelFilePickBtn"><i class="bi bi-file-earmark-excel"></i> بارگذاری اکسل</button>
+            <button type="button" class="ak-form-secondary-action d-none" id="excelImportBtn"><i class="bi bi-check2"></i> وارد کردن</button>
+            <span id="excelFileName" class="ak-note d-none"></span>
+            <button type="reset" class="ak-cancel" data-loading-reset>بازنشانی</button>
+            <a href="@cancelUrl" class="ak-cancel">لغو</a>
+        </div>
+    </form>
+
+    @{
+        var vesselOptions = ViewBag.VesselOptions as IReadOnlyList<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? Array.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+        var truckOptions = ViewBag.TruckOptions as IReadOnlyList<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? Array.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    }
+    <datalist id="loading-vessel-options">
+        @foreach (var opt in vesselOptions)
+        {
+            <option value="@opt.Text"></option>
+        }
+    </datalist>
+
+    <datalist id="loading-truck-options">
+        @foreach (var opt in truckOptions)
+        {
+            <option value="@opt.Text"></option>
+        }
+    </datalist>
+
+    <template id="loading-row-template">
+        @await Html.PartialAsync("_LoadingRowEditor", new LoadingCreateRowEditorViewModel
+        {
+            RowKey = "__key__",
+            Sequence = 0,
+            TransportType = Model.TransportType,
+            ShowContractSelector = showRowContractSelector,
+            ContractOptions = rowContractOptions,
+            RecordFreight = Model.RecordFreight,
+            Row = new LoadingCreateRowViewModel
+            {
+                RowKey = "__key__",
+                LoadingDate = DateTime.UtcNow.Date
+            }
+        }, ViewData)
+    </template>
+
+    <div class="loading-date-overlay" data-loading-date-overlay aria-hidden="true">
+        <div class="loading-date-picker" role="dialog" aria-modal="true" aria-label="انتخاب تاریخ">
+            <div class="loading-date-header" data-loading-date-header>
+                <button type="button" class="loading-date-year" data-loading-date-year data-loading-date-year-toggle aria-label="تغییر سال"></button>
+                <div class="loading-date-long" data-loading-date-long></div>
+                <div class="loading-date-locale" data-loading-date-locale>شمسی</div>
+            </div>
+            <div class="loading-date-body">
+                <div class="loading-date-controls">
+                    <button type="button" class="loading-date-nav" data-loading-date-prev aria-label="ماه قبلی">‹</button>
+                    <div class="loading-date-month" data-loading-date-month></div>
+                    <button type="button" class="loading-date-nav" data-loading-date-next aria-label="ماه بعدی">›</button>
+                </div>
+                <div class="loading-date-week" aria-hidden="true">
+                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                </div>
+                <div class="loading-date-days" data-loading-date-days></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const loadingForm = document.querySelector('[data-loading-create-form]');
+            const transportSelect = document.querySelector('[data-loading-transport-type]');
+            const rowsHost = document.querySelector('[data-loading-rows]');
+            const template = document.getElementById('loading-row-template');
+            const addButton = document.querySelector('[data-loading-row-add]');
+            const resetButton = document.querySelector('[data-loading-reset]');
+            const referenceColumn = document.querySelector('[data-loading-column-reference]');
+            const transportColumn = document.querySelector('[data-loading-column-transport]');
+            const contractSelect = document.querySelector('[data-loading-contract-select]');
+            const contractField = document.querySelector('[data-loading-contract-field]');
+            const contractToggle = document.querySelector('[data-loading-contract-toggle]');
+            const contractSummary = document.querySelector('[data-loading-contract-summary]');
+            const primaryContractInput = document.querySelector('[data-loading-primary-contract]');
+            const productInput = document.querySelector('[data-loading-product-id]');
+            const productSummary = document.querySelector('[data-loading-product-summary]');
+            const contractColumn = document.querySelector('[data-loading-contract-column]');
+            const freightToggle = document.querySelector('[data-loading-freight-toggle]');
+            const freightToggleText = document.querySelector('[data-loading-freight-toggle-text]');
+            const suggestedPricingUrl = '@Url.Action("SuggestedPricing", "Loading")';
+            const dateOverlay = document.querySelector('[data-loading-date-overlay]');
+            const dateYearLabel = document.querySelector('[data-loading-date-year]');
+            const dateLongLabel = document.querySelector('[data-loading-date-long]');
+            const dateMonthLabel = document.querySelector('[data-loading-date-month]');
+            const dateDaysHost = document.querySelector('[data-loading-date-days]');
+            const datePrevButton = document.querySelector('[data-loading-date-prev]');
+            const dateNextButton = document.querySelector('[data-loading-date-next]');
+            const dateHeader = document.querySelector('[data-loading-date-header]');
+
+            if (!transportSelect || !rowsHost || !template || !addButton) {
+                return;
+            }
+
+            let nextRowNumber = rowsHost.querySelectorAll('[data-loading-row]').length;
+            let currentPricing = null;
+            const pricingCache = new Map();
+            const plattsNotice = document.getElementById('platts-pricing-notice');
+            const plattsNoticeReason = document.getElementById('platts-pricing-notice-reason');
+
+            const summaryQuantity = document.querySelector('[data-summary-quantity]');
+            const summaryValue = document.querySelector('[data-summary-value]');
+            const summaryAverage = document.querySelector('[data-summary-average]');
+            const summaryExpense = document.querySelector('[data-summary-expense]');
+            const summaryRubValue = document.querySelector('[data-summary-rub-value]');
+            const summaryRubAverage = document.querySelector('[data-summary-rub-average]');
+            const summaryRubNote = document.querySelector('[data-summary-rub-note]');
+            const summaryTableQuantity = document.querySelector('[data-summary-table-quantity]');
+            const summaryTableValue = document.querySelector('[data-summary-table-value]');
+            const summaryTableExpense = document.querySelector('[data-summary-table-expense]');
+            const summaryTableRubValue = document.querySelector('[data-summary-table-rub-value]');
+            const summaryTableFrubValue = document.querySelector('[data-summary-table-frub-value]');
+            const summaryTableFrubAverage = document.querySelector('[data-summary-table-frub-average]');
+
+            function rowHasFileRub(row) {
+                return parseDecimal(row.querySelector('[data-row-frub-amount-hidden]')) > 0
+                    || parseDecimal(row.querySelector('[data-row-frub-rate-hidden]')) > 0;
+            }
+
+            function setRowRubColumnsVisible(row, visible) {
+                // وقتی روبل از فایل آمده، ستون FX «معادل روبلی» تکراری است؛ پنهانش کن.
+                const show = visible && !rowHasFileRub(row);
+                row.querySelectorAll('[data-loading-rub-column]').forEach(column => {
+                    column.classList.toggle('d-none', !show);
+                });
+            }
+
+            function refreshRubColumnsVisible() {
+                const rows = Array.from(rowsHost.querySelectorAll('[data-loading-row]'));
+                const anyFileRub = rows.some(rowHasFileRub);
+                const hasRubRows = !anyFileRub && rows.some(row =>
+                    (readHiddenValue(row, '[data-row-settlement-currency]') || '').toUpperCase() === 'RUB');
+
+                document
+                    .querySelectorAll('[data-loading-table-head] [data-loading-rub-column], [data-loading-table-total] [data-loading-rub-column]')
+                    .forEach(column => column.classList.toggle('d-none', !hasRubRows));
+            }
+
+            function updatePlattsNotice() {
+                if (!plattsNotice) return;
+                const show = currentPricing
+                    && currentPricing.isFormulaPlatts
+                    && currentPricing.plattsReferencePrice === null
+                    && currentPricing.needsReview === true;
+                plattsNotice.classList.toggle('d-none', !show);
+                if (plattsNoticeReason && currentPricing && currentPricing.reason) {
+                    plattsNoticeReason.textContent = currentPricing.reason;
+                } else if (plattsNoticeReason) {
+                    plattsNoticeReason.textContent = '';
+                }
+            }
+
+            function normalizePricingPayload(payload) {
+                if (!payload) {
+                    return null;
+                }
+
+                const plattsReferencePrice = typeof payload.plattsReferencePrice === 'number'
+                    ? payload.plattsReferencePrice
+                    : (typeof payload.basePlattsPrice === 'number' ? payload.basePlattsPrice : null);
+
+                return {
+                    isFormulaPlatts: payload.isFormulaPlatts === true,
+                    basePlattsPrice: typeof payload.basePlattsPrice === 'number' ? payload.basePlattsPrice : null,
+                    plattsReferencePrice,
+                    plattsReferenceSource: typeof payload.plattsReferenceSource === 'string' ? payload.plattsReferenceSource : '',
+                    plattsReferenceDate: typeof payload.plattsReferenceDate === 'string' ? payload.plattsReferenceDate : '',
+                    plattsReferenceFallbackApplied: payload.plattsReferenceFallbackApplied === true,
+                    plattsReferenceReason: typeof payload.plattsReferenceReason === 'string' ? payload.plattsReferenceReason : '',
+                    premiumDiscountUsd: typeof payload.premiumDiscountUsd === 'number' ? payload.premiumDiscountUsd : null,
+                    finalUnitPrice: typeof payload.finalUnitPrice === 'number' ? payload.finalUnitPrice : null,
+                    settlementCurrencyCode: typeof payload.settlementCurrencyCode === 'string' ? payload.settlementCurrencyCode : 'USD',
+                    rubRatePolicy: typeof payload.rubRatePolicy === 'string' ? payload.rubRatePolicy : 'NotApplicable',
+                    rubPerUsdRate: typeof payload.rubPerUsdRate === 'number' ? payload.rubPerUsdRate : null,
+                    rubRateDate: typeof payload.rubRateDate === 'string' ? payload.rubRateDate : '',
+                    rubRateSource: typeof payload.rubRateSource === 'string' ? payload.rubRateSource : '',
+                    needsReview: payload.needsReview === true,
+                    reason: typeof payload.reason === 'string' ? payload.reason : ''
+                };
+            }
+
+            async function getContractPricing(contractId) {
+                if (!contractId || !suggestedPricingUrl) {
+                    return null;
+                }
+
+                if (pricingCache.has(contractId)) {
+                    const cached = pricingCache.get(contractId);
+                    return typeof cached?.then === 'function' ? await cached : cached;
+                }
+
+                const pricingRequest = (async () => {
+                    const separator = suggestedPricingUrl.includes('?') ? '&' : '?';
+                    const response = await fetch(`${suggestedPricingUrl}${separator}contractId=${encodeURIComponent(contractId)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+
+                    if (!response.ok) {
+                        return null;
+                    }
+
+                    return normalizePricingPayload(await response.json());
+                })().catch(() => null);
+
+                pricingCache.set(contractId, pricingRequest);
+                const pricing = await pricingRequest;
+                pricingCache.set(contractId, pricing);
+                return pricing;
+            }
+
+            function getPricingForRow(row) {
+                const selectedContractIds = getSelectedContractIds();
+                if (selectedContractIds.length > 1) {
+                    const rowContractId = row.querySelector('[data-row-contract-select]')?.value || '';
+                    const cached = rowContractId ? pricingCache.get(rowContractId) : null;
+                    return cached && typeof cached.then !== 'function' ? cached : null;
+                }
+
+                return currentPricing;
+            }
+
+            const transportMap = {
+                '1': { field: 'Vessel', label: 'کشتی', reference: 'Bill of Lading / بارنامه کشتی', placeholder: '' },
+                '2': { field: 'Wagon', label: 'شماره واگن', reference: 'RWB No / شماره RWB', placeholder: '' },
+                '3': { field: 'Truck', label: 'موتر', reference: 'CMR No / شماره CMR', placeholder: '' }
+            };
+
+            function getTransportConfig() {
+                return transportMap[transportSelect.value] || { field: '', label: 'وسیله حمل', reference: 'RWB / CMR / Bill of Lading', placeholder: '' };
+            }
+
+            function formatNumber(value, fractionDigits) {
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: fractionDigits,
+                    maximumFractionDigits: fractionDigits
+                }).format(value);
+            }
+
+            function formatMoneyNumber(value) {
+                // حداکثر ۲ اعشار، صفرهای آخر حذف: 1,250.00 → 1,250 و 1,250.50 → 1,250.5
+                return formatNumber(value, 2).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+            }
+
+            function formatQuantityNumber(value) {
+                return formatNumber(value, 4).replace(/\.?0+$/, '');
+            }
+
+            function readOptionalDecimal(element) {
+                if (!element || !element.value) {
+                    return null;
+                }
+
+                const normalized = element.value.toString().replace(/,/g, '');
+                const parsed = Number.parseFloat(normalized);
+                return Number.isFinite(parsed) ? parsed : null;
+            }
+
+            function parseDecimal(element) {
+                return readOptionalDecimal(element) ?? 0;
+            }
+
+            function formatInputNumber(value) {
+                if (!Number.isFinite(value)) {
+                    return '';
+                }
+
+                return value.toFixed(4).replace(/\.?0+$/, '');
+            }
+
+            function isEmptyValue(element) {
+                return !element || !element.value || !element.value.trim();
+            }
+
+            function canAutofill(element) {
+                return !!element && (isEmptyValue(element) || element.dataset.autofilled === 'true');
+            }
+
+            function setAutofilled(element, isAutofilled) {
+                if (!element) {
+                    return;
+                }
+
+                element.dataset.autofilled = isAutofilled ? 'true' : 'false';
+            }
+
+            function setHiddenDecimal(element, value) {
+                if (!element) {
+                    return;
+                }
+
+                element.value = Number.isFinite(value) && value > 0 ? formatInputNumber(value) : '';
+            }
+
+            function setHiddenValue(row, selector, value) {
+                const input = row.querySelector(selector);
+                if (input) {
+                    input.value = value ?? '';
+                }
+            }
+
+            function readHiddenValue(row, selector) {
+                return row.querySelector(selector)?.value || '';
+            }
+
+            function getRowIsoDate(row) {
+                return row.querySelector('[data-row-date-value]')?.value || '';
+            }
+
+            function formatRubSummary(value, pendingRows) {
+                if (value > 0) {
+                    return `₽ ${formatMoneyNumber(value)}`;
+                }
+
+                return pendingRows > 0 ? 'در انتظار نرخ' : '-';
+            }
+
+            function applyRubSettlementToRow(row) {
+                const pricing = getPricingForRow(row);
+                const currency = (pricing?.settlementCurrencyCode || 'USD').toUpperCase();
+                const policy = pricing?.rubRatePolicy || 'NotApplicable';
+                const rateInput = row.querySelector('[data-row-rub-rate]');
+                const statusText = row.querySelector('[data-row-rub-status-text]');
+
+                setHiddenValue(row, '[data-row-settlement-currency]', currency);
+                setHiddenValue(row, '[data-row-rub-policy]', policy);
+                setRowRubColumnsVisible(row, currency === 'RUB');
+
+                if (!rateInput) {
+                    return;
+                }
+
+                rateInput.disabled = currency !== 'RUB';
+                rateInput.readOnly = currency === 'RUB' && policy === 'FixedContractRate';
+
+                if (currency !== 'RUB') {
+                    rateInput.value = '';
+                    setAutofilled(rateInput, false);
+                    setHiddenValue(row, '[data-row-rub-status]', 'NotRequired');
+                    setHiddenValue(row, '[data-row-rub-date]', '');
+                    setHiddenValue(row, '[data-row-rub-source]', '');
+                    if (statusText) {
+                        statusText.textContent = '';
+                    }
+                    refreshRubColumnsVisible();
+                    return;
+                }
+
+                if (policy === 'FixedContractRate') {
+                    if (Number.isFinite(pricing?.rubPerUsdRate) && canAutofill(rateInput)) {
+                        rateInput.value = formatInputNumber(pricing.rubPerUsdRate);
+                        setAutofilled(rateInput, true);
+                    }
+                    setHiddenValue(row, '[data-row-rub-date]', pricing?.rubRateDate || getRowIsoDate(row));
+                    setHiddenValue(row, '[data-row-rub-source]', pricing?.rubRateSource || 'Contract');
+                    if (statusText) {
+                        statusText.textContent = 'نرخ قرارداد';
+                    }
+                    refreshRubColumnsVisible();
+                    return;
+                }
+
+                rateInput.readOnly = false;
+                const hasRate = readOptionalDecimal(rateInput) !== null;
+                setHiddenValue(row, '[data-row-rub-date]', hasRate ? getRowIsoDate(row) : '');
+                setHiddenValue(row, '[data-row-rub-source]', hasRate ? 'Manual' : '');
+                if (statusText) {
+                    statusText.textContent = hasRate
+                        ? 'هنگام ذخیره قفل می‌شود'
+                        : (policy === 'PerLoadingRate' ? 'نرخ همین بارگیری' : 'در انتظار تعیین نرخ');
+                }
+                refreshRubColumnsVisible();
+            }
+
+            function updateRowRubSnapshot(row, loadingValueUsd, hasUsdValue) {
+                const currency = (readHiddenValue(row, '[data-row-settlement-currency]') || 'USD').toUpperCase();
+                const rateInput = row.querySelector('[data-row-rub-rate]');
+                const output = row.querySelector('[data-row-rub-value]');
+
+                if (currency !== 'RUB') {
+                    setHiddenValue(row, '[data-row-rub-status]', 'NotRequired');
+                    setHiddenValue(row, '[data-row-rub-usd]', '');
+                    setHiddenValue(row, '[data-row-rub-amount-hidden]', '');
+                    if (output) {
+                        output.textContent = '-';
+                    }
+                    return { amountRub: 0, pending: 0 };
+                }
+
+                const rate = readOptionalDecimal(rateInput);
+                if (hasUsdValue && rate !== null && rate > 0) {
+                    const amountRub = loadingValueUsd * rate;
+                    setHiddenValue(row, '[data-row-rub-status]', 'Locked');
+                    setHiddenDecimal(row.querySelector('[data-row-rub-usd]'), loadingValueUsd);
+                    setHiddenDecimal(row.querySelector('[data-row-rub-amount-hidden]'), amountRub);
+                    setHiddenValue(row, '[data-row-rub-date]', readHiddenValue(row, '[data-row-rub-date]') || getRowIsoDate(row));
+                    setHiddenValue(row, '[data-row-rub-source]', readHiddenValue(row, '[data-row-rub-source]') || 'Manual');
+                    if (output) {
+                        output.textContent = `₽ ${formatMoneyNumber(amountRub)}`;
+                    }
+                    return { amountRub, pending: 0 };
+                }
+
+                setHiddenValue(row, '[data-row-rub-status]', 'Pending');
+                setHiddenValue(row, '[data-row-rub-usd]', '');
+                setHiddenValue(row, '[data-row-rub-amount-hidden]', '');
+                if (output) {
+                    output.textContent = 'در انتظار نرخ';
+                }
+                return { amountRub: 0, pending: 1 };
+            }
+
+            function getRowLogisticsMode(row) {
+                const typeInput = row.querySelector('[data-row-logistics-type]');
+                if (typeInput) {
+                    return typeInput.value === 'owned' || typeInput.value === 'free' ? typeInput.value : '';
+                }
+
+                const assetSelect = row.querySelector('[data-row-operational-asset]');
+                if (assetSelect && assetSelect.value) {
+                    return 'owned';
+                }
+
+                const providerSelect = row.querySelector('[data-row-logistics-provider]');
+                return providerSelect && providerSelect.value ? 'free' : '';
+            }
+
+            function replaceLogisticsItemOptions(itemSelect, sourceSelect, mode, selectedValue) {
+                if (!itemSelect) {
+                    return;
+                }
+
+                itemSelect.replaceChildren();
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '';
+                itemSelect.appendChild(placeholder);
+
+                if (!mode || !sourceSelect) {
+                    itemSelect.value = '';
+                    itemSelect.disabled = true;
+                    return;
+                }
+
+                Array.from(sourceSelect.options)
+                    .filter(option => option.value)
+                    .forEach(option => {
+                        const itemOption = document.createElement('option');
+                        itemOption.value = option.value;
+                        itemOption.textContent = option.textContent;
+                        itemSelect.appendChild(itemOption);
+                    });
+
+                itemSelect.disabled = false;
+                itemSelect.value = Array.from(itemSelect.options).some(option => option.value === selectedValue)
+                    ? selectedValue
+                    : '';
+            }
+
+            function syncRowLogisticsMode(row) {
+                const providerSelect = row.querySelector('[data-row-logistics-provider]');
+                const assetSelect = row.querySelector('[data-row-operational-asset]');
+                const itemSelect = row.querySelector('[data-row-logistics-display]');
+                const itemField = row.querySelector('[data-loading-logistics-item-field]');
+                const mode = getRowLogisticsMode(row);
+                const previousMode = row.dataset.logisticsMode || '';
+                const modeChanged = !!previousMode && previousMode !== mode;
+                const sourceSelect = mode === 'owned' ? assetSelect : mode === 'free' ? providerSelect : null;
+                const selectedValue = modeChanged ? '' : (itemSelect?.value || sourceSelect?.value || '');
+
+                replaceLogisticsItemOptions(itemSelect, sourceSelect, mode, selectedValue);
+                if (itemField) {
+                    itemField.hidden = !mode;
+                }
+                row.dataset.logisticsMode = mode;
+
+                if (!mode) {
+                    if (providerSelect) {
+                        providerSelect.value = '';
+                        providerSelect.disabled = true;
+                    }
+
+                    if (assetSelect) {
+                        assetSelect.value = '';
+                        assetSelect.disabled = true;
+                    }
+
+                    return '';
+                }
+
+                const activeValue = itemSelect?.value || '';
+
+                if (providerSelect) {
+                    providerSelect.disabled = mode !== 'free';
+                    providerSelect.value = mode === 'free' ? activeValue : '';
+                }
+
+                if (assetSelect) {
+                    assetSelect.disabled = mode !== 'owned';
+                    assetSelect.value = mode === 'owned' ? activeValue : '';
+                }
+
+                return mode;
+            }
+
+            function syncRowLogisticsName(row) {
+                const mode = syncRowLogisticsMode(row);
+                const providerSelect = row.querySelector('[data-row-logistics-provider]');
+                const assetSelect = row.querySelector('[data-row-operational-asset]');
+                const nameInput = row.querySelector('[data-row-logistics-name]');
+                const activeSelect = mode === 'owned' ? assetSelect : providerSelect;
+                if (!mode || !activeSelect || !nameInput) {
+                    if (nameInput) {
+                        nameInput.value = '';
+                    }
+                    return;
+                }
+
+                const selectedOption = activeSelect.selectedOptions && activeSelect.selectedOptions.length > 0
+                    ? activeSelect.selectedOptions[0]
+                    : null;
+                nameInput.value = activeSelect.value && selectedOption
+                    ? selectedOption.textContent.trim()
+                    : '';
+            }
+
+            function getSelectedContractOptions() {
+                if (!contractSelect) {
+                    return [];
+                }
+
+                return Array.from(contractSelect.querySelectorAll('[data-loading-contract-checkbox]:checked'))
+                    .map(input => ({
+                        value: input.value,
+                        productId: input.dataset.contractProductId || '',
+                        productName: input.dataset.contractProductName || '',
+                        textContent: input
+                            .closest('[data-loading-contract-option]')
+                            ?.querySelector('[data-loading-contract-label]')
+                            ?.textContent
+                            ?.trim() || input.value
+                    }))
+                    .filter(option => option.value);
+            }
+
+            function getSelectedContractIds() {
+                return getSelectedContractOptions().map(option => option.value);
+            }
+
+            function syncProductFromContracts(selectedOptions) {
+                if (!productInput) {
+                    return;
+                }
+
+                const options = selectedOptions || getSelectedContractOptions();
+                const productOptions = options.filter(option => option.productId);
+                const productIds = Array.from(new Set(productOptions.map(option => option.productId)));
+
+                if (productIds.length === 1) {
+                    const selectedProduct = productOptions.find(option => option.productId === productIds[0]);
+                    productInput.value = productIds[0];
+                    if (productSummary) {
+                        productSummary.textContent = selectedProduct?.productName || 'جنس قرارداد';
+                    }
+                    return;
+                }
+
+                productInput.value = '';
+                if (productSummary) {
+                    productSummary.textContent = productIds.length > 1
+                        ? 'قراردادهای انتخاب‌شده اجناسی متفاوت دارند'
+                        : 'از قرارداد تعیین می‌شود';
+                }
+            }
+
+            function updateContractSummary(selectedOptions) {
+                if (!contractSummary) {
+                    return;
+                }
+
+                const options = selectedOptions || getSelectedContractOptions();
+                if (options.length === 0) {
+                    contractSummary.textContent = 'انتخاب قرارداد';
+                } else if (options.length === 1) {
+                    contractSummary.textContent = options[0].textContent;
+                } else {
+                    contractSummary.textContent = `${options.length} قرارداد انتخاب شد`;
+                }
+            }
+
+            function setContractDropdownOpen(isOpen) {
+                if (!contractField || !contractToggle) {
+                    return;
+                }
+
+                contractField.classList.toggle('is-open', isOpen);
+                contractToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+
+            function syncPrimaryContractInput(selectedOptions) {
+                if (!primaryContractInput) {
+                    return;
+                }
+
+                const options = selectedOptions || getSelectedContractOptions();
+                primaryContractInput.value = options[0]?.value || '';
+                syncProductFromContracts(options);
+            }
+
+            function replaceRowContractOptions(select, selectedOptions) {
+                if (!select) {
+                    return;
+                }
+
+                const currentValue = select.value;
+                select.replaceChildren();
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '';
+                select.appendChild(placeholder);
+
+                selectedOptions.forEach(option => {
+                    const rowOption = document.createElement('option');
+                    rowOption.value = option.value;
+                    rowOption.textContent = option.textContent;
+                    select.appendChild(rowOption);
+                });
+
+                const selectedIds = selectedOptions.map(option => option.value);
+                if (selectedIds.includes(currentValue)) {
+                    select.value = currentValue;
+                } else if (selectedIds.length === 1) {
+                    select.value = selectedIds[0];
+                } else {
+                    select.value = '';
+                }
+            }
+
+            function syncRowContractSelectors() {
+                const selectedOptions = getSelectedContractOptions();
+                syncPrimaryContractInput(selectedOptions);
+                const showRowContracts = selectedOptions.length > 1;
+                updateContractSummary(selectedOptions);
+
+                if (contractColumn) {
+                    contractColumn.classList.toggle('d-none', !showRowContracts);
+                }
+
+                rowsHost.querySelectorAll('[data-loading-contract-cell]').forEach(cell => {
+                    cell.classList.toggle('d-none', !showRowContracts);
+                });
+
+                rowsHost.querySelectorAll('[data-row-contract-select]').forEach(select => {
+                    replaceRowContractOptions(select, selectedOptions);
+                });
+            }
+
+            function updateTransportControl(control, config) {
+                if (control.tagName === 'SELECT') {
+                    const firstOption = control.querySelector('option');
+                    if (firstOption) {
+                        firstOption.textContent = config.placeholder;
+                    }
+                    return;
+                }
+
+                    control.removeAttribute('placeholder');
+            }
+
+            function updateRowVisibility(row) {
+                const config = getTransportConfig();
+                row.querySelectorAll('[data-transport-field]').forEach((field, index) => {
+                    const isActive = config.field !== '' && field.getAttribute('data-transport-field') === config.field;
+                    const isPlaceholder = config.field === '' && index === 0;
+                    field.classList.toggle('d-none', !isActive && !isPlaceholder);
+                    field.setAttribute('aria-hidden', isPlaceholder ? 'true' : 'false');
+
+                    field.querySelectorAll('input, select').forEach(control => {
+                        control.disabled = !isActive;
+                        if (!isActive) {
+                            control.value = '';
+                            return;
+                        }
+
+                        updateTransportControl(control, config);
+                    });
+                });
+
+                row.querySelectorAll('[data-transport-label]').forEach(label => {
+                    label.textContent = config.label;
+                });
+
+                row.querySelectorAll('[data-reference-label]').forEach(label => {
+                    label.textContent = config.reference;
+                });
+            }
+
+            function updateGridHead() {
+                const config = getTransportConfig();
+
+                if (referenceColumn) {
+                    referenceColumn.textContent = config.reference;
+                }
+
+                if (transportColumn) {
+                    transportColumn.textContent = config.label;
+                }
+            }
+
+            function updateSummaryTotals() {
+                let quantity = 0;
+                let value = 0;
+                let rubValue = 0;
+                let pendingRubRows = 0;
+                let expenses = 0;
+                let fileRubValue = 0;
+                let hasFileRub = false;
+
+                rowsHost.querySelectorAll('[data-loading-row]').forEach(row => {
+                    const rowQuantity = parseDecimal(row.querySelector('[data-row-quantity]'));
+                    const price = readOptionalDecimal(row.querySelector('[data-row-loading-price]'));
+                    quantity += rowQuantity;
+
+                    if (price !== null) {
+                        value += rowQuantity * price;
+                    }
+
+                    expenses += parseDecimal(row.querySelector('[data-row-freight-expense]'));
+                    expenses += parseDecimal(row.querySelector('[data-row-warehouse-expense]'));
+                    expenses += parseDecimal(row.querySelector('[data-row-railway-expense]'));
+                    expenses += parseDecimal(row.querySelector('[data-row-other-expense]'));
+
+                    const rowRubValue = parseDecimal(row.querySelector('[data-row-rub-amount-hidden]'));
+                    const rubStatus = readHiddenValue(row, '[data-row-rub-status]');
+                    if (rowRubValue > 0) {
+                        rubValue += rowRubValue;
+                    } else if (rubStatus === 'Pending') {
+                        pendingRubRows += 1;
+                    }
+
+                    // ارقام روبلی فایل: مجموع ثابت از ایمپورت (یا فی‌تن×مقدار اگر مجموع نبود).
+                    const rowFrubTotal = parseDecimal(row.querySelector('[data-row-frub-amount-hidden]'));
+                    const rowFrubRate = parseDecimal(row.querySelector('[data-row-frub-rate-hidden]'));
+                    if (rowFrubTotal > 0) {
+                        fileRubValue += rowFrubTotal;
+                        hasFileRub = true;
+                    } else if (rowFrubRate > 0 && rowQuantity > 0) {
+                        fileRubValue += rowFrubRate * rowQuantity;
+                        hasFileRub = true;
+                    }
+                });
+
+                const average = quantity > 0 ? value / quantity : 0;
+                const formattedQuantity = `${formatQuantityNumber(quantity)} TON`;
+                const formattedValue = `$ ${formatMoneyNumber(value)}`;
+                const formattedAverage = `$ ${formatMoneyNumber(average)}`;
+                const formattedExpenses = `$ ${formatMoneyNumber(expenses)}`;
+                // اگر روبل از فایل آمده باشد، آن را به‌جای «در انتظار نرخ» نشان بده.
+                const formattedRub = hasFileRub
+                    ? `₽ ${formatMoneyNumber(fileRubValue)}`
+                    : formatRubSummary(rubValue, pendingRubRows);
+                const rubAverage = hasFileRub && quantity > 0 ? fileRubValue / quantity : 0;
+                const formattedRubAverage = hasFileRub ? `₽ ${formatMoneyNumber(rubAverage)}` : '-';
+
+                if (summaryQuantity) summaryQuantity.textContent = formattedQuantity;
+                if (summaryValue) summaryValue.textContent = formattedValue;
+                if (summaryAverage) summaryAverage.textContent = formattedAverage;
+                if (summaryExpense) summaryExpense.textContent = formattedExpenses;
+                if (summaryRubValue) summaryRubValue.textContent = formattedRub;
+                if (summaryRubAverage) summaryRubAverage.textContent = formattedRubAverage;
+                if (summaryRubNote) summaryRubNote.classList.toggle('d-none', hasFileRub);
+                if (summaryTableQuantity) summaryTableQuantity.textContent = formattedQuantity;
+                if (summaryTableValue) summaryTableValue.textContent = formattedValue;
+                if (summaryTableExpense) summaryTableExpense.textContent = formattedExpenses;
+                if (summaryTableRubValue) summaryTableRubValue.textContent = formattedRub;
+                if (summaryTableFrubValue) summaryTableFrubValue.textContent = formattedRub;
+                if (summaryTableFrubAverage) summaryTableFrubAverage.textContent = formattedRubAverage;
+                document.querySelectorAll('[data-loading-frub-column]').forEach(col => col.classList.toggle('d-none', !hasFileRub));
+                refreshRubColumnsVisible();
+            }
+
+            function updateRowFreightSnapshot(row) {
+                const rate = readOptionalDecimal(row.querySelector('[data-row-freight-rate]'));
+                const quantity = parseDecimal(row.querySelector('[data-row-quantity]'));
+                const freightExpense = row.querySelector('[data-row-freight-expense]');
+                const railwayExpense = row.querySelector('[data-row-railway-expense]');
+                const railwayRate = row.querySelector('[data-row-railway-rate]');
+                const chargeableQuantity = row.querySelector('[data-row-chargeable-quantity]');
+
+                if (rate === null) {
+                    return;
+                }
+
+                if (rate <= 0 || quantity <= 0) {
+                    setHiddenDecimal(freightExpense, 0);
+                    setHiddenDecimal(railwayExpense, 0);
+                    setHiddenDecimal(railwayRate, 0);
+                    setHiddenDecimal(chargeableQuantity, 0);
+                    return;
+                }
+
+                const total = quantity * rate;
+                const config = getTransportConfig();
+                if (config.field === 'Wagon') {
+                    setHiddenDecimal(freightExpense, 0);
+                    setHiddenDecimal(railwayExpense, total);
+                    setHiddenDecimal(railwayRate, rate);
+                    setHiddenDecimal(chargeableQuantity, quantity);
+                    return;
+                }
+
+                setHiddenDecimal(freightExpense, total);
+                setHiddenDecimal(railwayExpense, 0);
+                setHiddenDecimal(railwayRate, 0);
+                setHiddenDecimal(chargeableQuantity, 0);
+            }
+
+            function updateRowTotals(row) {
+                updateRowFreightSnapshot(row);
+                applyRubSettlementToRow(row);
+                const quantity = parseDecimal(row.querySelector('[data-row-quantity]'));
+                const price = readOptionalDecimal(row.querySelector('[data-row-loading-price]'));
+                const output = row.querySelector('[data-row-loading-value]');
+
+                if (price === null) {
+                    row.dataset.loadingValue = '';
+                    updateRowRubSnapshot(row, 0, false);
+                    if (output) {
+                        output.textContent = 'در انتظار نرخ';
+                    }
+                    updateSummaryTotals();
+                    return;
+                }
+
+                const total = quantity * price;
+                row.dataset.loadingValue = total.toString();
+                updateRowRubSnapshot(row, total, true);
+
+                if (output) {
+                    output.textContent = `$ ${formatMoneyNumber(total)}`;
+                }
+
+                updateSummaryTotals();
+            }
+
+            function resolveSuggestedLoadingPrice(pricing, plattsValue) {
+                if (!pricing) {
+                    return null;
+                }
+
+                if (pricing.isFormulaPlatts && plattsValue !== null) {
+                    return plattsValue + (pricing.premiumDiscountUsd ?? 0);
+                }
+
+                return pricing.finalUnitPrice;
+            }
+
+            function applyPricingToRow(row) {
+                const pricing = getPricingForRow(row);
+                const plattsInput = row.querySelector('[data-row-platts]');
+                const priceInput = row.querySelector('[data-row-loading-price]');
+                const premiumDisplay = row.querySelector('[data-row-premium-display]');
+
+                if (pricing && pricing.isFormulaPlatts && plattsInput && canAutofill(plattsInput) && pricing.plattsReferencePrice !== null) {
+                    plattsInput.value = formatInputNumber(pricing.plattsReferencePrice);
+                    setAutofilled(plattsInput, true);
+                }
+
+                const suggestedLoadingPrice = resolveSuggestedLoadingPrice(pricing, readOptionalDecimal(plattsInput));
+                if (suggestedLoadingPrice !== null && priceInput && canAutofill(priceInput)) {
+                    priceInput.value = formatInputNumber(suggestedLoadingPrice);
+                    setAutofilled(priceInput, true);
+                }
+
+                if (premiumDisplay) {
+                    if (suggestedLoadingPrice !== null) {
+                        premiumDisplay.textContent = `پیشنهاد: ${formatInputNumber(suggestedLoadingPrice)} USD/MT`;
+                    } else if (pricing && pricing.isFormulaPlatts && pricing.plattsReferencePrice !== null) {
+                        premiumDisplay.textContent = `Platts: ${formatInputNumber(pricing.plattsReferencePrice)} USD/MT`;
+                    } else if (pricing && pricing.isFormulaPlatts && pricing.premiumDiscountUsd !== null) {
+                        const sign = pricing.premiumDiscountUsd >= 0 ? '+' : '';
+                        premiumDisplay.textContent = `پریمیوم: ${sign}${pricing.premiumDiscountUsd}`;
+                    } else if (pricing && pricing.isFormulaPlatts && (pricing.plattsReferenceReason || pricing.reason)) {
+                        premiumDisplay.textContent = pricing.plattsReferenceReason || pricing.reason;
+                    } else {
+                        premiumDisplay.textContent = '';
+                    }
+                }
+
+                updateRowTotals(row);
+            }
+
+            function syncRowSequence() {
+                rowsHost.querySelectorAll('[data-loading-row]').forEach((row, index) => {
+                    const sequence = row.querySelector('[data-loading-row-sequence]');
+                    if (sequence) {
+                        sequence.textContent = String(index + 1);
+                    }
+                });
+            }
+
+            const loadingDateMonths = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            const loadingDateWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let activeDatePicker = null;
+            let visibleDateMonth = new Date();
+            let datePickerMode = 'day';
+            let visibleYearStart = new Date().getFullYear() - 5;
+
+            function parseIsoDate(value) {
+                if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    return null;
+                }
+
+                const parts = value.split('-').map(Number);
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+
+            function toIsoDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function formatDateLong(date) {
+                return `${loadingDateWeekdays[date.getDay()]} ${date.getDate()} ${loadingDateMonths[date.getMonth()]}`;
+            }
+
+            function setDateDisplay(display, value) {
+                if (!display) {
+                    return;
+                }
+
+                display.dataset.dateDisplay = value;
+
+                if ('value' in display) {
+                    display.value = value;
+                }
+
+                const text = display.querySelector('[data-row-date-text]');
+                if (text) {
+                    text.textContent = value;
+                } else {
+                    display.textContent = value;
+                }
+
+                const visibleText = display.closest('[data-loading-date-picker]')?.querySelector('[data-row-date-visible]');
+                if (visibleText) {
+                    visibleText.textContent = value;
+                }
+            }
+
+            function syncDateDisplay(row) {
+                const hidden = row.querySelector('[data-row-date-value]');
+                const display = row.querySelector('[data-row-date-display]');
+                if (!hidden || !display) {
+                    return;
+                }
+
+                if (!hidden.value) {
+                    hidden.value = toIsoDate(new Date());
+                }
+
+                setDateDisplay(display, hidden.value);
+            }
+
+            function renderDatePicker() {
+                if (!dateOverlay || !dateDaysHost || !dateYearLabel || !dateLongLabel || !dateMonthLabel || !activeDatePicker) {
+                    return;
+                }
+
+                const selectedDate = parseIsoDate(activeDatePicker.hidden.value) ?? new Date();
+                const monthDate = new Date(visibleDateMonth.getFullYear(), visibleDateMonth.getMonth(), 1);
+                dateYearLabel.textContent = String(selectedDate.getFullYear());
+                dateLongLabel.textContent = formatDateLong(selectedDate);
+                dateYearLabel.classList.toggle('is-active', datePickerMode === 'year');
+                dateOverlay.classList.toggle('is-year-mode', datePickerMode === 'year');
+
+                if (datePickerMode === 'year') {
+                    renderYearPicker(selectedDate);
+                    return;
+                }
+
+                dateDaysHost.classList.remove('is-year-mode');
+                dateMonthLabel.textContent = `${loadingDateMonths[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
+                dateDaysHost.replaceChildren();
+
+                const firstDay = monthDate.getDay();
+                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+
+                for (let blank = 0; blank < firstDay; blank++) {
+                    const spacer = document.createElement('span');
+                    spacer.className = 'loading-date-day is-muted';
+                    spacer.setAttribute('aria-hidden', 'true');
+                    dateDaysHost.appendChild(spacer);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'loading-date-day';
+                    button.dataset.dateValue = toIsoDate(date);
+                    button.innerHTML = `<span>${day}</span>`;
+                    if (toIsoDate(date) === toIsoDate(selectedDate)) {
+                        button.classList.add('is-selected');
+                    }
+                    dateDaysHost.appendChild(button);
+                }
+            }
+
+            function renderYearPicker(selectedDate) {
+                const selectedYear = selectedDate.getFullYear();
+                const startYear = visibleYearStart;
+                dateMonthLabel.textContent = `${startYear} - ${startYear + 11}`;
+                dateDaysHost.replaceChildren();
+                dateDaysHost.classList.add('is-year-mode');
+
+                for (let index = 0; index < 12; index++) {
+                    const year = startYear + index;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'loading-date-year-option';
+                    button.dataset.yearValue = String(year);
+                    button.textContent = String(year);
+                    if (year === selectedYear) {
+                        button.classList.add('is-selected');
+                    }
+                    dateDaysHost.appendChild(button);
+                }
+            }
+
+            function openLoadingDatePicker(row) {
+                const picker = row.querySelector('[data-loading-date-picker]');
+                const hidden = row.querySelector('[data-row-date-value]');
+                const display = row.querySelector('[data-row-date-display]');
+                if (!dateOverlay || !picker || !hidden || !display) {
+                    return;
+                }
+
+                activeDatePicker = { row, picker, hidden, display };
+                picker.classList.add('is-open');
+                const selectedDate = parseIsoDate(hidden.value) ?? new Date();
+                if (!hidden.value) {
+                    hidden.value = toIsoDate(selectedDate);
+                    setDateDisplay(display, hidden.value);
+                }
+                visibleDateMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+                visibleYearStart = selectedDate.getFullYear() - 5;
+                datePickerMode = 'day';
+                renderDatePicker();
+                dateOverlay.setAttribute('aria-hidden', 'false');
+                dateOverlay.classList.remove('is-open');
+                void dateOverlay.offsetWidth;
+                requestAnimationFrame(() => dateOverlay.classList.add('is-open'));
+            }
+
+            function closeLoadingDatePicker() {
+                if (activeDatePicker?.picker) {
+                    activeDatePicker.picker.classList.remove('is-open');
+                }
+                activeDatePicker = null;
+                if (dateOverlay) {
+                    dateOverlay.classList.remove('is-open');
+                    dateOverlay.classList.remove('is-year-mode');
+                    dateOverlay.setAttribute('aria-hidden', 'true');
+                }
+                if (dateDaysHost) {
+                    dateDaysHost.classList.remove('is-year-mode');
+                }
+                datePickerMode = 'day';
+            }
+
+            function selectLoadingDate(value) {
+                if (!activeDatePicker || !value) {
+                    return;
+                }
+
+                activeDatePicker.hidden.value = value;
+                setDateDisplay(activeDatePicker.display, value);
+                updateRowTotals(activeDatePicker.row);
+                closeLoadingDatePicker();
+            }
+
+            function selectLoadingYear(value) {
+                if (!activeDatePicker || !value) {
+                    return;
+                }
+
+                const year = Number(value);
+                if (!Number.isFinite(year)) {
+                    return;
+                }
+
+                const selectedDate = parseIsoDate(activeDatePicker.hidden.value) ?? new Date();
+                const day = Math.min(selectedDate.getDate(), new Date(year, visibleDateMonth.getMonth() + 1, 0).getDate());
+                const nextDate = new Date(year, visibleDateMonth.getMonth(), day);
+                activeDatePicker.hidden.value = toIsoDate(nextDate);
+                setDateDisplay(activeDatePicker.display, activeDatePicker.hidden.value);
+                visibleDateMonth = new Date(year, visibleDateMonth.getMonth(), 1);
+                datePickerMode = 'day';
+                dateDaysHost?.classList.remove('is-year-mode');
+                renderDatePicker();
+            }
+
+            function toggleDateYearMode() {
+                if (!activeDatePicker) {
+                    return;
+                }
+
+                const selectedDate = parseIsoDate(activeDatePicker.hidden.value) ?? new Date();
+                visibleYearStart = selectedDate.getFullYear() - 5;
+                datePickerMode = datePickerMode === 'year' ? 'day' : 'year';
+                renderDatePicker();
+            }
+
+            function updateAllRows() {
+                syncRowContractSelectors();
+                updateGridHead();
+                rowsHost.querySelectorAll('[data-loading-row]').forEach(row => {
+                    updateRowVisibility(row);
+                    syncRowLogisticsName(row);
+                    syncDateDisplay(row);
+                    applyPricingToRow(row);
+                });
+                syncRowSequence();
+                updateSummaryTotals();
+            }
+
+            async function refreshContractPricing() {
+                if (!contractSelect || !suggestedPricingUrl) {
+                    return;
+                }
+
+                syncRowContractSelectors();
+                currentPricing = null;
+                const selectedContractIds = getSelectedContractIds();
+                if (selectedContractIds.length === 0) {
+                    updatePlattsNotice();
+                    updateAllRows();
+                    return;
+                }
+
+                if (selectedContractIds.length === 1) {
+                    currentPricing = await getContractPricing(selectedContractIds[0]);
+                } else {
+                    await Promise.all(selectedContractIds.map(getContractPricing));
+                }
+
+                updatePlattsNotice();
+                updateAllRows();
+            }
+
+            // Controls that belong to the transport-company / operational-asset / freight columns.
+            // When freight is not recorded these are cleared, disabled (so they never post) and hidden.
+            const freightRowSelector = [
+                '[data-row-logistics-type]',
+                '[data-row-logistics-display]',
+                '[data-row-logistics-provider]',
+                '[data-row-operational-asset]',
+                '[data-row-logistics-name]',
+                '[data-row-freight-rate]',
+                '[data-row-freight-expense]',
+                '[data-row-railway-expense]',
+                '[data-row-railway-rate]',
+                '[data-row-chargeable-quantity]'
+            ].join(',');
+
+            function applyFreightVisibility() {
+                const on = !freightToggle || freightToggle.checked;
+
+                document
+                    .querySelectorAll('[data-loading-freight-column]')
+                    .forEach(cell => cell.classList.toggle('d-none', !on));
+
+                document
+                    .querySelectorAll('[data-loading-freight-summary], [data-loading-freight-responsibility]')
+                    .forEach(el => el.classList.toggle('d-none', !on));
+
+                if (freightToggleText) {
+                    freightToggleText.textContent = on ? 'کرایه ثبت می‌شود' : 'بدون ثبت کرایه';
+                }
+
+                rowsHost.querySelectorAll('[data-loading-row]').forEach(row => {
+                    const controls = row.querySelectorAll(freightRowSelector);
+                    if (on) {
+                        controls.forEach(control => { control.disabled = false; });
+                    } else {
+                        controls.forEach(control => {
+                            control.value = '';
+                            control.disabled = true;
+                        });
+                        row.dataset.logisticsMode = '';
+                    }
+                });
+
+                updateSummaryTotals();
+            }
+
+            function addRow() {
+                const key = 'row_' + nextRowNumber++;
+                const html = template.innerHTML.replaceAll('__key__', key);
+                rowsHost.insertAdjacentHTML('beforeend', html);
+                updateAllRows();
+                applyFreightVisibility();
+            }
+
+            addButton.addEventListener('click', addRow);
+            datePrevButton?.addEventListener('click', function () {
+                if (datePickerMode === 'year') {
+                    visibleYearStart -= 12;
+                } else {
+                    visibleDateMonth = new Date(visibleDateMonth.getFullYear(), visibleDateMonth.getMonth() - 1, 1);
+                }
+                renderDatePicker();
+            });
+            dateNextButton?.addEventListener('click', function () {
+                if (datePickerMode === 'year') {
+                    visibleYearStart += 12;
+                } else {
+                    visibleDateMonth = new Date(visibleDateMonth.getFullYear(), visibleDateMonth.getMonth() + 1, 1);
+                }
+                renderDatePicker();
+            });
+            dateYearLabel?.addEventListener('click', function (event) {
+                event.stopPropagation();
+                toggleDateYearMode();
+            });
+            dateHeader?.addEventListener('click', function (event) {
+                if (event.target.closest('[data-loading-date-locale]')) {
+                    return;
+                }
+
+                toggleDateYearMode();
+            });
+            dateDaysHost?.addEventListener('click', function (event) {
+                const yearButton = event.target.closest('[data-year-value]');
+                if (yearButton) {
+                    selectLoadingYear(yearButton.dataset.yearValue);
+                    return;
+                }
+
+                const dayButton = event.target.closest('[data-date-value]');
+                if (dayButton) {
+                    selectLoadingDate(dayButton.dataset.dateValue);
+                }
+            });
+            dateOverlay?.addEventListener('click', function (event) {
+                if (event.target === dateOverlay) {
+                    closeLoadingDatePicker();
+                }
+            });
+            resetButton?.addEventListener('click', function () {
+                window.setTimeout(updateAllRows, 0);
+            });
+            contractToggle?.addEventListener('click', function () {
+                setContractDropdownOpen(!contractField?.classList.contains('is-open'));
+            });
+            document.addEventListener('click', function (event) {
+                if (!contractField || contractField.contains(event.target)) {
+                    return;
+                }
+
+                setContractDropdownOpen(false);
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    setContractDropdownOpen(false);
+                    closeLoadingDatePicker();
+                }
+            });
+            transportSelect.addEventListener('change', updateAllRows);
+            contractSelect?.addEventListener('change', refreshContractPricing);
+            freightToggle?.addEventListener('change', function () {
+                if (freightToggle.checked) {
+                    updateAllRows();
+                }
+                applyFreightVisibility();
+            });
+            loadingForm?.addEventListener('submit', function () {
+                loadingForm.action = loadingForm.dataset.createAction || '@createPostUrl';
+                syncPrimaryContractInput();
+                const excelFileInput = document.getElementById('excelFile');
+                if (excelFileInput) {
+                    excelFileInput.value = '';
+                }
+                rowsHost.querySelectorAll('[data-loading-row]').forEach(row => {
+                    syncRowLogisticsName(row);
+                    updateRowFreightSnapshot(row);
+                    updateRowTotals(row);
+                });
+            });
+
+            const excelFileInput = document.getElementById('excelFile');
+            const excelFilePickBtn = document.getElementById('excelFilePickBtn');
+            const excelFileName = document.getElementById('excelFileName');
+            const excelImportBtn = document.getElementById('excelImportBtn');
+            const excelImportUrl = '@Url.Action("ImportWorkbook", "Loading")';
+
+            if (excelFileInput && excelFilePickBtn && excelFileName && excelImportBtn) {
+                function submitSelectedWorkbook() {
+                    if (!excelFileInput.files || excelFileInput.files.length === 0 || !loadingForm) {
+                        return;
+                    }
+
+                    loadingForm.action = excelImportUrl;
+                    excelFilePickBtn.disabled = true;
+                    excelImportBtn.disabled = true;
+                    syncPrimaryContractInput();
+                    loadingForm.submit();
+                }
+
+                excelFilePickBtn.addEventListener('click', function () {
+                    excelFileInput.click();
+                });
+
+                excelFileInput.addEventListener('change', function () {
+                    if (excelFileInput.files && excelFileInput.files.length > 0) {
+                        excelFileName.textContent = excelFileInput.files[0].name;
+                        excelFileName.classList.remove('d-none');
+                        excelImportBtn.classList.remove('d-none');
+                        submitSelectedWorkbook();
+                    } else {
+                        excelFileName.textContent = '';
+                        excelFileName.classList.add('d-none');
+                        excelImportBtn.classList.add('d-none');
+                        excelFilePickBtn.disabled = false;
+                        excelImportBtn.disabled = false;
+                    }
+                });
+
+                excelImportBtn.addEventListener('click', function () {
+                    submitSelectedWorkbook();
+                });
+            }
+
+            rowsHost.addEventListener('click', event => {
+                const dateTrigger = event.target.closest('[data-loading-date-open], [data-row-date-display]');
+                if (dateTrigger) {
+                    const row = dateTrigger.closest('[data-loading-row]');
+                    if (row) {
+                        openLoadingDatePicker(row);
+                    }
+                    return;
+                }
+
+                const removeButton = event.target.closest('[data-loading-row-remove]');
+                if (!removeButton) {
+                    return;
+                }
+
+                const row = removeButton.closest('[data-loading-row]');
+                if (!row) {
+                    return;
+                }
+
+                row.remove();
+                if (!rowsHost.querySelector('[data-loading-row]')) {
+                    addRow();
+                    return;
+                }
+
+                updateAllRows();
+            });
+
+            rowsHost.addEventListener('input', event => {
+                const row = event.target.closest('[data-loading-row]');
+                if (!row) {
+                    return;
+                }
+
+                if (event.target.matches('[data-row-logistics-type], [data-row-logistics-display]')) {
+                    syncRowLogisticsName(row);
+                    updateRowTotals(row);
+                    return;
+                }
+
+                if (event.target.matches('[data-row-platts]')) {
+                    setAutofilled(event.target, false);
+                    applyPricingToRow(row);
+                    return;
+                }
+
+                if (event.target.matches('[data-row-loading-price]')) {
+                    setAutofilled(event.target, false);
+                }
+
+                if (event.target.matches('[data-row-rub-rate]')) {
+                    setAutofilled(event.target, false);
+                }
+
+                updateRowTotals(row);
+            });
+
+            rowsHost.addEventListener('change', event => {
+                const row = event.target.closest('[data-loading-row]');
+                if (!row) {
+                    return;
+                }
+
+                if (event.target.matches('[data-row-contract-select]')) {
+                    applyPricingToRow(row);
+                    return;
+                }
+
+                if (event.target.matches('[data-row-logistics-type], [data-row-logistics-display], [data-row-logistics-provider], [data-row-operational-asset]')) {
+                    syncRowLogisticsName(row);
+                    updateRowTotals(row);
+                    return;
+                }
+
+                if (event.target.matches('[data-row-platts], [data-row-loading-price]')) {
+                    applyPricingToRow(row);
+                    return;
+                }
+
+                updateRowTotals(row);
+            });
+
+            updateAllRows();
+            refreshContractPricing();
+            applyFreightVisibility();
+        })();
+    </script>
+    <script>
+        // ---- Preview pagination / search / status filter ----------------
+        // Scales the imported-rows preview to hundreds/thousands of rows
+        // WITHOUT touching model binding: every row stays in the DOM (its
+        // hidden inputs keep posting), we only toggle a display class so a
+        // single page is painted at a time. No data is removed on paging or
+        // filtering; edits sync because they target the same live nodes.
+        (function () {
+            const host = document.querySelector('[data-loading-rows]');
+            const toolbar = document.querySelector('[data-lic-toolbar]');
+            if (!host || !toolbar) {
+                return;
+            }
+
+            const searchInput = document.querySelector('[data-lic-search]');
+            const filterSelect = document.querySelector('[data-lic-filter]');
+            const pageSizeSelect = document.querySelector('[data-lic-pagesize]');
+            const pager = document.querySelector('[data-lic-pagination]');
+            const pageInfo = document.querySelector('[data-lic-page-info]');
+            const prevBtn = document.querySelector('[data-lic-prev]');
+            const nextBtn = document.querySelector('[data-lic-next]');
+            const countTotalEls = document.querySelectorAll('[data-lic-count-total]');
+            const countValidEls = document.querySelectorAll('[data-lic-count-valid]');
+            const countErrorEls = document.querySelectorAll('[data-lic-count-error]');
+
+            let currentPage = 1;
+
+            function rows() {
+                return Array.from(host.querySelectorAll('[data-loading-row]'));
+            }
+
+            function fieldValue(row, suffix) {
+                const el = row.querySelector('input[name$="' + suffix + '"]');
+                return el ? (el.value || '') : '';
+            }
+
+            function rowIsValid(row) {
+                const qtyEl = row.querySelector('[data-row-quantity]');
+                const priceEl = row.querySelector('[data-row-loading-price]');
+                const qty = qtyEl ? Number.parseFloat((qtyEl.value || '').replace(/,/g, '')) : NaN;
+                const price = priceEl ? Number.parseFloat((priceEl.value || '').replace(/,/g, '')) : NaN;
+                return Number.isFinite(qty) && qty > 0 && Number.isFinite(price) && price > 0;
+            }
+
+            function rowMatchesSearch(row, term) {
+                if (!term) {
+                    return true;
+                }
+                const haystack = [
+                    fieldValue(row, '.BillOfLadingNumber'),
+                    fieldValue(row, '.WagonNumber'),
+                    fieldValue(row, '.ImportedTransportReference'),
+                    fieldValue(row, '.ConsigneeName'),
+                    fieldValue(row, '.DestinationName')
+                ].join(' ').toLowerCase();
+                return haystack.indexOf(term) !== -1;
+            }
+
+            function pageSize() {
+                const n = Number.parseInt(pageSizeSelect?.value || '100', 10);
+                return Number.isFinite(n) && n > 0 ? n : 100;
+            }
+
+            function render() {
+                const all = rows();
+                const term = (searchInput?.value || '').trim().toLowerCase();
+                const filter = filterSelect?.value || 'all';
+
+                let total = 0;
+                let valid = 0;
+                const visible = [];
+
+                all.forEach(row => {
+                    total += 1;
+                    const isValid = rowIsValid(row);
+                    if (isValid) {
+                        valid += 1;
+                    }
+                    row.classList.toggle('lic-row-error', !isValid);
+
+                    const passStatus = filter === 'all'
+                        || (filter === 'valid' && isValid)
+                        || (filter === 'error' && !isValid);
+                    if (passStatus && rowMatchesSearch(row, term)) {
+                        visible.push(row);
+                    }
+                });
+
+                countTotalEls.forEach(el => { el.textContent = total; });
+                countValidEls.forEach(el => { el.textContent = valid; });
+                countErrorEls.forEach(el => { el.textContent = total - valid; });
+
+                const size = pageSize();
+                const pageCount = Math.max(1, Math.ceil(visible.length / size));
+                if (currentPage > pageCount) {
+                    currentPage = pageCount;
+                }
+                if (currentPage < 1) {
+                    currentPage = 1;
+                }
+                const start = (currentPage - 1) * size;
+                const end = start + size;
+
+                // Hide everything, then reveal only the current page slice.
+                all.forEach(row => row.classList.add('lic-row-hidden'));
+                visible.slice(start, end).forEach(row => row.classList.remove('lic-row-hidden'));
+
+                if (pager) {
+                    const needsPager = visible.length > size;
+                    pager.hidden = !needsPager;
+                    if (needsPager && pageInfo) {
+                        const from = visible.length ? start + 1 : 0;
+                        const to = Math.min(end, visible.length);
+                        pageInfo.textContent = `صفحه ${currentPage} از ${pageCount} — ردیف ${from} تا ${to} از ${visible.length}`;
+                    }
+                    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+                    if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+                }
+            }
+
+            let debounceId = null;
+            function scheduleRender(resetPage) {
+                if (resetPage) {
+                    currentPage = 1;
+                }
+                window.clearTimeout(debounceId);
+                debounceId = window.setTimeout(render, 120);
+            }
+
+            searchInput?.addEventListener('input', () => scheduleRender(true));
+            filterSelect?.addEventListener('change', () => scheduleRender(true));
+            pageSizeSelect?.addEventListener('change', () => scheduleRender(true));
+            prevBtn?.addEventListener('click', () => { currentPage -= 1; render(); });
+            nextBtn?.addEventListener('click', () => { currentPage += 1; render(); });
+
+            // Keep counts / membership fresh as the operator edits cells, and
+            // react to rows added or removed by the existing row controls.
+            host.addEventListener('input', () => scheduleRender(false));
+            host.addEventListener('change', () => scheduleRender(false));
+            let addObserverPending = false;
+            const observer = new MutationObserver(mutations => {
+                const added = mutations.some(m => m.addedNodes.length > 0);
+                if (added) {
+                    // Jump to the last page so a freshly added row is visible.
+                    addObserverPending = true;
+                }
+                scheduleRender(false);
+                if (addObserverPending) {
+                    addObserverPending = false;
+                    const size = pageSize();
+                    currentPage = Math.max(1, Math.ceil(rows().length / size));
+                    render();
+                }
+            });
+            observer.observe(host, { childList: true });
+
+            render();
+        })();
+    </script>
+}

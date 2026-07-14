@@ -1,0 +1,187 @@
+@model PTGOilSystem.Web.Models.Payments.PaymentIndexViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using PTGOilSystem.Web.Models.Payments
+@{
+    ViewData["Title"] = "رزنامچه";
+    var f = Model.Filter;
+    var items = Model.Items.ToList();
+    var directions = ViewBag.Directions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var paymentKinds = ViewBag.PaymentKinds as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var cashAccounts = ViewBag.CashAccounts as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var query = Context.Request.Query;
+    bool HasQ(string key) => !string.IsNullOrWhiteSpace(query[key]);
+    var hasAdvancedFilter = f.FromDate.HasValue || f.ToDate.HasValue || HasQ("Direction") || HasQ("PaymentKind") || HasQ("CashAccountId");
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("رزنامچه", false,
+                       "ثبت دریافت/پرداخت", "bi-plus-lg", Url.Action("Create"), (string?)null,
+                       "مرکز رزنامچه و تسویه‌ها", "bi-grid-1x2", Url.Action("Hub")))" />
+
+    <section class="ak-form-section ak-summary" aria-label="خلاصهٔ مالی">
+        <dl class="ak-summary-list">
+            <div><dt>جمع دریافتی</dt><dd class="ak-num">@Model.TodayReceiptUsd.ToString("N2") USD</dd></div>
+            <div><dt>جمع پرداختی</dt><dd class="ak-num">@Model.TodayPaymentUsd.ToString("N2") USD</dd></div>
+            <div><dt>مانده نقدی</dt><dd class="ak-num">@Model.CashAccountsBalanceUsd.ToString("N2") USD</dd></div>
+            <div><dt>تعداد تراکنش‌ها</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            var pmtFilter = new AkSearchFilterModel(
+                "Search", f.Search, "شرح یا شماره سند",
+                new List<AkFilterDefinition>
+                {
+                    new("FromDate", "بازه تاریخ", "daterange", null,
+                        f.FromDate?.ToHtmlDateInput(), "ToDate", f.ToDate?.ToHtmlDateInput()),
+                    new("Direction", "نوع سند", "select",
+                        directions.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
+                        f.Direction.HasValue ? ((int)f.Direction.Value).ToString() : null),
+                    new("PaymentKind", "بابت", "select",
+                        paymentKinds.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
+                        f.PaymentKind.HasValue ? ((int)f.PaymentKind.Value).ToString() : null),
+                    new("CashAccountId", "حساب نقدی/بانکی", "select",
+                        cashAccounts.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
+                        f.CashAccountId?.ToString())
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="pmtFilter" />
+            <a class="btn btn-light ak-secondary-action" href="@(Url.Action("Csv"))@(Context.Request.QueryString)">
+                <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>CSV</span>
+            </a>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table payments-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">شماره سند</th>
+                        <th>نوع</th>
+                        <th>طرف حساب</th>
+                        <th>حساب نقدی/بانکی</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">USD</th>
+                        <th>مربوط به</th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in items)
+                {
+                    var directionBadgeClass = item.Direction == PTGOilSystem.Web.Models.Entities.PaymentDirection.In ? "is-active" : "is-inactive";
+                    var normalRow = !item.IsSarrafHawala && !item.IsLedgerOnlyViaSarraf;
+                    <tr data-href="@(normalRow ? Url.Action("Details", new { id = item.Id }) : null)">
+                        <td>@item.PaymentDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">
+                            @(item.Reference ?? (item.IsSarrafHawala ? $"حواله #{item.SarrafSettlementId}" : item.IsLedgerOnlyViaSarraf ? $"Ledger #{item.LedgerEntryId}" : $"#{item.Id}"))
+                        </td>
+                        <td>
+                            <span class="ak-status @directionBadgeClass">@item.DirectionName</span>
+                            <div class="ak-note">@item.PaymentKindName</div>
+                        </td>
+                        @if (item.IsSarrafHawala || item.IsLedgerOnlyViaSarraf)
+                        {
+                            <td colspan="2">@item.CounterpartyName</td>
+                        }
+                        else
+                        {
+                            <td>@item.CounterpartyName</td>
+                            <td>
+                                @item.CashAccountName
+                                <div class="ak-note">@item.CashAccountCurrency</div>
+                            </td>
+                        }
+                        <td class="ak-col-num ak-num">
+                            @item.Amount.ToString("N2") @item.Currency
+                            @if (item.CommissionAmount.HasValue)
+                            {
+                                <div class="ak-note">کمیسیون: @item.CommissionAmount.Value.ToString("N2") @item.CommissionCurrency</div>
+                            }
+                        </td>
+                        <td class="ak-col-num ak-num">@item.AmountUsd.ToString("N2")</td>
+                        <td>@item.RelatedTo</td>
+                        <td>
+                            @if (item.LedgerEntryId.HasValue)
+                            {
+                                <span class="ak-status is-active">ثبت مالی کامل</span>
+                            }
+                            else if (item.IsSarrafHawala)
+                            {
+                                <span class="ak-status">حواله صراف</span>
+                            }
+                            else if (item.IsLedgerOnlyViaSarraf)
+                            {
+                                <span class="ak-status">ثبت از طریق صراف</span>
+                            }
+                            else
+                            {
+                                <span class="ak-status is-inactive">Ledger ندارد</span>
+                            }
+                        </td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    @if (item.IsSarrafHawala)
+                                    {
+                                        <li><a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@item.SarrafSettlementId" class="dropdown-item"><i class="bi bi-eye"></i> مشاهده</a></li>
+                                    }
+                                    else if (item.IsLedgerOnlyViaSarraf)
+                                    {
+                                        <li><span class="dropdown-item-text">فقط دفتر کل</span></li>
+                                    }
+                                    else
+                                    {
+                                        <li><a asp-action="Details" asp-route-id="@item.Id" class="dropdown-item"><i class="bi bi-eye"></i> مشاهده</a></li>
+                                        <li><a asp-action="Edit" asp-route-id="@item.Id" class="dropdown-item"><i class="bi bi-pencil"></i> ویرایش</a></li>
+                                    }
+                                    @if (item.LedgerEntryId.HasValue)
+                                    {
+                                        <li><a asp-controller="Ledger" asp-action="Details" asp-route-id="@item.LedgerEntryId.Value" class="dropdown-item"><i class="bi bi-journal-text"></i> دفتر کل</a></li>
+                                    }
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!items.Any())
+                {
+                    <tr>
+                        <td colspan="10">
+                            <div class="ak-empty">
+                                <i class="bi bi-journal-text"></i>
+                                برای این فیلتر، سندی پیدا نشد.
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            document.querySelectorAll('.ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

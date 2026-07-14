@@ -1,0 +1,1015 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
+using PTGOilSystem.Web.Data;
+using PTGOilSystem.Web.Helpers;
+using PTGOilSystem.Web.Models.AccountStatements;
+using PTGOilSystem.Web.Models.Entities;
+using PTGOilSystem.Web.Security;
+using PTGOilSystem.Web.Services;
+using PTGOilSystem.Web.Services.Audit;
+using PTGOilSystem.Web.Services.Exceptions;
+
+namespace PTGOilSystem.Web.Controllers;
+
+[Authorize]
+public partial class AccountStatementsController : Controller
+{
+    private const string BaseCurrency = "USD";
+    private const int LookupLimit = 200;
+
+    private readonly ApplicationDbContext _db;
+    private readonly ICurrencyConversionService _currencyConversion;
+    private readonly IAuditService _audit;
+
+    [ActivatorUtilitiesConstructor]
+    public AccountStatementsController(
+        ApplicationDbContext db,
+        ICurrencyConversionService currencyConversion,
+        IAuditService audit)
+    {
+        _db = db;
+        _currencyConversion = currencyConversion;
+        _audit = audit;
+    }
+
+    public AccountStatementsController(
+        ApplicationDbContext db,
+        IPricingService pricing,
+        IAuditService audit)
+        : this(
+            db,
+            new CurrencyConversionService(pricing),
+            audit)
+    {
+    }
+
+    public async Task<IActionResult> Index([FromQuery] AccountStatementFilterViewModel? filter = null, int page = 1)
+    {
+        filter ??= new AccountStatementFilterViewModel();
+        NormalizeFilter(filter);
+        await PopulateLookupsAsync(filter: filter);
+
+        var statementRows = await BuildStatementRowsAsync(filter, page);
+        return View(new AccountStatementIndexViewModel
+        {
+            Filter = filter,
+            OpeningBalanceUsd = statementRows.OpeningBalanceUsd,
+            ClosingBalanceUsd = statementRows.ClosingBalanceUsd,
+            Items = statementRows.Items,
+            CurrentPage = statementRows.CurrentPage,
+            PageCount = statementRows.PageCount,
+            TotalCount = statementRows.TotalCount
+        });
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var entry = await _db.LedgerEntries
+            .AsNoTracking()
+            .Where(l => l.Id == id)
+            .Select(l => new
+            {
+                l.Id,
+                l.EntryDate,
+                l.Side,
+                l.SourceAmount,
+                l.SourceCurrencyCode,
+                l.AppliedFxRateToUsd,
+                l.AppliedFxRateDate,
+                l.AppliedFxRateSource,
+                l.AmountUsd,
+                l.Currency,
+                l.SourceType,
+                l.SourceId,
+                l.Reference,
+                l.Description,
+                ContractNumber = l.Contract != null ? l.Contract.ContractNumber : null,
+                CustomerName = l.Customer != null ? l.Customer.Name : null,
+                SupplierName = l.Supplier != null ? l.Supplier.Name : null
+            })
+            .FirstOrDefaultAsync(l => l.Id == id);
+
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        var runningBalance = await CalculateRunningBalanceAtAsync(entry.EntryDate, entry.Id);
+
+        return View(new AccountStatementDetailsViewModel
+        {
+            Id = entry.Id,
+            EntryDate = entry.EntryDate,
+            SideName = GetSideName(entry.Side),
+            SourceAmount = entry.SourceAmount ?? entry.AmountUsd,
+            SourceCurrencyCode = entry.SourceCurrencyCode ?? entry.Currency,
+            AppliedFxRateToUsd = entry.AppliedFxRateToUsd
+                ?? (string.Equals(entry.SourceCurrencyCode ?? entry.Currency, BaseCurrency, StringComparison.OrdinalIgnoreCase) ? 1m : 0m),
+            AppliedFxRateDate = entry.AppliedFxRateDate,
+            AppliedFxRateSource = entry.AppliedFxRateSource,
+            AmountUsd = entry.AmountUsd,
+            RunningBalanceUsd = runningBalance,
+            SourceType = entry.SourceType,
+            SourceId = entry.SourceId,
+            Reference = entry.Reference,
+            Description = entry.Description,
+            ContractNumber = entry.ContractNumber,
+            CustomerName = entry.CustomerName,
+            SupplierName = entry.SupplierName
+        });
+    }
+
+    public async Task<IActionResult> Contract(int contractId)
+    {
+        var model = await BuildContractAccountStatementAsync(contractId);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    public async Task<IActionResult> Create()
+    {
+        var model = new AccountStatementCreateViewModel
+        {
+            EntryDate = DateTime.UtcNow.Date,
+            SourceCurrencyCode = BaseCurrency
+        };
+
+        await PopulateLookupsAsync(createModel: model);
+        return View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(AccountStatementCreateViewModel model)
+    {
+        NormalizeCreateModel(model);
+        await ValidateRelationsAsync(model);
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateLookupsAsync(createModel: model);
+            return View(model);
+        }
+
+        CurrencyConversionResult conversion;
+        try
+        {
+            conversion = await _currencyConversion.ResolveToBaseAsync(
+                model.SourceCurrencyCode,
+                model.EntryDate.Date,
+                model.AppliedFxRateToUsd);
+        }
+        catch (BusinessRuleException ex)
+        {
+            ModelState.AddModelError(nameof(model.AppliedFxRateToUsd), ex.Message);
+            await PopulateLookupsAsync(createModel: model);
+            return View(model);
+        }
+
+        var sourceType = model.EntryKind == AccountStatementEntryKind.OpeningBalance
+            ? "OpeningBalance"
+            : "ManualAdjustment";
+        var amountUsd = conversion.ConvertToBase(model.SourceAmount);
+
+        var ledgerEntry = new LedgerEntry
+        {
+            EntryDate = model.EntryDate.Date,
+            Side = model.Side,
+            AmountUsd = amountUsd,
+            Currency = BaseCurrency,
+            SourceAmount = model.SourceAmount,
+            SourceCurrencyCode = conversion.SourceCurrencyCode,
+            AppliedFxRateToUsd = conversion.AppliedRateToBase,
+            AppliedFxRateDate = conversion.EffectiveDate.Date,
+            AppliedFxRateSource = conversion.SourceDescription,
+            Description = model.Description,
+            SourceType = sourceType,
+            SourceId = 0,
+            Reference = model.Reference,
+            ContractId = model.ContractId,
+            CustomerId = model.CustomerId,
+            SupplierId = model.SupplierId
+        };
+
+        IDbContextTransaction? transaction = null;
+        if (_db.Database.IsRelational())
+        {
+            transaction = await _db.Database.BeginTransactionAsync();
+        }
+
+        try
+        {
+            _db.LedgerEntries.Add(ledgerEntry);
+            await _db.SaveChangesAsync();
+
+            ledgerEntry.SourceId = ledgerEntry.Id;
+            await _db.SaveChangesAsync();
+
+            await _audit.LogAndSaveAsync(
+                nameof(LedgerEntry),
+                ledgerEntry.Id,
+                AuditAction.Insert,
+                diff: AuditDiffFormatter.ForCreate(
+                    ("SourceType", ledgerEntry.SourceType),
+                    ("EntryDate", ledgerEntry.EntryDate),
+                    ("Side", ledgerEntry.Side),
+                    ("SourceAmount", ledgerEntry.SourceAmount),
+                    ("SourceCurrencyCode", ledgerEntry.SourceCurrencyCode),
+                    ("AppliedFxRateToUsd", ledgerEntry.AppliedFxRateToUsd),
+                    ("AppliedFxRateDate", ledgerEntry.AppliedFxRateDate),
+                    ("AmountUsd", ledgerEntry.AmountUsd),
+                    ("Reference", ledgerEntry.Reference)));
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync();
+            }
+
+            throw;
+        }
+
+        TempData["ok"] = "ثبت statement با موفقیت انجام شد.";
+        return RedirectToAction(nameof(Details), new { id = ledgerEntry.Id });
+    }
+
+    private sealed record AccountStatementRowsResult(
+        decimal OpeningBalanceUsd,
+        decimal ClosingBalanceUsd,
+        IReadOnlyList<AccountStatementListItemViewModel> Items,
+        int CurrentPage,
+        int PageCount,
+        int TotalCount);
+
+    private async Task<AccountStatementRowsResult> BuildStatementRowsAsync(
+        AccountStatementFilterViewModel filter,
+        int page = 1)
+    {
+        const int pageSize = 20;
+
+        var query = BuildFilteredLedgerQuery(filter, applyDates: false);
+        var openingBalance = 0m;
+
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(l => l.EntryDate <= filter.ToDate.Value.Date);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            var fromDate = filter.FromDate.Value.Date;
+            var openingQuery = query.Where(l => l.EntryDate < fromDate);
+            openingBalance = await SumSignedAmountAsync(openingQuery);
+            query = query.Where(l => l.EntryDate >= fromDate);
+        }
+
+        var orderedQuery = query
+            .OrderBy(l => l.EntryDate)
+            .ThenBy(l => l.Id);
+
+        var totalCount = await orderedQuery.CountAsync();
+        var pageCount = page <= 0
+            ? 1
+            : Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+        var currentPage = page <= 0 ? 1 : Math.Clamp(page, 1, pageCount);
+        var skip = page <= 0 ? 0 : (currentPage - 1) * pageSize;
+
+        var closingBalance = openingBalance + await SumSignedAmountAsync(orderedQuery);
+        var balanceBeforePage = openingBalance;
+        if (skip > 0)
+        {
+            balanceBeforePage += await SumSignedAmountAsync(orderedQuery.Take(skip));
+        }
+
+        var entries = await (page <= 0
+                ? orderedQuery
+                : orderedQuery.Skip(skip).Take(pageSize))
+            .ToListAsync();
+
+        var rows = new List<AccountStatementListItemViewModel>();
+        var balance = balanceBeforePage;
+
+        foreach (var entry in entries)
+        {
+            balance += SignedAmount(entry);
+
+            rows.Add(new AccountStatementListItemViewModel
+            {
+                Id = entry.Id,
+                EntryDate = entry.EntryDate,
+                Side = entry.Side,
+                SideName = GetSideName(entry.Side),
+                SourceAmount = GetSourceAmount(entry),
+                SourceCurrencyCode = GetSourceCurrency(entry),
+                AppliedFxRateToUsd = GetAppliedRate(entry),
+                AppliedFxRateDate = entry.AppliedFxRateDate,
+                AmountUsd = entry.AmountUsd,
+                RunningBalanceUsd = balance,
+                SourceType = entry.SourceType,
+                SourceId = entry.SourceId,
+                Reference = entry.Reference,
+                Description = entry.Description,
+                ContractNumber = entry.Contract?.ContractNumber,
+                CustomerName = entry.Customer?.Name,
+                SupplierName = entry.Supplier?.Name
+            });
+        }
+
+        return new AccountStatementRowsResult(openingBalance, closingBalance, rows, currentPage, pageCount, totalCount);
+    }
+
+    private async Task<ContractAccountStatementViewModel?> BuildContractAccountStatementAsync(int contractId)
+    {
+        var contract = await _db.Contracts
+            .AsNoTracking()
+            .Where(c => c.Id == contractId)
+            .Select(c => new
+            {
+                c.Id,
+                c.ContractNumber,
+                c.ContractType,
+                ProductName = c.Product != null ? c.Product.Name : null,
+                SupplierName = c.Supplier != null ? c.Supplier.Name : null,
+                CustomerName = c.Customer != null ? c.Customer.Name : null,
+                c.Currency,
+                c.QuantityMt
+            })
+            .FirstOrDefaultAsync(c => c.Id == contractId);
+
+        if (contract is null)
+        {
+            return null;
+        }
+
+        var drafts = new List<ContractAccountStatementDraftRow>();
+
+        var ledgerEntries = await _db.LedgerEntries
+            .AsNoTracking()
+            .Where(l => l.ContractId == contractId)
+            .OrderBy(l => l.EntryDate)
+            .ThenBy(l => l.Id)
+            .ToListAsync();
+
+        var transferIds = ledgerEntries
+            .Where(l => l.SourceType == ContractBalanceTransferService.LedgerSourceType && l.SourceId > 0)
+            .Select(l => l.SourceId)
+            .Distinct()
+            .ToArray();
+        var transferLookup = transferIds.Length == 0
+            ? new Dictionary<int, ContractBalanceTransferLookup>()
+            : await _db.ContractBalanceTransfers
+                .AsNoTracking()
+                .Where(t => transferIds.Contains(t.Id))
+                .Select(t => new ContractBalanceTransferLookup(
+                    t.Id,
+                    t.FromContractId,
+                    t.ToContractId,
+                    t.Notes,
+                    t.FromContract != null ? t.FromContract.ContractNumber : null,
+                    t.ToContract != null ? t.ToContract.ContractNumber : null))
+                .ToDictionaryAsync(t => t.Id);
+
+        foreach (var entry in ledgerEntries)
+        {
+            var sourceCurrency = GetSourceCurrency(entry);
+            var sourceAmount = GetSourceAmount(entry);
+            var fxRate = GetNullableAppliedRate(entry, sourceCurrency);
+            var hasMissingFx = !string.Equals(sourceCurrency, BaseCurrency, StringComparison.OrdinalIgnoreCase)
+                && (!fxRate.HasValue || fxRate <= 0m);
+            var description = entry.Description;
+            string? relatedContractNumber = null;
+            var notes = "Posted in Ledger";
+
+            if (entry.SourceType == ContractBalanceTransferService.LedgerSourceType
+                && transferLookup.TryGetValue(entry.SourceId, out var transfer))
+            {
+                if (entry.ContractId == transfer.FromContractId)
+                {
+                    relatedContractNumber = transfer.ToContractNumber;
+                    description = $"Transfer to contract {relatedContractNumber ?? transfer.ToContractId.ToString()}";
+                }
+                else if (entry.ContractId == transfer.ToContractId)
+                {
+                    relatedContractNumber = transfer.FromContractNumber;
+                    description = $"Transfer from contract {relatedContractNumber ?? transfer.FromContractId.ToString()}";
+                }
+
+                if (!string.IsNullOrWhiteSpace(transfer.Notes))
+                {
+                    notes = $"Posted in Ledger. {transfer.Notes}";
+                }
+            }
+
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = entry.EntryDate.Date,
+                SortGroup = 10,
+                SourceType = entry.SourceType,
+                SourceId = entry.SourceId,
+                Reference = entry.Reference,
+                Description = description,
+                SourceCurrency = sourceCurrency,
+                DebitOriginal = entry.Side == LedgerSide.Debit ? sourceAmount : null,
+                CreditOriginal = entry.Side == LedgerSide.Credit ? sourceAmount : null,
+                FxRateToUsd = fxRate,
+                DebitUsd = entry.Side == LedgerSide.Debit ? entry.AmountUsd : null,
+                CreditUsd = entry.Side == LedgerSide.Credit ? entry.AmountUsd : null,
+                RelatedContractNumber = relatedContractNumber,
+                Notes = notes,
+                WarningBadge = hasMissingFx ? "Missing FX" : null,
+                IsFinancial = true,
+                SortId = entry.Id
+            });
+        }
+
+        await AddPaymentWarningRowsAsync(contractId, drafts);
+        await AddExpenseWarningRowsAsync(contractId, drafts);
+        await AddOperationalLoadingRowsAsync(contractId, drafts);
+
+        var rows = BuildContractAccountRows(drafts);
+        var totals = new ContractAccountStatementTotalsViewModel
+        {
+            TotalDebitUsd = rows.Sum(r => r.DebitUsd ?? 0m),
+            TotalCreditUsd = rows.Sum(r => r.CreditUsd ?? 0m),
+            BalanceUsd = rows.LastOrDefault()?.BalanceUsd ?? 0m,
+            BalancesByCurrency = BuildCurrencyBalances(rows)
+        };
+
+        return new ContractAccountStatementViewModel
+        {
+            ContractId = contract.Id,
+            ContractNumber = contract.ContractNumber,
+            ProductName = contract.ProductName ?? "-",
+            ContractType = contract.ContractType.ToString(),
+            CounterpartyName = contract.ContractType == ContractType.Purchase
+                ? contract.SupplierName ?? "-"
+                : contract.CustomerName ?? "-",
+            ContractCurrency = contract.Currency,
+            QuantityMt = contract.QuantityMt,
+            Rows = rows,
+            Totals = totals
+        };
+    }
+
+    private async Task AddPaymentWarningRowsAsync(int contractId, List<ContractAccountStatementDraftRow> drafts)
+    {
+        var payments = await _db.PaymentTransactions
+            .AsNoTracking()
+            .Where(p => p.ContractId == contractId)
+            .OrderBy(p => p.PaymentDate)
+            .ThenBy(p => p.Id)
+            .Select(p => new
+            {
+                p.Id,
+                p.PaymentDate,
+                p.PaymentKind,
+                p.Currency,
+                p.AppliedFxRateToUsd,
+                p.Reference,
+                p.Description,
+                p.LedgerEntryId,
+                CashAccountName = p.CashAccount != null ? p.CashAccount.Name : null
+            })
+            .ToListAsync();
+
+        if (payments.Count == 0)
+        {
+            return;
+        }
+
+        var paymentIds = payments.Select(p => p.Id).ToArray();
+        var linkedLedgerIds = payments
+            .Where(p => p.LedgerEntryId.HasValue)
+            .Select(p => p.LedgerEntryId!.Value)
+            .ToArray();
+        var paymentSourceTypes = Enum.GetNames<PaymentKind>();
+
+        var postedPaymentSourceIds = await _db.LedgerEntries
+            .AsNoTracking()
+            .Where(l => paymentIds.Contains(l.SourceId) && paymentSourceTypes.Contains(l.SourceType))
+            .Select(l => l.SourceId)
+            .ToListAsync();
+        var postedLedgerIds = linkedLedgerIds.Length == 0
+            ? new List<int>()
+            : await _db.LedgerEntries
+                .AsNoTracking()
+                .Where(l => linkedLedgerIds.Contains(l.Id))
+                .Select(l => l.Id)
+                .ToListAsync();
+
+        var postedPaymentSourceIdSet = postedPaymentSourceIds.ToHashSet();
+        var postedLedgerIdSet = postedLedgerIds.ToHashSet();
+
+        foreach (var payment in payments)
+        {
+            if (postedPaymentSourceIdSet.Contains(payment.Id)
+                || (payment.LedgerEntryId.HasValue && postedLedgerIdSet.Contains(payment.LedgerEntryId.Value)))
+            {
+                continue;
+            }
+
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = payment.PaymentDate.Date,
+                SortGroup = 20,
+                SourceType = payment.PaymentKind.ToString(),
+                SourceId = payment.Id,
+                Reference = payment.Reference,
+                Description = payment.Description ?? payment.PaymentKind.ToString(),
+                SourceCurrency = payment.Currency,
+                FxRateToUsd = payment.AppliedFxRateToUsd,
+                Notes = $"Payment exists in {payment.CashAccountName ?? "cash account"} but has no LedgerEntry; it is not included in balance.",
+                WarningBadge = "Payment without Ledger",
+                SortId = payment.Id
+            });
+        }
+    }
+
+    private async Task AddExpenseWarningRowsAsync(int contractId, List<ContractAccountStatementDraftRow> drafts)
+    {
+        var expenses = await _db.ExpenseTransactions
+            .AsNoTracking()
+            .Where(e => e.ContractId == contractId)
+            .OrderBy(e => e.ExpenseDate)
+            .ThenBy(e => e.Id)
+            .Select(e => new
+            {
+                e.Id,
+                e.ExpenseDate,
+                e.Currency,
+                e.AppliedFxRateToUsd,
+                e.Description,
+                ExpenseTypeCode = e.ExpenseType != null ? e.ExpenseType.Code : null,
+                ExpenseTypeName = e.ExpenseType != null ? e.ExpenseType.Name : null
+            })
+            .ToListAsync();
+
+        if (expenses.Count == 0)
+        {
+            return;
+        }
+
+        var expenseIds = expenses.Select(e => e.Id).ToArray();
+        var postedExpenseIds = await _db.LedgerEntries
+            .AsNoTracking()
+            .Where(l => l.SourceType == "Expense" && expenseIds.Contains(l.SourceId))
+            .Select(l => l.SourceId)
+            .ToListAsync();
+        var postedExpenseIdSet = postedExpenseIds.ToHashSet();
+
+        foreach (var expense in expenses)
+        {
+            if (postedExpenseIdSet.Contains(expense.Id))
+            {
+                continue;
+            }
+
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = expense.ExpenseDate.Date,
+                SortGroup = 30,
+                SourceType = "Expense",
+                SourceId = expense.Id,
+                Reference = expense.ExpenseTypeCode,
+                Description = expense.Description ?? expense.ExpenseTypeName ?? "Expense",
+                SourceCurrency = expense.Currency,
+                FxRateToUsd = expense.AppliedFxRateToUsd,
+                Notes = "Expense exists but has no LedgerEntry; it is not included in balance.",
+                WarningBadge = "Expense without Ledger",
+                SortId = expense.Id
+            });
+        }
+    }
+
+    private async Task AddOperationalLoadingRowsAsync(int contractId, List<ContractAccountStatementDraftRow> drafts)
+    {
+        var loadings = await _db.LoadingRegisters
+            .AsNoTracking()
+            .Where(l => l.ContractId == contractId)
+            .OrderBy(l => l.LoadingDate)
+            .ThenBy(l => l.Id)
+            .ToListAsync();
+
+        var loadingIds = loadings.Select(l => l.Id).ToArray();
+        var loadingPriceById = loadings.ToDictionary(l => l.Id, l => l.LoadingPriceUsd);
+
+        foreach (var loading in loadings)
+        {
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = loading.LoadingDate.Date,
+                SortGroup = 40,
+                SourceType = nameof(LoadingRegister),
+                SourceId = loading.Id,
+                Reference = FirstNonEmpty(loading.BillOfLadingNumber, loading.RwbNo, loading.WagonNumber),
+                Description = "Loading / cargo registered",
+                QuantityMt = loading.LoadedQuantityMt,
+                UnitPrice = loading.LoadingPriceUsd,
+                SourceCurrency = loading.LoadingPriceUsd.HasValue ? BaseCurrency : null,
+                Notes = BuildOperationalLoadingNote(loading.LoadedQuantityMt, loading.LoadingPriceUsd),
+                WarningBadge = "Operational only",
+                IsOperationalOnly = true,
+                SortId = loading.Id
+            });
+        }
+
+        if (loadingIds.Length == 0)
+        {
+            return;
+        }
+
+        var receipts = await _db.LoadingReceipts
+            .AsNoTracking()
+            .Where(r => loadingIds.Contains(r.LoadingRegisterId))
+            .OrderBy(r => r.ReceiptDate)
+            .ThenBy(r => r.Id)
+            .ToListAsync();
+
+        foreach (var receipt in receipts)
+        {
+            loadingPriceById.TryGetValue(receipt.LoadingRegisterId, out var unitPrice);
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = receipt.ReceiptDate.Date,
+                SortGroup = 50,
+                SourceType = nameof(LoadingReceipt),
+                SourceId = receipt.Id,
+                Reference = receipt.ReferenceDocument,
+                Description = "Loading receipt / received cargo",
+                QuantityMt = receipt.ReceivedQuantityMt,
+                UnitPrice = unitPrice,
+                SourceCurrency = unitPrice.HasValue ? BaseCurrency : null,
+                Notes = BuildOperationalLoadingNote(receipt.ReceivedQuantityMt, unitPrice),
+                WarningBadge = "Operational only",
+                IsOperationalOnly = true,
+                SortId = receipt.Id
+            });
+        }
+
+        var allocations = await _db.LoadingReceiptAllocations
+            .AsNoTracking()
+            .Where(a => a.SourcePurchaseContractId == contractId
+                || (a.LoadingReceipt != null && loadingIds.Contains(a.LoadingReceipt.LoadingRegisterId)))
+            .OrderBy(a => a.LoadingReceipt != null ? a.LoadingReceipt.ReceiptDate : DateTime.MinValue)
+            .ThenBy(a => a.Id)
+            .Select(a => new
+            {
+                a.Id,
+                a.ReferenceDocument,
+                a.DestinationReference,
+                a.Destination,
+                a.QuantityMt,
+                a.Status,
+                LoadingReceiptDate = a.LoadingReceipt != null ? a.LoadingReceipt.ReceiptDate : (DateTime?)null,
+                LoadingRegisterId = a.LoadingReceipt != null ? (int?)a.LoadingReceipt.LoadingRegisterId : null,
+                LoadingPriceUsd = a.LoadingReceipt != null && a.LoadingReceipt.LoadingRegister != null
+                    ? a.LoadingReceipt.LoadingRegister.LoadingPriceUsd
+                    : null,
+                SourcePurchaseContractNumber = a.SourcePurchaseContract != null ? a.SourcePurchaseContract.ContractNumber : null
+            })
+            .ToListAsync();
+
+        foreach (var allocation in allocations)
+        {
+            var unitPrice = allocation.LoadingRegisterId.HasValue && loadingPriceById.TryGetValue(allocation.LoadingRegisterId.Value, out var price)
+                ? price
+                : allocation.LoadingPriceUsd;
+
+            drafts.Add(new ContractAccountStatementDraftRow
+            {
+                Date = allocation.LoadingReceiptDate?.Date ?? DateTime.MinValue,
+                SortGroup = 60,
+                SourceType = nameof(LoadingReceiptAllocation),
+                SourceId = allocation.Id,
+                Reference = FirstNonEmpty(allocation.ReferenceDocument, allocation.DestinationReference),
+                Description = $"Receipt allocation: {allocation.Destination}",
+                QuantityMt = allocation.QuantityMt,
+                UnitPrice = unitPrice,
+                SourceCurrency = unitPrice.HasValue ? BaseCurrency : null,
+                RelatedContractNumber = allocation.SourcePurchaseContractNumber,
+                Notes = $"Status: {allocation.Status}. {BuildOperationalLoadingNote(allocation.QuantityMt, unitPrice)}",
+                WarningBadge = "Operational only",
+                IsOperationalOnly = true,
+                SortId = allocation.Id
+            });
+        }
+    }
+
+    private static IReadOnlyList<ContractAccountStatementRowViewModel> BuildContractAccountRows(
+        IEnumerable<ContractAccountStatementDraftRow> drafts)
+    {
+        var rows = new List<ContractAccountStatementRowViewModel>();
+        var balanceUsd = 0m;
+        var balancesByCurrency = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var draft in drafts
+            .OrderBy(r => r.Date)
+            .ThenBy(r => r.SortGroup)
+            .ThenBy(r => r.SortId))
+        {
+            string? originalBalanceDisplay = null;
+
+            if (draft.IsFinancial)
+            {
+                balanceUsd += (draft.CreditUsd ?? 0m) - (draft.DebitUsd ?? 0m);
+
+                if (!string.IsNullOrWhiteSpace(draft.SourceCurrency)
+                    && (draft.CreditOriginal.HasValue || draft.DebitOriginal.HasValue))
+                {
+                    var currency = draft.SourceCurrency.Trim().ToUpperInvariant();
+                    balancesByCurrency.TryGetValue(currency, out var currentBalance);
+                    currentBalance += (draft.CreditOriginal ?? 0m) - (draft.DebitOriginal ?? 0m);
+                    balancesByCurrency[currency] = currentBalance;
+                    originalBalanceDisplay = $"{currentBalance:N2} {currency}";
+                }
+            }
+
+            rows.Add(new ContractAccountStatementRowViewModel
+            {
+                Date = draft.Date,
+                SourceType = draft.SourceType,
+                SourceId = draft.SourceId,
+                Reference = draft.Reference,
+                Description = draft.Description,
+                QuantityMt = draft.QuantityMt,
+                UnitPrice = draft.UnitPrice,
+                SourceCurrency = draft.SourceCurrency,
+                DebitOriginal = draft.DebitOriginal,
+                CreditOriginal = draft.CreditOriginal,
+                BalanceOriginalByCurrency = originalBalanceDisplay,
+                FxRateToUsd = draft.FxRateToUsd,
+                DebitUsd = draft.DebitUsd,
+                CreditUsd = draft.CreditUsd,
+                BalanceUsd = balanceUsd,
+                RelatedContractNumber = draft.RelatedContractNumber,
+                Notes = draft.Notes,
+                WarningBadge = draft.WarningBadge,
+                IsFinancial = draft.IsFinancial,
+                IsOperationalOnly = draft.IsOperationalOnly
+            });
+        }
+
+        return rows;
+    }
+
+    private static IReadOnlyList<ContractAccountCurrencyBalanceViewModel> BuildCurrencyBalances(
+        IReadOnlyList<ContractAccountStatementRowViewModel> rows)
+    {
+        return rows
+            .Where(r => r.IsFinancial && !string.IsNullOrWhiteSpace(r.SourceCurrency))
+            .GroupBy(r => r.SourceCurrency!.Trim().ToUpperInvariant())
+            .Select(g => new ContractAccountCurrencyBalanceViewModel
+            {
+                Currency = g.Key,
+                BalanceOriginal = g.Sum(r => (r.CreditOriginal ?? 0m) - (r.DebitOriginal ?? 0m))
+            })
+            .OrderBy(r => r.Currency)
+            .ToList();
+    }
+
+    private IQueryable<LedgerEntry> BuildFilteredLedgerQuery(AccountStatementFilterViewModel filter, bool applyDates)
+    {
+        var query = _db.LedgerEntries
+            .Include(l => l.Contract)
+            .Include(l => l.Customer)
+            .Include(l => l.Supplier)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (applyDates && filter.FromDate.HasValue)
+        {
+            query = query.Where(l => l.EntryDate >= filter.FromDate.Value.Date);
+        }
+
+        if (applyDates && filter.ToDate.HasValue)
+        {
+            query = query.Where(l => l.EntryDate <= filter.ToDate.Value.Date);
+        }
+
+        if (filter.ContractId.HasValue)
+        {
+            query = query.Where(l => l.ContractId == filter.ContractId.Value);
+        }
+
+        if (filter.CustomerId.HasValue)
+        {
+            query = query.Where(l => l.CustomerId == filter.CustomerId.Value);
+        }
+
+        if (filter.SupplierId.HasValue)
+        {
+            query = query.Where(l => l.SupplierId == filter.SupplierId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SourceCurrencyCode))
+        {
+            query = query.Where(l =>
+                (l.SourceCurrencyCode != null && l.SourceCurrencyCode == filter.SourceCurrencyCode)
+                || (l.SourceCurrencyCode == null && l.Currency == filter.SourceCurrencyCode));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Reference))
+        {
+            query = query.Where(l => l.Reference != null && l.Reference.Contains(filter.Reference));
+        }
+
+        return query;
+    }
+
+    private async Task<decimal> CalculateRunningBalanceAtAsync(DateTime entryDate, int entryId)
+        => await SumSignedAmountAsync(_db.LedgerEntries
+            .AsNoTracking()
+            .Where(l => l.EntryDate < entryDate || (l.EntryDate == entryDate && l.Id <= entryId)));
+
+    private static async Task<decimal> SumSignedAmountAsync(IQueryable<LedgerEntry> query)
+        => await query.SumAsync(l => (decimal?)(l.Side == LedgerSide.Credit ? l.AmountUsd : -l.AmountUsd)) ?? 0m;
+
+    private async Task PopulateLookupsAsync(
+        AccountStatementCreateViewModel? createModel = null,
+        AccountStatementFilterViewModel? filter = null)
+    {
+        var selectedContractId = createModel?.ContractId ?? filter?.ContractId;
+        var contracts = await _db.Contracts
+            .AsNoTracking()
+            .OrderBy(c => selectedContractId.HasValue && c.Id == selectedContractId.Value ? 0 : 1)
+            .ThenByDescending(c => c.ContractDate)
+            .ThenBy(c => c.ContractNumber)
+            .Take(LookupLimit)
+            .Select(c => new
+            {
+                c.Id,
+                c.ContractNumber,
+                c.ContractType,
+                ProductName = c.Product != null ? c.Product.Name : null,
+                UnitSymbol = c.Unit != null ? c.Unit.Symbol : null,
+                UnitCode = c.Unit != null ? c.Unit.Code : null,
+                UnitNamePersian = c.Unit != null ? c.Unit.NamePersian : null,
+                UnitName = c.Unit != null ? c.Unit.Name : null
+            })
+            .ToListAsync();
+
+        ViewBag.Contracts = new SelectList(
+            contracts
+                .Select(c => new ContractLookupOption(
+                    c.Id,
+                    ContractUiText.FormatLookup(
+                        c.ContractNumber,
+                        c.ContractType,
+                        c.ProductName,
+                        ContractUiText.ResolveUnitText(c.UnitSymbol, c.UnitCode, c.UnitNamePersian, c.UnitName))))
+                .ToList(),
+            nameof(ContractLookupOption.Id),
+            nameof(ContractLookupOption.Display),
+            selectedContractId);
+
+        ViewBag.Customers = new SelectList(
+            await _db.Customers
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name })
+                .ToListAsync(),
+            "Id",
+            "Name",
+            createModel?.CustomerId ?? filter?.CustomerId);
+
+        ViewBag.Suppliers = new SelectList(
+            await _db.Suppliers
+                .AsNoTracking()
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.Name)
+                .Select(s => new { s.Id, s.Name })
+                .ToListAsync(),
+            "Id",
+            "Name",
+            createModel?.SupplierId ?? filter?.SupplierId);
+
+        ViewBag.Currencies = new SelectList(
+            await _db.Currencies
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.Code)
+                .Select(c => new { c.Code })
+                .ToListAsync(),
+            "Code",
+            "Code",
+            createModel?.SourceCurrencyCode ?? filter?.SourceCurrencyCode);
+    }
+
+    private async Task ValidateRelationsAsync(AccountStatementCreateViewModel model)
+    {
+        if (model.ContractId.HasValue && !await _db.Contracts.AsNoTracking().AnyAsync(c => c.Id == model.ContractId.Value))
+        {
+            ModelState.AddModelError(nameof(model.ContractId), "قرارداد انتخاب‌شده معتبر نیست.");
+        }
+
+        if (model.CustomerId.HasValue && !await _db.Customers.AsNoTracking().AnyAsync(c => c.Id == model.CustomerId.Value && c.IsActive))
+        {
+            ModelState.AddModelError(nameof(model.CustomerId), "مشتری انتخاب‌شده معتبر نیست.");
+        }
+
+        if (model.SupplierId.HasValue && !await _db.Suppliers.AsNoTracking().AnyAsync(s => s.Id == model.SupplierId.Value && s.IsActive))
+        {
+            ModelState.AddModelError(nameof(model.SupplierId), "تأمین‌کننده انتخاب‌شده معتبر نیست.");
+        }
+
+        var hasActiveCurrencies = await _db.Currencies.AsNoTracking().AnyAsync(c => c.IsActive);
+        if (hasActiveCurrencies
+            && !await _db.Currencies.AsNoTracking().AnyAsync(c => c.Code == model.SourceCurrencyCode && c.IsActive))
+        {
+            ModelState.AddModelError(nameof(model.SourceCurrencyCode), "ارز انتخاب‌شده معتبر نیست.");
+        }
+    }
+
+    private static void NormalizeFilter(AccountStatementFilterViewModel filter)
+    {
+        filter.SourceCurrencyCode = NormalizeCurrency(filter.SourceCurrencyCode);
+        filter.Reference = string.IsNullOrWhiteSpace(filter.Reference) ? null : filter.Reference.Trim();
+    }
+
+    private static void NormalizeCreateModel(AccountStatementCreateViewModel model)
+    {
+        model.EntryDate = model.EntryDate.Date;
+        model.SourceCurrencyCode = NormalizeCurrency(model.SourceCurrencyCode) ?? BaseCurrency;
+        model.Reference = model.Reference?.Trim() ?? string.Empty;
+        model.Description = model.Description?.Trim() ?? string.Empty;
+    }
+
+    private static string? NormalizeCurrency(string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? null : SystemCurrency.Normalize(currency);
+
+    private static decimal SignedAmount(LedgerEntry entry)
+        => entry.Side == LedgerSide.Credit ? entry.AmountUsd : -entry.AmountUsd;
+
+    private static decimal GetSourceAmount(LedgerEntry entry)
+        => entry.SourceAmount ?? entry.AmountUsd;
+
+    private static string GetSourceCurrency(LedgerEntry entry)
+        => entry.SourceCurrencyCode ?? entry.Currency;
+
+    private static decimal GetAppliedRate(LedgerEntry entry)
+        => entry.AppliedFxRateToUsd ?? (string.Equals(GetSourceCurrency(entry), BaseCurrency, StringComparison.OrdinalIgnoreCase) ? 1m : 0m);
+
+    private static decimal? GetNullableAppliedRate(LedgerEntry entry, string sourceCurrency)
+        => entry.AppliedFxRateToUsd
+            ?? (string.Equals(sourceCurrency, BaseCurrency, StringComparison.OrdinalIgnoreCase) ? 1m : null);
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
+
+    private static string BuildOperationalLoadingNote(decimal quantityMt, decimal? unitPriceUsd)
+    {
+        if (!unitPriceUsd.HasValue || unitPriceUsd <= 0m)
+        {
+            return "Operational only / not posted to Ledger.";
+        }
+
+        var estimatedValueUsd = Math.Round(quantityMt * unitPriceUsd.Value, 4, MidpointRounding.AwayFromZero);
+        return $"Operational only / not posted to Ledger. Estimated cargo value: {estimatedValueUsd:N2} USD.";
+    }
+
+    private sealed class ContractAccountStatementDraftRow
+    {
+        public DateTime Date { get; init; }
+        public int SortGroup { get; init; }
+        public int SortId { get; init; }
+        public string SourceType { get; init; } = string.Empty;
+        public int SourceId { get; init; }
+        public string? Reference { get; init; }
+        public string Description { get; init; } = string.Empty;
+        public decimal? QuantityMt { get; init; }
+        public decimal? UnitPrice { get; init; }
+        public string? SourceCurrency { get; init; }
+        public decimal? DebitOriginal { get; init; }
+        public decimal? CreditOriginal { get; init; }
+        public decimal? FxRateToUsd { get; init; }
+        public decimal? DebitUsd { get; init; }
+        public decimal? CreditUsd { get; init; }
+        public string? RelatedContractNumber { get; init; }
+        public string? Notes { get; init; }
+        public string? WarningBadge { get; init; }
+        public bool IsFinancial { get; init; }
+        public bool IsOperationalOnly { get; init; }
+    }
+
+    private sealed record ContractBalanceTransferLookup(
+        int Id,
+        int FromContractId,
+        int ToContractId,
+        string? Notes,
+        string? FromContractNumber,
+        string? ToContractNumber);
+
+    private static string GetSideName(LedgerSide side)
+        => side == LedgerSide.Debit ? "بدهکار" : "بستانکار";
+}

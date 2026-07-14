@@ -1,0 +1,166 @@
+﻿@model PTGOilSystem.Web.Models.Contracts.ContractIndexViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = UiText.T(Context, "\u0642\u0631\u0627\u0631\u062f\u0627\u062f\u0647\u0627", "Contracts");
+    ViewData["HideSectionTabs"] = true;
+
+    var items = Model.Items.ToList();
+    var qFilter = Model.Query;
+    var typeFilter = Model.Type;
+    var statusFilter = Model.Status;
+    var hasAdvancedFilters = typeFilter.HasValue || statusFilter.HasValue;
+    var hasActiveFilters = !string.IsNullOrWhiteSpace(qFilter) || hasAdvancedFilters;
+    var currentReturnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string DashIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+
+    string CardStatusText(Contract contract)
+        => contract.Status switch
+        {
+            ContractStatus.Draft => T("\u062c\u062f\u06cc\u062f", "New"),
+            ContractStatus.Active => T("\u0641\u0639\u0627\u0644", "Active"),
+            ContractStatus.Closed => T("\u062f\u0631 \u062d\u0627\u0644 \u0627\u062c\u0631\u0627", "In progress"),
+            ContractStatus.Cancelled => T("\u0645\u0646\u0642\u0636\u06cc \u0634\u062f\u0647", "Expired"),
+            _ => contract.Status.ToString()
+        };
+
+    string PartyName(Contract contract)
+        => DashIfEmpty(contract.ContractType == ContractType.Purchase ? contract.Supplier?.Name : contract.Customer?.Name);
+
+    string UnitName(Contract contract)
+        => DashIfEmpty(contract.Unit?.Symbol ?? contract.Unit?.Code ?? contract.Unit?.Name ?? contract.Product?.UnitOfMeasure);
+
+    string FormatCardDecimal(decimal value, bool forceTwoDecimals = false)
+    {
+        var rounded = decimal.Round(value, 2);
+        if (!forceTwoDecimals && rounded % 1m == 0m)
+        {
+            return rounded.ToString("N0", CultureInfo.InvariantCulture);
+        }
+
+        return rounded.ToString("N2", CultureInfo.InvariantCulture);
+    }
+
+    string QuantityText(Contract contract)
+        => $"{FormatCardDecimal(contract.QuantityMt)} {UnitName(contract)}";
+
+    string ContractTypeText(Contract contract)
+        => contract.ContractType == ContractType.Purchase
+            ? T("\u062e\u0631\u06cc\u062f", "Purchase")
+            : T("\u0641\u0631\u0648\u0634", "Sale");
+
+    string ContractStatusToneClass(Contract contract)
+        => contract.Status switch
+        {
+            ContractStatus.Active => "is-active",
+            ContractStatus.Draft => "is-pending",
+            ContractStatus.Closed => "is-neutral",
+            ContractStatus.Cancelled => "is-inactive",
+            _ => string.Empty
+        };
+
+    DateTime? ContractEndDate(Contract contract) => contract.EndDate;
+
+    string GregorianDate(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        var date = value.Value;
+        return date.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);
+    }
+}
+
+<div class="ak-form-page ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((T("قراردادها", "Contracts"), true,
+                       T("قرارداد جدید", "New Contract"), "bi-plus-lg",
+                       (string?)Url.Action("Create"), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <div class="ak-list">
+        @{
+            var contractsFilter = new AkSearchFilterModel(
+                "q", qFilter,
+                T("\u062c\u0633\u062a\u062c\u0648\u06cc \u0634\u0645\u0627\u0631\u0647 \u06cc\u0627 \u0637\u0631\u0641...", "Search number or party..."),
+                new List<AkFilterDefinition>
+                {
+                    new("type", T("\u0646\u0648\u0639", "Type"), "select",
+                        new List<AkFilterOption>
+                        {
+                            new("Purchase", T("\u062e\u0631\u06cc\u062f", "Purchase")),
+                            new("Sale", T("\u0641\u0631\u0648\u0634", "Sale"))
+                        }, typeFilter?.ToString()),
+                    new("status", T("\u0648\u0636\u0639\u06cc\u062a", "Status"), "select",
+                        new List<AkFilterOption>
+                        {
+                            new("Draft", T("\u062c\u062f\u06cc\u062f", "New")),
+                            new("Active", T("\u0641\u0639\u0627\u0644", "Active")),
+                            new("Closed", T("\u062f\u0631 \u062d\u0627\u0644 \u0627\u062c\u0631\u0627", "In progress")),
+                            new("Cancelled", T("\u0645\u0646\u0642\u0636\u06cc \u0634\u062f\u0647", "Expired"))
+                        }, statusFilter?.ToString())
+                });
+        }
+        <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="contractsFilter" />
+    </div>
+    <section class="ak-list" aria-label="@T("فهرست قراردادها", "Contracts list")">
+        @if (items.Any())
+        {
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="@T("انتخاب همه", "Select all")" /></th>
+                            <th>@T("طرف قرارداد", "Party")</th>
+                            <th>@T("مقدار", "Quantity")</th>
+                            <th>@T("نوع", "Type")</th>
+                            <th>@T("تاریخ ختم", "End date")</th>
+                            <th>@T("وضعیت", "Status")</th>
+                            <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in items)
+                        {
+                            var partyText = PartyName(item);
+                            var productText = DashIfEmpty(item.Product?.Name);
+                            var contractEndDate = ContractEndDate(item);
+                            <tr>
+                                <td class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="@T("انتخاب", "Select")" /></td>
+                                <td>
+                                    <a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@item.Id" asp-route-tab="summary" asp-route-lockContract="true" asp-route-returnUrl="@currentReturnUrl" data-no-spa="true" class="ak-name" title="@productText">@partyText</a>
+                                    <small class="ak-section-desc" dir="ltr">#@item.ContractNumber</small>
+                                </td>
+                                <td class="ak-num" dir="ltr">@QuantityText(item)</td>
+                                <td>@ContractTypeText(item)</td>
+                                <td><span dir="ltr">@GregorianDate(contractEndDate)</span><small class="ak-section-desc">@productText</small></td>
+                                <td><span class="ak-status @ContractStatusToneClass(item)">@CardStatusText(item)</span></td>
+                                <td class="ak-col-actions no-print">
+                                    <div class="dropdown ak-row-menu">
+                                        <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@item.Id" asp-route-tab="summary" asp-route-lockContract="true" asp-route-returnUrl="@currentReturnUrl" data-no-spa="true"><i class="bi bi-eye" aria-hidden="true"></i>@T("جزئیات", "Details")</a></li>
+                                            <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil" aria-hidden="true"></i>@T("ویرایش", "Edit")</a></li>
+                                            <li><a class="dropdown-item" asp-action="EditPricing" asp-route-id="@item.Id" asp-route-returnUrl="@currentReturnUrl" data-no-spa="true" data-page-modal="true" data-page-modal-close-on-redirect="true" data-page-modal-size="compact" data-page-modal-title="@T("وارد کردن قیمت قرارداد", "Enter contract price")"><i class="bi bi-cash-coin" aria-hidden="true"></i>@T("وارد کردن قیمت قرارداد", "Enter contract price")</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="ak-empty">
+                @await Html.PartialAsync("_EmptyState", (T("قراردادی پیدا نشد", "No contracts found"), T("فیلترها را تغییر دهید یا یک قرارداد جدید ثبت کنید.", "Change the filters or create a new contract."), "bi-file-earmark-text"))
+            </div>
+        }
+    </section>
+
+    @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+</div>

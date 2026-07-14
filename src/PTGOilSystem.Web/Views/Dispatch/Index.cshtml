@@ -1,0 +1,146 @@
+@model PTGOilSystem.Web.Models.Dispatch.DispatchIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"ارسال‌های موتر","Truck Sends");
+    var hasAdvancedFilter = Model.Filter.TruckId.HasValue || Model.Filter.ProductId.HasValue
+        || Model.Filter.ContractId.HasValue || Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue;
+}
+
+<div class="ak-form-page ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ارسال‌های موتر", "Truck Sends"), true, UiText.T(Context, "ارسال جدید", "New dispatch"), "bi-plus-lg", Url.Action("Create"), (string?)null, (string?)null, (string?)null, (string?)null))" />
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> DspOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? DspQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var dispatchFilter = new AkSearchFilterModel("", null,
+                UiText.T(Context, "فیلتر ارسال‌ها...", "Filter dispatches..."),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.TruckId", UiText.T(Context, "موتر", "Truck"), "select", DspOpts(ViewBag.Trucks), DspQ("Filter.TruckId")),
+                    new("Filter.ProductId", UiText.T(Context, "جنس", "Product"), "select", DspOpts(ViewBag.Products), DspQ("Filter.ProductId")),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد", "Contract"), "select", DspOpts(ViewBag.Contracts), DspQ("Filter.ContractId")),
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="dispatchFilter" />
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="col-name">@UiText.T(Context,"موتر","Truck")</th>
+                        <th>@UiText.T(Context,"قرارداد / جنس","Contract / Product")</th>
+                        <th>@UiText.T(Context,"شرکت / دارایی","Provider / Asset")</th>
+                        <th>@UiText.T(Context,"مقدار","Quantity")</th>
+                        <th class="col-status">@UiText.T(Context,"وضعیت","Status")</th>
+                        <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Items.Count; index++)
+                    {
+                        var item = Model.Items[index];
+                        var dispatchStatusClass = item.StatusName switch
+                        {
+                            "Delivered" => "is-active",
+                            "Cancelled" => "is-inactive",
+                            "Loaded" => "is-pending",
+                            _ => "is-info"
+                        };
+                        var dispatchStatusText = item.StatusName switch
+                        {
+                            "Delivered" => UiText.T(Context, "تحویل‌شده", "Delivered"),
+                            "Cancelled" => UiText.T(Context, "لغوشده", "Cancelled"),
+                            "Loaded" => UiText.T(Context, "بارگیری‌شده", "Loaded"),
+                            "InTransit" => UiText.T(Context, "در جریان", "In transit"),
+                            _ => item.StatusName
+                        };
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                            <td class="col-name">
+                                @await Html.PartialAsync("_OperationsListIdentity", ("bi-truck", item.TruckPlateNumber, item.DispatchDate.ToDisplayDate(), true))
+                            </td>
+                            <td>
+                                <span class="ak-label col-ltr">@item.ContractNumber</span>
+                                <span class="ak-section-desc">@item.ProductName</span>
+                            </td>
+                            <td>
+                                <span class="ak-label">@(item.ServiceProviderName ?? item.OperationalAssetName ?? "-")</span>
+                                <span class="ak-section-desc">@(item.DriverName ?? item.DestinationName ?? "-")</span>
+                            </td>
+                            <td class="col-ltr">@NumberDisplay.Quantity(item.LoadedQuantityMt) MT</td>
+                            <td class="col-status"><span class="ak-status @dispatchStatusClass">@dispatchStatusText</span></td>
+                            <td class="col-actions">
+                                <div class="ak-row-menu">
+                                    <a asp-action="Unload" asp-route-id="@item.Id" asp-route-returnUrl="/Dispatch" class="btn btn-light ak-secondary-action" title="تخلیه"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></a>
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"مشاهده","View")" aria-label="@UiText.T(Context,"مشاهده","View")"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-truck-flatbed"></i>
+                                    @UiText.T(Context,"هیچ ارسال موتری برای فیلتر انتخابی یافت نشد","No truck sends found for the selected filter")
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    <tfoot>
+                        <tr class="ak-table-total">
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="col-ltr fw-bold">@NumberDisplay.Quantity((decimal)ViewBag.SumQuantity)</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('dispatchFilterToggle');
+            var pop = document.getElementById('dispatchFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

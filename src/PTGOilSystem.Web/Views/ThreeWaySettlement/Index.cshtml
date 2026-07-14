@@ -1,0 +1,306 @@
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.ThreeWaySettlement
+@model PTGOilSystem.Web.Models.ThreeWaySettlement.ThreeWaySettlementPreviewViewModel
+@{
+    ViewData["Title"] = "تسویه سه‌طرفه / حواله";
+    ViewData["HideSectionTabs"] = true;
+    var customers = ViewBag.Customers as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var suppliers = ViewBag.Suppliers as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var sarrafs = ViewBag.Sarrafs as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var saleContracts = ViewBag.SaleContracts as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var purchaseContracts = ViewBag.PurchaseContracts as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var currencies = ViewBag.Currencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var duplicateWarning = ViewBag.DuplicateWarning as string;
+    var sarrafOverlapWarning = ViewBag.SarrafOverlapWarning as string;
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("تسویه سه‌طرفه / حواله", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <p class="ak-note"><strong>این تسویه چه می‌کند؟</strong> طلب شرکت از مشتری به اندازهٔ مبلغ پرداختی او کم می‌شود؛ بدهی شرکت به تأمین‌کننده به اندازهٔ مبلغ قبول‌شده کم می‌شود. پول وارد صندوق یا بانک شرکت نمی‌شود. در حالت «صراف»، صراف فقط حامل حواله است. حالت «حساب دیگر» فعلاً فقط پیش‌نمایش است.</p>
+
+    <form asp-action="Preview" method="post" class="ak-form">
+        <input asp-for="SourcePaymentTransactionId" type="hidden" />
+        <div asp-validation-summary="All" class="ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات تسویه", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="SettlementDate" class="ak-label"></label>
+                    <input asp-for="SettlementDate" type="date" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CustomerId" class="ak-label"></label>
+                    <select asp-for="CustomerId" asp-items="customers" class="ak-input"><option value="">- انتخاب مشتری -</option></select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="PayeeType" class="ak-label"></label>
+                    <select asp-for="PayeeType" id="payeeTypeSelect" class="ak-input">
+                        <option value="@((int)ThreeWayPayeeType.Supplier)">تأمین‌کننده</option>
+                        <option value="@((int)ThreeWayPayeeType.Sarraf)">صراف</option>
+                        <option value="@((int)ThreeWayPayeeType.OtherAccount)">حساب دیگر</option>
+                    </select>
+                    <span class="ak-note">فقط فیلد گیرنده انتخاب‌شده نمایش داده می‌شود.</span>
+                </div>
+
+                <div class="ak-field @((Model.PayeeType == ThreeWayPayeeType.Supplier || Model.PayeeType == ThreeWayPayeeType.Sarraf) ? "" : "d-none")" data-payee-field="@((int)ThreeWayPayeeType.Supplier),@((int)ThreeWayPayeeType.Sarraf)">
+                    <label asp-for="SupplierId" class="ak-label"></label>
+                    <select asp-for="SupplierId" asp-items="suppliers" class="ak-input"><option value="">- تأمین‌کننده -</option></select>
+                    <span class="ak-note" data-payee-field="@((int)ThreeWayPayeeType.Sarraf)">گیرنده نهایی حواله؛ بدهی این تأمین‌کننده کم می‌شود.</span>
+                </div>
+                <div class="ak-field @(Model.PayeeType == ThreeWayPayeeType.Sarraf ?"" : "d-none")" data-payee-field="@((int)ThreeWayPayeeType.Sarraf)">
+                    <label asp-for="SarrafId" class="ak-label"></label>
+                    <select asp-for="SarrafId" asp-items="sarrafs" class="ak-input"><option value="">- صراف -</option></select>
+                    <span class="ak-note">صراف فقط واسطه/حامل حواله است، نه طرف حساب مستقل.</span>
+                </div>
+                <div class="ak-field @(Model.PayeeType == ThreeWayPayeeType.OtherAccount ?"" : "d-none")" data-payee-field="@((int)ThreeWayPayeeType.OtherAccount)">
+                    <label asp-for="OtherPayeeName" class="ak-label"></label>
+                    <input asp-for="OtherPayeeName" class="ak-input" placeholder="مثلاً حساب بانکی شخص سوم" />
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("سمت مشتری (پرداخت‌کننده)", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="CustomerPaidAmount" class="ak-label"></label>
+                    <input asp-for="CustomerPaidAmount" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CustomerPaidCurrency" class="ak-label"></label>
+                    <select asp-for="CustomerPaidCurrency" asp-items="currencies" class="ak-input"><option value="">USD</option></select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CustomerPaidFxRateToUsd" class="ak-label"></label>
+                    <input asp-for="CustomerPaidFxRateToUsd" class="ak-input" placeholder="نرخ به دالر" />
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("سمت تأمین‌کننده (قبول‌کننده)", "اگر ارز مشتری و تأمین‌کننده فرق دارد، USD هر طرف جدا از نرخ خودش حساب می‌شود."))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="PayeeAcceptedAmount" class="ak-label"></label>
+                    <input asp-for="PayeeAcceptedAmount" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierAcceptedCurrency" class="ak-label"></label>
+                    <select asp-for="SupplierAcceptedCurrency" asp-items="currencies" class="ak-input"><option value="">USD</option></select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierAcceptedFxRateToUsd" class="ak-label"></label>
+                    <input asp-for="SupplierAcceptedFxRateToUsd" class="ak-input" placeholder="نرخ به دالر" />
+                </div>
+            </div>
+            <input asp-for="Currency" type="hidden" />
+            <input asp-for="FxRateToUsd" type="hidden" />
+        </section>
+
+        <details class="ak-advanced">
+            <summary class="ak-advanced-summary fw-bold">گزینه‌های بیشتر</summary>
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="CustomerSaleContractId" class="ak-label"></label>
+                    <select asp-for="CustomerSaleContractId" asp-items="saleContracts" class="ak-input"><option value="">-</option></select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierPurchaseContractId" class="ak-label"></label>
+                    <select asp-for="SupplierPurchaseContractId" asp-items="purchaseContracts" class="ak-input"><option value="">-</option></select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DifferenceReason" class="ak-label"></label>
+                    <select asp-for="DifferenceReason" class="ak-input">
+                        <option value="">- دلیل تفاوت -</option>
+                        <option value="@((int)DifferenceReason.FxDifference)">تفاوت نرخ</option>
+                        <option value="@((int)DifferenceReason.Commission)">کمیشن</option>
+                        <option value="@((int)DifferenceReason.TransferFee)">کرایه حواله</option>
+                        <option value="@((int)DifferenceReason.BrokerMargin)">مارجین دلال</option>
+                        <option value="@((int)DifferenceReason.Discount)">تخفیف</option>
+                        <option value="@((int)DifferenceReason.Adjustment)">اصلاح حساب</option>
+                        <option value="@((int)DifferenceReason.Other)">سایر</option>
+                    </select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ReferenceNumber" class="ak-label"></label>
+                    <input asp-for="ReferenceNumber" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Description" class="ak-label"></label>
+                    <input asp-for="Description" class="ak-input" />
+                </div>
+            </div>
+        </details>
+
+        <p class="ak-note"><strong>قبل از پیش‌نمایش بررسی کنید:</strong> مشتری، گیرنده حواله، مبلغ پرداختی مشتری، مبلغ قبول‌شده گیرنده و نرخ‌های تبدیل درست باشد. قدم بعدی: اول پیش‌نمایش اثر حساب‌ها را ببینید؛ ثبت نهایی فقط بعد از تأیید انجام می‌شود.</p>
+
+        <div class="ak-footer-actions">
+            <button type="submit" class="ak-save"><i class="bi bi-eye"></i> نمایش پیش‌نمایش اثر حساب‌ها</button>
+        </div>
+    </form>
+
+    @if (Model.ShowPreview)
+    {
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پیش‌نمایش اثر حساب‌ها", "فقط پیش‌نمایش است؛ تا ثبت نهایی هیچ دفتر کل یا سند مالی ساخته نمی‌شود."))" />
+
+            @if (!string.IsNullOrWhiteSpace(duplicateWarning))
+            {
+                <p class="ak-note">⚠ @duplicateWarning</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(sarrafOverlapWarning))
+            {
+                <p class="ak-note">⚠ @sarrafOverlapWarning</p>
+            }
+            @if (Model.CanPost)
+            {
+                <p class="ak-note">✓ <strong>برای ثبت نهایی آماده است.</strong> حالت تأمین‌کننده و صراف ثبت واقعی می‌شوند؛ حالت «حساب دیگر» فعلاً غیرفعال است.</p>
+            }
+            else
+            {
+                <div class="ak-note">
+                    <strong>برای ثبت نهایی آماده نیست.</strong>
+                    <ul class="mb-0 mt-1">
+                        @foreach (var blocker in Model.PostBlockers)
+                        {
+                            <li>@blocker</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <dl class="ak-summary-list ak-summary">
+                <div><dt>مشتری: @(Model.CustomerName ?? "-")</dt><dd class="ak-num">- @Model.CustomerPaidUsd.ToString("N2") USD</dd></div>
+                <div><dt>@Model.PayeeTypeLabel: @(Model.PayeeName ?? "-")</dt><dd class="ak-num">- @Model.PayeeAcceptedUsd.ToString("N2") USD</dd></div>
+                <div><dt>صندوق / بانک شرکت</dt><dd class="ak-num">@Model.CompanyCashBankDeltaUsd.ToString("N2") USD</dd></div>
+                <div><dt>تفاوت</dt><dd class="ak-num @(Model.HasDifference ?"ak-num" : "")">@Model.DifferenceUsd.ToString("N2") USD</dd></div>
+            </dl>
+
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th class="ak-col-grow">حساب</th>
+                            <th>اثر</th>
+                            <th class="ak-col-num">مبلغ USD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="ak-col-grow">
+                                مشتری: @(Model.CustomerName ?? "-")
+                                <div class="ak-note">@Model.CustomerPaidAmount.ToString("N2") @Model.EffectiveCustomerCurrency × @Model.EffectiveCustomerRate.ToString("0.######")</div>
+                            </td>
+                            <td><span class="ak-status">طلب ما از مشتری کم می‌شود</span></td>
+                            <td class="ak-col-num ak-num">@Model.CustomerPaidUsd.ToString("N2")</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">
+                                @Model.PayeeTypeLabel: @(Model.PayeeName ?? "-")
+                                <div class="ak-note">@Model.PayeeAcceptedAmount.ToString("N2") @Model.EffectiveSupplierCurrency × @Model.EffectiveSupplierRate.ToString("0.######")</div>
+                            </td>
+                            <td><span class="ak-status">@Model.PayeeImpactText</span></td>
+                            <td class="ak-col-num ak-num">@Model.PayeeAcceptedUsd.ToString("N2")</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">صندوق / بانک شرکت</td>
+                            <td><span class="ak-status">بدون تغییر - پول وارد صندوق شرکت نمی‌شود</span></td>
+                            <td class="ak-col-num ak-num">@Model.CompanyCashBankDeltaUsd.ToString("N2")</td>
+                        </tr>
+                        @if (Model.HasDifference)
+                        {
+                            <tr>
+                                <td class="ak-col-grow">
+                                    تفاوت
+                                    <div class="ak-note">@Model.DifferencePolicyText</div>
+                                </td>
+                                <td>
+                                    <span class="ak-status">@Model.DifferenceReasonText</span>
+                                    <div class="ak-note">@Model.DifferenceTraceOnlyNote</div>
+                                    @if (Model.DifferenceIsPotentialExpense)
+                                    {
+                                        <div class="ak-note">@Model.DifferencePotentialExpenseNote</div>
+                                    }
+                                </td>
+                                <td class="ak-col-num ak-num">@Model.DifferenceUsd.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <form asp-action="Confirm" method="post" class="ak-footer-actions">
+                <input asp-for="SettlementDate" type="hidden" />
+                <input asp-for="SourcePaymentTransactionId" type="hidden" />
+                <input asp-for="CustomerId" type="hidden" />
+                <input asp-for="PayeeType" type="hidden" />
+                <input asp-for="SupplierId" type="hidden" />
+                <input asp-for="SarrafId" type="hidden" />
+                <input asp-for="OtherPayeeName" type="hidden" />
+                <input asp-for="CustomerPaidAmount" type="hidden" />
+                <input asp-for="PayeeAcceptedAmount" type="hidden" />
+                <input asp-for="Currency" type="hidden" />
+                <input asp-for="FxRateToUsd" type="hidden" />
+                <input asp-for="CustomerPaidCurrency" type="hidden" />
+                <input asp-for="CustomerPaidFxRateToUsd" type="hidden" />
+                <input asp-for="SupplierAcceptedCurrency" type="hidden" />
+                <input asp-for="SupplierAcceptedFxRateToUsd" type="hidden" />
+                <input asp-for="CustomerSaleContractId" type="hidden" />
+                <input asp-for="SupplierPurchaseContractId" type="hidden" />
+                <input asp-for="DifferenceReason" type="hidden" />
+                <input asp-for="ReferenceNumber" type="hidden" />
+                <input asp-for="Description" type="hidden" />
+
+                @if (Model.CanConfirm)
+                {
+                    <button type="submit" class="ak-save"><i class="bi bi-check2-circle"></i> ثبت نهایی تسویه</button>
+                }
+                else if (Model.PayeeType == ThreeWayPayeeType.OtherAccount)
+                {
+                    <span class="ak-note">ثبت واقعی «حساب دیگر» در فاز بعد فعال می‌شود.</span>
+                    <button type="button" class="btn btn-light" disabled><i class="bi bi-lock"></i> ثبت نهایی تسویه</button>
+                }
+                else
+                {
+                    <span class="ak-note">برای ثبت نهایی آماده نیست.</span>
+                    <button type="button" class="btn btn-light" disabled><i class="bi bi-lock"></i> ثبت نهایی تسویه</button>
+                }
+            </form>
+
+            <p class="ak-note">ثبت نهایی فقط حساب مشتری و تأمین‌کننده را اصلاح می‌کند: طلب از مشتری و بدهی به تأمین‌کننده کم می‌شود. در حالت صراف، صراف فقط واسطهٔ حواله ثبت می‌شود. هیچ پرداخت/دریافت نقدی و هیچ تغییری در صندوق و بانک شرکت رخ نمی‌دهد.</p>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const payeeTypeSelect = document.getElementById('payeeTypeSelect');
+            const payeeFields = document.querySelectorAll('[data-payee-field]');
+
+            function syncPayeeFields() {
+                if (!payeeTypeSelect) {
+                    return;
+                }
+
+                const selectedPayeeType = payeeTypeSelect.value;
+                payeeFields.forEach(function (field) {
+                    const allowed = (field.getAttribute('data-payee-field') || '').split(',');
+                    const isActive = allowed.indexOf(selectedPayeeType) !== -1;
+                    field.classList.toggle('d-none', !isActive);
+                    field.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+                });
+            }
+
+            if (payeeTypeSelect) {
+                payeeTypeSelect.addEventListener('change', syncPayeeFields);
+                syncPayeeFields();
+            }
+        })();
+    </script>
+}

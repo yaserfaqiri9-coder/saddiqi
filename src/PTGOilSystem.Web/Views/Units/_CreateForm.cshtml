@@ -1,0 +1,72 @@
+@model Unit
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات واحد", (string?)"کد، نام و نماد واحد را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="NamePersian" class="ak-label">نام فارسی/دری</label>
+            <input asp-for="NamePersian" class="ak-input" />
+            <span asp-validation-for="NamePersian" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Symbol" class="ak-label">نماد</label>
+            <input asp-for="Symbol" class="ak-input" />
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("تبدیل واحد", (string?)"نوع واحد، واحد پایه و ضریب تبدیل را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="UnitType" class="ak-label">نوع واحد</label>
+            <input asp-for="UnitType" class="ak-input" placeholder="وزن، حجم، تعداد" />
+            <span asp-validation-for="UnitType" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="BaseUnitCode" class="ak-label">کد واحد پایه</label>
+            <input asp-for="BaseUnitCode" class="ak-input" placeholder="مثلاً MT" />
+            <span asp-validation-for="BaseUnitCode" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="ConversionFactorToBase" class="ak-label">ضریب تبدیل به پایه</label>
+            <input asp-for="ConversionFactorToBase" class="ak-input" placeholder="برای واحد پایه: 1" />
+            <span asp-validation-for="ConversionFactorToBase" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsBaseUnit" class="form-check-input" role="switch" />
+                <label asp-for="IsBaseUnit" class="form-check-label">واحد پایه</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <p class="ak-note">مقدار پایه = مقدار × ضریب. تبدیل حجم به وزن به چگالی محصول نیاز دارد.</p>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

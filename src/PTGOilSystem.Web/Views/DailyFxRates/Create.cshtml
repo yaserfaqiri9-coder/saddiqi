@@ -1,0 +1,22 @@
+@model DailyFxRate
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت نرخ ارز روزانه", "New Daily FX Rate");
+    var requestedReturnUrl = Context.Request.Query["returnUrl"].ToString();
+    var returnUrl = Url.IsLocalUrl(requestedReturnUrl) ? requestedReturnUrl : Url.Action("Index") ?? "/";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string)ViewData["Title"]!, true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)returnUrl))" />
+    <form asp-action="Create" asp-route-returnUrl="@returnUrl" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <partial name="_Form" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره", "Save"), returnUrl, UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

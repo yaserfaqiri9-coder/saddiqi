@@ -1,0 +1,11 @@
+@model PTGOilSystem.Web.Models.Entities.CashAccount
+@{
+    ViewData["Title"] = "ویرایش حساب نقد / بانک";
+    ViewData["EditPageIndexLabel"] = "حساب‌های نقد / بانک";
+    ViewData["EditPageSubtitle"] = "غیرفعال‌سازی را به حذف ترجیح دهید؛ تغییرات فقط روی تعریف همین حساب اعمال می‌شود.";
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/CashAccounts/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

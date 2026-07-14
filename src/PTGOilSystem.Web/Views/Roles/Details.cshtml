@@ -1,0 +1,35 @@
+@model PTGOilSystem.Web.Models.Entities.Role
+@using PTGOilSystem.Web.Security
+@{
+    ViewData["Title"] = "جزئیات نقش";
+    var allowedNavigationLabels = ViewBag.AllowedNavigationLabels as string[] ?? Array.Empty<string>();
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جزئیات نقش", "Role details"), false,
+                       UiText.T(Context, "تنظیم دسترسی", "Edit access"), "bi-pencil",
+                       (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "اطلاعات نقش", "Role information"), (string?)Model.Name))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>نام نقش</dt><dd>@Model.Name</dd></div>
+            <div class="ak-list-row"><dt>توضیح</dt><dd>@(string.IsNullOrWhiteSpace(Model.Description) ? "-" : Model.Description)</dd></div>
+            <div class="ak-list-row"><dt>تعداد کاربران</dt><dd class="ak-num">@ViewBag.UserCount</dd></div>
+            <div class="ak-list-row"><dt>ثبت/ویرایش اطلاعات</dt><dd><span class="ak-status @(RoleAccessRules.RoleCanManageData(Model) ?"is-active" : "is-inactive")">@(RoleAccessRules.RoleCanManageData(Model) ? "مجاز" : "غیرمجاز")</span></dd></div>
+            <div class="ak-list-row"><dt>مدیریت کاربران</dt><dd><span class="ak-status @(RoleAccessRules.RoleCanManageUsers(Model) ?"is-active" : "is-inactive")">@(RoleAccessRules.RoleCanManageUsers(Model) ? "مجاز" : "غیرمجاز")</span></dd></div>
+        </dl>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "بخش‌های قابل نمایش", "Visible sections"), (string?)null))" />
+        <div class="ak-list">
+            @foreach (var label in allowedNavigationLabels)
+            {
+                <div class="ak-list-row"><dt>@label</dt><dd><span class="ak-status is-active">مجاز</span></dd></div>
+            }
+        </div>
+    </section>
+</div>

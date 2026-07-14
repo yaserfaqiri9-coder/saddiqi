@@ -1,0 +1,1170 @@
+@using PTGOilSystem.Web.Models.ContractJourney
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyDetailsViewModel
+@{
+    var isAjaxTabRequest = string.Equals(Context.Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+    Layout = isAjaxTabRequest ? null : "_Layout";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["ContractJourneyAssets"] = true;
+    ViewData["Title"] = $"مرکز عملیات قرارداد {Model.ContractNumber}";
+
+    var partnerLabel = Model.IsPurchaseContract ? "تأمین‌کننده" : "مشتری";
+    var partnerName = Model.IsPurchaseContract
+        ? Model.SupplierName ?? "-"
+        : Model.CustomerName ?? "-";
+    var summaryMetrics = Model.SummaryMetrics;
+    var useSummaryMetrics = Model.IsInitialSummaryPayload && summaryMetrics.HasValues;
+    var salesCount = useSummaryMetrics ? summaryMetrics.SaleCount : Model.SalesItems.Count;
+    var soldQuantityMt = useSummaryMetrics ? summaryMetrics.SaleQuantityMt : Model.SalesItems.Sum(s => s.QuantityMt);
+    var salesTotalUsd = useSummaryMetrics ? summaryMetrics.SaleTotalUsd : Model.SalesItems.Sum(s => s.AmountUsd);
+    var expenseTotalUsd = useSummaryMetrics ? summaryMetrics.ExpenseTotalUsd : Model.ExpenseItems.Sum(e => e.AmountUsd);
+    var inventoryTransportExpenseTotalUsd = useSummaryMetrics ? summaryMetrics.InventoryTransportExpenseTotalUsd : Model.InventoryTransportExpenseAllocations.Sum(e => e.ExpenseTotalUsd);
+    var contractLevelExpenseTotalUsd = Math.Max(expenseTotalUsd - inventoryTransportExpenseTotalUsd, 0m);
+    var paymentTotalUsd = useSummaryMetrics ? summaryMetrics.PaymentTotalUsd : Model.PaymentItems.Sum(p => p.AmountUsd);
+    var dispatchQuantityMt = useSummaryMetrics ? summaryMetrics.DispatchQuantityMt : Model.DispatchItems.Sum(d => d.LoadedQuantityMt);
+    var loadingQuantityMt = useSummaryMetrics ? summaryMetrics.LoadingQuantityMt : Model.LoadingItems.Sum(l => l.LoadedQuantityMt);
+    var loadingCount = useSummaryMetrics ? summaryMetrics.LoadingCount : Model.LoadingItems.Count;
+    var receiptCount = useSummaryMetrics ? summaryMetrics.ReceiptCount : Model.ReceiptItems.Count;
+    var dispatchCount = useSummaryMetrics ? summaryMetrics.DispatchCount : Model.DispatchItems.Count;
+    var transportLegCount = useSummaryMetrics ? summaryMetrics.InventoryTransportLegCount : Model.InventoryTransportLegItems.Count;
+    var transportLegQuantityMt = useSummaryMetrics ? summaryMetrics.InventoryTransportQuantityMt : Model.InventoryTransportLegItems.Sum(l => l.QuantityMt);
+    var transportLegReceivedMt = useSummaryMetrics ? summaryMetrics.InventoryTransportReceivedMt : Model.InventoryTransportLegItems.Sum(l => l.ReceivedQuantityMt);
+    var transportLegShortageMt = useSummaryMetrics ? summaryMetrics.InventoryTransportShortageMt : Model.InventoryTransportLegItems.Sum(l => l.ShortageQuantityMt);
+    var transportLegInTransitMt = useSummaryMetrics ? summaryMetrics.InventoryTransportInTransitMt : Model.InventoryTransportLegItems
+        .Where(l => !string.Equals(l.StatusName, "Received", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(l.StatusName, "Cancelled", StringComparison.OrdinalIgnoreCase))
+        .Sum(l => Math.Max(l.QuantityMt - l.ReceivedQuantityMt - l.ShortageQuantityMt, 0m));
+    var expenseCount = useSummaryMetrics ? summaryMetrics.ExpenseCount : Model.ExpenseItems.Count;
+    var lossEventCount = useSummaryMetrics ? summaryMetrics.LossCount : Model.LossItems.Count;
+    var paymentCount = useSummaryMetrics ? summaryMetrics.PaymentCount : Model.PaymentItems.Count;
+    var ledgerItemCount = useSummaryMetrics ? summaryMetrics.LedgerCount : Model.LedgerItems.Count;
+    var inventoryMovementCount = useSummaryMetrics ? summaryMetrics.InventoryMovementCount : Model.InventoryMovementItems.Count;
+    decimal DisplayLossQuantityMt(ContractJourneyLossItemViewModel loss)
+        => loss.DifferenceQuantityMt > 0m ? loss.DifferenceQuantityMt : Math.Max(loss.ChargeableLossMt, 0m);
+    var totalDisplayLossMt = useSummaryMetrics ? summaryMetrics.LossQuantityMt : Model.LossItems.Sum(DisplayLossQuantityMt);
+    decimal? salesAverageUsd = soldQuantityMt > 0m ? salesTotalUsd / soldQuantityMt : null;
+    decimal? expensePerLoadedMt = loadingQuantityMt > 0m ? contractLevelExpenseTotalUsd / loadingQuantityMt : null;
+    var summaryPnlExpenseTotalUsd = Model.MiniPnl.TraceableExpensesUsd;
+    var summaryExpenseTotalUsd = expenseTotalUsd + Model.LoadingOperationalExpenseUsd + Model.CustomsDeclarationTotalUsd;
+    var summaryLossCostUsd = Math.Max(summaryPnlExpenseTotalUsd - summaryExpenseTotalUsd, 0m);
+    decimal? summaryExpensePerLoadedMt = loadingQuantityMt > 0m ? summaryExpenseTotalUsd / loadingQuantityMt : null;
+    var summaryRegisteredExpenseUsd = expenseTotalUsd;
+    var summaryLoadingAndCustomsExpenseUsd = Model.LoadingOperationalExpenseUsd + Model.CustomsDeclarationTotalUsd;
+    var remainingToLoadMt = Math.Max(Model.ContractQuantityMt - loadingQuantityMt, 0m);
+    var receiptQuantityMt = useSummaryMetrics ? summaryMetrics.ReceiptQuantityMt : Model.ReceiptItems.Sum(r => r.ReceivedQuantityMt);
+    var remainingToReceiveMt = Math.Max(loadingQuantityMt - receiptQuantityMt, 0m);
+    var currentStockMt = Model.Kpis.CurrentStockQuantityMt;
+    var pnlOperationalMarginUsd = Model.MiniPnl.GrossMarginUsd;
+    var pnlToneClass = Model.MiniPnl.GrossMarginUsd >= 0m ? "text-success" : "text-danger";
+    var supplierPayableTotalUsd = Model.IsPurchaseContract ? Model.MiniPnl.TraceablePurchaseCostUsd : 0m;
+    var supplierPaymentOutUsd = Model.PaymentItems
+        .Where(p => p.PaymentKind == PTGOilSystem.Web.Models.Entities.PaymentKind.SupplierPayment
+            && p.Direction == PTGOilSystem.Web.Models.Entities.PaymentDirection.Out)
+        .Sum(p => p.AmountUsd);
+    var supplierReceiptInUsd = Model.PaymentItems
+        .Where(p => p.PaymentKind == PTGOilSystem.Web.Models.Entities.PaymentKind.SupplierReceipt
+            && p.Direction == PTGOilSystem.Web.Models.Entities.PaymentDirection.In)
+        .Sum(p => p.AmountUsd);
+    var supplierSarrafSettledUsd = Model.SarrafSettlementItems
+        .Where(s => s.Status == SarrafSettlementStatus.Posted)
+        .Sum(s => s.SupplierReductionAmountUsd);
+    var supplierPaidNetUsd = supplierPaymentOutUsd - supplierReceiptInUsd + supplierSarrafSettledUsd;
+    var supplierRemainingUsd = supplierPayableTotalUsd - supplierPaidNetUsd;
+    var supplierRemainingToneClass = supplierRemainingUsd > 0m
+        ? "text-danger"
+        : "text-success";
+    var firstLoading = Model.LoadingItems.FirstOrDefault();
+    var bulkReceiptCandidates = Model.BulkReceiptCandidates;
+    var bulkReceiptDefaultQuantityMt = bulkReceiptCandidates.Sum(l => l.RemainingQuantityMt);
+    var bulkReceiptTerminals = ViewBag.BulkReceiptTerminals as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var bulkReceiptStorageTanks = ViewBag.BulkReceiptStorageTanks as IEnumerable<ContractJourneyBulkReceiptStorageTankOptionViewModel> ?? Enumerable.Empty<ContractJourneyBulkReceiptStorageTankOptionViewModel>();
+    const string LossesPresentationTab = "losses";
+    var activeTab = Model.ActiveTab;
+    // تب کسری با تب خزینه ادغام شده — lossesView=true به تب costs هدایت می‌شود
+    if (string.Equals(activeTab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase))
+    {
+        activeTab = ContractJourneyTabs.Details.Costs;
+    }
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string UnitMt() => T("تن", "MT");
+    string UnitUsd() => T("دالر", "USD");
+    string LocalizeDisplay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        var text = value.Trim();
+        var fa = text switch
+        {
+            "Direct Sale from Receipt Allocation" => "فروش مستقیم از تخصیص رسید",
+            "Direct Sale from Inventory Transport Receipt" => "فروش مستقیم از رسید حمل موجودی",
+            "Sale from Direct Truck Dispatch" => "فروش از ارسال مستقیم با موتر",
+            "Direct Truck Dispatch from Receipt Allocation" => "ارسال با موتر از تخصیص رسید",
+            "Loaded" => "بارگیری‌شده",
+            "InTransit" => "در مسیر",
+            "Delivered" => "تحویل‌شده",
+            "Cancelled" => "لغوشده",
+            "Sale" => "فروش",
+            "Expense" => "مصرف",
+            "CustomerReceipt" => "دریافت از مشتری",
+            "SupplierPayment" => "پرداخت به تأمین‌کننده",
+            "SupplierReceipt" => "دریافت از تأمین‌کننده",
+            "CustomerPayment" => "پرداخت به مشتری",
+            "ExpensePayment" => "پرداخت مصرف",
+            "TruckPayment" => "پرداخت موتر",
+            "ManualPayment" => "پرداخت دستی",
+            "ManualReceipt" => "دریافت دستی",
+            "EmployeeReturn" => "برگشت از کارمند",
+            "Stock" => "موجودی",
+            _ => text
+        };
+
+        fa = fa.Replace("USD/MT", "دالر/تن", StringComparison.OrdinalIgnoreCase)
+            .Replace("USD", "دالر", StringComparison.OrdinalIgnoreCase)
+            .Replace("MT", "تن", StringComparison.OrdinalIgnoreCase)
+            .Replace("Platt's", "پلتس", StringComparison.OrdinalIgnoreCase)
+            .Replace("Platts", "پلتس", StringComparison.OrdinalIgnoreCase)
+            .Replace("Reference", "مرجع", StringComparison.OrdinalIgnoreCase)
+            .Replace("Manual", "دستی", StringComparison.OrdinalIgnoreCase)
+            .Replace("Daily", "روزانه", StringComparison.OrdinalIgnoreCase)
+            .Replace("Monthly", "ماهانه", StringComparison.OrdinalIgnoreCase);
+
+        return T(fa, text);
+    }
+
+    string BuildTabUrl(string tab)
+    {
+        if (string.Equals(tab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase))
+        {
+            return Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId, tab = ContractJourneyTabs.Details.Costs, lossesView = true, lockContract = Model.LockContract })
+                ?? $"/ContractJourney/Details?contractId={Model.ContractId}&tab={ContractJourneyTabs.Details.Costs}&lossesView=true&lockContract={Model.LockContract.ToString().ToLowerInvariant()}";
+        }
+
+        return Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId, tab, lockContract = Model.LockContract })
+            ?? $"/ContractJourney/Details?contractId={Model.ContractId}&tab={tab}&lockContract={Model.LockContract.ToString().ToLowerInvariant()}";
+    }
+
+    string SidebarPageIcon(string section)
+        => section switch
+        {
+            "summary" => "bi-grid-1x2",
+            "contract" => "bi-file-earmark-text",
+            "loading" => "bi-arrow-down-circle",
+            "receipt" => "bi-inbox",
+            "inventoryTransport" => "bi-truck-front",
+            "inventory" => "bi-boxes",
+            "dispatch" => "bi-arrow-left-right",
+            "sales" => "bi-cart-check",
+            "costs" => "bi-receipt-cutoff",
+            "finance" => "bi-bank",
+            "ledger" => "bi-journal-bookmark",
+            "loss" => "bi-exclamation-diamond",
+            "profit" => "bi-graph-up",
+            "status" => "bi-check-circle",
+            _ => "bi-circle"
+        };
+
+    var pageDirection = T("rtl", "ltr");
+
+    var detailTabs = Model.IsPurchaseContract
+        ? new ContractJourneyDetailTabLinkViewModel[]
+        {
+            new() { Key = ContractJourneyTabs.Details.Summary, Label = T("خلاصه", "Summary"), Icon = SidebarPageIcon("summary") },
+            new() { Key = ContractJourneyTabs.Details.Loadings, Label = T("بارگیری", "Loadings"), Icon = SidebarPageIcon("loading") },
+            new() { Key = ContractJourneyTabs.Details.Receipts, Label = T("رسید بارگیری", "Loading receipts"), Icon = SidebarPageIcon("receipt") },
+            new() { Key = ContractJourneyTabs.Details.Inventory, Label = T("موجودی", "Inventory"), Icon = SidebarPageIcon("inventory") },
+            new() { Key = ContractJourneyTabs.Details.InventoryTransport, Label = T("جریان حمل بار", "Cargo Flow"), Icon = SidebarPageIcon("inventoryTransport") },
+            new() { Key = ContractJourneyTabs.Details.Dispatch, Label = T("نقل و انتقالات", "Transfers"), Icon = SidebarPageIcon("dispatch") },
+            new() { Key = ContractJourneyTabs.Details.Sales, Label = T("فروشات", "Sales"), Icon = SidebarPageIcon("sales") },
+            new() { Key = ContractJourneyTabs.Details.Costs, Label = T("مصرف و کسری", "Expenses & Losses"), Icon = SidebarPageIcon("costs") },
+            new() { Key = ContractJourneyTabs.Details.Finance, Label = T("پرداخت‌ها", "Payments"), Icon = SidebarPageIcon("finance") },
+            new() { Key = ContractJourneyTabs.Details.Ledger, Label = T("دفتر کل", "Ledger"), Icon = SidebarPageIcon("ledger") }
+        }
+        : new ContractJourneyDetailTabLinkViewModel[]
+        {
+            new() { Key = ContractJourneyTabs.Details.Summary, Label = T("خلاصه", "Summary"), Icon = SidebarPageIcon("summary") },
+            new() { Key = ContractJourneyTabs.Details.Sales, Label = T("فروشات", "Sales"), Icon = SidebarPageIcon("sales") },
+            new() { Key = ContractJourneyTabs.Details.Finance, Label = T("پرداخت‌ها", "Payments"), Icon = SidebarPageIcon("finance") },
+            new() { Key = ContractJourneyTabs.Details.Ledger, Label = T("دفتر کل", "Ledger"), Icon = SidebarPageIcon("ledger") }
+        };
+
+    if (!detailTabs.Any(t => t.Key == activeTab))
+    {
+        activeTab = ContractJourneyTabs.Details.Summary;
+    }
+
+    string FormatMt(decimal value) => $"{NumberDisplay.Quantity(value)} {UnitMt()}";
+    string TextOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+    string FormatShortDate(DateTime? value) => value?.ToDisplayDate() ?? "-";
+    string? TransportDestinationTerminal(ContractJourneyTransportLegItemViewModel item)
+        => item.DestinationReceipt?.DestinationTerminalName ?? item.DestinationTerminalName;
+
+    decimal TransportInTransitQuantity(ContractJourneyTransportLegItemViewModel item)
+    {
+        if (string.Equals(item.StatusName, "Received", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.StatusName, "Cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0m;
+        }
+
+        return Math.Max(item.QuantityMt - item.ReceivedQuantityMt - item.ShortageQuantityMt, 0m);
+    }
+
+    string TransportTypeDisplay(string? value)
+    {
+        var text = value?.Trim() ?? string.Empty;
+        if (text.Equals("Truck", StringComparison.OrdinalIgnoreCase))
+        {
+            return T("موتر", "Truck");
+        }
+
+        if (text.Equals("Wagon", StringComparison.OrdinalIgnoreCase))
+        {
+            return T("واگن", "Wagon");
+        }
+
+        if (text.Equals("Vessel", StringComparison.OrdinalIgnoreCase) || text.Equals("Ship", StringComparison.OrdinalIgnoreCase))
+        {
+            return T("کشتی", "Vessel");
+        }
+
+        return LocalizeDisplay(text);
+    }
+
+    string TransportStatusToneClass(string? status)
+    {
+        var text = status?.Trim() ?? string.Empty;
+        return text.Equals("Received", StringComparison.OrdinalIgnoreCase)
+            || text.Equals("Delivered", StringComparison.OrdinalIgnoreCase)
+            ? "is-active"
+            : "is-inactive";
+    }
+
+    var loadingValueUsd = useSummaryMetrics ? summaryMetrics.LoadingValueUsd : Model.LoadingItems.Sum(l => l.LoadingValueUsd ?? 0m);
+    var loadingWastageMt = Model.LoadingDifferenceLossMt;
+    var receiptShortageWastageMt = Model.ReceiptShortageLossMt;
+    var dispatchShortageWastageMt = Model.DispatchShortageLossMt;
+    var marginPercent = salesTotalUsd > 0m
+        ? Math.Round((pnlOperationalMarginUsd / salesTotalUsd) * 100m, 2, MidpointRounding.AwayFromZero)
+        : 0m;
+    var returnOnInvestmentPercent = Model.MiniPnl.CostOfGoodsSoldUsd > 0m
+        ? Math.Round((pnlOperationalMarginUsd / Model.MiniPnl.CostOfGoodsSoldUsd) * 100m, 2, MidpointRounding.AwayFromZero)
+        : 0m;
+    string FormatLifecycleQuantity(decimal value, int decimals = 3)
+    {
+        var absolute = Math.Abs(value).ToString($"N{decimals}");
+        return value < 0m ? $"({absolute}) {UnitMt()}" : $"{absolute} {UnitMt()}";
+    }
+    string FormatLifecycleUsd(decimal value)
+    {
+        var absolute = Math.Abs(value).ToString("N2");
+        return value < 0m ? $"($ {absolute})" : $"$ {absolute}";
+    }
+    string FormatRubAmount(decimal value)
+        => value > 0m ? $"₽ {value:N2}" : "-";
+    string FormatRubRate(decimal? value)
+        => value.HasValue ? $"{NumberDisplay.FxRate(value.Value)} RUB/USD" : "-";
+    string FormatLifecycleRate(decimal? value)
+        => value.HasValue ? FormatLifecycleUsd(value.Value) : "-";
+
+    var lifecycleSaleableQuantityMt = Model.ContractQuantityMt - soldQuantityMt;
+    var contractNetLabel = pnlOperationalMarginUsd < 0m
+        ? T("ضرر خالص قرارداد", "Contract NET Loss")
+        : T("سود خالص قرارداد", "Contract NET Profit");
+    var contractDisplayValueUsd = Model.PricingFinalUnitPriceUsd.HasValue && Model.PricingFinalUnitPriceUsd.Value > 0m
+        ? Model.PricingFinalUnitPriceUsd.Value * Model.ContractQuantityMt
+        : Model.MiniPnl.TraceablePurchaseCostUsd;
+    var rubSettlement = Model.RubSettlementSummary;
+    var rubPendingStatusText = rubSettlement.PendingRateLoadingCount > 0
+        ? T("در انتظار نرخ", "Pending rate")
+        : rubSettlement.LockedLoadingCount > 0 ? T("همه قفل شده", "All locked") : T("بدون بارگیری روبلی", "No RUB loading");
+    string FormatHeaderValueUsd(decimal value)
+        => value > 0m ? FormatLifecycleUsd(value) : T("در انتظار نرخ", "Pending price");
+    var contractCurrencyText = rubSettlement.IsRubSettlement
+        ? $"USD / RUB · {FormatRubRate(rubSettlement.ContractRubPerUsdRate)}"
+        : $"USD · {(Model.PricingFinalUnitPriceUsd.HasValue && Model.PricingFinalUnitPriceUsd.Value > 0m ? $"{Model.PricingFinalUnitPriceUsd.Value:N2} {UnitUsd()}/{UnitMt()}" : T("در انتظار نرخ", "Pending price"))}";
+    var contractStatusToneClass = Model.StatusBadgeClass.Contains("success", StringComparison.OrdinalIgnoreCase) ? "is-active" : "is-inactive";
+
+    var inventoryTransferUrl = Url.Action("Create", "InventoryTransportLegs", new { returnUrl = BuildTabUrl(ContractJourneyTabs.Details.InventoryTransport) })
+        ?? "/InventoryTransportLegs/Create";
+    // بازگشت به همان صفحه‌ای که کاربر از آن آمده (لیست قراردادها با فیلترها)؛ در نبود returnUrl به فهرست قراردادها
+    var contractsListBackUrl = Context.Request.Query.TryGetValue("returnUrl", out var backReturnValues)
+        && !string.IsNullOrWhiteSpace(backReturnValues) && Url.IsLocalUrl(backReturnValues.ToString())
+            ? backReturnValues.ToString()
+            : Url.Action("Index", "Contracts") ?? "/Contracts";
+    var contractStatementUrl = Url.Action("Contract", "AccountStatements", new { contractId = Model.ContractId }) ?? "#";
+    var contractEditUrl = Url.Action("Edit", "Contracts", new { id = Model.ContractId }) ?? "#";
+    var contractPricingUrl = Url.Action("EditPricing", "Contracts", new { id = Model.ContractId }) ?? "#";
+
+    var detailTabsRailModel = new ContractJourneyDetailTabsRailViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        ActiveTab = activeTab,
+        AriaLabel = T("تب‌های مرکز عملیات قرارداد", "Contract operations center tabs"),
+        Tabs = detailTabs
+    };
+
+    string ReturnUrl(string tab) => BuildTabUrl(tab);
+
+    const int journeyListPageSize = 8;
+    const int loadingListPageSize = 15;
+    const int receiptListPageSize = 15;
+
+    int ReadPositivePage(string key)
+    {
+        if (Context.Request.Query.TryGetValue(key, out var values)
+            && int.TryParse(values.FirstOrDefault(), out var page)
+            && page > 0)
+        {
+            return page;
+        }
+
+        return 1;
+    }
+
+    int PageCountFor(int totalCount, int pageSize = journeyListPageSize)
+        => Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
+
+    string PageUrl(string pageKey, int pageNumber)
+    {
+        var queryParts = Context.Request.Query
+            .Where(kv => !string.Equals(kv.Key, pageKey, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(kv => kv.Value.Select(v => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
+            .ToList();
+
+        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "contractId", StringComparison.OrdinalIgnoreCase)))
+        {
+            queryParts.Add($"contractId={Model.ContractId}");
+        }
+
+        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "tab", StringComparison.OrdinalIgnoreCase)))
+        {
+            var pageTab = string.Equals(activeTab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase)
+                ? ContractJourneyTabs.Details.Costs
+                : activeTab;
+            queryParts.Add($"tab={Uri.EscapeDataString(pageTab)}");
+        }
+
+        if (string.Equals(activeTab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase)
+            && !Context.Request.Query.Keys.Any(k => string.Equals(k, "lossesView", StringComparison.OrdinalIgnoreCase)))
+        {
+            queryParts.Add("lossesView=true");
+        }
+
+        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "lockContract", StringComparison.OrdinalIgnoreCase)))
+        {
+            queryParts.Add($"lockContract={Model.LockContract.ToString().ToLowerInvariant()}");
+        }
+
+        queryParts.Add($"{Uri.EscapeDataString(pageKey)}={pageNumber}");
+        return $"?{string.Join("&", queryParts)}#journey-tab-lists";
+    }
+
+    // صفحه‌بندی مشترک ak برای فهرست‌های داخلی سفر قرارداد.
+    Microsoft.AspNetCore.Html.IHtmlContent ListPager(string pageKey, int currentPage, int pageCount, string label)
+    {
+        if (pageCount <= 1)
+        {
+            return new Microsoft.AspNetCore.Html.HtmlString(string.Empty);
+        }
+
+        var isEnglish = UiText.IsEn(Context);
+        var prevIcon = isEnglish ? "bi-chevron-left" : "bi-chevron-right";
+        var nextIcon = isEnglish ? "bi-chevron-right" : "bi-chevron-left";
+        var encodedLabel = System.Net.WebUtility.HtmlEncode(label);
+
+        var html = new System.Text.StringBuilder();
+        html.Append($"""<nav class="ak-pager" aria-label="{encodedLabel}"><ul class="pagination pagination-sm mb-0">""");
+        html.Append(currentPage == 1
+            ? $"""<li class="page-item disabled" aria-hidden="true"><span class="page-link"><i class="bi {prevIcon}"></i></span></li>"""
+            : $"""<li class="page-item"><a class="page-link" href="{System.Net.WebUtility.HtmlEncode(PageUrl(pageKey, currentPage - 1))}" aria-label="{System.Net.WebUtility.HtmlEncode(T("صفحه قبلی", "Previous page"))}"><i class="bi {prevIcon}" aria-hidden="true"></i></a></li>""");
+        html.Append($"""<li class="page-item active"><span class="page-link"><bdi>{currentPage}</bdi> / <bdi>{pageCount}</bdi></span></li>""");
+        html.Append(currentPage == pageCount
+            ? $"""<li class="page-item disabled" aria-hidden="true"><span class="page-link"><i class="bi {nextIcon}"></i></span></li>"""
+            : $"""<li class="page-item"><a class="page-link" href="{System.Net.WebUtility.HtmlEncode(PageUrl(pageKey, currentPage + 1))}" aria-label="{System.Net.WebUtility.HtmlEncode(T("صفحه بعدی", "Next page"))}"><i class="bi {nextIcon}" aria-hidden="true"></i></a></li>""");
+        html.Append("</ul></nav>");
+        return new Microsoft.AspNetCore.Html.HtmlString(html.ToString());
+    }
+
+    var loadingPageCount = PageCountFor(loadingCount, loadingListPageSize);
+    var loadingPage = Math.Min(ReadPositivePage("loadingsPage"), loadingPageCount);
+    var pagedLoadingItems = Model.LoadingItems
+        .Skip((loadingPage - 1) * loadingListPageSize)
+        .Take(loadingListPageSize)
+        .ToList();
+    var receiptPageCount = PageCountFor(receiptCount, receiptListPageSize);
+    var receiptPage = Math.Min(ReadPositivePage("receiptsPage"), receiptPageCount);
+    var pagedReceiptItems = Model.ReceiptItems
+        .Skip((receiptPage - 1) * receiptListPageSize)
+        .Take(receiptListPageSize)
+        .ToList();
+
+    var inventoryPageCount = PageCountFor(inventoryMovementCount);
+    var inventoryPage = Math.Min(ReadPositivePage("inventoryPage"), inventoryPageCount);
+    var pagedInventoryMovementItems = Model.InventoryMovementItems
+        .Skip((inventoryPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var dispatchPageCount = PageCountFor(dispatchCount);
+    var dispatchPage = Math.Min(ReadPositivePage("dispatchPage"), dispatchPageCount);
+    var pagedDispatchItems = Model.DispatchItems
+        .Skip((dispatchPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var transportJourneyItems = Model.InventoryTransportLegItems
+        .OrderBy(l => l.LoadedDate)
+        .ThenBy(l => l.Id)
+        .ToList();
+    var transportLegPageCount = PageCountFor(transportJourneyItems.Count);
+    var transportLegPage = Math.Min(ReadPositivePage("transportLegPage"), transportLegPageCount);
+    var pagedTransportLegItems = transportJourneyItems
+        .Skip((transportLegPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var saleInvoiceCount = Model.SalesItems.Count;
+    var salesPageCount = PageCountFor(saleInvoiceCount);
+    var salesPage = Math.Min(ReadPositivePage("salesPage"), salesPageCount);
+    var pagedSalesItems = Model.SalesItems
+        .Skip((salesPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var preSaleCount = Model.PreSaleItems.Count;
+    var preSalesPageCount = PageCountFor(preSaleCount);
+    var preSalesPage = Math.Min(ReadPositivePage("preSalesPage"), preSalesPageCount);
+    var pagedPreSaleItems = Model.PreSaleItems
+        .Skip((preSalesPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var expensesPageCount = PageCountFor(expenseCount);
+    var expensesPage = Math.Min(ReadPositivePage("expensesPage"), expensesPageCount);
+    var pagedExpenseItems = Model.ExpenseItems
+        .Skip((expensesPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var lossesPageCount = PageCountFor(lossEventCount);
+    var lossesPage = Math.Min(ReadPositivePage("lossesPage"), lossesPageCount);
+    var pagedLossItems = Model.LossItems
+        .Skip((lossesPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var paymentsPageCount = PageCountFor(paymentCount);
+    var paymentsPage = Math.Min(ReadPositivePage("paymentsPage"), paymentsPageCount);
+    var pagedPaymentItems = Model.PaymentItems
+        .Skip((paymentsPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var ledgerPageCount = PageCountFor(ledgerItemCount);
+    var ledgerPage = Math.Min(ReadPositivePage("ledgerPage"), ledgerPageCount);
+    var pagedLedgerItems = Model.LedgerItems
+        .Skip((ledgerPage - 1) * journeyListPageSize)
+        .Take(journeyListPageSize)
+        .ToList();
+
+    var loadingsTabModel = new ContractJourneyLoadingsTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        PageDirection = pageDirection,
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("loadingsPage", loadingPage, loadingPageCount, T("صفحه‌بندی بارگیری‌ها", "Loadings pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "loadingsPage",
+            CurrentPage = loadingPage,
+            PageCount = loadingPageCount,
+            Label = T("صفحه‌بندی بارگیری‌ها", "Loadings pagination")
+        },
+        Items = pagedLoadingItems
+    };
+
+    var receiptsTabModel = new ContractJourneyReceiptsTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        PageDirection = pageDirection,
+        FirstLoadingId = firstLoading?.Id,
+        BulkReceiptDefaultQuantityMt = bulkReceiptDefaultQuantityMt,
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("receiptsPage", receiptPage, receiptPageCount, T("صفحه‌بندی رسیدها", "Receipts pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "receiptsPage",
+            CurrentPage = receiptPage,
+            PageCount = receiptPageCount,
+            Label = T("صفحه‌بندی رسیدها", "Receipts pagination")
+        },
+        BulkReceiptTerminals = bulkReceiptTerminals.ToList(),
+        BulkReceiptStorageTanks = bulkReceiptStorageTanks.ToList(),
+        BulkReceiptCandidates = bulkReceiptCandidates,
+        Items = pagedReceiptItems
+    };
+
+    var inventoryTabModel = new ContractJourneyInventoryTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        ProductName = Model.ProductName ?? string.Empty,
+        ContractNumber = Model.ContractNumber ?? string.Empty,
+        StockCardUrl = $"/Inventory/StockCard?Filter.ContractId={Model.ContractId}",
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("inventoryPage", inventoryPage, inventoryPageCount, T("صفحه‌بندی حرکت‌های موجودی", "Inventory movements pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "inventoryPage",
+            CurrentPage = inventoryPage,
+            PageCount = inventoryPageCount,
+            Label = T("صفحه‌بندی حرکت‌های موجودی", "Inventory movements pagination")
+        },
+        Items = pagedInventoryMovementItems
+    };
+
+    var dispatchTabModel = new ContractJourneyDispatchTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        CreateUrl = Url.Action("Create", "Dispatch", new { contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Dispatch) }) ?? string.Empty,
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("dispatchPage", dispatchPage, dispatchPageCount, T("صفحه‌بندی نقل و انتقالات", "Transfers pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "dispatchPage",
+            CurrentPage = dispatchPage,
+            PageCount = dispatchPageCount,
+            Label = T("صفحه‌بندی نقل و انتقالات", "Transfers pagination")
+        },
+        Items = pagedDispatchItems
+    };
+
+    var salesTabModel = new ContractJourneySalesTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        IsPurchaseContract = Model.IsPurchaseContract,
+        ReturnUrl = ReturnUrl(ContractJourneyTabs.Details.Sales),
+        CreateUrl = Url.Action("Create", "Sales", new { contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Sales) }) ?? string.Empty,
+        NoSalesText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        NoPreSalesText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        SalesPagerHtml = ListPager("salesPage", salesPage, salesPageCount, T("صفحه‌بندی فروش‌ها", "Sales pagination")),
+        PreSalesPagerHtml = ListPager("preSalesPage", preSalesPage, preSalesPageCount, T("صفحه‌بندی پیش‌فروش", "Pre-sales pagination")),
+        SalesPager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "salesPage",
+            CurrentPage = salesPage,
+            PageCount = salesPageCount,
+            Label = T("صفحه‌بندی فروش‌ها", "Sales pagination")
+        },
+        PreSalesPager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "preSalesPage",
+            CurrentPage = preSalesPage,
+            PageCount = preSalesPageCount,
+            Label = T("صفحه‌بندی پیش‌فروش", "Pre-sales pagination")
+        },
+        SalesItems = pagedSalesItems,
+        PreSaleItems = pagedPreSaleItems
+    };
+
+    var financeTabModel = new ContractJourneyFinanceTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        CreateUrl = Url.Action("Create", "Payments", new { contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Finance) }) ?? string.Empty,
+        SarrafSettlementCreateUrl = Url.Action("Create", "Payments", new { method = "sarraf", contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Finance) }) ?? string.Empty,
+        SarrafSettlementIndexUrl = Url.Action("Index", "SarrafSettlements", new { contractId = Model.ContractId }) ?? string.Empty,
+        BalanceTransferCreateUrl = Url.Action("Create", "ContractBalanceTransfers", new { fromContractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Finance) }) ?? string.Empty,
+        BalanceTransferIndexUrl = Url.Action("Index", "ContractBalanceTransfers", new { contractId = Model.ContractId }) ?? string.Empty,
+        AccountStatementUrl = Url.Action("Contract", "AccountStatements", new { contractId = Model.ContractId }) ?? string.Empty,
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("paymentsPage", paymentsPage, paymentsPageCount, T("صفحه‌بندی پرداخت‌ها", "Payments pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "paymentsPage",
+            CurrentPage = paymentsPage,
+            PageCount = paymentsPageCount,
+            Label = T("صفحه‌بندی پرداخت‌ها", "Payments pagination")
+        },
+        Summary = new ContractJourneyFinanceSummaryViewModel
+        {
+            DebitTotalText = $"{Model.LedgerSummary.DebitTotalUsd:N2} {UnitUsd()}",
+            CreditTotalText = $"{Model.LedgerSummary.CreditTotalUsd:N2} {UnitUsd()}",
+            BalanceText = $"{Model.LedgerSummary.BalanceUsd:N2} {UnitUsd()}",
+            SupplierPayableTotalText = $"{supplierPayableTotalUsd:N2} {UnitUsd()}",
+            SupplierPaidText = $"{supplierPaidNetUsd:N2} {UnitUsd()}",
+            SupplierRemainingText = $"{supplierRemainingUsd:N2} {UnitUsd()}",
+            SupplierRemainingToneClass = supplierRemainingToneClass,
+            GrossMarginText = $"{Model.MiniPnl.GrossMarginUsd:N2} {UnitUsd()}",
+            GrossMarginToneClass = pnlToneClass,
+            Note = LocalizeDisplay(Model.MiniPnl.Note)
+        },
+        Items = pagedPaymentItems,
+        SarrafSettlements = Model.SarrafSettlementItems
+    };
+
+    var ledgerTabModel = new ContractJourneyLedgerTabViewModel
+    {
+        ContractId = Model.ContractId,
+        LockContract = Model.LockContract,
+        LedgerIndexUrl = $"/Ledger?ContractId={Model.ContractId}",
+        NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
+        PagerHtml = ListPager("ledgerPage", ledgerPage, ledgerPageCount, T("صفحه‌بندی دفتر کل", "Ledger pagination")),
+        Pager = new ContractJourneyPagerViewModel
+        {
+            PageKey = "ledgerPage",
+            CurrentPage = ledgerPage,
+            PageCount = ledgerPageCount,
+            Label = T("صفحه‌بندی دفتر کل", "Ledger pagination")
+        },
+        Items = pagedLedgerItems
+    };
+}
+
+<div class="ak-form-page" data-contract-journey-page dir="@pageDirection">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"{T("قرارداد", "Contract")} {Model.ContractNumber}", false,
+                       string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? T("انتقال از موجودی", "Inventory transfer") : Model.NextRecommendedActionTitle,
+                       string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? "bi-truck-front" : "bi-signpost-2",
+                       string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? inventoryTransferUrl : Model.NextRecommendedActionUrl, (string?)null,
+                       T("بازگشت", "Back"), "bi-arrow-right", (string?)contractsListBackUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @contractStatusToneClass">@LocalizeDisplay(Model.StatusName)</span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@inventoryTransferUrl"><i class="bi bi-truck-front"></i> @T("انتقال از موجودی", "Inventory transfer")</a></li>
+                <li><a class="dropdown-item" href="@contractStatementUrl"><i class="bi bi-journal-text"></i> @T("دفتر حساب قرارداد", "Contract statement")</a></li>
+                <li><a class="dropdown-item" href="@contractPricingUrl"><i class="bi bi-tag"></i> @T("قیمت‌گذاری قرارداد", "Contract pricing")</a></li>
+                <li><a class="dropdown-item" href="@contractEditUrl"><i class="bi bi-pencil-square"></i> @T("ویرایش قرارداد", "Edit contract")</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <section class="ak-form-section" aria-label="@T("خلاصه اطلاعات قرارداد", "Contract information summary")">
+        <dl class="ak-list" data-contract-journey-facts>
+            <div class="ak-list-row"><dt>@partnerLabel</dt><dd>@partnerName</dd></div>
+            <div class="ak-list-row"><dt>@T("جنس", "Product")</dt><dd>@TextOrDash(Model.ProductName)</dd></div>
+            <div class="ak-list-row"><dt>@T("مقدار کل", "Contract quantity")</dt><dd class="ak-num">@FormatMt(Model.ContractQuantityMt)</dd></div>
+            <div class="ak-list-row"><dt>@T("مقدار تخصیص‌یافته", "Allocated quantity")</dt><dd class="ak-num">@FormatMt(loadingQuantityMt)</dd></div>
+            <div class="ak-list-row"><dt>@T("مقدار باقی‌مانده", "Remaining quantity")</dt><dd class="ak-num">@FormatMt(remainingToLoadMt)</dd></div>
+            <div class="ak-list-row"><dt>@T("مبلغ قرارداد", "Contract amount")</dt><dd class="ak-num">@FormatHeaderValueUsd(contractDisplayValueUsd)</dd></div>
+            <div class="ak-list-row"><dt>@T("پرداخت‌شده", "Paid")</dt><dd class="ak-num">@FormatLifecycleUsd(supplierPaidNetUsd)</dd></div>
+            <div class="ak-list-row"><dt>@T("مانده", "Balance")</dt><dd class="ak-num @supplierRemainingToneClass">@FormatLifecycleUsd(supplierRemainingUsd)</dd></div>
+            <div class="ak-list-row"><dt>@T("ارز و نرخ", "Currency & rate")</dt><dd>@contractCurrencyText</dd></div>
+            <div class="ak-list-row"><dt>@T("دوره قرارداد", "Contract period")</dt><dd>@FormatShortDate(Model.StartDate) — @FormatShortDate(Model.EndDate)</dd></div>
+            <div class="ak-list-row"><dt>@T("وضعیت قرارداد", "Contract status")</dt><dd><span class="ak-status @contractStatusToneClass">@LocalizeDisplay(Model.StatusName)</span></dd></div>
+        </dl>
+    </section>
+
+    <partial name="_ContractJourneyDetailTabsRail" model="detailTabsRailModel" />
+
+    <div class="ak-tab-content"
+         data-contract-journey-tab-content="true"
+         data-active-tab="@activeTab"
+         data-loading-text="@T("در حال بارگذاری...", "Loading...")"
+         data-error-text="@T("خطا در دریافت اطلاعات. دوباره تلاش کنید.", "Could not load this tab. Try again.")">
+
+    @if (activeTab == ContractJourneyTabs.Details.Summary)
+    {
+        <div id="journey-tab-lists" class="ak-summary-page">
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                         model="@((T("قیمت و ارزش قرارداد", "Contract price and value"), (string?)(rubSettlement.IsRubSettlement ? rubPendingStatusText : null)))" />
+                <dl class="ak-list">
+                    <div class="ak-list-row"><dt>@T("ارزش قرارداد به دالر", "Contract value in USD")</dt><dd class="ak-num">@FormatHeaderValueUsd(contractDisplayValueUsd)</dd></div>
+                    <div class="ak-list-row"><dt>@T("قیمت واحد", "Unit price")</dt><dd class="ak-num">@(Model.PricingFinalUnitPriceUsd.HasValue && Model.PricingFinalUnitPriceUsd.Value > 0m ? $"{Model.PricingFinalUnitPriceUsd.Value:N2} {UnitUsd()}/{UnitMt()}" : "-")</dd></div>
+                    @if (!rubSettlement.IsRubSettlement)
+                    {
+                        <div class="ak-list-row"><dt>@T("قیمت روبلی قرارداد", "RUB contract price")</dt><dd>@T("ندارد", "None")</dd></div>
+                    }
+                    else if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate)
+                    {
+                        var fixedRubEquivalent = rubSettlement.ContractRubPerUsdRate.HasValue && contractDisplayValueUsd > 0m
+                            ? contractDisplayValueUsd * rubSettlement.ContractRubPerUsdRate.Value
+                            : (decimal?)null;
+                        <div class="ak-list-row"><dt>@T("نرخ روبل برای 1 دالر", "RUB per 1 USD")</dt><dd class="ak-num">@FormatRubRate(rubSettlement.ContractRubPerUsdRate)</dd></div>
+                        <div class="ak-list-row"><dt>@T("معادل روبلی قرارداد", "RUB equivalent")</dt><dd class="ak-num">@(fixedRubEquivalent.HasValue ? FormatRubAmount(fixedRubEquivalent.Value) : T("در انتظار نرخ", "Pending rate"))</dd></div>
+                    }
+                    else if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.PerLoadingRate)
+                    {
+                        <div class="ak-list-row"><dt>@T("ارزش روبلی قطعی تا اکنون", "Locked RUB to date")</dt><dd class="ak-num">@(rubSettlement.LockedAmountRub > 0m ? FormatRubAmount(rubSettlement.LockedAmountRub) : T("در انتظار نرخ", "Pending rate"))</dd></div>
+                        <div class="ak-list-row"><dt>@T("نرخ‌دار / منتظر نرخ", "Rated / pending")</dt><dd class="ak-num">@rubSettlement.LockedLoadingCount.ToString("N0") / @rubSettlement.PendingRateLoadingCount.ToString("N0")</dd></div>
+                    }
+                    else
+                    {
+                        <div class="ak-list-row"><dt>@T("وضعیت قیمت روبلی", "RUB price status")</dt><dd>@T("در انتظار نرخ روبل", "Pending RUB rate")</dd></div>
+                    }
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(Model.NextRecommendedActionTitle) && !string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl))
+                {
+                    <p class="ak-note">
+                        @T("قدم بعدی این پرونده", "Next step"): <a href="@Model.NextRecommendedActionUrl">@Model.NextRecommendedActionTitle</a>
+                    </p>
+                }
+            </section>
+
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                         model="@((T("چرخه قرارداد", "Contract lifecycle"), (string?)T("مقدار و ارزش هر مرحله", "Quantity and value per stage")))" />
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th class="ak-col-grow">@T("مرحله", "Stage")</th>
+                                <th class="ak-col-num">@T("مقدار", "Quantity")</th>
+                                <th class="ak-col-num">@T("باقی‌مانده", "Remaining")</th>
+                                <th class="ak-col-num">@T("ارزش", "Value")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="ak-col-grow">@T("بارگیری", "Loading")</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(loadingQuantityMt)</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(remainingToLoadMt)</td>
+                                <td class="ak-num">@FormatLifecycleUsd(loadingValueUsd)</td>
+                            </tr>
+                            <tr>
+                                <td class="ak-col-grow">@T("ذخایر", "Storage")</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(receiptQuantityMt)</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(currentStockMt)</td>
+                                <td class="ak-num">-</td>
+                            </tr>
+                            <tr>
+                                <td class="ak-col-grow">@T("کسری و ضایعات", "Losses and wastage")</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(totalDisplayLossMt)</td>
+                                <td class="ak-num">-</td>
+                                <td class="ak-num">@FormatLifecycleUsd(summaryLossCostUsd)</td>
+                            </tr>
+                            <tr>
+                                <td class="ak-col-grow">@T("فروشات", "Sales")</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(soldQuantityMt)</td>
+                                <td class="ak-num">@FormatLifecycleQuantity(lifecycleSaleableQuantityMt)</td>
+                                <td class="ak-num">@FormatLifecycleUsd(salesTotalUsd)</td>
+                            </tr>
+                            <tr>
+                                <td class="ak-col-grow">@T("مصارف", "Expenses")</td>
+                                <td class="ak-num">@expenseCount.ToString("N0")</td>
+                                <td class="ak-num">@FormatLifecycleRate(summaryExpensePerLoadedMt)</td>
+                                <td class="ak-num">@FormatLifecycleUsd(summaryExpenseTotalUsd)</td>
+                            </tr>
+                            <tr>
+                                <td class="ak-col-grow">@T("پرداخت‌ها", "Payments")</td>
+                                <td class="ak-num">@paymentCount.ToString("N0")</td>
+                                <td class="ak-num">@FormatLifecycleUsd(supplierRemainingUsd)</td>
+                                <td class="ak-num">@FormatLifecycleUsd(supplierPaidNetUsd)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="ak-note">
+                    @T("مصارف ثبت‌شده", "Recorded expenses"): @FormatLifecycleUsd(summaryRegisteredExpenseUsd) ·
+                    @T("بارگیری / گمرک", "Loading / customs"): @FormatLifecycleUsd(summaryLoadingAndCustomsExpenseUsd) ·
+                    @T("ضایعات بارگیری", "Loading wastage"): @FormatLifecycleQuantity(loadingWastageMt) ·
+                    @T("کسری رسید", "Receipt shortage"): @FormatLifecycleQuantity(receiptShortageWastageMt) ·
+                    @T("کسری انتقال", "Transfer shortage"): @FormatLifecycleQuantity(dispatchShortageWastageMt)
+                </p>
+            </section>
+
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                         model="@((contractNetLabel, (string?)T("سود و زیان عملیاتی قرارداد", "Contract operational profit and loss")))" />
+                <dl class="ak-list">
+                    <div class="ak-list-row"><dt>@T("مجموع فروش", "Total sales")</dt><dd class="ak-num">@FormatLifecycleUsd(salesTotalUsd)</dd></div>
+                    <div class="ak-list-row"><dt>@T("هزینه کالای فروخته‌شده", "Cost of goods sold")</dt><dd class="ak-num">@FormatLifecycleUsd(Model.MiniPnl.CostOfGoodsSoldUsd)</dd></div>
+                    <div class="ak-list-row"><dt>@T("سهم مصارف فروش", "Expenses on sold")</dt><dd class="ak-num">@FormatLifecycleUsd(Model.MiniPnl.ExpensesForSoldUsd)</dd></div>
+                    <div class="ak-list-row"><dt>@contractNetLabel</dt><dd class="ak-num @pnlToneClass">@FormatLifecycleUsd(pnlOperationalMarginUsd)</dd></div>
+                    <div class="ak-list-row"><dt>@T("حاشیه سود", "Margin")</dt><dd class="ak-num">@NumberDisplay.Number(marginPercent, 2)%</dd></div>
+                    <div class="ak-list-row"><dt>@T("بازده خرید", "Purchase return")</dt><dd class="ak-num">@NumberDisplay.Number(returnOnInvestmentPercent, 2)%</dd></div>
+                    <div class="ak-list-row"><dt>@T("میانگین فروش", "Sales average")</dt><dd class="ak-num">@FormatLifecycleRate(salesAverageUsd)</dd></div>
+                </dl>
+            </section>
+
+            @if (Model.ShipmentScenarios.Any())
+            {
+                <section class="ak-form-section">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                             model="@((T("کشتی‌های مرتبط", "Related shipments"), (string?)null))" />
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-grow">@T("کشتی", "Shipment")</th>
+                                    <th class="ak-col-num">@T("مقدار", "Allocated")</th>
+                                    <th class="ak-col-num">@T("فروخته‌شده", "Sold")</th>
+                                    <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var scenario in Model.ShipmentScenarios)
+                                {
+                                    <tr>
+                                        <td class="ak-col-grow">@scenario.ShipmentCode @(string.IsNullOrWhiteSpace(scenario.VesselName) ? "" : $"· {scenario.VesselName}")</td>
+                                        <td class="ak-num">@NumberDisplay.Quantity(scenario.AllocatedQuantityMt)</td>
+                                        <td class="ak-num">@NumberDisplay.Quantity(scenario.SoldQuantityMt)</td>
+                                        <td class="ak-col-actions">
+                                            <div class="dropdown ak-row-menu">
+                                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a asp-controller="ShipmentPnl" asp-action="Details" asp-route-id="@scenario.ShipmentId" class="dropdown-item"><i class="bi bi-folder2-open"></i> @T("پرونده کشتی", "Shipment file")</a></li>
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+        </div>
+    }
+    @switch (activeTab)
+    {
+        case ContractJourneyTabs.Details.Loadings:
+            <partial name="_ContractJourneyLoadingsTab" model="loadingsTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.Receipts:
+            <partial name="_ContractJourneyReceiptsTab" model="receiptsTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.InventoryTransport:
+            <div id="journey-tab-lists" class="ak-tab-panel">
+                <section class="ak-form-section">
+                    <div class="ak-section-head">
+                        <div>
+                            <h2 class="ak-section-title">@T("زنجیره حمل موجودی", "Inventory Journey")</h2>
+                            <p class="ak-section-desc">@TextOrDash(Model.ContractNumber) · @TextOrDash(Model.ProductName) · @T("مقدار کل مرتبط", "Related total"): @FormatMt(transportLegQuantityMt)</p>
+                        </div>
+                        <a asp-controller="InventoryTransportLegs" asp-action="Create" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.InventoryTransport)" class="btn btn-primary ak-primary-action">
+                            <i class="bi bi-train-front"></i>
+                            <span>@T("انتقال تکی از موجودی", "Single inventory transfer")</span>
+                        </a>
+                    </div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-grow">@T("سند / وسیله", "Document / vehicle")</th>
+                                    <th>@T("تاریخ", "Date")</th>
+                                    <th>@T("مسیر", "Route")</th>
+                                    <th class="ak-col-num">@T("حمل", "Transport")</th>
+                                    <th class="ak-col-num">@T("در مسیر", "In transit")</th>
+                                    <th class="ak-col-num">@T("رسیده", "Received")</th>
+                                    <th class="ak-col-num">@T("کسری", "Shortage")</th>
+                                    <th>@T("وضعیت", "Status")</th>
+                                    <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var leg in pagedTransportLegItems)
+                            {
+                                var vehicleText = string.Join(" / ", new[] { leg.WagonNumber, leg.RwbNo }.Where(v => !string.IsNullOrWhiteSpace(v)));
+                                if (string.IsNullOrWhiteSpace(vehicleText))
+                                {
+                                    vehicleText = TransportTypeDisplay(leg.TransportTypeName);
+                                }
+                                <tr>
+                                    <td class="ak-col-grow">
+                                        <a asp-controller="InventoryTransportLegs" asp-action="Details" asp-route-id="@leg.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.InventoryTransport)" class="ak-name">#@leg.Id · @TextOrDash(vehicleText)</a>
+                                    </td>
+                                    <td>@leg.LoadedDate.ToDisplayDate()</td>
+                                    <td>@TextOrDash(leg.SourceTerminalName) → @TextOrDash(TransportDestinationTerminal(leg))</td>
+                                    <td class="ak-num">@FormatMt(leg.QuantityMt)</td>
+                                    <td class="ak-num">@FormatMt(TransportInTransitQuantity(leg))</td>
+                                    <td class="ak-num">@FormatMt(leg.ReceivedQuantityMt)</td>
+                                    <td class="ak-num">@FormatMt(leg.ShortageQuantityMt)</td>
+                                    <td><span class="ak-status @TransportStatusToneClass(leg.StatusName)">@LocalizeDisplay(leg.StatusName)</span></td>
+                                    <td class="ak-col-actions">
+                                        <div class="dropdown ak-row-menu">
+                                            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a asp-controller="InventoryTransportLegs" asp-action="Details" asp-route-id="@leg.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.InventoryTransport)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!transportJourneyItems.Any())
+                            {
+                                <tr>
+                                    <td colspan="9">
+                                        <div class="ak-empty">
+                                            <i class="bi bi-truck-front"></i>
+                                            @T("هنوز حملی از موجودی برای این قرارداد ثبت نشده است.", "No inventory transport has been recorded for this contract yet.")
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    @ListPager("transportLegPage", transportLegPage, transportLegPageCount, T("صفحه‌بندی جریان حمل بار", "Cargo flow pagination"))
+                </section>
+            </div>
+            break;
+
+        case ContractJourneyTabs.Details.Inventory:
+            <partial name="_ContractJourneyInventoryTab" model="inventoryTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.Dispatch:
+            <partial name="_ContractJourneyDispatchTab" model="dispatchTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.Sales:
+            <partial name="_ContractJourneySalesTab" model="salesTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.Costs:
+            <div id="journey-tab-lists" class="ak-tab-panel">
+                <section class="ak-form-section">
+                    <div class="ak-section-head">
+                        <div>
+                            <h2 class="ak-section-title">@T("خزینه", "Expenses")</h2>
+                            <p class="ak-section-desc">@T("مصارف عملیاتی و مصارف مرتبط قرارداد", "Operational and contract-related expenses")</p>
+                        </div>
+                        <div class="ak-page-actions">
+                            <a asp-controller="Expenses" asp-action="CreateWagonRent" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-light ak-secondary-action">
+                                <i class="bi bi-train-front"></i>
+                                <span>@T("ثبت کرایه واگون", "Wagon rent")</span>
+                            </a>
+                            <a asp-controller="Expenses" asp-action="CustomsBatch" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-light ak-secondary-action">
+                                <i class="bi bi-file-earmark-spreadsheet"></i>
+                                <span>@T("مصارف گمرکی", "Customs expenses")</span>
+                            </a>
+                            <a asp-controller="Expenses" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-primary ak-primary-action">
+                                <i class="bi bi-wallet2"></i>
+                                <span>@T("ثبت مصرف", "New expense")</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-grow">@T("نوع", "Type")</th>
+                                    <th>@T("تاریخ", "Date")</th>
+                                    <th class="ak-col-num">@T("مبلغ", "Amount")</th>
+                                    <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var item in pagedExpenseItems)
+                            {
+                                <tr>
+                                    <td class="ak-col-grow"><a asp-controller="Expenses" asp-action="Details" asp-route-id="@item.ExpenseTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="ak-name">@item.ExpenseTypeName</a></td>
+                                    <td>@item.ExpenseDate.ToDisplayDate()</td>
+                                    <td class="ak-num">@item.AmountUsd.ToString("N2") @UnitUsd()</td>
+                                    <td class="ak-col-actions">
+                                        <div class="dropdown ak-row-menu">
+                                            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a asp-controller="Expenses" asp-action="Details" asp-route-id="@item.ExpenseTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                                <li><a asp-controller="Expenses" asp-action="Edit" asp-route-id="@item.ExpenseTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="dropdown-item"><i class="bi bi-pencil-square"></i> @T("ویرایش", "Edit")</a></li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.ExpenseItems.Any())
+                            {
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="ak-empty">
+                                            <i class="bi bi-receipt-cutoff"></i>
+                                            @T("داده‌ای ثبت نشده است.", "No records yet.")
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    @ListPager("expensesPage", expensesPage, expensesPageCount, T("صفحه‌بندی مصارف", "Expenses pagination"))
+                    <p class="ak-note">
+                        @T("مصرف عمومی هر 1 تن بارگیری", "General expense per 1 MT loaded"):
+                        @(expensePerLoadedMt.HasValue ? $"{expensePerLoadedMt.Value:N2} {UnitUsd()}/{UnitMt()}" : T("نیاز به بارگیری", "Loading required")) ·
+                        @T("مصرف عمومی قرارداد", "Contract-level expenses"): @contractLevelExpenseTotalUsd.ToString("N2") @UnitUsd() ·
+                        @T("مصارف جریان حمل بار", "Cargo flow expenses"): @inventoryTransportExpenseTotalUsd.ToString("N2") @UnitUsd()
+                    </p>
+                </section>
+
+                <section class="ak-form-section">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                             model="@((T("تخصیص مصارف جریان حمل بار", "Cargo flow expense allocation"), (string?)null))" />
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-grow">@T("حمل", "Transport")</th>
+                                    <th>@T("تاریخ", "Date")</th>
+                                    <th>@T("مسیر", "Route")</th>
+                                    <th class="ak-col-num">@T("وزن حمل", "Transport weight")</th>
+                                    <th class="ak-col-num">@T("جمع مصرف", "Expense total")</th>
+                                    <th class="ak-col-num">@T("مصرف هر تن", "Expense per MT")</th>
+                                    <th class="ak-col-num">@T("تعداد", "Count")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var allocation in Model.InventoryTransportExpenseAllocations)
+                            {
+                                <tr>
+                                    <td class="ak-col-grow">
+                                        <a asp-controller="InventoryTransportLegs" asp-action="Details" asp-route-id="@allocation.TransportLegId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="ak-name">@allocation.TransportTypeName / @allocation.TransportReference</a>
+                                    </td>
+                                    <td>@allocation.LoadedDate.ToDisplayDate()</td>
+                                    <td>@allocation.SourceLocation → @allocation.DestinationLocation</td>
+                                    <td class="ak-num">@NumberDisplay.Quantity(allocation.QuantityMt) @UnitMt()</td>
+                                    <td class="ak-num">@allocation.ExpenseTotalUsd.ToString("N2") @UnitUsd()</td>
+                                    <td class="ak-num">@(allocation.ExpensePerMtUsd.HasValue ? $"{allocation.ExpensePerMtUsd.Value:N2} {UnitUsd()}/{UnitMt()}" : "-")</td>
+                                    <td class="ak-num">@allocation.ExpenseCount.ToString("N0")</td>
+                                </tr>
+                            }
+                            @if (!Model.InventoryTransportExpenseAllocations.Any())
+                            {
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="ak-empty">
+                                            <i class="bi bi-truck-front"></i>
+                                            @T("جریان حمل بار برای این قرارداد ثبت نشده است.", "No cargo flow has been recorded for this contract.")
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                @* ─── بخش کسری و ضایعات (ادغام‌شده با تب خزینه) ─── *@
+                <section class="ak-form-section">
+                    <div class="ak-section-head">
+                        <div>
+                            <h2 class="ak-section-title">@T("کسری و ضایعات", "Losses and wastage")</h2>
+                            <p class="ak-section-desc">@T("تلفات، کسری اندازه‌گیری و ضایعات", "Measured shortages and wastage")</p>
+                        </div>
+                        <a asp-controller="LossEvents"
+                           asp-action="Create"
+                           asp-route-contractId="@Model.ContractId"
+                           asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)"
+                           class="btn btn-primary ak-primary-action">
+                            <i class="bi bi-dash-circle"></i>
+                            <span>@T("ثبت کسری جدید", "New loss")</span>
+                        </a>
+                    </div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-grow">@T("شماره", "ID")</th>
+                                    <th>@T("تاریخ", "Date")</th>
+                                    <th>@T("نوع", "Type")</th>
+                                    <th class="ak-col-num">@T("مقدار (MT)", "Quantity (MT)")</th>
+                                    <th class="ak-col-num">%</th>
+                                    <th>@T("مسئول", "Responsible")</th>
+                                    <th>@T("وضعیت", "Status")</th>
+                                    <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var item in pagedLossItems)
+                            {
+                                <tr>
+                                    <td class="ak-col-grow">
+                                        @if (item.LossEventId > 0)
+                                        {
+                                            <a asp-controller="LossEvents" asp-action="Details" asp-route-id="@item.LossEventId" asp-route-returnUrl="@ReturnUrl(LossesPresentationTab)" class="ak-name">#@item.LossEventId</a>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td>@item.EventDate.ToDisplayDate()</td>
+                                    <td>@item.StageName</td>
+                                    <td class="ak-num">@DisplayLossQuantityMt(item).ToString("N2") @UnitMt()</td>
+                                    <td class="ak-num">@(item.ExpectedQuantityMt > 0m ? (DisplayLossQuantityMt(item) / item.ExpectedQuantityMt * 100m).ToString("N2") + "%" : "-")</td>
+                                    <td>@(!string.IsNullOrWhiteSpace(item.TraceKind) ? item.TraceKind : "-")</td>
+                                    <td>
+                                        <span class="ak-status @(item.RelatedMovementId.HasValue ?"is-active" : "is-inactive")">
+                                            @(item.RelatedMovementId.HasValue ? T("ثبت‌شده", "Recorded") : (DisplayLossQuantityMt(item) > 0m ? T("نیاز بررسی", "Needs review") : T("ثبت نشده", "Unrecorded")))
+                                        </span>
+                                    </td>
+                                    <td class="ak-col-actions">
+                                        @if (item.LossEventId > 0)
+                                        {
+                                            <div class="dropdown ak-row-menu">
+                                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a asp-controller="LossEvents" asp-action="Details" asp-route-id="@item.LossEventId" asp-route-returnUrl="@ReturnUrl(LossesPresentationTab)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                                    <li>
+                                                        <a asp-controller="LossEvents"
+                                                           asp-action="Edit"
+                                                           asp-route-id="@item.LossEventId"
+                                                           asp-route-returnUrl="@ReturnUrl(LossesPresentationTab)"
+                                                           class="dropdown-item">
+                                                            <i class="bi bi-pencil-square"></i> @T("ویرایش", "Edit")
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="ak-section-desc">@T("سیستمی", "System")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.LossItems.Any())
+                            {
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="ak-empty">
+                                            <i class="bi bi-exclamation-diamond"></i>
+                                            @T("داده‌ای ثبت نشده است.", "No records yet.")
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    @ListPager("lossesPage", lossesPage, lossesPageCount, T("صفحه‌بندی کسری‌ها", "Losses pagination"))
+                </section>
+            </div>
+            break;
+
+        case ContractJourneyTabs.Details.Finance:
+            <partial name="_ContractJourneyFinanceTab" model="financeTabModel" />
+            break;
+
+        case ContractJourneyTabs.Details.Ledger:
+            <partial name="_ContractJourneyLedgerTab" model="ledgerTabModel" />
+            break;
+
+    }
+
+    </div>
+</div>

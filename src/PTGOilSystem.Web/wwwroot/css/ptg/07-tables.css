@@ -1,0 +1,64 @@
+
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table),
+body.ptg-modal-document :where(.table, .ds-table) {
+    margin-bottom: 0;
+    color: var(--ptg-text);
+    vertical-align: middle;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) > :not(caption) > * > *,
+body.ptg-modal-document :where(.table, .ds-table) > :not(caption) > * > * {
+    border-color: var(--ptg-border);
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) thead th,
+body.ptg-modal-document :where(.table, .ds-table) thead th {
+    padding: .9rem 1rem;
+    border-bottom: 1px solid var(--ptg-border) !important;
+    background: var(--ptg-table-header) !important;
+    color: var(--ptg-muted) !important;
+    font-size: .8rem;
+    font-weight: 800 !important;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) tbody :where(td, th),
+body.ptg-modal-document :where(.table, .ds-table) tbody :where(td, th) {
+    padding: .85rem 1rem;
+    color: var(--ptg-text);
+    font-size: .88rem;
+    line-height: 1.55;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) tbody tr:hover > :where(td, th),
+body.ptg-modal-document :where(.table, .ds-table) tbody tr:hover > :where(td, th) {
+    background: #FAFAFD !important;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) a:not(.btn),
+body.ptg-modal-document :where(.table, .ds-table) a:not(.btn) {
+    color: var(--ptg-primary);
+    font-weight: 750;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table-empty, .empty-state, .ptg-empty-state),
+body.ptg-modal-document :where(.table-empty, .empty-state, .ptg-empty-state) {
+    padding: 2rem;
+    border: 1px dashed var(--ptg-border-strong);
+    border-radius: var(--ptg-radius-card);
+    background: var(--ptg-surface);
+    color: var(--ptg-muted);
+    text-align: center;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.form-check-input) {
+    border-color: var(--ptg-border-strong);
+    border-radius: .4rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.form-check-input:checked) {
+    border-color: var(--ptg-primary);
+    background-color: var(--ptg-primary);
+}

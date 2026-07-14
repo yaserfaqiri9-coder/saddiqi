@@ -1,0 +1,689 @@
+
+
+/* Base definition records. */
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .masterdata-core-page > .ds-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Truck, wagon{
+    grid-template-columns: 15rem minmax(0, 1fr);
+    align-items: start;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .transport-info-card h2{
+    margin: 0 0 .55rem;
+    font-size: .9rem;
+    font-weight: 800;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .transport-info-grid {
+    padding: 0;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .transport-info-grid .is-wide {
+    grid-column: 1 / -1;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) .tab-pane.show.active {
+    display: grid;
+    gap: .75rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-journal,
+    .supplier-overview-focus,
+    .supplier-overview-right-column,
+    .customer-ledger-panel,
+    .customer-tab-summary,
+    .supplier-statement-focus
+) {
+    display: grid;
+    gap: .65rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-focus-grid,
+    .customer-focus-grid
+) {
+    display: grid;
+    grid-template-columns: minmax(17rem, 1.15fr) minmax(19rem, 1fr);
+    gap: .65rem;
+    align-items: start;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-grid,
+    .customer-stat-grid,
+    .supplier-tab-summary-grid,
+    .customer-summary-grid
+) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .55rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-journal-shot-grid,
+    .customer-mini-grid
+) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: .55rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-info-card,
+    .customer-info-card,
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card,
+    .supplier-tab-summary
+) {
+    padding: .72rem .78rem;
+    border-radius: .78rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card
+) {
+    display: grid;
+    align-content: start;
+    gap: .35rem;
+    min-height: 5.7rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card
+) header {
+    color: var(--md-detail-muted);
+    font-size: .68rem;
+    font-weight: 750;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card
+) > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: .28rem .45rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card
+) strong {
+    color: var(--md-detail-text);
+    font-size: .88rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-stat-card,
+    .supplier-journal-shot,
+    .customer-stat-card,
+    .customer-mini-card
+) span {
+    grid-column: 2;
+    color: var(--md-detail-muted);
+    font-size: .64rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-focus-title,
+    .supplier-overview-info-title,
+    .customer-section-title
+) {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    color: var(--md-detail-text);
+    font-size: .82rem;
+    font-weight: 800;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-info-list,
+    .customer-info-list
+) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: .45rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-info-list,
+    .customer-info-list
+) > div {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, .8fr) minmax(0, 1.2fr);
+    gap: .5rem;
+    padding: .48rem .15rem;
+    border-bottom: 1px solid #edf0f4;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-info-list,
+    .customer-info-list
+) span {
+    color: var(--md-detail-muted);
+    font-size: .68rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-overview-info-list,
+    .customer-info-list
+) strong {
+    color: var(--md-detail-text);
+    font-size: .74rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+    .supplier-journal-section,
+    .customer-section,
+    .supplier-statement-focus,
+    .supplier-tab-summary
+) {
+    margin: 0;
+    padding: .75rem;
+    border: 1px solid var(--md-detail-border);
+    border-radius: .78rem;
+    background: #fff;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) .table-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) table.table {
+    width: 100%;
+    min-width: 42rem;
+    margin: 0;
+}
+
+@media (max-width: 991.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(.supplier-overview-focus-grid, .customer-focus-grid) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(.party-detail-page, .people-parties-page) :is(
+        .supplier-overview-stat-grid,
+        .customer-stat-grid,
+        .supplier-tab-summary-grid,
+        .customer-summary-grid,
+        .supplier-overview-info-list,
+        .customer-info-list
+    ) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+}
+
+/* ===================================================================
+   Party profile pages redesign
+   Supplier / Customer / Service Provider / Sarraf
+   =================================================================== */
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) {
+    --party-panel-border: #dfe7f1;
+    --party-panel-line: #ecf1f6;
+    --party-panel-soft: #f6f8fc;
+    --party-panel-muted: #7B7B7B;
+    --party-panel-text: #424242;
+    --party-panel-accent: #1554c8;
+    --party-panel-shadow: 0 14px 34px rgba(15, 23, 42, .06);
+    max-width: none;
+    margin-inline: 0;
+    gap: 1rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero, .sarraf-profile-head, .party-side-card) {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--party-panel-border) !important;
+    border-radius: 1.35rem !important;
+    background:
+        linear-gradient(180deg, var(--party-panel-accent) 0, var(--party-panel-accent) 4.2rem, #ffffff 4.2rem, #ffffff 100%) !important;
+    box-shadow: var(--party-panel-shadow) !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero, .sarraf-profile-head) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 1.1rem;
+    padding: 5rem 1.2rem 1.15rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-actions, .sarraf-profile-actions) {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    padding-top: .2rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-actions, .sarraf-profile-actions) .btn {
+    min-height: 2.45rem;
+    padding-inline: 1rem;
+    border-radius: .9rem;
+    box-shadow: none;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-id, .sarraf-profile-id) {
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-avatar, .sarraf-profile-avatar) {
+    width: 3.35rem;
+    height: 3.35rem;
+    border-radius: 1rem;
+    background: #ebf3ff;
+    color: var(--party-panel-accent);
+    font-size: 1.35rem;
+    box-shadow: 0 0 0 .42rem rgba(21, 84, 200, .08);
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-name, .sarraf-profile-name) {
+    color: var(--party-panel-text);
+    font-size: 1.45rem;
+    font-weight: 850;
+    line-height: 1.3;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-meta, .sarraf-profile-meta) {
+    gap: .45rem .8rem;
+    margin-top: .45rem;
+    color: var(--party-panel-muted);
+    font-size: .8rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-balance, .sarraf-profile-balance) {
+    min-width: min(100%, 16rem);
+    padding: .9rem 1rem;
+    border: 1px solid var(--party-panel-line);
+    border-radius: 1rem;
+    background: var(--party-panel-soft);
+    align-items: flex-start;
+    text-align: start;
+    box-shadow: none;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-balance-amount, .sarraf-balance-amount) {
+    color: var(--party-panel-text);
+    font-size: 1.55rem;
+    font-weight: 850;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-hero-balance-label, .sarraf-balance-label) {
+    color: var(--party-panel-muted);
+    font-size: .78rem;
+    line-height: 1.6;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-finance-strip,
+    .customer-details-page .party-stat-grid,
+    .service-provider-details-page .party-stat-grid,
+    .sarraf-details-page .sarraf-stat-grid
+) {
+    gap: .8rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-finance-item,
+    .customer-details-page .party-stat-card,
+    .service-provider-details-page .party-stat-card,
+    .sarraf-details-page .sarraf-stat-card
+) {
+    min-height: 0;
+    padding: .95rem 1rem !important;
+    border: 1px solid var(--party-panel-line);
+    border-radius: 1rem !important;
+    background: var(--party-panel-soft) !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-stat-title,
+    .customer-details-page .party-stat-title,
+    .service-provider-details-page .party-stat-title,
+    .sarraf-details-page .sarraf-stat-title
+) {
+    color: var(--party-panel-muted);
+    font-size: .76rem;
+    font-weight: 750;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-stat-value,
+    .customer-details-page .party-stat-value,
+    .service-provider-details-page .party-stat-value,
+    .sarraf-details-page .sarraf-stat-value
+) {
+    color: var(--party-panel-text);
+    font-size: 1.28rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-stat-note,
+    .customer-details-page .party-stat-note,
+    .service-provider-details-page .party-stat-note,
+    .sarraf-details-page .sarraf-stat-note
+) {
+    color: #8b95a7;
+    font-size: .72rem;
+    line-height: 1.55;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-section, .sarraf-recent-card, .sarraf-statement-card, .party-collapse, .sarraf-collapse, .party-today, .sarraf-today-card, .supplier-contract-card) {
+    border: 1px solid var(--party-panel-border) !important;
+    border-radius: 1.2rem !important;
+    background: #ffffff !important;
+    box-shadow: var(--party-panel-shadow) !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-section, .sarraf-recent-card, .sarraf-statement-card) {
+    padding: 1rem 1.05rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .customer-details-page .party-today,
+    .service-provider-details-page .party-today,
+    .sarraf-details-page .sarraf-today-card
+) {
+    padding: .95rem 1rem !important;
+    background: var(--party-panel-soft) !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-card-head, .sarraf-card-head) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .55rem;
+    margin-bottom: .9rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-card-head h2, .sarraf-card-head h2) {
+    margin: 0;
+    color: var(--party-panel-text);
+    font-size: .98rem;
+    font-weight: 820;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.party-link, .sarraf-link) {
+    color: var(--party-panel-accent);
+    font-size: .76rem;
+    font-weight: 760;
+    text-decoration: none;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.supplier-filter-bar, .party-filter-bar) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: .8rem;
+    margin-bottom: 1rem;
+    padding: .9rem 1rem;
+    border: 1px solid var(--party-panel-line);
+    border-radius: 1rem;
+    background: var(--party-panel-soft);
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.supplier-filter-bar, .party-filter-bar) > div,
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .customer-details-page .party-filter-bar > .col-md-4,
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content .customer-details-page .party-filter-bar > .col-md-auto {
+    margin: 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.supplier-filter-bar, .party-filter-bar) label {
+    margin-bottom: .25rem;
+    color: var(--party-panel-muted);
+    font-size: .74rem;
+    font-weight: 750;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) .table-responsive {
+    border: 1px solid var(--party-panel-line);
+    border-radius: 1rem;
+    background: #ffffff;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.ds-table, .supplier-statement-table, .supplier-statement-ledger) {
+    min-width: 48rem;
+    margin: 0;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.ds-table, .supplier-statement-table, .supplier-statement-ledger) thead th {
+    padding: .8rem .75rem;
+    border-bottom: 1px solid var(--party-panel-line);
+    background: #F5F7FA;
+    color: #7B7B7B;
+    font-size: .73rem;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page,
+    .customer-details-page,
+    .service-provider-details-page,
+    .sarraf-details-page
+) :is(.ds-table, .supplier-statement-table, .supplier-statement-ledger) tbody td {
+    padding: .78rem .75rem;
+    border-top: 1px solid var(--party-panel-line);
+    vertical-align: middle;
+    font-size: .78rem;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-contract-pay > summary,
+    .supplier-details-page .party-collapse > summary,
+    .customer-details-page .party-collapse > summary,
+    .service-provider-details-page .party-collapse > summary,
+    .sarraf-details-page .sarraf-collapse > summary
+) {
+    min-height: 3rem;
+    padding: .95rem 1rem;
+    border-bottom: 1px solid var(--party-panel-line);
+    color: var(--party-panel-text);
+    font-size: .86rem;
+    font-weight: 800;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+    .supplier-details-page .supplier-contract-pay[open] > .table-responsive,
+    .supplier-details-page .party-collapse[open] > .table-responsive,
+    .customer-details-page .party-collapse[open] > .table-responsive,
+    .service-provider-details-page .party-collapse[open] > .table-responsive,
+    .sarraf-details-page .sarraf-collapse[open] > .table-responsive
+) {
+    margin: 0 1rem 1rem;
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+        .supplier-details-page,
+        .customer-details-page,
+        .service-provider-details-page,
+        .sarraf-details-page
+    ) :is(.party-hero, .sarraf-profile-head) {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 4.8rem .9rem 1rem !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+        .supplier-details-page .supplier-finance-strip,
+        .customer-details-page .party-stat-grid,
+        .service-provider-details-page .party-stat-grid,
+        .sarraf-details-page .sarraf-stat-grid,
+        .party-side-card__fields
+    ) {
+        grid-template-columns: 1fr;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
+        .supplier-details-page,
+        .customer-details-page,
+        .service-provider-details-page,
+        .sarraf-details-page
+    ) :is(.supplier-filter-bar, .party-filter-bar) {
+        padding: .8rem;
+    }
+}
+
+/* =====================================================================
+   Party Profile — دیزاین «Minimal» برای هر ۷ صفحهٔ طرف‌حساب (.pp-scope)
+   کاور تمام‌قد + آواتار حلقه‌سفید روی لبه + نوار سفید تب‌ها در پایین کارت
+   + کارت‌های KPI با همان دیزاین کارت‌های آماری داشبورد/مالی (آیکون‌های
+   سه‌بعدی آبی از party-icon-pack.webp — شبکهٔ ۸×۶). نمایشی-فقط.
+   ===================================================================== */
+:root {
+    --pp-cover-a: #274c78;
+    --pp-cover-b: #33608f;
+    --pp-cover-c: #4176ac;
+    --pp-cover-d: #2c527e;
+    --pp-card-border: #e5e7eb;
+    --pp-card-shadow: 0 0 2px rgba(158, 158, 158, .2), 0 12px 24px -4px rgba(158, 158, 158, .12);
+    --pp-text: #424242;
+    --pp-muted: #7B7B7B;
+    --pp-strip-h: 48px;
+}

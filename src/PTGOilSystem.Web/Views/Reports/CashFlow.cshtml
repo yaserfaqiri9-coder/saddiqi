@@ -1,0 +1,134 @@
+@model PTGOilSystem.Web.Models.Reports.CashFlowReportViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "جریان نقدی", "Cash Flow");
+    var hasActiveFilters = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ProductId.HasValue || Model.Filter.ContractId.HasValue
+        || Model.Filter.CustomerId.HasValue || Model.Filter.SupplierId.HasValue;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جریان نقدی", "Cash Flow"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "گزارش‌ها", "Reports"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <p class="ak-note">@UiText.T(Context, "ورودی و خروجی واقعی از روزنامچه و حساب‌های نقدی.", "Actual inflow and outflow from roznamcha and cash accounts.")</p>
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار جریان نقدی", "Cash flow metrics")">
+        <dl class="ak-summary-list">
+            @foreach (var metric in Model.Metrics.Take(4))
+            {
+                @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
+            }
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        <form method="get" class="ak-report-parameters" id="cfFilterForm">
+            <div class="ak-report-parameters-bar">
+                <div class="ak-report-parameters-anchor">
+                    <button type="button" class="btn btn-light ak-report-parameters-toggle @(hasActiveFilters ?"is-on" : null)" id="cfFilterToggle" aria-label="فیلتر" aria-expanded="false">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <div class="ak-report-parameters-pop" id="cfFilterPop" hidden>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "از تاریخ", "From")</label>
+                        <input class="ak-input" type="date" name="FromDate" value="@Model.Filter.FromDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "تا تاریخ", "To")</label>
+                        <input class="ak-input" type="date" name="ToDate" value="@Model.Filter.ToDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "جنس", "Product")</label>
+                        <select class="ak-input" name="ProductId" asp-items="ViewBag.Products"><option value="">@UiText.T(Context, "همه اجناس", "All Products")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "قرارداد", "Contract")</label>
+                        <select class="ak-input" name="ContractId" asp-items="ViewBag.Contracts"><option value="">@UiText.T(Context, "همه قراردادها", "All Contracts")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "مشتری", "Customer")</label>
+                        <select class="ak-input" name="CustomerId" asp-items="ViewBag.Customers"><option value="">@UiText.T(Context, "همه مشتری‌ها", "All Customers")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "تأمین‌کننده", "Supplier")</label>
+                        <select class="ak-input" name="SupplierId" asp-items="ViewBag.Suppliers"><option value="">@UiText.T(Context, "همه تأمین‌کنندگان", "All Suppliers")</option></select>
+                        <button type="submit" class="btn btn-primary ak-report-parameters-apply">@UiText.T(Context, "اعمال", "Apply")</button>
+                        <button type="button" class="btn btn-light ak-report-parameters-apply" onclick="window.print()"><i class="bi bi-printer"></i> @UiText.T(Context, "چاپ", "Print")</button>
+                        @if (hasActiveFilters)
+                        {
+                            <a asp-action="CashFlow" class="btn btn-light ak-report-parameters-apply">@UiText.T(Context, "پاک‌کردن", "Clear")</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@UiText.T(Context, "گروه", "Group")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "ورودی USD", "Inflow USD")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "خروجی USD", "Outflow USD")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "خالص", "Net")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "تعداد", "Count")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@row.GroupName</td>
+                            <td class="ak-col-num ak-num">@row.InflowUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@row.OutflowUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num @(row.NetUsd >= 0 ?"ak-num" : "ak-num")">@row.NetUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@row.Count.ToString("N0")</td>
+                        </tr>
+                    }
+                    @if (!Model.Rows.Any())
+                    {
+                        <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-cash-stack"></i> @UiText.T(Context, "حرکت نقدی پیدا نشد؛ فیلترها را تغییر دهید.", "No cash movement found; change the filters.")</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@UiText.T(Context, "حساب", "Account")</th>
+                        <th>@UiText.T(Context, "ارز", "Currency")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "ورودی", "Inflow")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "خروجی", "Outflow")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "خالص", "Net")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.AccountRows)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@row.CashAccountName</td>
+                            <td>@row.Currency</td>
+                            <td class="ak-col-num ak-num">@row.InflowUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@row.OutflowUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num @(row.NetUsd >= 0 ?"ak-num" : "ak-num")">@row.NetUsd.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('cfFilterToggle');
+            var pop = document.getElementById('cfFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}

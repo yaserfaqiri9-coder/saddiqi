@@ -1,0 +1,95 @@
+@model SarrafSettlementDetailsViewModel
+@{
+    ViewData["Title"] = "جزئیات تسویه صراف";
+    ViewData["HideSectionTabs"] = true;
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var backUrl = returnUrl ?? Url.Action("Index") ?? "/SarrafSettlements";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"تسویه صراف #{Model.Id}", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.Status == SarrafSettlementStatus.Posted ?"is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@Model.StatusName</span>
+        <span class="ak-note">@Model.SarrafName — @(Model.ReferenceNumber ?? $"#{Model.Id}")</span>
+        @if (Model.LedgerEntryId.HasValue)
+        {
+            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.LedgerEntryId.Value" class="btn btn-light">Ledger تأمین‌کننده</a>
+        }
+        @if (Model.ExchangeDifferenceLedgerEntryId.HasValue)
+        {
+            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.ExchangeDifferenceLedgerEntryId.Value" class="btn btn-light">Ledger اختلاف</a>
+        }
+    </div>
+
+    <dl class="ak-summary-list ak-summary">
+        <div><dt>درخواست شرکت</dt><dd class="ak-num">@Model.RequestedAmountUsd.ToString("N2") USD</dd></div>
+        <div><dt>طلب صراف</dt><dd class="ak-num">@Model.SarrafChargedAmountUsd.ToString("N2") USD</dd></div>
+        <div><dt>قبول‌شده تأمین‌کننده</dt><dd class="ak-num">@Model.SupplierAcceptedAmountUsd.ToString("N2") USD</dd></div>
+        <div><dt>اختلاف</dt><dd class="ak-num @(Model.DifferenceAmountUsd >= 0 ?"ak-num" : "ak-num")">@Model.DifferenceAmountUsd.ToString("N2") USD</dd></div>
+    </dl>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ارتباطات", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.SettlementDate.ToDisplayDate()</dd></div>
+                <div class="ak-list-row"><dt>صراف</dt><dd>@Model.SarrafName</dd></div>
+                <div class="ak-list-row"><dt>تأمین‌کننده</dt><dd>@(Model.SupplierName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>قرارداد</dt><dd>@(Model.ContractNumber ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>مرجع</dt><dd>@(Model.ReferenceNumber ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>شرح</dt><dd>@(Model.Description ?? "-")</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت و دفتر کل", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.Status == SarrafSettlementStatus.Posted ?"is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@Model.StatusName</span></dd></div>
+                <div class="ak-list-row"><dt>رفتار اختلاف</dt><dd>@Model.DifferenceTreatmentName</dd></div>
+                <div class="ak-list-row"><dt>نوع اختلاف</dt><dd>@Model.DifferenceTypeName</dd></div>
+                <div class="ak-list-row"><dt>Ledger تأمین‌کننده</dt><dd>@(Model.LedgerEntryId.HasValue ? $"#{Model.LedgerEntryId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>Ledger سود/زیان</dt><dd>@(Model.ExchangeDifferenceLedgerEntryId.HasValue ? $"#{Model.ExchangeDifferenceLedgerEntryId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>ثبت قطعی</dt><dd>@(Model.PostedAtUtc?.ToDisplayDateTime() ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>لغو</dt><dd>@(Model.CancelledAtUtc?.ToDisplayDateTime() ?? "-")</dd></div>
+            </dl>
+        </section>
+    </div>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("جزئیات نرخ‌ها", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">بخش</th><th class="ak-col-num">مبلغ</th><th>ارز</th><th class="ak-col-num">نرخ به USD</th><th class="ak-col-num">USD</th></tr></thead>
+                <tbody>
+                    <tr><td class="ak-col-grow">درخواست شرکت</td><td class="ak-col-num ak-num">@Model.RequestedAmount.ToString("N2")</td><td>@Model.RequestedCurrency</td><td class="ak-col-num ak-num">@Model.RequestedFxRateToUsd.ToString("0.######")</td><td class="ak-col-num ak-num">@Model.RequestedAmountUsd.ToString("N2")</td></tr>
+                    <tr><td class="ak-col-grow">طلب صراف</td><td class="ak-col-num ak-num">@Model.SarrafChargedAmount.ToString("N2")</td><td>@Model.SarrafCurrency</td><td class="ak-col-num ak-num">@Model.SarrafFxRateToUsd.ToString("0.######")</td><td class="ak-col-num ak-num">@Model.SarrafChargedAmountUsd.ToString("N2")</td></tr>
+                    <tr><td class="ak-col-grow">قبول‌شده تأمین‌کننده</td><td class="ak-col-num ak-num">@Model.SupplierAcceptedAmount.ToString("N2")</td><td>@Model.SupplierAcceptedCurrency</td><td class="ak-col-num ak-num">@Model.SupplierAcceptedFxRateToUsd.ToString("0.######")</td><td class="ak-col-num ak-num">@Model.SupplierAcceptedAmountUsd.ToString("N2")</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if (Model.Status != SarrafSettlementStatus.Cancelled)
+    {
+        <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="ak-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("لغو تسویه", (string?)null))" />
+                <div class="ak-form-grid">
+                    <div class="ak-field ak-col-full">
+                        <label class="ak-label">دلیل لغو</label>
+                        <input name="reason" class="ak-input" maxlength="500" />
+                    </div>
+                </div>
+                <div class="ak-footer-actions">
+                    <button type="submit" class="btn btn-outline-danger"><i class="bi bi-x-circle"></i> لغو تسویه</button>
+                </div>
+            </section>
+        </form>
+    }
+</div>

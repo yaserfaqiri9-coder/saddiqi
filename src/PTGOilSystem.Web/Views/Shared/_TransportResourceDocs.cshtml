@@ -1,0 +1,49 @@
+@model TransportResourceProfileViewModel
+@{
+    const int PageSize = 4;
+    var requestedPage = Context.Request.Query["page"].ToString();
+    var currentPage = int.TryParse(requestedPage, out var parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    var totalCount = Model.Documents.Count;
+    var pageCount = Math.Max(1, (int)Math.Ceiling(totalCount / (double)PageSize));
+    currentPage = Math.Min(currentPage, pageCount);
+    var visibleDocuments = Model.Documents
+        .Skip((currentPage - 1) * PageSize)
+        .Take(PageSize)
+        .ToList();
+
+    string FormatDate(DateTime? date) => date.HasValue ? date.Value.ToDisplayDate() : "بدون تاریخ";
+}
+
+<div>
+    @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("پرونده اسناد الکترونیک", (string?)$"{totalCount} سند"))
+
+    @if (visibleDocuments.Any())
+    {
+        <div class="ak-list">
+            @foreach (var item in visibleDocuments)
+            {
+                <article class="ak-list-row">
+                    <div>
+                        <span>تاریخ ثبت</span>
+                        <strong>@FormatDate(item.Date)</strong>
+                    </div>
+                    <div>
+                        <strong>@item.Number</strong>
+                        <span>@item.Type</span>
+                        <small>@item.Source</small>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Controller) && !string.IsNullOrWhiteSpace(item.Action) && item.RouteId.HasValue)
+                    {
+                        <a asp-controller="@item.Controller" asp-action="@item.Action" asp-route-id="@item.RouteId" class="btn btn-light ak-secondary-action">باز کردن</a>
+                    }
+                </article>
+            }
+        </div>
+
+        @await Html.PartialAsync("_Pagination", (currentPage, pageCount))
+    }
+    else
+    {
+        <div class="ak-empty">برای این مورد هنوز سند مرجع، رسید یا بارنامه ثبت نشده است.</div>
+    }
+</div>

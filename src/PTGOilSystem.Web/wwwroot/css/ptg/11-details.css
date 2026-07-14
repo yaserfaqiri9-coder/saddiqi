@@ -1,0 +1,550 @@
+
+
+body.boltz-shell.app-shell-authenticated :where(.ptg-action-bar, .details-action-bar, .page-toolbar) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.note-card, .detail-note, .print-note) {
+    padding: 1.35rem;
+    border: 1px solid var(--ptg-border);
+    border-radius: var(--ptg-radius-card);
+    background: var(--ptg-surface-soft);
+    color: var(--ptg-text);
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated :where(.ptg-action-bar, .details-action-bar, .page-toolbar) {
+        justify-content: stretch;
+    }
+
+    body.boltz-shell.app-shell-authenticated :where(.ptg-action-bar, .details-action-bar, .page-toolbar) > * {
+        flex: 1 1 auto;
+    }
+}
+
+/*
+ * Operational detail pages.
+ * These views share the loading-detail-* markup contract. Keep the layout
+ * scoped here so list, form, ledger, and Contract Journey pages are untouched.
+ */
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page {
+    --op-detail-border: #E2E6EE;
+    --op-detail-border-soft: #EDF0F5;
+    --op-detail-soft: #F8F9FC;
+    --op-detail-text: #1F2430;
+    --op-detail-muted: #70798B;
+    display: grid;
+    gap: .85rem;
+    width: min(100%, 112rem);
+    max-width: 112rem;
+    margin-inline: auto;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(*) {
+    min-width: 0;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-clean-header {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .75rem 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--op-detail-border);
+    border-radius: var(--ptg-radius-card);
+    background: var(--ptg-surface);
+    box-shadow: var(--ptg-shadow-card);
+}
+body.boltz-shell.controller-inventorytransportlegs.action-details .boltz-content .itl-detail-nav-tabs {
+    position: static;
+    display: flex;
+    gap: .25rem;
+    padding: .35rem;
+    overflow-x: auto;
+    border: 1px solid var(--op-detail-border, #E2E6EE);
+    border-radius: 1rem;
+    background: var(--ptg-surface);
+    scrollbar-width: thin;
+}
+body.boltz-shell.controller-inventorytransportlegs.action-details .boltz-content .itl-detail-nav-tabs .nav-link {
+    flex: 0 0 auto;
+    min-height: 2.35rem;
+    padding: .42rem .8rem;
+    border: 0 !important;
+    border-radius: .75rem !important;
+    background: transparent !important;
+    color: var(--op-detail-muted, #70798B) !important;
+    font-size: .76rem;
+    font-weight: 720;
+    white-space: nowrap;
+    box-shadow: none !important;
+}
+body.boltz-shell.controller-inventorytransportlegs.action-details .boltz-content .itl-detail-nav-tabs .nav-link.active {
+    background: var(--ptg-primary) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-single-shell {
+    display: grid;
+    gap: .85rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+    gap: .65rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-summary-card {
+    display: grid;
+    align-content: start;
+    gap: .55rem;
+    min-height: 6.5rem;
+    padding: .85rem .9rem;
+    overflow: visible;
+    border: 1px solid var(--op-detail-border) !important;
+    border-radius: 1rem !important;
+    background: var(--ptg-surface) !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.operational-asset-card-menu, .operational-asset-metric-bars) {
+    display: none;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-essential-grid, .loading-detail-record-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: .75rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-simple-card, .loading-detail-record-card) {
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--op-detail-border) !important;
+    border-radius: 1rem !important;
+    background: var(--ptg-surface) !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-simple-card, .loading-detail-record-card) > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    min-height: 3.25rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--op-detail-border-soft);
+    background: var(--op-detail-soft);
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-simple-card, .loading-detail-record-card) > header h2 {
+    margin: 0;
+    color: var(--op-detail-text);
+    font-size: .92rem;
+    font-weight: 790;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) {
+    display: grid;
+    margin: 0;
+    padding: .25rem 1rem .55rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) > div {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    align-items: start;
+    gap: .75rem;
+    min-height: 2.6rem;
+    padding: .58rem 0;
+    border-bottom: 1px solid var(--op-detail-border-soft);
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) > div:last-child {
+    border-bottom: 0;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) :where(dt, dd) {
+    margin: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) dt {
+    color: var(--op-detail-muted);
+    font-size: .73rem;
+    font-weight: 670;
+    line-height: 1.55;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) dd {
+    color: var(--op-detail-text);
+    font-size: .82rem;
+    font-weight: 730;
+    line-height: 1.55;
+    text-align: end;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-list {
+    display: grid;
+    gap: 0;
+    padding: .25rem 1rem .55rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) auto;
+    align-items: center;
+    gap: .75rem;
+    min-height: 3rem;
+    padding: .65rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--op-detail-border-soft);
+    border-radius: 0;
+    background: transparent;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row:last-child {
+    border-bottom: 0;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row > div {
+    display: grid;
+    gap: .1rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row :where(span, strong) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row span {
+    color: var(--op-detail-muted);
+    font-size: .72rem;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row strong {
+    color: var(--op-detail-text);
+    font-size: .82rem;
+    font-weight: 740;
+}
+
+body.boltz-shell:is(
+    .controller-loading,
+    .controller-inventorytransportlegs,
+    .controller-loadingreceipts,
+    .controller-dispatch,
+    .controller-expenses,
+    .controller-lossevents,
+    .controller-sales
+).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-note-panel, .loading-detail-empty-line) {
+    padding: .75rem .85rem;
+    border: 1px solid var(--op-detail-border-soft);
+    border-radius: .8rem;
+    background: var(--op-detail-soft);
+    color: var(--op-detail-muted);
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+/* Customs detail uses the older card/table markup but the same visual rhythm. */
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page {
+    display: grid;
+    gap: .85rem;
+    width: min(100%, 112rem);
+    max-width: 112rem;
+    margin-inline: auto;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page :where(*) {
+    min-width: 0;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page .detail-card {
+    padding: 0;
+    overflow: hidden;
+    border-radius: 1rem !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page .detail-card > .card-header {
+    min-height: 3.25rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--ptg-border);
+    background: var(--ptg-surface-soft) !important;
+    font-size: .9rem;
+    font-weight: 780;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page .detail-card > .card-body {
+    padding: .75rem 1rem;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .customs-detail-page .table {
+    width: 100%;
+    min-width: 42rem;
+}
+
+@media (max-width: 991.98px) {
+    body.boltz-shell:is(
+        .controller-loading,
+        .controller-inventorytransportlegs,
+        .controller-loadingreceipts,
+        .controller-dispatch,
+        .controller-expenses,
+        .controller-lossevents,
+        .controller-sales
+    ).action-details .boltz-content .loading-details-simple-page .loading-detail-clean-header {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 767.98px) {
+
+    body.boltz-shell:is(
+        .controller-loading,
+        .controller-inventorytransportlegs,
+        .controller-loadingreceipts,
+        .controller-dispatch,
+        .controller-expenses,
+        .controller-lossevents,
+        .controller-sales
+    ).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) > div{
+        grid-template-columns: minmax(0, 1fr);
+        gap: .15rem;
+    }
+
+    body.boltz-shell:is(
+        .controller-loading,
+        .controller-inventorytransportlegs,
+        .controller-loadingreceipts,
+        .controller-dispatch,
+        .controller-expenses,
+        .controller-lossevents,
+        .controller-sales
+    ).action-details .boltz-content .loading-details-simple-page :where(.loading-detail-fact-list, .loading-detail-money-list) dd{
+        text-align: start;
+    }
+
+    body.boltz-shell:is(
+        .controller-loading,
+        .controller-inventorytransportlegs,
+        .controller-loadingreceipts,
+        .controller-dispatch,
+        .controller-expenses,
+        .controller-lossevents,
+        .controller-sales
+    ).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .35rem;
+    }
+}

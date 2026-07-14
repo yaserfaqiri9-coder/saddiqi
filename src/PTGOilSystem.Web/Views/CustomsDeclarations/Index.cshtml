@@ -1,0 +1,157 @@
+@model PTGOilSystem.Web.Models.Customs.CustomsDeclarationIndexViewModel
+@{
+    ViewData["Title"] = "اعلامیه‌های گمرکی";
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var hasAdvancedFilter = Model.FromDate.HasValue || Model.ToDate.HasValue;
+    var hasAnyFilter = hasAdvancedFilter || !string.IsNullOrWhiteSpace(Model.Query);
+}
+
+<div class="ak-form-page ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "اعلامیه‌های گمرکی", "Customs declarations"), true, UiText.T(Context, "ثبت اعلامیه", "New declaration"), "bi-plus-lg", Url.Action("Create", new { loadingRegisterId = Model.LoadingRegisterId, transportLegId = Model.TransportLegId, returnUrl = currentUrl }), (string?)null, UiText.T(Context, "اپلود اکسل گروهی", "Import Excel"), "bi-file-earmark-excel", Url.Action("ImportExcel", new { returnUrl = currentUrl })))" />
+    <div class="ak-list">
+        @{
+            var customsHidden = new Dictionary<string, string>();
+            if (Model.LoadingRegisterId.HasValue) customsHidden["loadingRegisterId"] = Model.LoadingRegisterId.Value.ToString();
+            if (Model.TransportLegId.HasValue) customsHidden["transportLegId"] = Model.TransportLegId.Value.ToString();
+            var customsFilter = new AkSearchFilterModel("q", Model.Query,
+                UiText.T(Context, "قرارداد، جنس، واگن یا مرجع...", "Contract, product, wagon or reference..."),
+                new List<AkFilterDefinition>
+                {
+                    new("fromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.FromDate?.ToString("yyyy-MM-dd"), "toDate", Model.ToDate?.ToString("yyyy-MM-dd"))
+                },
+                customsHidden.Count > 0 ? customsHidden : null);
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="customsFilter" />
+        </div>
+
+        @if (Model.Items.Any())
+        {
+            <form asp-action="DeleteAll" method="post" class="mb-2 text-start" onsubmit="return confirm('همه اعلامیه‌های گمرکیِ همین لیست (فیلتر فعلی) لغو شوند؟ این کار برگشت‌ناپذیر است.');">
+                @Html.AntiForgeryToken()
+                @if (Model.LoadingRegisterId.HasValue) { <input type="hidden" name="loadingRegisterId" value="@Model.LoadingRegisterId" /> }
+                @if (Model.TransportLegId.HasValue) { <input type="hidden" name="transportLegId" value="@Model.TransportLegId" /> }
+                @if (Model.TruckDispatchId.HasValue) { <input type="hidden" name="truckDispatchId" value="@Model.TruckDispatchId" /> }
+                @if (!string.IsNullOrWhiteSpace(Model.Query)) { <input type="hidden" name="q" value="@Model.Query" /> }
+                @if (Model.FromDate.HasValue) { <input type="hidden" name="fromDate" value="@Model.FromDate.Value.ToString("yyyy-MM-dd")" /> }
+                @if (Model.ToDate.HasValue) { <input type="hidden" name="toDate" value="@Model.ToDate.Value.ToString("yyyy-MM-dd")" /> }
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                <button type="submit" class="btn btn-light ak-secondary-action" style="color:#c0392b">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                    <span>لغو همه (این لیست)</span>
+                </button>
+            </form>
+        }
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="col-name">واگن / موتر</th>
+                        <th>@UiText.T(Context,"قرارداد / جنس","Contract / Product")</th>
+                        <th>@UiText.T(Context,"منبع / مرجع","Source / Reference")</th>
+                        <th>@UiText.T(Context, "وزن", "Weight")</th>
+                        <th>@UiText.T(Context, "مجموع", "Total")</th>
+                        <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Items.Count; index++)
+                    {
+                        var item = Model.Items[index];
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                            <td class="col-name">
+                                @await Html.PartialAsync("_OperationsListIdentity", ("bi-file-earmark-check", item.WagonOrTruckNumber ?? "—", item.DeclarationDate.ToDisplayDate(), true))
+                            </td>
+                            <td>
+                                <span class="col-ltr">@item.ContractNumber</span>
+                                <span class="ak-note">@item.ProductName</span>
+                            </td>
+                            <td>
+                                <span>@item.SourceLabel</span>
+                                <span class="ak-note col-ltr">@(item.DeclarationReference ?? "-")</span>
+                            </td>
+                            <td class="col-ltr">@(item.ConsignmentWeightMt?.ToString("N4") ?? "—") MT</td>
+                            <td class="col-ltr">@(item.TotalUsd > 0 ? item.TotalUsd.ToString("N2") + " USD" : item.TotalAfn.ToString("N2") + " AFN")</td>
+                            <td class="col-actions">
+                                <div class="ak-row-menu">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="جزئیات" aria-label="جزئیات"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                    <a asp-action="Edit" asp-route-id="@item.Id" asp-route-returnUrl="@currentUrl" class="btn btn-light ak-secondary-action" title="ویرایش" aria-label="ویرایش"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                                    <form asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('این اعلامیه گمرکی لغو شود؟');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <button type="submit" class="btn btn-light ak-secondary-action" title="لغو"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-file-earmark-check"></i>
+                                    هیچ اعلامیه گمرکی ثبت نشده است
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    var sumWeight = (decimal)ViewBag.SumWeight;
+                    var sumUsd = (decimal)ViewBag.SumUsd;
+                    var sumAfn = (decimal)ViewBag.SumAfn;
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="col-ltr fw-bold">@sumWeight.ToString("N4")</td>
+                            <td class="col-ltr fw-bold">@(sumUsd > 0 ? sumUsd.ToString("N2") : sumAfn.ToString("N2"))</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('customsFilterToggle');
+            var pop = document.getElementById('customsFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

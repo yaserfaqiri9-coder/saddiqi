@@ -1,0 +1,84 @@
+@model IEnumerable<PTGOilSystem.Web.Models.Entities.Role>
+@using PTGOilSystem.Web.Security
+@{
+    ViewData["Title"] = UiText.T(Context, "نقش‌ها", "Roles");
+    var roles = Model.ToList();
+    var q = ViewData["q"]?.ToString();
+}
+
+<div class="ak-form-page ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "نقش‌ها", "Roles"), true,
+                       UiText.T(Context, "نقش جدید", "New role"), "bi-plus-lg",
+                       (string?)Url.Action("Create"), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+        <partial name="~/Views/Shared/_AkSearchFilter.cshtml"
+                 model="@AkSearchFilterModel.SearchOnly("q", q, UiText.T(Context, "جستجو نام یا توضیح نقش", "Search role name or description"))" />
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context, "نام نقش", "Role name")</th>
+                        <th>@UiText.T(Context, "توضیح", "Description")</th>
+                        <th>@UiText.T(Context, "دسترسی", "Access")</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var role in roles)
+                    {
+                        var allowedSections = RoleAccessRules.ResolveNavigationForRole(role).Count;
+                        <tr data-href="@Url.Action("Details", new { id = role.Id })" data-role-row>
+                            <td><a asp-action="Details" asp-route-id="@role.Id" class="ak-name">@role.Name</a></td>
+                            <td>@(string.IsNullOrWhiteSpace(role.Description) ? "-" : role.Description)</td>
+                            <td>
+                                <div>
+                                    <span class="ak-status is-inactive">@allowedSections @UiText.T(Context, "بخش", "sections")</span>
+                                    @if (RoleAccessRules.RoleCanManageData(role))
+                                    {
+                                        <span class="ak-status is-active">@UiText.T(Context, "ثبت/ویرایش", "Edit")</span>
+                                    }
+                                    @if (RoleAccessRules.RoleCanManageUsers(role))
+                                    {
+                                        <span class="ak-status is-inactive">@UiText.T(Context, "مدیریت کاربران", "Manage users")</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="ak-col-actions">
+                                <div class="ak-row-menu dropdown">
+                                    <button class="ak-row-menu-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@UiText.T(Context, "عملیات", "Actions")"><i class="bi bi-three-dots"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a asp-action="Details" asp-route-id="@role.Id" class="dropdown-item"><i class="bi bi-eye"></i> @UiText.T(Context, "مشاهده", "View")</a></li>
+                                        <li><a asp-action="Edit" asp-route-id="@role.Id" class="dropdown-item"><i class="bi bi-pencil"></i> @UiText.T(Context, "تنظیم دسترسی", "Edit access")</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!roles.Any())
+                    {
+                        <tr>
+                            <td colspan="4">
+                                <div class="ak-empty"><i class="bi bi-person-badge"></i>@UiText.T(Context, "نقشی برای نمایش پیدا نشد", "No roles found")</div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            document.querySelectorAll('[data-role-row][data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

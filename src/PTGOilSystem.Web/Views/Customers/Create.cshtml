@@ -1,0 +1,10 @@
+@model Customer
+@{
+    ViewData["Title"] = UiText.T(Context,"مشتری جدید","New Customer");
+    ViewData["CreatePageIndexLabel"] = "مشتریان";
+    ViewData["CreatePageSubtitle"] = "اطلاعات هویتی و تماس مشتری را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/Customers/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,23 @@
+@model Terminal
+@{
+    ViewData["Title"] = $"ترمینال {Model.Code}";
+    var statusText = Model.IsActive ? "فعال" : "غیرفعال";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
+                       "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
+<section id="terminal-info" class="ak-form-section">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("اطلاعات ترمینال", (string?)"کد، نام، موقعیت و وضعیت ترمینال."))
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>کد</dt><dd><code>@Model.Code</code></dd></div>
+            <div class="ak-list-row"><dt>نام</dt><dd>@Model.Name</dd></div>
+            <div class="ak-list-row"><dt>موقعیت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Location) ? "—" : Model.Location)</dd></div>
+            <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@statusText</span></dd></div>
+            <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? "—" : Model.Notes)</dd></div>
+            <div class="ak-list-row"><dt>تاریخ ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+        </dl>
+    </section>
+</div>

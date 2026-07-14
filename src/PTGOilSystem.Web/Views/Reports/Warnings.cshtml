@@ -1,0 +1,61 @@
+@model PTGOilSystem.Web.Models.Reports.ReportsWarningsViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "مغایرت‌ها", "Reconciliation & Warnings");
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "مغایرت‌ها", "Reconciliation & Warnings"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "گزارش‌ها", "Reports"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()"><i class="bi bi-printer"></i> @UiText.T(Context, "چاپ", "Print")</button>
+    </div>
+
+    <p class="ak-note">@UiText.T(Context, "مواردی که برای کنترل دفتر کل، قیمت‌گذاری یا اسناد نیاز به بررسی دارند.", "Items that need ledger, valuation or document review.")</p>
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار مغایرت‌ها", "Warning metrics")">
+        <dl class="ak-summary-list">
+            @foreach (var metric in Model.Metrics.Take(4))
+            {
+                @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
+            }
+        </dl>
+    </section>
+
+    <section class="ak-form-section">
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@UiText.T(Context, "مورد", "Issue")</th>
+                        <th>@UiText.T(Context, "شرح", "Description")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "تعداد", "Count")</th>
+                        <th class="ak-col-actions">@UiText.T(Context, "عملیات", "Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@item.Title</td>
+                            <td>@item.Description</td>
+                            <td class="ak-col-num ak-num @(item.Severity =="danger" ? "ak-num" : "")">@item.Count.ToString("N0")</td>
+                            <td class="ak-col-actions">
+                                @if (!string.IsNullOrWhiteSpace(item.Controller) && !string.IsNullOrWhiteSpace(item.Action))
+                                {
+                                    <a asp-controller="@item.Controller" asp-action="@item.Action">@UiText.T(Context, "بررسی", "Review")</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-check2-circle"></i> @UiText.T(Context, "برای فیلتر فعلی موردی نیاز به اقدام ندارد.", "No action is needed for the current data.")</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

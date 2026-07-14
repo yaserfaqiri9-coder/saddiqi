@@ -1,0 +1,380 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportFlowDashboardViewModel
+@{
+    ViewData["Title"] = "حمل‌های موجودی در جریان";
+
+    static decimal ProgressPercent(decimal loaded, decimal total)
+        => total <= 0m ? 0m : decimal.Round(loaded / total * 100m, 0);
+
+    // وضعیت هر حمل را به سه مرحله نمایشی نگاشت می‌کنیم (فقط برای رنگ/برچسب UI؛ منطق تجاری تغییر نمی‌کند).
+    static string ToneOf(PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportFlowTransportViewModel t)
+        => t.ReceivedQuantityMt > 0m ? "near"
+            : t.PendingQuantityMt <= 0m ? "transit"
+            : "loading";
+
+    static string StatusLabel(string tone) => tone switch
+    {
+        "near" => "نزدیک به مقصد",
+        "transit" => "در حال انتقال",
+        _ => "در حال بارگیری",
+    };
+
+    static string StageLabel(string tone) => tone switch
+    {
+        "near" => "نزدیک به مقصد",
+        "transit" => "در مسیر",
+        _ => "بارگیری",
+    };
+
+    var loadingCount = Model.Transports.Count(t => ToneOf(t) == "loading");
+    var transitCount = Model.Transports.Count(t => ToneOf(t) == "transit");
+    var nearCount = Model.Transports.Count(t => ToneOf(t) == "near");
+
+    var sourceOptions = Model.Transports.Select(t => t.SourceLabel)
+        .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s).ToList();
+    var destinationOptions = Model.Transports.Select(t => t.DestinationLabel)
+        .Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s).ToList();
+}
+
+<main class="ak-list-page" data-inventory-flow-page>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("حمل‌های موجودی در جریان", true, "حمل جدید از موجودی", "bi-plus-lg", Url.Action("CreateFromInventory"), (string?)null, (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-summary" aria-label="خلاصه حمل‌های در جریان">
+        <article class="ak-field is-blue">
+            <div class="ak-field">
+                <span>تعداد کل</span>
+                <strong>@Model.ActiveTransportCount.ToString("N0")</strong>
+                <small>حمل در جریان</small>
+            </div>
+            <span class="ak-page-icon"><i class="bi bi-truck"></i></span>
+        </article>
+        <article class="ak-field is-green">
+            <div class="ak-field">
+                <span>مقدار کل</span>
+                <strong>@Model.TotalAllocatedQuantityMt.ToString("N0")</strong>
+                <small>MT</small>
+            </div>
+            <span class="ak-page-icon"><i class="bi bi-database"></i></span>
+        </article>
+        <article class="ak-field is-amber">
+            <div class="ak-field">
+                <span>در حال بارگیری</span>
+                <strong>@loadingCount.ToString("N0")</strong>
+                <small>حمل</small>
+            </div>
+            <span class="ak-page-icon"><i class="bi bi-box-seam"></i></span>
+        </article>
+        <article class="ak-field is-blue">
+            <div class="ak-field">
+                <span>در حال انتقال</span>
+                <strong>@transitCount.ToString("N0")</strong>
+                <small>حمل</small>
+            </div>
+            <span class="ak-page-icon"><i class="bi bi-truck-front"></i></span>
+        </article>
+        <article class="ak-field is-purple">
+            <div class="ak-field">
+                <span>نزدیک به مقصد</span>
+                <strong>@nearCount.ToString("N0")</strong>
+                <small>حمل</small>
+            </div>
+            <span class="ak-page-icon"><i class="bi bi-geo-alt"></i></span>
+        </article>
+    </section>
+
+    <section class="ak-form-section" aria-label="فیلترها">
+        <div class="ak-form-grid">
+            <label class="ak-field">
+                <span>جستجو</span>
+                <input type="text" data-flow-filter="search" placeholder="جستجو..." autocomplete="off" />
+            </label>
+            <label class="ak-field">
+                <span>وضعیت حمل</span>
+                <select data-flow-filter="status">
+                    <option value="">همه</option>
+                    <option value="loading">در حال بارگیری</option>
+                    <option value="transit">در حال انتقال</option>
+                    <option value="near">نزدیک به مقصد</option>
+                </select>
+            </label>
+            <label class="ak-field">
+                <span>مخزن مبدأ</span>
+                <select data-flow-filter="source">
+                    <option value="">همه</option>
+                    @foreach (var source in sourceOptions)
+                    {
+                        <option value="@source">@source</option>
+                    }
+                </select>
+            </label>
+            <label class="ak-field">
+                <span>مقصد</span>
+                <select data-flow-filter="dest">
+                    <option value="">همه</option>
+                    @foreach (var dest in destinationOptions)
+                    {
+                        <option value="@dest">@dest</option>
+                    }
+                </select>
+            </label>
+            <label class="ak-field">
+                <span>تاریخ</span>
+                <div class="ak-form-grid">
+                    <input type="text" data-flow-filter="dateFrom" placeholder="از تاریخ" autocomplete="off" inputmode="numeric" />
+                    <em>—</em>
+                    <input type="text" data-flow-filter="dateTo" placeholder="تا تاریخ" autocomplete="off" inputmode="numeric" />
+                </div>
+            </label>
+        </div>
+        <div class="ak-page-actions">
+            <button type="button" class="btn btn-light ak-secondary-action is-primary" data-flow-search>
+                <i class="bi bi-search" aria-hidden="true"></i><span>جستجو</span>
+            </button>
+            <button type="button" class="btn btn-light ak-secondary-action is-ghost" data-flow-reset>
+                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>پاک کردن</span>
+            </button>
+        </div>
+    </section>
+
+    <section class="ak-list" aria-label="لیست حمل‌های در جریان">
+        <div class="ak-table-wrap">
+            <table class="ak-table" data-flow-table>
+                <thead>
+                    <tr>
+                        <th class="is-num">#</th>
+                        <th>شماره حمل</th>
+                        <th>مخزن مبدأ</th>
+                        <th>مقصد</th>
+                        <th>تاریخ بارگیری</th>
+                        <th>مقدار (MT)</th>
+                        <th>وضعیت</th>
+                        <th>مرحله فعلی</th>
+                        <th>تاریخ تخمینی رسیدن</th>
+                        <th class="is-actions">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ var rowIndex = 0; }
+                    @foreach (var transport in Model.Transports)
+                    {
+                        rowIndex++;
+                        var tone = ToneOf(transport);
+                        var percent = ProgressPercent(transport.LoadedQuantityMt, transport.TotalAllocatedQuantityMt);
+                        var loadedDate = transport.FirstLoadedDate.ToDisplayDate();
+                        var arrivalDate = transport.ExpectedArrivalDate?.ToDisplayDate() ?? "—";
+
+                        <tr data-flow-row
+                            data-tone="@tone"
+                            data-source="@transport.SourceLabel"
+                            data-dest="@transport.DestinationLabel"
+                            data-date="@loadedDate"
+                            data-search="@($"{transport.PrimaryReference} {transport.SourceLabel} {transport.DestinationLabel} {transport.ProductName}")">
+                            <td class="is-num" data-flow-rownum>@rowIndex</td>
+                            <td class="is-ref">@transport.PrimaryReference</td>
+                            <td>@transport.SourceLabel</td>
+                            <td>@transport.DestinationLabel</td>
+                            <td class="is-date">@loadedDate</td>
+                            <td class="is-num">@transport.LoadedQuantityMt.ToString("N0")</td>
+                            <td><span class="ak-status is-@tone">@StatusLabel(tone)</span></td>
+                            <td>
+                                <div class="ak-note">
+                                    <div class="ak-section-head">
+                                        <span>@StageLabel(tone)</span>
+                                        <b>@percent.ToString("N0")%</b>
+                                    </div>
+                                    <div class="ak-summary is-@tone" role="progressbar" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </td>
+                            <td class="is-date">@arrivalDate</td>
+                            <td class="is-actions">
+                                <div class="dropdown ak-row-menu">
+                                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-start">
+                                        @{ var firstLegId = transport.Legs.FirstOrDefault()?.Id; }
+                                        @if (firstLegId.HasValue)
+                                        {
+                                            <li><a class="dropdown-item" asp-action="Details" asp-route-id="@firstLegId.Value"><i class="bi bi-eye"></i>جزئیات</a></li>
+                                        }
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-empty" data-flow-empty hidden>
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <p>موردی مطابق فیلتر یافت نشد.</p>
+        </div>
+
+        @if (!Model.Transports.Any())
+        {
+            <div class="ak-empty">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+                <p>فعلاً حمل در جریان وجود ندارد.</p>
+                <a asp-action="CreateFromInventory" class="btn btn-light ak-secondary-action is-primary"><i class="bi bi-plus-lg"></i><span>ثبت حمل جدید</span></a>
+            </div>
+        }
+
+        <footer class="ak-pager" data-flow-pagination hidden>
+            <div class="ak-field">
+                <span>تعداد در هر صفحه</span>
+                <select data-flow-pagesize>
+                    <option value="10">۱۰</option>
+                    <option value="20">۲۰</option>
+                    <option value="50">۵۰</option>
+                </select>
+            </div>
+            <div class="ak-page-actions" data-flow-pages></div>
+            <div class="ak-section-desc" data-flow-info></div>
+        </footer>
+    </section>
+
+    <script>
+        (function () {
+            var root = document.querySelector("[data-inventory-flow-page]");
+            if (!root || root.dataset.flowInit === "1") return;
+            root.dataset.flowInit = "1";
+
+            var table = root.querySelector("[data-flow-table]");
+            var rows = Array.prototype.slice.call(root.querySelectorAll("[data-flow-row]"));
+            if (!table || !rows.length) return;
+
+            var pagination = root.querySelector("[data-flow-pagination]");
+            var pagesBox = root.querySelector("[data-flow-pages]");
+            var infoBox = root.querySelector("[data-flow-info]");
+            var emptyBox = root.querySelector("[data-flow-empty]");
+            var pageSizeSel = root.querySelector("[data-flow-pagesize]");
+
+            var filters = {
+                search: root.querySelector('[data-flow-filter="search"]'),
+                status: root.querySelector('[data-flow-filter="status"]'),
+                source: root.querySelector('[data-flow-filter="source"]'),
+                dest: root.querySelector('[data-flow-filter="dest"]'),
+                dateFrom: root.querySelector('[data-flow-filter="dateFrom"]'),
+                dateTo: root.querySelector('[data-flow-filter="dateTo"]')
+            };
+
+            var currentPage = 1;
+
+            function norm(v) { return (v || "").toString().trim().toLowerCase(); }
+
+            // تاریخ نمایشی با علامت LRM و جداکننده «/» است؛ فقط رقم و «/» نگه می‌داریم.
+            function cleanDate(v) { return norm(v).replace(/-/g, "/").replace(/[^\d/]/g, ""); }
+
+            function matches(row) {
+                var q = norm(filters.search && filters.search.value);
+                if (q && norm(row.dataset.search).indexOf(q) === -1) return false;
+
+                var st = filters.status && filters.status.value;
+                if (st && row.dataset.tone !== st) return false;
+
+                var src = filters.source && filters.source.value;
+                if (src && row.dataset.source !== src) return false;
+
+                var dst = filters.dest && filters.dest.value;
+                if (dst && row.dataset.dest !== dst) return false;
+
+                // تاریخ به شکل yyyy/MM/dd است و مقایسه متنی آن = مقایسه زمانی.
+                var from = cleanDate(filters.dateFrom && filters.dateFrom.value);
+                var to = cleanDate(filters.dateTo && filters.dateTo.value);
+                var d = cleanDate(row.dataset.date);
+                if (from && d && d < from) return false;
+                if (to && d && d > to) return false;
+
+                return true;
+            }
+
+            function pageSize() {
+                return pageSizeSel ? parseInt(pageSizeSel.value, 10) || 10 : 10;
+            }
+
+            function faDigits(n) {
+                return n.toString().replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+            }
+
+            function render() {
+                var visible = rows.filter(matches);
+                var size = pageSize();
+                var total = visible.length;
+                var pageCount = Math.max(1, Math.ceil(total / size));
+                if (currentPage > pageCount) currentPage = pageCount;
+
+                var start = (currentPage - 1) * size;
+                var end = start + size;
+
+                rows.forEach(function (r) { r.hidden = true; });
+                visible.forEach(function (r, i) {
+                    r.hidden = !(i >= start && i < end);
+                });
+
+                // شماره ردیف پیوسته
+                visible.forEach(function (r, i) {
+                    var cell = r.querySelector("[data-flow-rownum]");
+                    if (cell) cell.textContent = faDigits(i + 1);
+                });
+
+                if (emptyBox) emptyBox.hidden = total !== 0;
+                if (table) table.hidden = total === 0;
+
+                if (pagination) pagination.hidden = total === 0;
+                renderPages(pageCount);
+                if (infoBox) {
+                    var from = total === 0 ? 0 : start + 1;
+                    var to = Math.min(end, total);
+                    infoBox.textContent = "نمایش " + faDigits(from) + " تا " + faDigits(to) + " از " + faDigits(total) + " مورد";
+                }
+            }
+
+            function renderPages(pageCount) {
+                if (!pagesBox) return;
+                pagesBox.innerHTML = "";
+
+                function btn(label, page, opts) {
+                    opts = opts || {};
+                    var b = document.createElement("button");
+                    b.type = "button";
+                    b.className = "ak-row-menu-btn" + (opts.active ? " is-active" : "");
+                    b.textContent = label;
+                    if (opts.disabled) { b.disabled = true; }
+                    else {
+                        b.addEventListener("click", function () { currentPage = page; render(); });
+                    }
+                    pagesBox.appendChild(b);
+                }
+
+                btn("«", currentPage - 1, { disabled: currentPage <= 1 });
+                for (var p = 1; p <= pageCount; p++) {
+                    btn(faDigits(p), p, { active: p === currentPage });
+                }
+                btn("»", currentPage + 1, { disabled: currentPage >= pageCount });
+            }
+
+            function onFilterChange() { currentPage = 1; render(); }
+
+            Object.keys(filters).forEach(function (k) {
+                var el = filters[k];
+                if (!el) return;
+                el.addEventListener("input", onFilterChange);
+                el.addEventListener("change", onFilterChange);
+            });
+            if (pageSizeSel) pageSizeSel.addEventListener("change", function () { currentPage = 1; render(); });
+
+            var searchBtn = root.querySelector("[data-flow-search]");
+            if (searchBtn) searchBtn.addEventListener("click", render);
+
+            var resetBtn = root.querySelector("[data-flow-reset]");
+            if (resetBtn) resetBtn.addEventListener("click", function () {
+                Object.keys(filters).forEach(function (k) { if (filters[k]) filters[k].value = ""; });
+                currentPage = 1;
+                render();
+            });
+
+            render();
+        })();
+    </script>
+</main>

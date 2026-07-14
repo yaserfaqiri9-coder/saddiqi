@@ -1,0 +1,10 @@
+@model StorageTank
+@{
+    ViewData["Title"] = "مخزن جدید";
+    ViewData["CreatePageIndexLabel"] = "مخازن ذخیره";
+    ViewData["CreatePageSubtitle"] = "ترمینال، کد مخزن، جنس و ظرفیت را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/StorageTanks/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

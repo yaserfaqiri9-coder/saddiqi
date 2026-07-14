@@ -1,0 +1,875 @@
+@model PTGOilSystem.Web.Models.Reconciliation.MissingLedgerViewModel
+@{
+    ViewData["Title"] = "بررسی رکوردهای ناقص دفتر کل";
+    var serviceProviderIssues = Model.ServiceProviderExpensesWithoutLedger.Select(row => ("Expense without ledger", row))
+        .Concat(Model.ServiceProviderPaymentsWithoutLedger.Select(row => ("Payment without ledger", row)))
+        .Concat(Model.ServiceProviderLedgerMissingSource.Select(row => ("Ledger trace incomplete", row)))
+        .Concat(Model.ServiceProviderPaymentLedgerMismatches.Select(row => ("Payment ledger mismatch", row)))
+        .Concat(Model.ServiceProviderExpenseLedgerMismatches.Select(row => ("Expense ledger mismatch", row)))
+        .Concat(Model.CancelledServiceProviderExpensesWithBalanceImpact.Select(row => ("Cancelled balance impact", row)))
+        .ToList();
+    var operationalAssetIssues = Model.AssetRentTransactionsWithoutShares.Select(row => ("Rent without shares", row))
+        .Concat(Model.AssetRentShareSumMismatches.Select(row => ("Share amount mismatch", row)))
+        .Concat(Model.AssetRentOwnershipCoverageIssues.Select(row => ("Ownership not 100%", row)))
+        .Concat(Model.OperationalAssetLinkIssues.Select(row => ("Invalid asset link", row)))
+        .Concat(Model.AssetExpenseInactiveAssetIssues.Select(row => ("Asset expense issue", row)))
+        .Concat(Model.AssetRentPostedWithoutLedger.Select(row => ("Posted without ledger", row)))
+        .Concat(Model.AssetRentContractRequirementIssues.Select(row => ("Missing contract", row)))
+        .Concat(Model.AssetRentDuplicateCandidates.Select(row => ("Duplicate candidate", row)))
+        .ToList();
+    var sarrafIssues = Model.SarrafSettlementsWithoutSupplierLedger.Select(row => ("Supplier ledger missing", row))
+        .Concat(Model.SarrafSettlementSupplierLedgerMismatches.Select(row => ("Supplier ledger mismatch", row)))
+        .Concat(Model.SarrafSettlementsWithoutDifferenceLedger.Select(row => ("Difference ledger missing", row)))
+        .Concat(Model.SarrafSettlementDifferenceLedgerMismatches.Select(row => ("Difference ledger mismatch", row)))
+        .ToList();
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("رکوردهای بدون دفتر کل", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بررسی تطبیق", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+        <a asp-action="MissingLedgerCsv" class="btn btn-light">خروجی CSV</a>
+    </div>
+
+    <p class="ak-note">فروش‌ها، مصارف و پرداخت‌هایی که هنوز رکورد دفتر کل متناظر ندارند برای بررسی سریع دیده می‌شوند. داده عملیاتی اصلی تغییر نمی‌کند و فقط اتصال دفتر کل باید بازبینی شود.</p>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Sarraf settlement ledger checks</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Settlement</th>
+                        <th>Date</th>
+                        <th>Sarraf</th>
+                        <th>Supplier</th>
+                        <th>Contract</th>
+                        <th>Reference</th>
+                        <th class="ak-col-num">Expected USD</th>
+                        <th class="ak-col-num">Ledger USD</th>
+                        <th>Ledger</th>
+                        <th>Issue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in sarrafIssues)
+                {
+                    var row = item.Item2;
+                    var expectedUsd = item.Item1.Contains("Difference", StringComparison.OrdinalIgnoreCase)
+                        ? Math.Abs(row.DifferenceAmountUsd)
+                        : row.SupplierLedgerAmountUsd;
+                    <tr>
+                        <td>@item.Item1</td>
+                        <td>#@row.SettlementId</td>
+                        <td>@row.SettlementDate.ToDisplayDate()</td>
+                        <td>@row.SarrafName</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num ak-num">@expectedUsd.ToString("N2")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? row.DifferenceLedgerAmountUsd?.ToString("N2") ?? "-")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : row.ExchangeDifferenceLedgerEntryId.HasValue ? $"#{row.ExchangeDifferenceLedgerEntryId.Value}" : "-")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!sarrafIssues.Any())
+                {
+                    <tr><td colspan="11">@await Html.PartialAsync("_EmptyState", ("Sarraf settlement ledger issue not found", "Sarraf supplier reductions and recognized exchange differences have matching ledger traces.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Operational Asset checks</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Source</th>
+                        <th>Date</th>
+                        <th>Asset</th>
+                        <th>Reference</th>
+                        <th class="ak-col-num">Amount USD</th>
+                        <th class="ak-col-num">Related USD / %</th>
+                        <th>Issue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in operationalAssetIssues)
+                {
+                    var row = item.Item2;
+                    <tr>
+                        <td>@item.Item1</td>
+                        <td>@row.SourceType #@row.SourceId</td>
+                        <td>@row.Date.ToDisplayDate()</td>
+                        <td>@row.OperationalAssetName</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                        <td class="ak-col-num ak-num">@(row.RelatedAmountUsd?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status @(row.Status =="Warning" ? "" : "is-inactive")">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!operationalAssetIssues.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("Operational Asset issue not found", "Asset rent shares, ownership coverage, links and expense asset references are consistent.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Service Provider ledger checks</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Source</th>
+                        <th>Date</th>
+                        <th>Service Provider</th>
+                        <th>Reference</th>
+                        <th class="ak-col-num">Source USD</th>
+                        <th class="ak-col-num">Ledger USD</th>
+                        <th>Ledger</th>
+                        <th>Issue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in serviceProviderIssues)
+                {
+                    var row = item.Item2;
+                    <tr>
+                        <td>@item.Item1</td>
+                        <td>@row.SourceType #@row.SourceId</td>
+                        <td>@row.Date.ToDisplayDate()</td>
+                        <td>@row.ServiceProviderName</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? "—")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : "—")</td>
+                        <td><span class="ak-status @(row.Status =="Warning" ? "" : "is-inactive")">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!serviceProviderIssues.Any())
+                {
+                    <tr><td colspan="9">@await Html.PartialAsync("_EmptyState", ("Service Provider ledger issue not found", "Service provider expenses, payments, sources and cancelled expense balance impact are consistent.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">پرداخت تأمین‌کننده بدون شناسه تأمین‌کننده</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>پرداخت</th><th>تاریخ</th><th>تأمین‌کننده</th><th>قرارداد</th><th>مرجع</th><th class="ak-col-num">USD</th><th>دفتر کل</th><th>مشکل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SupplierPaymentsWithoutSupplier)
+                {
+                    <tr>
+                        <td>#@row.PaymentId</td>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num">@row.AmountUsd.ToString("N2")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.SupplierPaymentsWithoutSupplier.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("پرداخت تأمین‌کننده بدون شناسه وجود ندارد", "همه پرداخت‌های تأمین‌کننده شناسه قابل ردیابی دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">عدم تطابق تأمین‌کننده پرداخت و قرارداد</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>پرداخت</th><th>تاریخ</th><th>تأمین‌کننده</th><th>قرارداد</th><th>مرجع</th><th class="ak-col-num">USD</th><th>دفتر کل</th><th>مشکل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SupplierPaymentContractSupplierMismatches)
+                {
+                    <tr>
+                        <td>#@row.PaymentId</td>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num">@row.AmountUsd.ToString("N2")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.SupplierPaymentContractSupplierMismatches.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("عدم تطابق پرداخت و قرارداد وجود ندارد", "تأمین‌کننده پرداخت‌ها با تأمین‌کننده قراردادهای وصل‌شده هماهنگ است.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">رکورد دفتر کل پرداخت تأمین‌کننده با تأمین‌کننده یا قرارداد ناقص</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>پرداخت</th><th>تاریخ</th><th>تأمین‌کننده</th><th>قرارداد</th><th>مرجع</th><th class="ak-col-num">USD</th><th>دفتر کل</th><th>مشکل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SupplierPaymentLedgerMissingSupplierOrContract)
+                {
+                    <tr>
+                        <td>#@row.PaymentId</td>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num">@row.AmountUsd.ToString("N2")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.SupplierPaymentLedgerMissingSupplierOrContract.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("رکورد ناقص دفتر کل برای پرداخت تأمین‌کننده وجود ندارد", "شناسه تأمین‌کننده و قرارداد پرداخت‌ها در رکورد دفتر کل متناظر حفظ شده‌اند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">پرداخت تأمین‌کننده بدون رکورد دفتر کل</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>پرداخت</th><th>تاریخ</th><th>تأمین‌کننده</th><th>قرارداد</th><th>مرجع</th><th class="ak-col-num">USD</th><th>دفتر کل</th><th>مشکل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SupplierPaymentsWithoutLedger)
+                {
+                    <tr>
+                        <td>#@row.PaymentId</td>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.Reference</td>
+                        <td class="ak-col-num">@row.AmountUsd.ToString("N2")</td>
+                        <td>@(row.LedgerEntryId.HasValue ? $"#{row.LedgerEntryId.Value}" : "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.SupplierPaymentsWithoutLedger.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("پرداخت تأمین‌کننده بدون رکورد دفتر کل وجود ندارد", "همه پرداخت‌های تأمین‌کننده رکورد دفتر کل متناظر دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">نرخ تبدیل ناقص در دفتر کل تأمین‌کننده</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>دفتر کل</th><th>تاریخ</th><th>تأمین‌کننده</th><th>قرارداد</th><th>منبع</th><th>ارز</th><th class="ak-col-num">مبلغ منبع</th><th class="ak-col-num">نرخ تبدیل</th><th class="ak-col-num">USD</th><th>مشکل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SupplierLedgerFxIssues)
+                {
+                    <tr>
+                        <td>#@row.LedgerEntryId</td>
+                        <td>@row.EntryDate.ToDisplayDate()</td>
+                        <td>@row.SupplierName</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.SourceType</td>
+                        <td>@row.SourceCurrencyCode</td>
+                        <td class="ak-col-num">@(row.SourceAmount?.ToString("N2") ?? "—")</td>
+                        <td class="ak-col-num">@(row.AppliedFxRateToUsd?.ToString("N6") ?? "—")</td>
+                        <td class="ak-col-num">@row.AmountUsd.ToString("N2")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.SupplierLedgerFxIssues.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("نرخ تبدیل ناقص در دفتر کل تأمین‌کننده وجود ندارد", "رکوردهای غیر USD دفتر کل تأمین‌کننده نرخ تبدیل و مبلغ USD معتبر دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">مشکلات انتقال از موجودی</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>Leg</th>
+                        <th>Contract</th>
+                        <th>Product</th>
+                        <th>Source</th>
+                        <th class="ak-col-num">Quantity MT</th>
+                        <th>Status</th>
+                        <th>Movement</th>
+                        <th>Issue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.InventoryTransportLegIssues)
+                {
+                    <tr>
+                        <td>#@row.LegId</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.ProductName</td>
+                        <td>@row.SourceTerminalName @(string.IsNullOrWhiteSpace(row.SourceTankCode) ? "" : $" / {row.SourceTankCode}")</td>
+                        <td class="ak-col-num">@row.QuantityMt.ToString("N4")</td>
+                        <td>@row.StatusText</td>
+                        <td>@(row.MovementId.HasValue ? $"#{row.MovementId.Value}" : "—")</td>
+                        <td><span class="ak-status @(row.Status =="Warning" ? "" : "is-inactive")">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.InventoryTransportLegIssues.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("مشکل انتقال از موجودی وجود ندارد", "همه سندهای انتقال از موجودی با خروجی موجودی خود هماهنگ هستند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">حرکت‌های موجودی با قرارداد غیر Purchase</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-movement-contract">
+                <thead><tr><th>Movement</th><th>تاریخ</th><th>قرارداد</th><th>نوع قرارداد</th><th>جنس</th><th>ترمینال</th><th>جهت</th><th class="ak-col-num">مقدار MT</th><th>مرجع</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.InventoryMovementsWithNonPurchaseContract)
+                {
+                    <tr>
+                        <td>#@row.MovementId</td>
+                        <td>@row.MovementDate.ToDisplayDate()</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.ContractType</td>
+                        <td>@row.ProductName</td>
+                        <td>@row.TerminalName</td>
+                        <td>@row.DirectionText</td>
+                        <td class="ak-col-num">@row.QuantityMt.ToString("N4")</td>
+                        <td>@(row.ReferenceDocument ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.InventoryMovementsWithNonPurchaseContract.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("حرکت موجودی با قرارداد غیر Purchase وجود ندارد", "همه حرکت‌های موجودی به قرارداد خرید مرتبط هستند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">ToInventory allocation بدون InventoryMovement</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>تاریخ رسید</th><th>قرارداد</th><th>ترمینال</th><th class="ak-col-num">مقدار MT</th><th>InventoryMovement</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.ToInventoryAllocationsWithoutMovement)
+                {
+                    <tr>
+                        <td>#@row.AllocationId</td>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@(row.ReceiptDate == default ? "—" : row.ReceiptDate.ToDisplayDate())</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.TerminalName</td>
+                        <td class="ak-col-num">@row.AllocationQuantityMt.ToString("N4")</td>
+                        <td>@(row.InventoryMovementId.HasValue ? "#" + row.InventoryMovementId : "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.ToInventoryAllocationsWithoutMovement.Any())
+                {
+                    <tr><td colspan="8">@await Html.PartialAsync("_EmptyState", ("ToInventory allocation بدون InventoryMovement وجود ندارد", "همه allocationهای ToInventory به یک InventoryMovement واقعی متصل‌اند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">احتمال ثبت تکراری گمرک</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>قرارداد</th><th>نوع</th><th class="ak-col-num">CustomsDeclaration USD</th><th class="text-center">تعداد اعلامیه</th><th class="ak-col-num">Customs Expense USD</th><th class="text-center">تعداد رکورد</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DuplicateCustomsCandidates)
+                {
+                    <tr>
+                        <td>@row.ContractNumber <span class="ak-note">#@row.ContractId</span></td>
+                        <td>@row.ContractType</td>
+                        <td class="ak-col-num">@row.CustomsDeclarationTotalUsd.ToString("N2")</td>
+                        <td class="text-center">@row.CustomsDeclarationCount</td>
+                        <td class="ak-col-num">@row.CustomsExpenseTotalUsd.ToString("N2")</td>
+                        <td class="text-center">@row.CustomsExpenseCount</td>
+                        <td><span class="ak-status">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DuplicateCustomsCandidates.Any())
+                {
+                    <tr><td colspan="7">@await Html.PartialAsync("_EmptyState", ("ثبت تکراری گمرک شناسایی نشد", "هیچ قراردادی همزمان در CustomsDeclaration و ExpenseTransaction گمرکی یافت نشد.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">مشکلات منبع اعلامیه گمرکی</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>Customs</th><th>Loading</th><th>Transport Leg</th><th>تاریخ</th><th>واگن / موتر</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.CustomsSourceIssues)
+                {
+                    <tr>
+                        <td>#@row.CustomsDeclarationId</td>
+                        <td>@(row.LoadingRegisterId.HasValue ? $"#{row.LoadingRegisterId}" : "—")</td>
+                        <td>@(row.TransportLegId.HasValue ? $"#{row.TransportLegId}" : "—")</td>
+                        <td>@row.DeclarationDate.ToDisplayDate()</td>
+                        <td>@(row.WagonOrTruckNumber ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.CustomsSourceIssues.Any())
+                {
+                    <tr><td colspan="6">@await Html.PartialAsync("_EmptyState", ("مشکل منبع اعلامیه گمرکی وجود ندارد", "هر اعلامیه گمرکی دقیقاً به یک Loading یا Transport Leg وصل است.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">ToInventory receipt بدون Allocation</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>Receipt</th><th>تاریخ</th><th>قرارداد</th><th>ترمینال</th><th class="ak-col-num">مقدار دریافتی MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.ToInventoryReceiptsWithoutAllocation)
+                {
+                    <tr>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@row.ReceiptDate.ToDisplayDate()</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@row.TerminalName</td>
+                        <td class="ak-col-num">@row.ReceivedQuantityMt.ToString("N4")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.ToInventoryReceiptsWithoutAllocation.Any())
+                {
+                    <tr><td colspan="6">@await Html.PartialAsync("_EmptyState", ("ToInventory receipt بدون allocation وجود ندارد", "همه رسیدهای ToInventory حداقل یک allocation دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectDispatch allocations without truck dispatch</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-dispatch-balance">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Driver</th><th>Destination</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Dispatched MT</th><th class="ak-col-num">Remaining MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchAllocationsWithoutDispatch)
+                {
+                    <tr>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.DriverName ?? "—")</td>
+                        <td>@(row.DestinationName ?? "—")</td>
+                        <td class="ak-col-num">@(row.AllocationQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.RemainingQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchAllocationsWithoutDispatch.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectDispatch allocation without truck dispatch", "All DirectDispatch allocations have active DirectFromReceipt trace where expected.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectDispatch quantity mismatches</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-dispatch-balance">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Driver</th><th>Destination</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Dispatched MT</th><th class="ak-col-num">Remaining MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchQuantityMismatches)
+                {
+                    <tr>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.DriverName ?? "—")</td>
+                        <td>@(row.DestinationName ?? "—")</td>
+                        <td class="ak-col-num">@(row.AllocationQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.RemainingQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchQuantityMismatches.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectDispatch quantity mismatch", "Allocation quantity and active dispatch quantity are aligned.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectFromReceipt dispatches without allocation</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-dispatch-balance">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Driver</th><th>Destination</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Dispatched MT</th><th class="ak-col-num">Remaining MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchesWithoutAllocation)
+                {
+                    <tr>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.DriverName ?? "—")</td>
+                        <td>@(row.DestinationName ?? "—")</td>
+                        <td class="ak-col-num">@(row.AllocationQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.RemainingQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchesWithoutAllocation.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectFromReceipt dispatch without allocation", "All direct dispatches are linked to a receipt allocation.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectFromReceipt dispatches with InventoryMovement</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-dispatch-balance">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Driver</th><th>Destination</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Dispatched MT</th><th class="ak-col-num">Remaining MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchesWithInventoryMovement)
+                {
+                    <tr>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.DriverName ?? "—")</td>
+                        <td>@(row.DestinationName ?? "—")</td>
+                        <td class="ak-col-num">@(row.AllocationQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.RemainingQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchesWithInventoryMovement.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No unexpected InventoryMovement for DirectFromReceipt", "DirectFromReceipt dispatches correctly avoid stock movement.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectDispatch status mismatches</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-dispatch-balance">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Driver</th><th>Destination</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Dispatched MT</th><th class="ak-col-num">Remaining MT</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchStatusMismatches)
+                {
+                    <tr>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.DriverName ?? "—")</td>
+                        <td>@(row.DestinationName ?? "—")</td>
+                        <td class="ak-col-num">@(row.AllocationQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.RemainingQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchStatusMismatches.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectDispatch status mismatch", "Allocation status matches active direct dispatch quantity.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectFromReceipt sales without ledger</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-trace">
+                <thead><tr><th>Dispatch</th><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Invoice</th><th class="ak-col-num">Dispatch MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchSalesWithoutLedger)
+                {
+                    <tr>
+                        <td>@(row.TruckDispatchId.HasValue ? $"#{row.TruckDispatchId}" : "—")</td>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchSalesWithoutLedger.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectFromReceipt sale without ledger", "Linked direct dispatch sales have sale ledger entries.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectFromReceipt sale quantity mismatches</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-trace">
+                <thead><tr><th>Dispatch</th><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Truck</th><th>Invoice</th><th class="ak-col-num">Dispatch MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectDispatchSaleQuantityMismatches)
+                {
+                    <tr>
+                        <td>@(row.TruckDispatchId.HasValue ? $"#{row.TruckDispatchId}" : "—")</td>
+                        <td>@(row.AllocationId.HasValue ? $"#{row.AllocationId}" : "—")</td>
+                        <td>@(row.LoadingReceiptId.HasValue ? $"#{row.LoadingReceiptId}" : "—")</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.TruckPlateNumber ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@(row.DispatchedQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectDispatchSaleQuantityMismatches.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("No DirectFromReceipt dispatch/sale quantity mismatch", "Linked sale quantity matches dispatch quantity.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectSale allocations بدون Sale</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-ledger">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Customer</th><th>Invoice</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th class="ak-col-num">Ledger USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectSaleAllocationsWithoutSale)
+                {
+                    <tr>
+                        <td>#@row.AllocationId</td>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.CustomerName ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@row.AllocationQuantityMt.ToString("N4")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectSaleAllocationsWithoutSale.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("DirectSale allocation بدون sale وجود ندارد", "همه allocationهای DirectSale فروش مرتبط دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectSale sales بدون Ledger</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-ledger">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Customer</th><th>Invoice</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th class="ak-col-num">Ledger USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectSaleSalesWithoutLedger)
+                {
+                    <tr>
+                        <td>#@row.AllocationId</td>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.CustomerName ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@row.AllocationQuantityMt.ToString("N4")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectSaleSalesWithoutLedger.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("DirectSale sale بدون ledger وجود ندارد", "همه فروش‌های DirectSale ledger مرتبط دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectSale quantity mismatches</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-ledger">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Customer</th><th>Invoice</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th class="ak-col-num">Ledger USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectSaleQuantityMismatches)
+                {
+                    <tr>
+                        <td>#@row.AllocationId</td>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.CustomerName ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@row.AllocationQuantityMt.ToString("N4")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectSaleQuantityMismatches.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("اختلاف مقدار DirectSale وجود ندارد", "Quantity allocation و sale برابر است.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">DirectSale ledger amount mismatches</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table recon-direct-sale-ledger">
+                <thead><tr><th>Allocation</th><th>Receipt</th><th>Contract</th><th>Customer</th><th>Invoice</th><th class="ak-col-num">Allocation MT</th><th class="ak-col-num">Sale MT</th><th class="ak-col-num">Sale USD</th><th class="ak-col-num">Ledger USD</th><th>Issue</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DirectSaleLedgerAmountMismatches)
+                {
+                    <tr>
+                        <td>#@row.AllocationId</td>
+                        <td>#@row.LoadingReceiptId</td>
+                        <td>@row.ContractNumber</td>
+                        <td>@(row.CustomerName ?? "—")</td>
+                        <td>@(row.InvoiceNumber ?? "—")</td>
+                        <td class="ak-col-num">@row.AllocationQuantityMt.ToString("N4")</td>
+                        <td class="ak-col-num">@(row.SaleQuantityMt?.ToString("N4") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.SaleTotalUsd?.ToString("N2") ?? "—")</td>
+                        <td class="ak-col-num ak-num">@(row.LedgerAmountUsd?.ToString("N2") ?? "—")</td>
+                        <td><span class="ak-status is-inactive">@row.Issue</span></td>
+                    </tr>
+                }
+                @if (!Model.DirectSaleLedgerAmountMismatches.Any())
+                {
+                    <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", ("اختلاف مبلغ ledger وجود ندارد", "TotalUsd فروش با ledger فروش DirectSale برابر است.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Sales بدون Ledger</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>SourceId</th><th>@UiText.T(Context,"تاریخ","Date")</th><th>@UiText.T(Context,"مرجع","Reference")</th><th class="ak-col-num">USD</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.SalesWithoutLedger)
+                {
+                    <tr><td>@row.SourceId</td><td>@row.Date.ToDisplayDate()</td><td>@row.Reference</td><td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td><td><span class="ak-status is-inactive">@row.Status</span></td></tr>
+                }
+                @if (!Model.SalesWithoutLedger.Any())
+                {
+                    <tr><td colspan="5">@await Html.PartialAsync("_EmptyState", ("Sales بدون ledger وجود ندارد", "همه فروش‌های قابل‌ردیابی ledger متناظر دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Expenses بدون Ledger</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>SourceId</th><th>@UiText.T(Context,"تاریخ","Date")</th><th>@UiText.T(Context,"مرجع","Reference")</th><th class="ak-col-num">USD</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.ExpensesWithoutLedger)
+                {
+                    <tr><td>@row.SourceId</td><td>@row.Date.ToDisplayDate()</td><td>@row.Reference</td><td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td><td><span class="ak-status is-inactive">@row.Status</span></td></tr>
+                }
+                @if (!Model.ExpensesWithoutLedger.Any())
+                {
+                    <tr><td colspan="5">@await Html.PartialAsync("_EmptyState", ("Expense بدون ledger وجود ندارد", "همه مصارف قابل‌ردیابی ledger متناظر دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head ak-section-title">Payments بدون Ledger</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>SourceId</th><th>@UiText.T(Context,"نوع","Type")</th><th>@UiText.T(Context,"تاریخ","Date")</th><th>@UiText.T(Context,"مرجع","Reference")</th><th class="ak-col-num">USD</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.PaymentsWithoutLedger)
+                {
+                    <tr><td>@row.SourceId</td><td>@row.SourceType</td><td>@row.Date.ToDisplayDate()</td><td>@row.Reference</td><td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td><td><span class="ak-status is-inactive">@row.Status</span></td></tr>
+                }
+                @if (!Model.PaymentsWithoutLedger.Any())
+                {
+                    <tr><td colspan="6">@await Html.PartialAsync("_EmptyState", ("Payment بدون ledger وجود ندارد", "همه پرداخت‌ها و دریافت‌های ثبت‌شده ledger متناظر دارند.", "bi-check2-circle"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

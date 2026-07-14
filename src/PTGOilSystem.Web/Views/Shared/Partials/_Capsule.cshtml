@@ -1,0 +1,11 @@
+@*
+    Shared semantic capsule badge — soft pill for short categorical fields
+    (role, type, position, group, category, status). Reference: Akaunting
+    "Manager" role badge. Styling: .ptg-capsule-badge in 50-ak-components.css.
+
+    Model: (string Text, string? Tone)
+      Tone — null/empty = default indigo; or "success" | "warning" |
+             "danger" | "muted" for real semantic states (same size/form).
+*@
+@model (string Text, string? Tone)
+<span class="ptg-capsule-badge@(string.IsNullOrWhiteSpace(Model.Tone) ? "" : " is-" + Model.Tone)">@Model.Text</span>

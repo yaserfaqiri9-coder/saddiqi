@@ -1,0 +1,763 @@
+@model PTGOilSystem.Web.Models.Contracts.ContractFormViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"ویرایش قرارداد","Edit Contract");
+    var companies = ViewBag.Companies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var products = ViewBag.Products as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var units = ViewBag.Units as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var suppliers = ViewBag.Suppliers as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var customers = ViewBag.Customers as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var locations = ViewBag.Locations as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var currencies = ViewBag.Currencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var productUnitMap = ViewBag.ProductUnitMap as IReadOnlyDictionary<int, int?>
+        ?? new Dictionary<int, int?>();
+    var partners = (ViewBag.Partners as Microsoft.AspNetCore.Mvc.Rendering.SelectList)?.ToList()
+        ?? new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    var partnerRows = Model.PartnerShares.Any()
+        ? Model.PartnerShares
+        : new List<PTGOilSystem.Web.Models.Contracts.ContractPartnerShareInput> { new() };
+    var premiumDiscountSign = (Model.PremiumDiscountUsd ?? 0m) < 0 ? "-" : "+";
+    var premiumDiscountMagnitude = Model.PremiumDiscountUsd.HasValue
+        ? Math.Abs(Model.PremiumDiscountUsd.Value).ToString("0.####")
+        : string.Empty;
+}
+
+<div class="ak-form-page">
+    @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkPageHeader.cshtml",
+        ($"ویرایش قرارداد {Model.ContractNumber}", false,
+         (string?)null, (string?)null, (string?)null, (string?)null,
+         UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Details", new { id = Model.Id })))
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        <div >
+            @Html.AntiForgeryToken()
+            <input asp-for="Id" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("هویت قرارداد", (string?)null))
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="ContractNumber" class="ak-label"></label>
+                        <input asp-for="ContractNumber" class="ak-input" />
+                        <span asp-validation-for="ContractNumber" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ContractType" class="ak-label"></label>
+                        <select asp-for="ContractType" class="ak-input">
+                            <option value="1">@UiText.T(Context,"خرید","Purchase")</option>
+                            <option value="2">@UiText.T(Context,"فروش","Sale")</option>
+                        </select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="Status" class="ak-label"></label>
+                        <select asp-for="Status" class="ak-input">
+                            <option value="0">@UiText.T(Context,"پیش‌نویس","Draft")</option>
+                            <option value="1">@UiText.T(Context,"فعال","Active")</option>
+                            <option value="2">بسته‌شده</option>
+                            <option value="3">لغوشده</option>
+                        </select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="CompanyId" class="ak-label"></label>
+                        <select asp-for="CompanyId" asp-items="companies" class="ak-input">
+                            <option value="">@UiText.T(Context,"انتخاب شرکت","Select Company")</option>
+                        </select>
+                        <span asp-validation-for="CompanyId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ProductId" class="ak-label"></label>
+                        <select asp-for="ProductId" asp-items="products" id="ProductId" class="ak-input">
+                            <option value="">@UiText.T(Context,"انتخاب جنس","Select Product")</option>
+                        </select>
+                        <span asp-validation-for="ProductId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="UnitId" class="ak-label"></label>
+                        <select asp-for="UnitId" asp-items="units" id="UnitId" class="ak-input">
+                            <option value="">@UiText.T(Context,"انتخاب واحد","Select Unit")</option>
+                        </select>
+                        <span asp-validation-for="UnitId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="SupplierId" class="ak-label"></label>
+                        <select asp-for="SupplierId" asp-items="suppliers" class="ak-input">
+                            <option value="">—</option>
+                        </select>
+                        <span asp-validation-for="SupplierId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="CustomerId" class="ak-label"></label>
+                        <select asp-for="CustomerId" asp-items="customers" class="ak-input">
+                            <option value="">—</option>
+                        </select>
+                        <span asp-validation-for="CustomerId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ContractDate" class="ak-label"></label>
+                        <input asp-for="ContractDate" type="date" class="ak-input" />
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="StartDate" class="ak-label"></label>
+                        <input asp-for="StartDate" type="date" class="ak-input" value="@(Model.StartDate?.ToHtmlDateInput())" />
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="EndDate" class="ak-label"></label>
+                        <input asp-for="EndDate" type="date" class="ak-input" value="@(Model.EndDate?.ToHtmlDateInput())" />
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="DestinationLocationId" class="ak-label"></label>
+                        <select asp-for="DestinationLocationId" asp-items="locations" class="ak-input">
+                            <option value="">— ندارد —</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("اطلاعات عملیاتی", (string?)null))
+                <div class="ak-form-grid">
+                    <div class="ak-field ak-col-full">
+                        <p class="form-section-text mb-0">اطلاعات اصلی قرارداد اکنون در بخش بالا قابل ویرایش است. این بخش برای تنظیم مالکیت، مقدار، قیمت و یادداشت‌ها استفاده می‌شود.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("مالکیت قرارداد", (string?)null))
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="OwnershipType" class="ak-label"></label>
+                        <select asp-for="OwnershipType" id="ownershipType" class="ak-input">
+                            <option value="1">@UiText.T(Context,"شخصی","Individual")</option>
+                            <option value="2">@UiText.T(Context,"شراکتی","Partnership")</option>
+                        </select>
+                    </div>
+                    <div class="ak-field ak-col-full ak-note pt-0">
+                        اگر قرارداد شراکتی است، سهم‌ها را بازبینی کنید. جمع باید 100 باشد.
+                    </div>
+                </div>
+
+                <div id="partnerSection" class="mt-3">
+                    <div class="d-flex justify-content-end mb-3">
+                        <button type="button" id="addPartnerRow" class="btn ak-secondary-action">
+                            <i class="bi bi-plus-lg"></i>
+                            افزودن شریک
+                        </button>
+                    </div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th>@UiText.T(Context,"شریک","Partner")</th>
+                                    <th style="width:220px;">درصد سهم</th>
+                                    <th style="width:120px;">@UiText.T(Context,"عملیات","Operations")</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partnerRowsBody">
+                                @for (var i = 0; i < partnerRows.Count; i++)
+                                {
+                                    var row = partnerRows[i];
+                                    <tr data-partner-row>
+                                        <td>
+                                            <select name="PartnerShares[@i].PartnerId" data-partner-field="PartnerShares[__index__].PartnerId" class="ak-input">
+                                                <option value="">@UiText.T(Context,"انتخاب کنید","Select")</option>
+                                                @foreach (var partner in partners)
+                                                {
+                                                    if (partner.Value == row.PartnerId?.ToString())
+                                                    {
+                                                        <option value="@partner.Value" selected>@partner.Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@partner.Value">@partner.Text</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input name="PartnerShares[@i].SharePercent" data-partner-field="PartnerShares[__index__].SharePercent" value="@(row.SharePercent?.ToString("0.####"))" class="ak-input" />
+                                        </td>
+                                        <td>
+                                            <button type="button" class="ak-cancel" data-remove-partner-row>
+                                                حذف
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <span asp-validation-for="PartnerShares" class="ak-field-error d-block mt-2"></span>
+                </div>
+
+                <template id="partnerRowTemplate">
+                    <tr data-partner-row>
+                        <td>
+                            <select name="PartnerShares[__index__].PartnerId" data-partner-field="PartnerShares[__index__].PartnerId" class="ak-input">
+                                <option value="">@UiText.T(Context,"انتخاب کنید","Select")</option>
+                                @foreach (var partner in partners)
+                                {
+                                    <option value="@partner.Value">@partner.Text</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            <input name="PartnerShares[__index__].SharePercent" data-partner-field="PartnerShares[__index__].SharePercent" class="ak-input" />
+                        </td>
+                        <td>
+                            <button type="button" class="ak-cancel" data-remove-partner-row>
+                                حذف
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+            </section>
+
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("قیمت‌گذاری و مقدار", (string?)null))
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="PricingMethod" class="ak-label">نوع نرخ</label>
+                        <select asp-for="PricingMethod" id="pricingMethod" class="ak-input">
+                            <option value="1">نرخ قطعی / توافقی</option>
+                            <option value="2">نرخ Platt's</option>
+                        </select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="QuantityMt" class="ak-label"></label>
+                        <input asp-for="QuantityMt" class="ak-input" />
+                        <span asp-validation-for="QuantityMt" class="ak-field-error"></span>
+                    </div>
+                </div>
+
+                <div id="fixedPricingSection" class="mt-3">
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="Currency" class="ak-label"></label>
+                            <select asp-for="Currency" asp-items="currencies" id="contractCurrency" class="ak-input">
+                                <option value="">@UiText.T(Context,"انتخاب کنید","Select")</option>
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="UnitPriceInCurrency" class="ak-label"></label>
+                            <input asp-for="UnitPriceInCurrency" class="ak-input" />
+                            <span asp-validation-for="UnitPriceInCurrency" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field" id="fxRateGroup">
+                            <label asp-for="AppliedFxRateToUsd" class="ak-label"></label>
+                            <input asp-for="AppliedFxRateToUsd" class="ak-input" />
+                            <span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label class="ak-label">قیمت مبنای USD/MT</label>
+                            <input value="@(Model.UnitPriceUsd?.ToString("0.####") ?? string.Empty)" class="ak-input" readonly />
+                        </div>
+                        <div class="ak-field ak-col-full ak-note" id="fxRateNote">
+                            اگر نرخ تبدیل را خالی بگذارید، سیستم از نرخ روزانه ثبت‌شده برای تاریخ قرارداد استفاده می‌کند.
+                        </div>
+                    </div>
+                </div>
+
+                <div id="manualFinalPricingSection" class="mt-3">
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="ManualFinalPriceUsd" class="ak-label">قیمت نهایی USD/MT</label>
+                            <input asp-for="ManualFinalPriceUsd" class="ak-input" type="number" min="0.0001" step="0.0001" placeholder="اگر نرخ اعلام نشده، خالی بگذارید" />
+                            <span asp-validation-for="ManualFinalPriceUsd" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="PricingFormulaNote" class="ak-label"></label>
+                            <input asp-for="PricingFormulaNote" class="ak-input" maxlength="500" placeholder="مثلاً: قیمت توافقی طبق قرارداد" />
+                            <span asp-validation-for="PricingFormulaNote" class="ak-field-error"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="plattsPricingSection" class="mt-3">
+                    <div class="ak-form-grid">
+                        <input asp-for="Currency" type="hidden" id="plattsCurrencyHidden" />
+                        <div class="ak-field d-none">
+                            <label asp-for="BenchmarkCode" class="ak-label"></label>
+                            <input asp-for="BenchmarkCode" class="ak-input" />
+                            <span asp-validation-for="BenchmarkCode" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="PlattsPeriodType" class="ak-label">نوع Platt's</label>
+                            <select asp-for="PlattsPeriodType" id="plattsPeriodType" class="ak-input">
+                                <option value="">@UiText.T(Context,"انتخاب کنید","Select")</option>
+                                <option value="1">روزانه</option>
+                                <option value="2">میانگین ماهانه</option>
+                                <option value="3">دستی / توضیحی</option>
+                            </select>
+                            <span asp-validation-for="PlattsPeriodType" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="PremiumDiscountUsd" class="ak-label"></label>
+                            <input asp-for="PremiumDiscountUsd" type="hidden" id="PremiumDiscountUsd" />
+                            <div class="ak-form-grid">
+                                <select id="premiumDiscountSign" class="ak-input" aria-label="علامت پریمیم یا دیسکانت">
+                                    @if (premiumDiscountSign == "+")
+                                    {
+                                        <option value="+" selected>+</option>
+                                        <option value="-">-</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="+">+</option>
+                                        <option value="-" selected>-</option>
+                                    }
+                                </select>
+                                <input id="premiumDiscountAmount" value="@premiumDiscountMagnitude" class="ak-input" type="number" min="0" step="0.0001" inputmode="decimal" />
+                            </div>
+                            <span asp-validation-for="PremiumDiscountUsd" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field ak-col-full ak-note pt-0">
+                            فرمول پلتس در سیستم بر پایه USD نگهداری می‌شود.
+                        </div>
+                        <div class="ak-field" id="basisDateGroup">
+                            <label asp-for="PlattsBasisDate" class="ak-label"></label>
+                            <input asp-for="PlattsBasisDate" type="date" class="ak-input" value="@(Model.PlattsBasisDate?.ToHtmlDateInput())" />
+                            <span asp-validation-for="PlattsBasisDate" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field" id="basisMonthGroup">
+                            <label asp-for="PlattsBasisMonth" class="ak-label"></label>
+                            <input asp-for="PlattsBasisMonth" type="month" class="ak-input" value="@(Model.PlattsBasisMonth?.ToHtmlMonthInput())" />
+                            <span asp-validation-for="PlattsBasisMonth" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field" id="manualPriceGroup">
+                            <label asp-for="PlattsManualPriceUsd" class="ak-label"></label>
+                            <input asp-for="PlattsManualPriceUsd" class="ak-input" />
+                            <span asp-validation-for="PlattsManualPriceUsd" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field d-none">
+                            <label asp-for="MinimumPriceUsd" class="ak-label"></label>
+                            <input asp-for="MinimumPriceUsd" class="ak-input" placeholder="اختیاری — کف قیمت" />
+                            <span asp-validation-for="MinimumPriceUsd" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="PricingFormulaNote" class="ak-label"></label>
+                            <input asp-for="PricingFormulaNote" class="ak-input" maxlength="500" placeholder="مثلاً: میانگین ۵ روز بعد از بارگیری" />
+                            <span asp-validation-for="PricingFormulaNote" class="ak-field-error"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ak-form-grid mt-3">
+                    <div class="ak-field ak-col-full">
+                        <div class="ak-section-head">
+                            <h3>ارز تسویهٔ قرارداد</h3>
+                            <p>اگر تأمین‌کننده پول را به ارزی غیر از دالر (مثلاً روبل، درهم، یورو) حساب می‌کند، این بخش را انتخاب کنید.</p>
+                        </div>
+                        <div class="ak-form-grid">
+                            <div class="ak-field" data-rub-rate-field>
+                                <label asp-for="RubRatePolicy" class="ak-label">روش تسویهٔ ارزی</label>
+                                <select asp-for="RubRatePolicy" id="RubRatePolicy" class="ak-input">
+                                    <option value="@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.NotApplicable)">ندارد، فقط دالر</option>
+                                    <option value="@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate)">نرخ ثابت برای این قرارداد</option>
+                                    <option value="@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.PerLoadingRate)">نرخ جدا برای هر بارگیری — فقط روبل</option>
+                                    <option value="@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.RateLater)">نرخ بعداً مشخص می‌شود — فقط روبل</option>
+                                </select>
+                                <small class="ak-note d-none" data-rub-policy-hint>برای ارزهای غیرروبل فعلاً فقط نرخ ثابت پشتیبانی می‌شود. نرخ هر بارگیری و نرخ بعداً مشخص فقط برای روبل فعال است.</small>
+                            </div>
+                            <div class="ak-field" id="settlementCurrencyField">
+                                <label asp-for="SettlementCurrencyCode" class="ak-label">ارز تسویه</label>
+                                <select asp-for="SettlementCurrencyCode" id="SettlementCurrencyCode" class="ak-input" data-settlement-currency>
+                                    @foreach (var settlementOption in (currencies?.ToList() ?? new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>()))
+                                    {
+                                        if (!string.Equals(settlementOption.Value, "USD", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <option value="@settlementOption.Value">@settlementOption.Text</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div class="ak-field" data-rub-message></div>
+                        </div>
+                    </div>
+                    <div id="contractRubFixedRateGroup" class="ak-field ak-col-full @(Model.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate ?"" : "d-none")">
+                        <div class="ak-form-grid">
+                            <div class="ak-field" data-rub-equivalent-field>
+                                <label asp-for="ContractRubPerUsdRate" class="ak-label">هر 1 دالر چند <span data-settlement-unit>روبل</span> است؟</label>
+                                <input asp-for="ContractRubPerUsdRate" class="ak-input" type="number" min="0.000001" step="0.000001" />
+                                <span class="ak-note">مثلاً 92 یعنی 1 دالر = 92 <span data-settlement-unit>روبل</span></span>
+                                <span asp-validation-for="ContractRubPerUsdRate" class="ak-field-error"></span>
+                            </div>
+                            <div class="ak-field">
+                                <div class="ak-note">
+                                    <span>معادل به <span data-settlement-unit>روبل</span></span>
+                                    <strong data-rub-equivalent>در انتظار قیمت دالری</strong>
+                                </div>
+                            </div>
+                            <div class="ak-field ak-col-full">
+                                <details class="ak-advanced">
+                                    <summary class="ak-advanced-summary">جزئیات بیشتر</summary>
+                                    <div class="ak-form-grid mt-1">
+                                        <div class="ak-field">
+                                            <label asp-for="ContractRubRateDate" class="ak-label">تاریخ نرخ</label>
+                                            <input asp-for="ContractRubRateDate" type="date" class="ak-input" value="@(Model.ContractRubRateDate?.ToHtmlDateInput())" />
+                                        </div>
+                                        <div class="ak-field">
+                                            <label asp-for="ContractRubRateSource" class="ak-label">مرجع نرخ</label>
+                                            <input asp-for="ContractRubRateSource" class="ak-input" maxlength="200" />
+                                            <span asp-validation-for="ContractRubRateSource" class="ak-field-error"></span>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ak-form-grid mt-1">
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="Notes" class="ak-label"></label>
+                        <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <div class="ak-footer-actions">
+                <button class="ak-save">ذخیره تغییرات</button>
+                <a asp-action="Details" asp-route-id="@Model.Id" class="ak-cancel">انصراف</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <script>
+        (function () {
+            const ownershipType = document.getElementById('ownershipType');
+            const partnerSection = document.getElementById('partnerSection');
+            const partnerRowsBody = document.getElementById('partnerRowsBody');
+            const partnerRowTemplate = document.getElementById('partnerRowTemplate');
+            const addPartnerRowButton = document.getElementById('addPartnerRow');
+            const productSelect = document.getElementById('ProductId');
+            const contractUnitSelect = document.getElementById('UnitId');
+            const pricingMethod = document.getElementById('pricingMethod');
+            const contractCurrency = document.getElementById('contractCurrency');
+            const fixedPricingSection = document.getElementById('fixedPricingSection');
+            const plattsPricingSection = document.getElementById('plattsPricingSection');
+            const manualFinalPricingSection = document.getElementById('manualFinalPricingSection');
+            const premiumDiscountHidden = document.getElementById('PremiumDiscountUsd');
+            const premiumDiscountSign = document.getElementById('premiumDiscountSign');
+            const premiumDiscountAmount = document.getElementById('premiumDiscountAmount');
+            const plattsPeriodType = document.getElementById('plattsPeriodType');
+            const fxRateGroup = document.getElementById('fxRateGroup');
+            const fxRateNote = document.getElementById('fxRateNote');
+            const basisDateGroup = document.getElementById('basisDateGroup');
+            const basisMonthGroup = document.getElementById('basisMonthGroup');
+            const manualPriceGroup = document.getElementById('manualPriceGroup');
+            const plattsCurrencyHidden = document.getElementById('plattsCurrencyHidden');
+            const settlementCurrency = document.getElementById('SettlementCurrencyCode');
+            const rubRatePolicy = document.getElementById('RubRatePolicy');
+            const contractRubFixedRateGroup = document.getElementById('contractRubFixedRateGroup');
+            const contractRubPerUsdRate = document.getElementById('ContractRubPerUsdRate');
+            const rubMessage = document.querySelector('[data-rub-message]');
+            const rubEquivalent = document.querySelector('[data-rub-equivalent]');
+            const form = premiumDiscountHidden ? premiumDiscountHidden.closest('form') : null;
+            const productUnitMap = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(productUnitMap));
+
+            function toggle(element, show) {
+                if (!element) {
+                    return;
+                }
+
+                element.style.display = show ? '' : 'none';
+                element.hidden = !show;
+                element.classList.toggle('d-none', !show);
+            }
+
+            function setFieldsDisabled(element, disabled) {
+                element.querySelectorAll('input, select, textarea, button').forEach(function (field) {
+                    field.disabled = disabled;
+                });
+            }
+
+            function setSectionActive(element, active) {
+                toggle(element, active);
+                setFieldsDisabled(element, !active);
+            }
+
+            function reindexPartnerRows() {
+                partnerRowsBody.querySelectorAll('[data-partner-row]').forEach(function (row, index) {
+                    row.querySelectorAll('[data-partner-field]').forEach(function (field) {
+                        field.name = field.dataset.partnerField.replace('__index__', index.toString());
+                    });
+                });
+            }
+
+            function appendPartnerRow() {
+                const nextIndex = partnerRowsBody.querySelectorAll('[data-partner-row]').length;
+                const templateHtml = partnerRowTemplate.innerHTML.split('__index__').join(nextIndex.toString());
+                partnerRowsBody.insertAdjacentHTML('beforeend', templateHtml);
+            }
+
+            function syncContractUnitFromProduct(force) {
+                if (!productSelect || !contractUnitSelect) {
+                    return;
+                }
+
+                const selectedProductId = productSelect.value;
+                if (!selectedProductId) {
+                    if (force) {
+                        contractUnitSelect.value = '';
+                    }
+                    return;
+                }
+
+                const defaultUnitId = productUnitMap[selectedProductId];
+                if (force || !contractUnitSelect.value) {
+                    contractUnitSelect.value = defaultUnitId ? defaultUnitId.toString() : '';
+                }
+            }
+
+            function syncPremiumDiscountField() {
+                if (!premiumDiscountHidden || !premiumDiscountAmount || !premiumDiscountSign) {
+                    return;
+                }
+
+                const rawValue = premiumDiscountAmount.value.trim();
+                if (!rawValue) {
+                    premiumDiscountHidden.value = '';
+                    return;
+                }
+
+                const magnitude = Math.abs(Number.parseFloat(rawValue));
+                if (!Number.isFinite(magnitude)) {
+                    premiumDiscountHidden.value = '';
+                    return;
+                }
+
+                premiumDiscountAmount.value = magnitude.toString();
+                premiumDiscountHidden.value = premiumDiscountSign.value === '-' ? (-magnitude).toString() : magnitude.toString();
+            }
+
+            function refreshOwnership() {
+                const isPartnership = ownershipType.value === '2';
+                toggle(partnerSection, isPartnership);
+
+                if (isPartnership && !partnerRowsBody.querySelector('[data-partner-row]')) {
+                    appendPartnerRow();
+                    reindexPartnerRows();
+                }
+            }
+
+            function refreshPricing() {
+                const isFixed = pricingMethod.value === '1';
+                const isPlatts = pricingMethod.value === '2';
+                const isManualFinal = pricingMethod.value === '3';
+                const selectedCurrency = (contractCurrency.value || 'USD').toUpperCase();
+                const selectedPeriod = plattsPeriodType.value;
+
+                setSectionActive(fixedPricingSection, isFixed);
+                setSectionActive(plattsPricingSection, isPlatts);
+                setSectionActive(manualFinalPricingSection, isManualFinal);
+                setSectionActive(fxRateGroup, isFixed && selectedCurrency !== 'USD');
+                toggle(fxRateNote, isFixed && selectedCurrency !== 'USD');
+                setSectionActive(basisDateGroup, isPlatts && selectedPeriod === '1');
+                setSectionActive(basisMonthGroup, isPlatts && selectedPeriod === '2');
+                setSectionActive(manualPriceGroup, isPlatts && selectedPeriod === '3');
+
+                if (isPlatts || isManualFinal) {
+                    contractCurrency.value = 'USD';
+                }
+
+                if (plattsCurrencyHidden) {
+                    plattsCurrencyHidden.value = isPlatts ? 'USD' : '';
+                }
+            }
+
+            function parseDecimalInput(element) {
+                const value = Number.parseFloat((element?.value || '').replace(',', '.'));
+                return Number.isFinite(value) ? value : null;
+            }
+
+            function estimateContractUsdValue() {
+                const quantity = parseDecimalInput(document.getElementById('QuantityMt'));
+                if (!quantity || quantity <= 0) {
+                    return null;
+                }
+
+                const method = pricingMethod?.value;
+                if (method === '1') {
+                    const unitPrice = parseDecimalInput(document.getElementById('UnitPriceInCurrency'));
+                    if (!unitPrice || unitPrice <= 0) return null;
+                    const currency = (contractCurrency?.value || 'USD').toUpperCase();
+                    if (currency === 'USD') return quantity * unitPrice;
+                    const fxRate = parseDecimalInput(document.getElementById('AppliedFxRateToUsd'));
+                    return fxRate && fxRate > 0 ? quantity * unitPrice * fxRate : null;
+                }
+
+                if (method === '2') {
+                    const plattsManual = parseDecimalInput(document.getElementById('PlattsManualPriceUsd'));
+                    return plattsManual && plattsManual > 0 ? quantity * plattsManual : null;
+                }
+
+                const manualFinal = parseDecimalInput(document.getElementById('ManualFinalPriceUsd'));
+                return manualFinal && manualFinal > 0 ? quantity * manualFinal : null;
+            }
+
+            function refreshRubEquivalent() {
+                if (!rubEquivalent) {
+                    return;
+                }
+
+                const rate = parseDecimalInput(contractRubPerUsdRate);
+                const usdValue = estimateContractUsdValue();
+                if (!rate || rate <= 0 || !usdValue || usdValue <= 0) {
+                    rubEquivalent.textContent = 'در انتظار قیمت دالری';
+                    return;
+                }
+
+                const settleCode = (settlementCurrency && settlementCurrency.value) ? settlementCurrency.value.toUpperCase() : 'RUB';
+                rubEquivalent.textContent = `${settleCode} ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(usdValue * rate)}`;
+            }
+
+            function settlementUnitLabel() {
+                const code = (settlementCurrency && settlementCurrency.value) ? settlementCurrency.value.toUpperCase() : '';
+                return (!code || code === 'RUB') ? 'روبل' : code;
+            }
+
+            function refreshRubSettlement() {
+                if (!rubRatePolicy || !contractRubFixedRateGroup) {
+                    return;
+                }
+
+                const notApplicable = '@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.NotApplicable)';
+                const fixedContractRate = '@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate)';
+                const perLoadingRate = '@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.PerLoadingRate)';
+                const rateLater = '@((int)PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.RateLater)';
+                const settlementCurrencyField = document.getElementById('settlementCurrencyField');
+
+                let selectedPolicy = rubRatePolicy.value || notApplicable;
+                const isForeign = selectedPolicy !== notApplicable;
+
+                toggle(settlementCurrencyField, isForeign);
+
+                if ((selectedPolicy === perLoadingRate || selectedPolicy === rateLater) && settlementCurrency) {
+                    let rubOption = Array.from(settlementCurrency.options || []).find(function (opt) {
+                        return (opt.value || '').toUpperCase() === 'RUB';
+                    });
+                    if (!rubOption) {
+                        rubOption = document.createElement('option');
+                        rubOption.value = 'RUB';
+                        rubOption.textContent = 'RUB';
+                        settlementCurrency.appendChild(rubOption);
+                    }
+                    settlementCurrency.value = rubOption.value;
+                }
+
+                const settleCode = (settlementCurrency && settlementCurrency.value) ? settlementCurrency.value.toUpperCase() : '';
+                const isRub = !settleCode || settleCode === 'RUB';
+
+                // فاز امن: مسیر «نرخ هر بارگیری» و «نرخ بعداً» فعلاً فقط برای روبل؛ برای ارز غیرروبل غیرفعال و به نرخ ثابت تبدیل می‌شوند.
+                if (rubRatePolicy.options) {
+                    Array.from(rubRatePolicy.options).forEach(function (opt) {
+                        if (opt.value === perLoadingRate || opt.value === rateLater) {
+                            opt.disabled = isForeign && !isRub;
+                        }
+                    });
+                }
+                if (isForeign && !isRub && (selectedPolicy === perLoadingRate || selectedPolicy === rateLater)) {
+                    rubRatePolicy.value = fixedContractRate;
+                    selectedPolicy = fixedContractRate;
+                }
+
+                // پیام راهنما: وقتی ارز تسویه غیرروبل است و گزینه‌های ویژهٔ روبل غیرفعال شده‌اند.
+                const policyHint = document.querySelector('[data-rub-policy-hint]');
+                if (policyHint) toggle(policyHint, isForeign && !isRub);
+
+                const unitLabel = settlementUnitLabel();
+                document.querySelectorAll('[data-settlement-unit]').forEach(function (el) { el.textContent = unitLabel; });
+
+                const isFixedRub = selectedPolicy === fixedContractRate;
+
+                // Ensure the whole fixed-rate group and the specific columns (rate input + equivalent) are toggled
+                toggle(contractRubFixedRateGroup, isFixedRub);
+                const contractRubPerUsdRateCol = contractRubPerUsdRate ? contractRubPerUsdRate.closest('[data-rub-rate-field]') : null;
+                const rubEquivalentCol = rubEquivalent ? rubEquivalent.closest('[data-rub-equivalent-field]') : null;
+                toggle(contractRubPerUsdRateCol, isFixedRub);
+                toggle(rubEquivalentCol, isFixedRub);
+
+                setFieldsDisabled(contractRubFixedRateGroup, !isFixedRub);
+                if (!isFixedRub) {
+                    contractRubFixedRateGroup.querySelectorAll('input').forEach(function (field) {
+                        field.value = '';
+                    });
+                    if (rubEquivalent) {
+                        rubEquivalent.textContent = 'در انتظار قیمت دالری';
+                    }
+                }
+
+                if (rubMessage) {
+                    rubMessage.textContent = selectedPolicy === perLoadingRate
+                        ? 'نرخ روبل هنگام ثبت هر بارگیری وارد می‌شود.'
+                        : selectedPolicy === rateLater
+                            ? 'قرارداد فعلاً ثبت می‌شود؛ نرخ روبل بعداً در بارگیری یا جزئیات بارگیری وارد می‌شود.'
+                            : selectedPolicy === fixedContractRate
+                                ? `قیمت دالری قرارداد با همین نرخ به ${unitLabel} هم نمایش داده می‌شود.`
+                                : 'قیمت اصلی قرارداد به دالر ثبت می‌شود.';
+                }
+
+                refreshRubEquivalent();
+            }
+
+            addPartnerRowButton.addEventListener('click', function () {
+                appendPartnerRow();
+                reindexPartnerRows();
+            });
+
+            premiumDiscountAmount?.addEventListener('input', function () {
+                if (premiumDiscountAmount.value.startsWith('-')) {
+                    premiumDiscountAmount.value = premiumDiscountAmount.value.substring(1);
+                }
+
+                syncPremiumDiscountField();
+            });
+
+            premiumDiscountSign?.addEventListener('change', syncPremiumDiscountField);
+
+            form?.addEventListener('submit', syncPremiumDiscountField);
+
+            partnerRowsBody.addEventListener('click', function (event) {
+                const removeButton = event.target.closest('[data-remove-partner-row]');
+                if (!removeButton) {
+                    return;
+                }
+
+                const row = removeButton.closest('[data-partner-row]');
+                if (!row) {
+                    return;
+                }
+
+                row.remove();
+                reindexPartnerRows();
+            });
+
+            ownershipType.addEventListener('change', refreshOwnership);
+            productSelect?.addEventListener('change', function () {
+                syncContractUnitFromProduct(true);
+            });
+            pricingMethod.addEventListener('change', refreshPricing);
+            contractCurrency.addEventListener('change', refreshPricing);
+            plattsPeriodType.addEventListener('change', refreshPricing);
+            settlementCurrency?.addEventListener('change', refreshRubSettlement);
+            rubRatePolicy?.addEventListener('change', refreshRubSettlement);
+            contractRubPerUsdRate?.addEventListener('input', refreshRubEquivalent);
+            document.getElementById('QuantityMt')?.addEventListener('input', refreshRubEquivalent);
+            document.getElementById('UnitPriceInCurrency')?.addEventListener('input', refreshRubEquivalent);
+            document.getElementById('AppliedFxRateToUsd')?.addEventListener('input', refreshRubEquivalent);
+            document.getElementById('ManualFinalPriceUsd')?.addEventListener('input', refreshRubEquivalent);
+            document.getElementById('PlattsManualPriceUsd')?.addEventListener('input', refreshRubEquivalent);
+
+            syncPremiumDiscountField();
+            syncContractUnitFromProduct(false);
+            reindexPartnerRows();
+            refreshOwnership();
+            refreshPricing();
+            refreshRubSettlement();
+        })();
+    </script>
+}

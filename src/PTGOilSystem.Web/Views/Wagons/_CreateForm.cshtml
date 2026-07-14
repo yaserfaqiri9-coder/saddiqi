@@ -1,0 +1,42 @@
+@model Wagon
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات واگون", (string?)"شماره، نوع، ظرفیت و مالک واگون را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="WagonNumber" class="ak-label">شماره واگون <span class="ak-req">*</span></label>
+            <input asp-for="WagonNumber" class="ak-input" />
+            <span asp-validation-for="WagonNumber" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="WagonType" class="ak-label">نوع واگون</label>
+            <input asp-for="WagonType" class="ak-input" />
+            <span asp-validation-for="WagonType" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="CapacityMt" class="ak-label">ظرفیت (MT)</label>
+            <input asp-for="CapacityMt" class="ak-input" />
+            <span asp-validation-for="CapacityMt" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Owner" class="ak-label">مالک</label>
+            <input asp-for="Owner" class="ak-input" />
+            <span asp-validation-for="Owner" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

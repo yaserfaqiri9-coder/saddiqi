@@ -1,0 +1,63 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingPriceEditViewModel
+@{
+    ViewData["Title"] = $"اصلاح قیمت بارگیری #{Model.Id}";
+    var backUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Details", "Loading", new { id = Model.Id }) ?? $"/Loading/Details/{Model.Id}";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("اصلاح قیمت بارگیری", false, (string?)null, (string?)null, (string?)null, (string?)null, "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+
+    <form asp-action="EditPrice" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه بارگیری", (string?)"فقط قیمت نهایی همین بارگیری تغییر می‌کند."))" />
+            <dl class="ak-form-grid">
+                <div class="ak-field"><dt class="ak-label">قرارداد</dt><dd>@Model.ContractNumber</dd></div>
+                <div class="ak-field"><dt class="ak-label">محصول</dt><dd>@Model.ProductName</dd></div>
+                <div class="ak-field"><dt class="ak-label">وسیله</dt><dd>@Model.VehicleSummary</dd></div>
+                <div class="ak-field"><dt class="ak-label">مقدار بارگیری</dt><dd class="ak-num">@NumberDisplay.Quantity(Model.LoadedQuantityMt) MT</dd></div>
+                @if (!string.IsNullOrWhiteSpace(Model.BillOfLadingNumber))
+                {
+                    <div class="ak-field"><dt class="ak-label">شماره بارنامه</dt><dd><bdi>@Model.BillOfLadingNumber</bdi></dd></div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.WagonNumber))
+                {
+                    <div class="ak-field"><dt class="ak-label">شماره واگن</dt><dd><bdi>@Model.WagonNumber</bdi></dd></div>
+                }
+            </dl>
+
+        </section>
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قیمت نهایی", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="LoadingPriceUsd" class="ak-label"></label>
+                    <input asp-for="LoadingPriceUsd" class="ak-input ak-num" type="number" min="0.0001" step="0.0001" />
+                    <div class="form-text">
+                        اگر نرخ هنوز اعلام نشده، این فیلد را خالی بگذارید تا وضعیت «در انتظار نرخ» بماند.
+                    </div>
+                    <span asp-validation-for="LoadingPriceUsd" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field ak-col-full">
+                    <label asp-for="PricingNote" class="ak-label"></label>
+                    <textarea asp-for="PricingNote" class="ak-input" rows="3" placeholder="مثال: قیمت نهایی طبق اعلام قرارداد"></textarea>
+                    <span asp-validation-for="PricingNote" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ذخیره قیمت", backUrl, "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,239 @@
+@model PTGOilSystem.Web.Models.Customs.CustomsDeclarationDetailsViewModel
+@using PTGOilSystem.Web.Security
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService AuthorizationService
+@functions {
+    static string FormatFileSize(long bytes)
+        => bytes >= 1048576 ? (bytes / 1048576d).ToString("N1") + " MB" : (bytes / 1024d).ToString("N0") + " KB";
+}
+@{
+    var canManageDocuments = (await AuthorizationService.AuthorizeAsync(User, AuthPolicies.ManageData)).Succeeded;
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var loadingDetailsUrl = Model.TransportLegId.HasValue
+        ? Url.Action("Details", "InventoryTransportLegs", new { id = Model.TransportLegId }) ?? "/InventoryTransportLegs"
+        : Url.Action("Details", "Loading", new { id = Model.LoadingRegisterId }) ?? "/Loading";
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingDetailsUrl;
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var newDeclarationUrl = Model.TransportLegId.HasValue
+        ? Url.Action("Create", new { transportLegId = Model.TransportLegId, returnUrl = backUrl }) ?? "#"
+        : Url.Action("Create", new { loadingRegisterId = Model.LoadingRegisterId, returnUrl = backUrl }) ?? "#";
+    var hasDocs = Model.Documents.Count > 0;
+
+    ViewData["Title"] = "جزئیات اعلامیه گمرکی";
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"اعلامیه گمرکی #{Model.Id}", false,
+                       canManageDocuments ? "ویرایش" : null, "bi-pencil-square",
+                       canManageDocuments ? Url.Action("Edit", new { id = Model.Id, returnUrl = currentUrl }) : null, (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+    <p class="ak-section-desc">@Model.ContractNumber · @Model.ProductName</p>
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(hasDocs ?"is-active" : "is-inactive")">@(hasDocs ? $"{Model.Documents.Count} سند" : "بدون سند")</span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@newDeclarationUrl"><i class="bi bi-plus-lg"></i> اعلامیه جدید</a></li>
+                @if (canManageDocuments)
+                {
+                    <li>
+                        <form asp-action="Delete" asp-route-id="@Model.Id" asp-route-returnUrl="@backUrl" method="post" data-no-spa="true"
+                              data-ptg-confirm="true" data-ptg-confirm-title="حذف اعلامیه" data-ptg-confirm-message="آیا این اعلامیه حذف شود؟">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="dropdown-item ak-danger"><i class="bi bi-trash"></i> حذف اعلامیه</button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <section class="ak-form-section ak-form-grid">
+        <div class="ak-field">
+            <span class="ak-label">تاریخ اعلامیه</span>
+            <strong>@Model.DeclarationDate.ToDisplayDate()</strong>
+            <span class="ak-section-desc">واگن / موتر: @(Model.WagonOrTruckNumber ?? "—")</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">مجموع (AFN)</span>
+            <strong class="ak-num">@Model.TotalAfn.ToString("N0")</strong>
+            <span class="ak-section-desc">معادل USD: @(Model.TotalUsd > 0 ? Model.TotalUsd.ToString("N2") + " USD" : "—")</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">نرخ هر MT (AFN)</span>
+            <strong class="ak-num">@(Model.RatePerMtAfn?.ToString("N0") ?? "—")</strong>
+            <span class="ak-section-desc">USD/MT: @(Model.RatePerMtUsd.HasValue ? Model.RatePerMtUsd.Value.ToString("N4") : "—")</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">وزن کنسمنت</span>
+            <strong class="ak-num">@(Model.ConsignmentWeightMt?.ToString("N4") ?? "—") MT</strong>
+            <span class="ak-section-desc">شماره مرجع: @(Model.DeclarationReference ?? "—")</span>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات اعلامیه", (string?)null))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.DeclarationDate.ToDisplayDate()</dd></div>
+            <div class="ak-list-row"><dt>واگن / موتر</dt><dd>@(Model.WagonOrTruckNumber ?? "—")</dd></div>
+            <div class="ak-list-row"><dt>شماره مرجع</dt><dd>@(Model.DeclarationReference ?? "—")</dd></div>
+            <div class="ak-list-row"><dt>وزن کنسمنت</dt><dd class="ak-num">@(Model.ConsignmentWeightMt?.ToString("N4") ?? "—") MT</dd></div>
+            <div class="ak-list-row"><dt>قرارداد</dt><dd>@Model.ContractNumber</dd></div>
+            <div class="ak-list-row"><dt>جنس</dt><dd>@Model.ProductName</dd></div>
+            <div class="ak-list-row"><dt>شماره واگن بارگیری</dt><dd>@(Model.WagonNumber ?? "—")</dd></div>
+            @if (!string.IsNullOrWhiteSpace(Model.Notes))
+            {
+                <div class="ak-list-row"><dt>یادداشت</dt><dd>@Model.Notes</dd></div>
+            }
+        </dl>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تفکیک اقلام مصارف گمرکی", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">نوع مصرف</th>
+                        <th class="ak-col-num">مبلغ (AFN)</th>
+                        <th class="ak-col-num">مبلغ (USD)</th>
+                        <th>یادداشت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@item.ComponentLabel</td>
+                            <td class="ak-num">@(item.AmountAfn > 0 ? item.AmountAfn.ToString("N2") : "—")</td>
+                            <td class="ak-num">@(item.AmountUsd.HasValue && item.AmountUsd > 0 ? item.AmountUsd.Value.ToString("N2") : "—")</td>
+                            <td>@item.Notes</td>
+                        </tr>
+                    }
+                    <tr>
+                        <td class="ak-col-grow">مجموع</td>
+                        <td class="ak-num">@Model.TotalAfn.ToString("N2")</td>
+                        <td class="ak-num">@(Model.TotalUsd > 0 ? Model.TotalUsd.ToString("N2") : "—")</td>
+                        <td></td>
+                    </tr>
+                    @if (Model.RatePerMtAfn.HasValue)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">نرخ هر MT</td>
+                            <td class="ak-num">@Model.RatePerMtAfn.Value.ToString("N2") AFN/MT</td>
+                            <td class="ak-num">@(Model.RatePerMtUsd.HasValue ? Model.RatePerMtUsd.Value.ToString("N4") + " USD/MT" : "—")</td>
+                            <td></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اسناد گمرکی این موتر", (string?)null))" />
+
+        @if (TempData["ok"] is string okMsg)
+        {
+            <p class="ak-note">@okMsg</p>
+        }
+        @if (TempData["error"] is string errMsg)
+        {
+            <p class="ak-field-error">@errMsg</p>
+        }
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">نام فایل</th>
+                        <th>نوع سند</th>
+                        <th class="ak-col-num">حجم</th>
+                        <th>تاریخ آپلود</th>
+                        <th>آپلود توسط</th>
+                        <th class="ak-col-actions">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">
+                                <a asp-action="DownloadDocument" asp-route-id="@doc.Id" target="_blank" rel="noopener" class="ak-name">@doc.OriginalFileName</a>
+                                @if (!string.IsNullOrWhiteSpace(doc.Notes))
+                                {
+                                    <span class="ak-section-desc">@doc.Notes</span>
+                                }
+                            </td>
+                            <td>@(doc.DocumentType ?? "—")</td>
+                            <td class="ak-num">@FormatFileSize(doc.FileSizeBytes)</td>
+                            <td>@doc.UploadedAt.ToDisplayDate()</td>
+                            <td>@(doc.UploadedByUserName ?? "—")</td>
+                            <td class="ak-col-actions">
+                                <div class="dropdown ak-row-menu">
+                                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a asp-action="DownloadDocument" asp-route-id="@doc.Id" target="_blank" rel="noopener" class="dropdown-item"><i class="bi bi-eye"></i> مشاهده</a></li>
+                                        @if (canManageDocuments)
+                                        {
+                                            <li>
+                                                <form asp-action="DeleteDocument" asp-route-id="@doc.Id" method="post" data-no-spa="true"
+                                                      data-ptg-confirm="true" data-ptg-confirm-title="حذف سند" data-ptg-confirm-message="این سند حذف شود؟">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="dropdown-item ak-danger"><i class="bi bi-trash"></i> حذف</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!hasDocs)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="ak-empty">
+                                    <i class="bi bi-paperclip"></i>
+                                    هنوز سندی برای این موتر آپلود نشده است.
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (canManageDocuments)
+        {
+            <form asp-action="UploadDocument" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="ak-form" data-no-spa="true">
+                @Html.AntiForgeryToken()
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label class="ak-label" for="documentType">نوع سند</label>
+                        <input id="documentType" name="documentType" type="text" class="ak-input" placeholder="سند پرداخت / رسید / ACCD ..." maxlength="100" />
+                    </div>
+                    <div class="ak-field">
+                        <label class="ak-label" for="documentNotes">یادداشت</label>
+                        <input id="documentNotes" name="notes" type="text" class="ak-input" maxlength="1000" />
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label class="ak-label" for="documentFile">فایل</label>
+                        <input id="documentFile" name="file" type="file" class="ak-input" accept=".pdf,.jpg,.jpeg,.png,.webp" required />
+                        <span class="ak-note">PDF، JPG، JPEG، PNG یا WEBP — حداکثر ۱۰ مگابایت.</span>
+                    </div>
+                </div>
+                <div class="ak-footer-actions">
+                    <button type="submit" class="btn btn-primary ak-save">آپلود سند</button>
+                </div>
+            </form>
+        }
+    </section>
+</div>

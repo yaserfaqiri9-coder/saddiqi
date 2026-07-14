@@ -1,0 +1,92 @@
+@model PTGOilSystem.Web.Models.Inventory.InventoryStockCardViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "کارت موجودی";
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">کارت موجودی</h1>
+            <p class="ak-note">تاریخچه حرکت‌ها همراه با اثر هر movement روی موجودی تجمعی همان scope.</p>
+        </div>
+        <div class="ak-page-actions compact-toolbar no-print">
+            <a asp-action="Create" class="btn ak-primary-action"><i class="bi bi-plus-lg me-1"></i> ثبت حرکت جدید</a>
+        </div>
+    </div>
+
+    <div class="ak-detail-toolbar">
+        <div>
+            <form method="get" class="ak-form-grid">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0"></div>
+                <div class="ak-field"><label asp-for="Filter.ProductId" class="ak-label"></label><select asp-for="Filter.ProductId" asp-items="ViewBag.Products" class="ak-input"><option value="">@UiText.T(Context,"همه اجناس","All Products")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.ContractId" class="ak-label"></label><select asp-for="Filter.ContractId" asp-items="ViewBag.Contracts" class="ak-input"><option value="">همه قراردادهای منبع موجودی</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.TerminalId" class="ak-label"></label><select asp-for="Filter.TerminalId" asp-items="ViewBag.Terminals" class="ak-input"><option value="">همه ترمینال‌ها</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.FromDate" class="ak-label"></label><input asp-for="Filter.FromDate" type="date" class="ak-input" /></div>
+                <div class="ak-field"><label asp-for="Filter.ToDate" class="ak-label"></label><input asp-for="Filter.ToDate" type="date" class="ak-input" /></div>
+                <div class="ak-field ak-col-full">
+                    <div class="ak-detail-toolbar-actions">
+                        <button type="submit" class="btn ak-primary-action">@UiText.T(Context,"اعمال فیلتر","Apply Filter")</button>
+                        <a asp-action="StockCard" class="btn ak-secondary-action">@UiText.T(Context,"پاک‌کردن","Clear")</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="ak-table-wrap">
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context,"تاریخ","Date")</th>
+                        <th>@UiText.T(Context,"نوع حرکت","Movement Type")</th>
+                        <th>@UiText.T(Context,"جنس","Product")</th>
+                        <th>@UiText.T(Context,"ترمینال","Terminal")</th>
+                        <th>قرارداد خرید منبع موجودی</th>
+                        <th>مخزن</th>
+                        <th class="text-end">مقدار</th>
+                        <th class="text-end">اثر روی موجودی</th>
+                        <th class="text-end">مانده تجمعی</th>
+                        <th>@UiText.T(Context,"مرجع","Reference")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>@row.MovementDate.ToDisplayDate()</td>
+                            <td>
+                                @switch (row.Direction)
+                                {
+                                    case MovementDirection.In: <span class="ak-status is-active">ورود</span> break;
+                                    case MovementDirection.Out: <span class="ak-status is-inactive">خروج</span> break;
+                                    case MovementDirection.Transfer: <span class="ak-status is-pending">انتقال</span> break;
+                                    case MovementDirection.Adjustment: <span class="ak-status is-pending">تعدیل</span> break;
+                                }
+                            </td>
+                            <td>@row.ProductName</td>
+                            <td>@row.TerminalName</td>
+                            <td>@(row.ContractNumber ?? "-")</td>
+                            <td>@(row.StorageTankCode ?? "-")</td>
+                            <td class="text-end">@NumberDisplay.Quantity(row.QuantityMt)</td>
+                            <td class="text-end @(row.SignedQuantityMt < 0 ?"text-danger" : "text-success")">@NumberDisplay.Quantity(row.SignedQuantityMt)</td>
+                            <td class="text-end fw-semibold">@NumberDisplay.Quantity(row.RunningBalanceMt)</td>
+                            <td>@(row.ReferenceDocument ?? "-")</td>
+                        </tr>
+                    }
+                    @if (!Model.Rows.Any())
+                    {
+                        <tr>
+                            <td colspan="10">
+                                @await Html.PartialAsync("_EmptyState", ("حرکتی برای فیلتر انتخابی یافت نشد", "بازه یا scope فیلتر را تغییر دهید و دوباره تلاش کنید.", "bi-funnel"))
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+</div>

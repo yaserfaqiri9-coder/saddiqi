@@ -1,0 +1,63 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTGOilSystem.Web", "src\PTGOilSystem.Web\PTGOilSystem.Web.csproj", "{4A2F6F7B-BF17-9F24-916F-43FBA15D492B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTGOilSystem.Web.Tests", "tests\PTGOilSystem.Web.Tests\PTGOilSystem.Web.Tests.csproj", "{3B237386-19BB-38C2-27EA-73BFCA995BE5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{AF324591-766D-49C5-975B-70EA18893FC9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClearDbExceptUsers", "scripts\clear-db-except-users\ClearDbExceptUsers.csproj", "{8870A49A-D171-419B-85E8-70E164AB52B9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{A3ADACB8-AAD8-47FE-B3C7-A82B5E0737FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbCleaner", "tools\db-cleaner\DbCleaner.csproj", "{B4E4923E-7BD7-46D8-85B8-435E2586BB2C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTGOilSystem.Desktop", "src\PTGOilSystem.Desktop\PTGOilSystem.Desktop.csproj", "{548E46AB-53A8-407A-80EB-3388B526D2C1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4A2F6F7B-BF17-9F24-916F-43FBA15D492B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A2F6F7B-BF17-9F24-916F-43FBA15D492B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A2F6F7B-BF17-9F24-916F-43FBA15D492B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A2F6F7B-BF17-9F24-916F-43FBA15D492B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B237386-19BB-38C2-27EA-73BFCA995BE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B237386-19BB-38C2-27EA-73BFCA995BE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B237386-19BB-38C2-27EA-73BFCA995BE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B237386-19BB-38C2-27EA-73BFCA995BE5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8870A49A-D171-419B-85E8-70E164AB52B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8870A49A-D171-419B-85E8-70E164AB52B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8870A49A-D171-419B-85E8-70E164AB52B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8870A49A-D171-419B-85E8-70E164AB52B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4E4923E-7BD7-46D8-85B8-435E2586BB2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4E4923E-7BD7-46D8-85B8-435E2586BB2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4E4923E-7BD7-46D8-85B8-435E2586BB2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4E4923E-7BD7-46D8-85B8-435E2586BB2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{548E46AB-53A8-407A-80EB-3388B526D2C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{548E46AB-53A8-407A-80EB-3388B526D2C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{548E46AB-53A8-407A-80EB-3388B526D2C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{548E46AB-53A8-407A-80EB-3388B526D2C1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4A2F6F7B-BF17-9F24-916F-43FBA15D492B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{3B237386-19BB-38C2-27EA-73BFCA995BE5} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{8870A49A-D171-419B-85E8-70E164AB52B9} = {AF324591-766D-49C5-975B-70EA18893FC9}
+		{B4E4923E-7BD7-46D8-85B8-435E2586BB2C} = {A3ADACB8-AAD8-47FE-B3C7-A82B5E0737FA}
+		{548E46AB-53A8-407A-80EB-3388B526D2C1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {92ED64CB-4D17-483A-8AA1-CE3B92FEE652}
+	EndGlobalSection
+EndGlobal

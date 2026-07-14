@@ -1,0 +1,95 @@
+/*
+ * PTG base layer.
+ */
+
+html {
+    background: var(--ptg-bg);
+}
+
+body.boltz-shell.app-shell-authenticated,
+body.ptg-modal-document {
+    margin: 0;
+    background: var(--ptg-bg) !important;
+    color: var(--ptg-text);
+    font-family: "Poppins", "Vazirmatn", Tahoma, Arial, sans-serif;
+    font-size: 14px;
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body.boltz-shell.app-shell-authenticated.boltz-rtl,
+body.ptg-modal-document.boltz-rtl {
+    font-family: "Vazirmatn", "Poppins", Tahoma, Arial, sans-serif;
+}
+
+body.boltz-shell.app-shell-authenticated :where(h1, h2, h3, h4, h5, h6),
+body.ptg-modal-document :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--ptg-text);
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+body.boltz-shell.app-shell-authenticated :where(p, small, label, span, td, th, dd, dt),
+body.ptg-modal-document :where(p, small, label, span, td, th, dd, dt) {
+    letter-spacing: 0;
+}
+
+/* Tabs are excluded from the global link colour: this selector outweighs
+   .ptg-tab-item, so without the guard every link-based tab would render in the
+   active purple even when idle. Tab colour lives in 16-system-tabs.css. */
+body.boltz-shell.app-shell-authenticated a:not(.ptg-tab-item),
+body.ptg-modal-document a:not(.ptg-tab-item) {
+    color: var(--ptg-primary);
+    text-decoration: none;
+}
+
+body.boltz-shell.app-shell-authenticated a:not(.ptg-tab-item):hover,
+body.boltz-shell.app-shell-authenticated a:not(.ptg-tab-item):focus,
+body.ptg-modal-document a:not(.ptg-tab-item):hover,
+body.ptg-modal-document a:not(.ptg-tab-item):focus {
+    color: var(--ptg-primary-dark);
+}
+
+body.boltz-shell.app-shell-authenticated :focus-visible,
+body.ptg-modal-document :focus-visible {
+    outline: 0;
+    box-shadow: var(--ptg-ring) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.text-muted, .form-text, .field-note),
+body.ptg-modal-document :where(.text-muted, .form-text, .field-note) {
+    color: var(--ptg-muted) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :where(code, kbd, samp),
+body.ptg-modal-document :where(code, kbd, samp) {
+    padding: .12rem .5rem;
+    border: 1px solid var(--ptg-border);
+    border-radius: .75rem;
+    background: var(--ptg-surface-soft);
+    color: var(--ptg-text);
+    font-size: .86em;
+}
+
+/* سلول‌های عددی یک‌دست — راست‌چین، LTR برای خودِ عدد، ارقام tabular. */
+body.boltz-shell.app-shell-authenticated .number-cell,
+body.boltz-shell.app-shell-authenticated .money-cell,
+body.boltz-shell.app-shell-authenticated .quantity-cell,
+body.boltz-shell.app-shell-authenticated .fx-cell,
+body.ptg-modal-document .number-cell,
+body.ptg-modal-document .money-cell,
+body.ptg-modal-document .quantity-cell,
+body.ptg-modal-document .fx-cell {
+    text-align: end;
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+body.boltz-shell.app-shell-authenticated ::selection,
+body.ptg-modal-document ::selection {
+    color: #FFFFFF;
+    background: var(--ptg-primary);
+}

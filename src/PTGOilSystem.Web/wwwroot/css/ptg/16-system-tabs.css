@@ -1,0 +1,312 @@
+/* =============================================================
+ * Canonical tabs — the single source of truth for every tab rail
+ * in the system (section rails, details rails, modal documents).
+ *
+ * Flat Akaunting rail: no card, no capsule, no fill, no shadow.
+ * Text only, 14px, 2px active underline sitting on the hairline.
+ *
+ * Nothing else may restyle .ptg-tabs-rail / .ptg-tab-item.
+ * This file loads last on purpose (see _Layout / _ModalLayout).
+ * ============================================================= */
+
+:root {
+    --ptg-tabs-font-size: 14px;
+    --ptg-tabs-text-color: #424242;
+    --ptg-tabs-active-color: #55588B;
+    --ptg-tabs-border-color: #E5E7EB;
+    --ptg-tabs-horizontal-padding: 16px;
+    --ptg-tabs-bottom-padding: 8px;
+    --ptg-tabs-top-padding: 10px;
+    --ptg-tabs-indicator-height: 2px;
+    --ptg-tabs-transition-duration: 180ms;
+    --ptg-tabs-focus-color: rgba(85, 88, 139, .25);
+    --ptg-tabs-hover-indicator: rgba(85, 88, 139, .35);
+
+    /* Rhythm: title -> rail -> content. */
+    --ptg-tabs-space-above: 20px;
+    --ptg-tabs-space-below: 16px;
+
+    /* Back-compat aliases; older rules still reference these names. */
+    --ptg-tabs-ink: var(--ptg-tabs-active-color);
+    --ptg-tabs-muted: var(--ptg-tabs-text-color);
+    --ptg-tabs-active: var(--ptg-tabs-active-color);
+    --ptg-tabs-border: var(--ptg-tabs-border-color);
+    --ptg-tabs-underline: var(--ptg-tabs-indicator-height);
+}
+
+/* ---- Scroll shell ------------------------------------------------ */
+
+[data-section-tabs],
+[data-section-tabs-scroll] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+[data-section-tabs-scroll] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+}
+
+/* ---- Rail --------------------------------------------------------- */
+
+.ptg-tabs-rail {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex-wrap: nowrap;          /* never wrap to a second line */
+    gap: 0;                     /* spacing comes from tab padding only */
+    width: 100%;
+    min-width: 0;
+    margin: var(--ptg-tabs-space-above) 0 var(--ptg-tabs-space-below);
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--ptg-tabs-border-color);
+    background: transparent;    /* inherits the page background */
+    list-style: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+/* Hairline scrollbar, effectively invisible until it is needed. */
+.ptg-tabs-rail::-webkit-scrollbar {
+    height: 2px;
+}
+
+.ptg-tabs-rail::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ptg-tabs-rail::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+}
+
+.ptg-tabs-rail:hover::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, .12);
+}
+
+.ptg-tabs-rail > li {
+    display: contents;
+}
+
+/* A rail nested in a scroll shell must not scroll twice. */
+[data-section-tabs-scroll] > .ptg-tabs-rail {
+    overflow: visible;
+    margin-block: 0;
+    border-bottom: 0;
+}
+
+[data-section-tabs-scroll] {
+    margin: var(--ptg-tabs-space-above) 0 var(--ptg-tabs-space-below);
+    border-bottom: 1px solid var(--ptg-tabs-border-color);
+}
+
+/* ---- Tab ---------------------------------------------------------- */
+
+.ptg-tab-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 auto;             /* size to content, never stretch */
+    margin: 0;
+    padding: var(--ptg-tabs-top-padding) var(--ptg-tabs-horizontal-padding) var(--ptg-tabs-bottom-padding);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--ptg-tabs-text-color);
+    font-family: inherit;
+    font-size: var(--ptg-tabs-font-size);
+    font-weight: 400;
+    line-height: 1.5;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition:
+        color var(--ptg-tabs-transition-duration) ease,
+        opacity var(--ptg-tabs-transition-duration) ease;
+}
+
+/* The indicator is always present and only changes colour, so the tab
+   never changes height and the rail never shifts on load or hover. */
+.ptg-tab-item::after {
+    position: absolute;
+    inset-inline: 0;
+    bottom: -1px;               /* sit on the rail hairline, not above it */
+    height: var(--ptg-tabs-indicator-height);
+    border-radius: 1px 1px 0 0;
+    background: transparent;
+    content: "";
+    transition: background-color var(--ptg-tabs-transition-duration) ease;
+    pointer-events: none;
+}
+
+/* Colour rules are scoped to the rail on purpose. Generic link rules elsewhere
+   (`.boltz-shell a`, `body.app-shell-authenticated a`) are more specific than a
+   bare `.ptg-tab-item`, and would otherwise paint idle link-tabs in the active
+   purple. Scoping wins on specificity without reaching for !important. */
+.ptg-tabs-rail .ptg-tab-item {
+    color: var(--ptg-tabs-text-color);
+    font-weight: 400;
+}
+
+.ptg-tabs-rail .ptg-tab-item:hover {
+    color: var(--ptg-tabs-active-color);
+    background: transparent;
+}
+
+.ptg-tab-item:hover::after {
+    background: var(--ptg-tabs-hover-indicator);
+}
+
+/* ---- Active ------------------------------------------------------- */
+
+.ptg-tabs-rail .ptg-tab-item.is-active,
+.ptg-tabs-rail .ptg-tab-item.active,
+.ptg-tabs-rail .ptg-tab-item[aria-selected="true"],
+.ptg-tabs-rail .ptg-tab-item[aria-current="page"] {
+    color: var(--ptg-tabs-active-color);
+    font-weight: 600;
+}
+
+.ptg-tab-item.is-active::after,
+.ptg-tab-item.active::after,
+.ptg-tab-item[aria-selected="true"]::after,
+.ptg-tab-item[aria-current="page"]::after {
+    background: var(--ptg-tabs-active-color);
+}
+
+/* Reserve the bold metrics up front so promoting a tab to active does not
+   reflow the rail (the classic 400 -> 600 width jump). */
+.ptg-tab-item > span:not(.ptg-tab-badge):not(.ak-status) {
+    display: inline-block;
+}
+
+.ptg-tab-item > span:not(.ptg-tab-badge):not(.ak-status)::after {
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    font-weight: 600;
+    content: attr(data-tab-label);
+    pointer-events: none;
+}
+
+/* ---- Focus -------------------------------------------------------- */
+
+.ptg-tab-item:focus {
+    outline: none;
+}
+
+.ptg-tab-item:focus-visible {
+    outline: 2px solid var(--ptg-tabs-focus-color);
+    outline-offset: -3px;
+    border-radius: 3px;
+    color: var(--ptg-tabs-active-color);
+}
+
+/* ---- Disabled ----------------------------------------------------- */
+
+.ptg-tabs-rail .ptg-tab-item:disabled,
+.ptg-tabs-rail .ptg-tab-item.is-disabled,
+.ptg-tabs-rail .ptg-tab-item[aria-disabled="true"] {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+    color: var(--ptg-tabs-text-color);
+}
+
+.ptg-tab-item:disabled::after,
+.ptg-tab-item.is-disabled::after,
+.ptg-tab-item[aria-disabled="true"]::after {
+    background: transparent;
+}
+
+/* ---- Count badge --------------------------------------------------- */
+/* Sized off the 14px text and vertically centred, so it cannot grow the
+   tab height. Quiet by default; picks up the active ink when selected. */
+
+.ptg-tab-item .ptg-tab-badge,
+.ptg-tab-item .ak-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: 9px;
+    background: #F1F1F4;
+    color: #6B6B76;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+        background-color var(--ptg-tabs-transition-duration) ease,
+        color var(--ptg-tabs-transition-duration) ease;
+}
+
+.ptg-tab-item.is-active .ptg-tab-badge,
+.ptg-tab-item.active .ptg-tab-badge,
+.ptg-tab-item[aria-selected="true"] .ptg-tab-badge,
+.ptg-tab-item.is-active .ak-status,
+.ptg-tab-item.active .ak-status,
+.ptg-tab-item[aria-selected="true"] .ak-status {
+    background: #EEEEF3;
+    color: var(--ptg-tabs-active-color);
+}
+
+/* ---- Icons --------------------------------------------------------- */
+/* Akaunting tabs are text-only. Icons are dropped from the rails, but any
+   that survive in a stray view must not reintroduce height or colour. */
+
+.ptg-tab-item > .bi,
+.ptg-tab-item > svg,
+.ptg-tab-item > span[aria-hidden="true"]:empty,
+.ptg-tab-item > span[aria-hidden="true"]:has(> .bi),
+.ptg-tab-item > span[aria-hidden="true"]:has(> svg) {
+    display: none;
+}
+
+/* ---- Panels -------------------------------------------------------- */
+
+.ptg-tab-panel[hidden],
+[data-ptg-tab-panel][hidden] {
+    display: none !important; /* beats Bootstrap's .tab-pane display rules */
+}
+
+/* ---- Responsive ---------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+    :root {
+        --ptg-tabs-horizontal-padding: 12px;
+        --ptg-tabs-space-above: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ptg-tabs-rail,
+    [data-section-tabs-scroll] {
+        scroll-behavior: auto;
+    }
+
+    .ptg-tab-item,
+    .ptg-tab-item::after {
+        transition: none;
+    }
+}
+
+@media print {
+    .ptg-tabs-rail {
+        display: none;
+    }
+}

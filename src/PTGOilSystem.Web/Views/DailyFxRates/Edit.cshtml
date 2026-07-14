@@ -1,0 +1,20 @@
+@model DailyFxRate
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش نرخ ارز", "Edit FX Rate");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string)ViewData["Title"]!, true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Index")))" />
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <partial name="_Form" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره تغییرات", "Save Changes"), Url.Action("Index") ?? "#", UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

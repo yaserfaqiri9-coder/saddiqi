@@ -1,0 +1,10 @@
+@model Partner
+@{
+    ViewData["Title"] = "شریک جدید";
+    ViewData["CreatePageIndexLabel"] = "شرکا";
+    ViewData["CreatePageSubtitle"] = "این master data بعداً در قراردادهای مشارکتی برای انتخاب شریک و درصد سهم استفاده می‌شود.";
+    ViewData["CreateFormPartialPath"] = "/Views/Partners/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,133 @@
+@model PTGOilSystem.Web.Models.Balance.ContractsBalanceViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"بیلانس قراردادها","Contract Balances");
+    var totalSalesUsd = Model.Items.Sum(item => item.TotalSalesUsd);
+    var totalExpensesUsd = Model.Items.Sum(item => item.TotalExpensesUsd);
+    var totalBaseBalanceUsd = Model.Items.Sum(item => item.BaseBalanceUsd);
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ProductId.HasValue || Model.Filter.CustomerId.HasValue || Model.Filter.SupplierId.HasValue;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context,"بیلانس قراردادها","Contract Balances"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار بیلانس قراردادها", "Contract balance metrics")">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context,"قراردادها","Contracts")</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context,"جمع فروش","Total Sales")</dt><dd class="ak-num">@totalSalesUsd.ToString("N2")</dd></div>
+            <div><dt>@UiText.T(Context,"جمع مصرف","Total Expenses")</dt><dd class="ak-num">@totalExpensesUsd.ToString("N2")</dd></div>
+            <div><dt>@UiText.T(Context,"تراز پایه","Base Balance")</dt><dd class="ak-num @(totalBaseBalanceUsd >= 0 ?"ak-num" : "ak-num")">@totalBaseBalanceUsd.ToString("N2")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> BkOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Where(i => !string.IsNullOrEmpty(i.Value)).Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? BkQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var balContFilter = new AkSearchFilterModel("Filter.Search", Model.Filter.Search,
+                "شماره قرارداد، مشتری، تأمین‌کننده یا جنس...",
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.ContractType", UiText.T(Context, "نوع", "Type"), "select", BkOpts(ViewBag.ContractTypes), BkQ("Filter.ContractType")),
+                    new("Filter.Status", UiText.T(Context, "وضعیت", "Status"), "select", BkOpts(ViewBag.ContractStatuses), BkQ("Filter.Status")),
+                    new("Filter.ProductId", UiText.T(Context, "جنس", "Product"), "select", BkOpts(ViewBag.Products), BkQ("Filter.ProductId")),
+                    new("Filter.CustomerId", UiText.T(Context, "مشتری", "Customer"), "select", BkOpts(ViewBag.Customers), BkQ("Filter.CustomerId")),
+                    new("Filter.SupplierId", UiText.T(Context, "تأمین‌کننده", "Supplier"), "select", BkOpts(ViewBag.Suppliers), BkQ("Filter.SupplierId"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="balContFilter" />
+            <div class="ak-list-toolbar-actions">
+                <a class="btn btn-light ak-secondary-action" href="@(Url.Action("ContractsCsv"))@(Context.Request.QueryString)">
+                    <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>Export CSV</span>
+                </a>
+                <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">
+                    <i class="bi bi-printer" aria-hidden="true"></i><span>@UiText.T(Context,"چاپ","Print")</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@UiText.T(Context,"قرارداد","Contract")</th>
+                        <th>@UiText.T(Context,"نوع / وضعیت","Type / Status")</th>
+                        <th>@UiText.T(Context,"مشتری","Customer")</th>
+                        <th>@UiText.T(Context,"تأمین‌کننده","Supplier")</th>
+                        <th>@UiText.T(Context,"جنس","Product")</th>
+                        <th>@UiText.T(Context,"واحد","Unit")</th>
+                        <th class="ak-col-num">@UiText.T(Context,"مقدار","Quantity")</th>
+                        <th class="ak-col-num">Shipment</th>
+                        <th class="ak-col-num">@UiText.T(Context,"جمع فروش","Total Sales")</th>
+                        <th class="ak-col-num">@UiText.T(Context,"جمع مصرف","Total Expenses")</th>
+                        <th class="ak-col-num">Ledger</th>
+                        <th class="ak-col-num">@UiText.T(Context,"تراز پایه","Base Balance")</th>
+                        <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td class="ak-col-grow"><a class="ak-name" asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@item.Id" asp-route-tab="finance">@item.ContractNumber</a></td>
+                            <td>
+                                <div>@item.ContractTypeName</div>
+                                <div class="ak-note">@item.StatusName</div>
+                            </td>
+                            <td>@(item.CustomerName ?? "-")</td>
+                            <td>@(item.SupplierName ?? "-")</td>
+                            <td>@(item.ProductName ?? "-")</td>
+                            <td>@item.ContractUnitText</td>
+                            <td class="ak-col-num ak-num">@item.QuantityMt.ToString("N4")</td>
+                            <td class="ak-col-num ak-num">@item.ShipmentCount</td>
+                            <td class="ak-col-num ak-num">@item.TotalSalesUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@item.TotalExpensesUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num">@item.RelatedLedgerCount</td>
+                            <td class="ak-col-num ak-num @(item.BaseBalanceUsd >= 0 ?"ak-num" : "ak-num")">@item.BaseBalanceUsd.ToString("N2")</td>
+                            <td class="ak-col-actions"><a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@item.Id" asp-route-tab="finance">@UiText.T(Context,"جزئیات","Details")</a></td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="13"><div class="ak-empty"><i class="bi bi-file-earmark-text"></i> @UiText.T(Context,"قراردادی برای نمایش بیلانس پیدا نشد","No contracts found for balance view")</div></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('balContFilterToggle');
+            var pop = document.getElementById('balContFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}

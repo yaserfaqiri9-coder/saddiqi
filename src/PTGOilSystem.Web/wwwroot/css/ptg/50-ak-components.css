@@ -1,0 +1,2740 @@
+/*
+ * 50-ak-components.css — Akaunting phase-2 STRUCTURAL components.
+ *
+ * Real markup primitives (page header / search / flat list) used by the
+ * migrated views. Unlike 45-akaunting.css these are self-contained classes
+ * on fresh markup — no `!important`, no specificity war with legacy skins.
+ * All colors/sizes come from 01-tokens.css.
+ *
+ * Consumers so far: Views/Suppliers/Index.cshtml, party Edit forms (phase-2 B4)
+ */
+
+/* ============================================================= *
+ * Page header — title hidden system-wide, actions stay opposite
+ * ============================================================= */
+.ak-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    padding: 8px 0 16px;
+}
+
+/* The Persian page title is not rendered anywhere in the app: only the
+   action buttons remain in the header. An action-less header collapses. */
+.ak-page-heading,
+.ak-page-title,
+.ak-star {
+    display: none !important;
+}
+
+.ak-page-header:not(:has(.ak-page-actions)) {
+    display: none;
+}
+
+.ak-page-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.ak-primary-action,
+.ak-secondary-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ============================================================= *
+ * Report parameters panel — Reports/* GET parameter form.
+ * Owns the funnel toggle + the inline parameter popover. This is NOT a
+ * list search: list search/filter belongs to the shared owner
+ * (.ak-filter / _AkSearchFilter, 45-akaunting.css).
+ * ============================================================= */
+.ak-report-parameters {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0 0 4px;
+}
+
+.ak-report-parameters-bar {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    border-bottom: 1px solid var(--divider);
+    margin: 0;
+}
+
+.ak-report-parameters-anchor {
+    display: flex;
+    align-items: flex-end;
+}
+
+.ak-report-parameters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.ak-report-parameters-pop {
+    min-width: 18rem;
+    padding: 14px;
+    gap: 10px;
+}
+
+.ak-report-parameters-pop.show {
+    display: grid;
+}
+
+.ak-report-parameters-pop .ak-report-parameters-field {
+    display: grid;
+    gap: 4px;
+}
+
+.ak-report-parameters-pop label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ptg-muted);
+    margin: 0;
+}
+
+.ak-report-parameters-apply {
+    min-height: 38px;
+}
+
+.ak-report-parameters-pop .ak-report-parameters-apply {
+    margin-top: 4px;
+    width: 100%;
+    justify-content: center;
+}
+
+/* ============================================================= *
+ * Detail / operations toolbar — GET forms, scope pickers, bulk-action
+ * and export rows that sit above a table on Details & operations pages.
+ * No search-filter semantics; purely a horizontal action row.
+ * ============================================================= */
+.ak-detail-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0 0 4px;
+}
+
+.ak-detail-toolbar-search {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    border-bottom: 1px solid var(--divider);
+    margin: 0;
+}
+
+.ak-detail-toolbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* ============================================================= *
+ * Subform toolbar — search + clear row inside wizard subforms
+ * (group expense / group sale / vehicle import).
+ * ============================================================= */
+.ak-subform-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0 0 4px;
+}
+
+.ak-subform-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    outline: 0;
+    padding: 16px 2px;
+    font-size: 14px;
+    color: var(--ptg-text);
+}
+
+.ak-subform-search::placeholder {
+    color: var(--ptg-muted);
+    opacity: 1;
+}
+
+/* ============================================================= *
+ * Flat list table — no card frame, 12px header / 14px cells
+ * ============================================================= */
+.ak-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.ak-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+}
+
+.ak-table > thead > tr > th {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--ptg-muted);
+    text-align: start;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--divider);
+    white-space: nowrap;
+}
+
+.ak-table > tbody > tr > td {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--ptg-text);
+    padding: 15px 16px;
+    border-bottom: 1px solid var(--divider);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.ak-table > tbody > tr:last-child > td {
+    border-bottom: 0;
+}
+
+.ak-table > tbody > tr[data-href] {
+    cursor: pointer;
+    transition: background-color var(--ptg-motion-fast, 150ms) ease-out;
+}
+
+.ak-table > tbody > tr:hover > td {
+    background: #F7F8FA;
+}
+
+/* Invisible spacer column absorbs the row slack: identity/meta pack at the
+   start, the value + status + actions sit at the far end — the Akaunting
+   "packed start, value at end" rhythm. */
+.ak-col-spacer {
+    width: 100%;
+    padding: 0;
+}
+
+.ak-col-grow {
+    max-width: 22rem;
+    white-space: normal;
+}
+
+.ak-table a.ak-name {
+    color: var(--ptg-text);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ak-table a.ak-name:hover {
+    color: var(--primary-main);
+    text-decoration: underline;
+}
+
+.ak-num {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+.ak-col-num {
+    text-align: end;
+}
+
+.ak-col-check {
+    width: 44px;
+    padding-inline-end: 0;
+}
+
+/* Reserved end column for the contextual actions overlay. tables.js sets
+   --ak-actions-w on the table (widest real action box + 16px); until then, or
+   for tables with no row actions, it falls back to the bare 44px. Both thead
+   and tbody carry this class, so header/body stay aligned. */
+.ak-col-actions {
+    width: var(--ak-actions-w, 44px);
+    min-width: var(--ak-actions-w, 44px);
+    text-align: end;
+}
+
+.ak-check {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--ptg-input-border, #c9ccd6);
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+/* ============================================================= *
+ * Person identity cell + semantic capsule — shared across every
+ * human/party list (Users, Customers, Suppliers, Partners, Sarrafs,
+ * Service Providers, Drivers, Employees). Reference: Akaunting user row.
+ * Partials: Views/Shared/Partials/_PersonCell.cshtml, _Capsule.cshtml.
+ * Tokens only, no !important; row height unchanged (avatar < cell box).
+ * ============================================================= */
+.ptg-person-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* 28px indigo disc; avatar sits at the name's inline-start, so it lands
+   on the right in RTL and the left in LTR without any per-direction rule. */
+.ptg-person-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #3C3F72;
+    color: #fff;
+    overflow: hidden;
+}
+
+.ptg-person-avatar > .bi {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.ptg-person-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.ptg-person-name {
+    min-width: 0;
+    color: var(--ptg-text, #424242);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+/* Name is a link only where the row already navigates: stays text-colored
+   (never link-blue, never bold); underline shows on hover/focus only. */
+a.ptg-person-name:hover,
+a.ptg-person-name:focus-visible {
+    color: var(--ptg-text, #424242);
+    text-decoration: underline;
+}
+
+/* Semantic capsule — soft indigo pill for short categorical fields. */
+.ptg-capsule-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 22px;
+    padding-inline: 10px;
+    border-radius: 999px;
+    background: var(--primary-lighter, #DCE2F9);
+    color: var(--primary-main, #55588B);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+/* Real semantic states reuse the existing soft status tokens — same size
+   and pill form, only the calm color changes. Plain roles/types stay indigo. */
+.ptg-capsule-badge.is-success {
+    background: var(--ptg-success-soft);
+    color: var(--ptg-success-text);
+}
+
+.ptg-capsule-badge.is-warning {
+    background: var(--ptg-warning-soft);
+    color: var(--ptg-warning-text);
+}
+
+.ptg-capsule-badge.is-danger {
+    background: var(--ptg-danger-soft);
+    color: var(--ptg-danger-text);
+}
+
+.ptg-capsule-badge.is-muted {
+    background: var(--ptg-draft-soft);
+    color: var(--ptg-draft-text);
+}
+
+/* Status pill */
+.ak-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--ptg-radius-badge, 999px);
+}
+
+.ak-status.is-active {
+    background: var(--ptg-success-soft);
+    color: var(--ptg-success-text);
+}
+
+.ak-status.is-inactive {
+    background: var(--ptg-draft-soft, #eceff3);
+    color: var(--ptg-draft-text, #6b7280);
+}
+
+/* Compact key/value list for administrative detail pages. */
+.ak-list {
+    display: grid;
+    margin: 0;
+}
+
+.ak-list-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1.2fr);
+    gap: 16px;
+    align-items: start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--divider);
+}
+
+.ak-list-row:last-child {
+    border-bottom: 0;
+}
+
+.ak-list-row dt {
+    color: var(--ptg-muted);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.ak-list-row dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--ptg-text);
+}
+
+/* Row ⋯ menu */
+.ak-row-menu {
+    display: inline-flex;
+}
+
+.ak-row-menu-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--ptg-muted);
+    cursor: pointer;
+    transition: background-color var(--ptg-motion-fast, 150ms) ease-out;
+}
+
+.ak-row-menu-btn:hover,
+.ak-row-menu-btn[aria-expanded="true"] {
+    background: var(--divider);
+    color: var(--ptg-text);
+}
+
+.ak-row-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ak-row-menu .dropdown-item.ak-danger {
+    color: var(--ptg-danger-text);
+}
+
+/* ============================================================= *
+ * Contextual row actions — hover/focus action box at the row end,
+ * built by tables.js from the (now hidden) ⋯ dropdown. Absolute over
+ * reserved end space so nothing shifts when it appears. RTL/LTR follow
+ * inset-inline-end (actions cell is the row-end cell in both). Reference:
+ * Akaunting row hover controls.
+ * ============================================================= */
+.ak-col-actions.ak-actions-host {
+    position: relative;
+    overflow: visible;
+}
+
+/* Source dropdown stays in the DOM (its links/forms are re-fired) but the
+   permanent three-dots trigger is gone. */
+.ak-actions-host .ak-row-menu {
+    display: none;
+}
+
+.ak-row-actions {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 8px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    overflow: hidden;
+    background: #FFFFFF;
+    border: 1px solid #E8E9F0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(31, 35, 48, 0.08);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-42%);
+    transition: opacity 130ms ease, transform 130ms ease, visibility 0s linear 130ms;
+}
+
+/* Revealed on hover, keyboard focus within the row, or when selected
+   (touch has no hover). Only one row is hovered/focused at a time. */
+.ak-table tbody tr:hover .ak-row-actions,
+.ak-table tbody tr:focus-within .ak-row-actions,
+.ak-table tbody tr.is-selected .ak-row-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(-50%);
+    transition-delay: 0s;
+}
+
+/* Escape-dismissed: force hidden even while focus is still inside the row
+   (must follow the reveal rules — equal specificity, later wins). */
+.ak-table tbody tr.ak-actions-hush .ak-row-actions {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-42%);
+}
+
+/* One flat icon button, shared by the hover box and the bulk toolbar (same
+   size / icon / color / order). No permanent box, background or divider. */
+.ak-row-action {
+    flex: 0 0 35px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 35px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #42465F;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ak-row-action > .bi {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ak-row-action:hover {
+    background: rgba(85, 88, 139, 0.07);
+    color: #55588B;
+}
+
+.ak-row-action:focus-visible {
+    outline: 2px solid rgba(85, 88, 139, 0.25);
+    outline-offset: -2px;
+}
+
+/* Delete stays neutral until hovered, then a soft red (never bold/dark). */
+.ak-row-action.is-danger:hover {
+    background: rgba(184, 0, 0, 0.06);
+    color: var(--ptg-danger-text, #B80000);
+}
+
+/* ============================================================= *
+ * Bulk action toolbar — shares the search bar's slot (.ak-filter-host,
+ * already position:relative). It is absolutely centered over that slot, so
+ * showing it never changes the host height → zero layout shift. tables.js
+ * toggles .is-bulk-active on the host to cross-fade search ↔ toolbar.
+ * ============================================================= */
+.ak-filter-host.is-bulk-active > .ak-filter {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 140ms ease, visibility 0s linear 140ms;
+}
+
+.ak-bulk-toolbar {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    height: 42px;
+    min-height: 42px;
+    padding-inline: 40px;
+    border-radius: 10px;
+    background: #F2F4FC;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(calc(-50% + 2px));
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+}
+
+.ak-filter-host.is-bulk-active > .ak-bulk-toolbar {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(-50%);
+    transition-delay: 0s;
+}
+
+.ak-selection-count {
+    margin-inline-end: 22px;
+    color: #5C586C;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.ak-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Toolbar buttons reuse .ak-row-action verbatim (identical look/behaviour). */
+
+.ak-bulk-clear {
+    margin-inline-start: 16px;
+    padding-inline: 4px;
+    border: 0;
+    background: transparent;
+    color: #5C586C;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.ak-bulk-clear:hover {
+    color: #424242;
+    text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+    .ak-bulk-toolbar {
+        padding-inline: 16px;
+    }
+}
+
+/* Selected-row tint (soft indigo, same family as the toolbar). */
+.ak-table tbody tr.is-selected > td {
+    background: #F2F4FC;
+}
+
+/* Pager on the canvas, not inside a card */
+.ak-pager {
+    padding-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Empty state */
+.ak-empty {
+    padding: 48px 12px;
+    text-align: center;
+    color: var(--ptg-muted);
+}
+
+.ak-empty i {
+    display: block;
+    font-size: 28px;
+    margin-bottom: 8px;
+    color: var(--ptg-input-border, #c9ccd6);
+}
+
+@media (max-width: 640px) {
+    .ak-page-header {
+        flex-wrap: wrap;
+    }
+
+    .ak-page-title {
+        font-size: 26px;
+    }
+
+    .ak-list-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+}
+
+/* ============================================================= *
+ * Form primitives — flat form on the canvas (New Account rhythm)
+ * One official contract for every simple Create/Edit form: real
+ * asp-for tag-helpers styled by these classes (no wrapper partial,
+ * so name/id/validation binding is produced by the framework and
+ * never altered). Tokens only, no !important.
+ * ============================================================= */
+/* ============================================================= *
+ * Form page column — one constrained, start-aligned column that the
+ * page header, form, sections, grid, table and footer all share.
+ * Keyed on the universal form-page shape (.ak-form-page holding a
+ * form.ak-form, or the explicit .ak-form-page-content wrapper) so it
+ * reaches every Create/Edit page with no per-view CSS. Detail/Index
+ * pages also use .ak-form-page but have no form.ak-form → stay full width.
+ * ============================================================= */
+.ak-form-page:has(> form.ak-form),
+.ak-form-page:has(> .ak-form-page-content) {
+    width: 100%;
+    padding-inline: var(--ak-form-page-gutter);
+}
+
+/* The column itself — pinned to the content start (near side in RTL/LTR),
+   whitespace collected on the opposite side via margin-inline-end:auto. */
+.ak-form-page:has(> form.ak-form) > .ak-page-header,
+.ak-form-page:has(> form.ak-form) > form.ak-form,
+.ak-form-page-content {
+    width: min(100%, var(--ak-form-content-max));
+    max-width: 100%;
+    margin-inline-start: 0;
+    margin-inline-end: auto;
+}
+
+/* Wide variant — forms that carry a line-item table, or opted in
+   explicitly via --wide on the page/content. Still not full viewport. */
+.ak-form-page:has(> form.ak-form .ak-table) > .ak-page-header,
+.ak-form-page:has(> form.ak-form .ak-table) > form.ak-form,
+.ak-form-page--wide:has(> form.ak-form) > .ak-page-header,
+.ak-form-page--wide:has(> form.ak-form) > form.ak-form,
+.ak-form-page-content:has(.ak-table),
+.ak-form-page-content--wide {
+    width: min(100%, var(--ak-form-content-wide-max));
+}
+
+/* Explicit wrapper holds the header + form as one block. */
+.ak-form-page-content {
+    display: block;
+}
+
+.ak-form {
+    display: block;
+    width: 100%;
+    max-width: var(--container-lg, 1000px);
+}
+
+@media (max-width: 767.98px) {
+    .ak-form-page:has(> form.ak-form),
+    .ak-form-page:has(> .ak-form-page-content) {
+        padding-inline: clamp(16px, 4vw, 24px);
+    }
+
+    .ak-form-page:has(> form.ak-form) > .ak-page-header,
+    .ak-form-page:has(> form.ak-form) > form.ak-form,
+    .ak-form-page-content,
+    .ak-form-page-content--wide {
+        width: 100%;
+    }
+}
+
+/* Section = title + short description + divider, then the field grid. */
+.ak-form-section {
+    margin: 0 0 52px;
+}
+
+.ak-section-body {
+    padding-block: 20px;
+}
+
+.ak-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 16px;
+    margin-block: 20px;
+    padding-block: 16px;
+    border-block: 1px solid var(--divider);
+}
+
+.ak-table-total {
+    font-weight: 600;
+    background: var(--ptg-surface-subtle, #f7f8fa);
+}
+
+.ak-advanced {
+    margin-block: 20px;
+    border-block: 1px solid var(--divider);
+}
+
+.ak-advanced-summary {
+    padding-block: 14px;
+    color: var(--primary-main);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.ak-advanced-body {
+    padding-block: 8px 20px;
+}
+
+.ak-detail-toolbar-start {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ak-page-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    color: var(--primary-main);
+}
+
+.ak-section-head {
+    margin: 0 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--divider);
+}
+
+.ak-section-title {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.3;
+    font-weight: 500;
+    color: var(--ptg-text);
+}
+
+.ak-section-desc {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ptg-muted);
+}
+
+/* Two-column grid, 32px column gap / 24px row gap. */
+.ak-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+    row-gap: 24px;
+    align-items: start;
+}
+
+.ak-form-grid .ak-col-full {
+    grid-column: 1 / -1;
+}
+
+.ak-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ak-form-grid > label,
+.ak-form-grid > .ak-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ak-form-grid > label > span:first-child {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--ptg-text);
+}
+
+.ak-note {
+    padding: 12px 14px;
+    border-inline-start: 3px solid var(--primary-main);
+    background: var(--ptg-surface-subtle, #f7f8fa);
+    color: var(--ptg-text);
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.ak-toggle-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 8px 12px;
+    border: 1px solid var(--ptg-field-border);
+    border-radius: var(--ptg-radius-md);
+    background: var(--ptg-field-bg);
+}
+
+.ak-label {
+    margin: 0;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--ptg-text);
+}
+
+.ak-label .ak-req {
+    color: var(--ptg-danger-text);
+    margin-inline-start: 2px;
+}
+
+.ak-input {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--ptg-field-border);
+    border-radius: var(--ptg-radius-md);
+    background: var(--ptg-field-bg);
+    color: var(--ptg-text);
+    font-size: 14px;
+    line-height: 1.4;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ak-input:hover:not(:focus):not(:disabled) {
+    border-color: var(--ptg-field-border-hover);
+}
+
+.ak-input:disabled,
+.ak-input.is-readonly {
+    background: var(--ptg-field-disabled-bg);
+    border-color: var(--ptg-field-border);
+    color: var(--ptg-muted);
+    cursor: default;
+}
+
+textarea.ak-input {
+    height: auto;
+    min-height: 96px;
+    padding: 10px 12px;
+    resize: vertical;
+}
+
+select.ak-input {
+    cursor: pointer;
+}
+
+.ak-input::placeholder {
+    color: var(--ptg-field-placeholder);
+    opacity: 1;
+}
+
+.ak-input:focus {
+    outline: 0;
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px var(--ptg-field-focus-ring);
+}
+
+.ak-input.input-validation-error {
+    border-color: var(--ptg-danger-text);
+}
+
+.ak-field-error {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ptg-danger-text);
+}
+
+/* Inline helper text under/near a field (muted, non-error). */
+.ak-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ptg-muted);
+}
+
+/* Standard toggle (soft active/inactive), reusing the Bootstrap switch. */
+.ak-toggle-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+}
+
+.ak-toggle-field .form-check {
+    margin: 0;
+    min-height: 0;
+    padding-inline-start: 2.6em;
+}
+
+.ak-toggle-field .form-check-input {
+    width: 2.1em;
+    height: 1.15em;
+    margin-inline-start: -2.6em;
+    cursor: pointer;
+}
+
+.ak-toggle-field .form-check-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ptg-text);
+    cursor: pointer;
+}
+
+/* Shared validation summary — hidden while the form is valid. */
+.ak-form-alert {
+    margin: 0 0 24px;
+}
+
+.ak-form-alert.validation-summary-valid,
+.ak-form-alert:empty {
+    display: none;
+}
+
+/* Footer actions — Save (primary) + Cancel (neutral), divider on top. */
+.ak-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid var(--divider);
+}
+
+.ak-save,
+.ak-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    border: 0;
+    font: inherit;
+    font-size: 14px;
+    line-height: 24px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ak-save {
+    width: 84px;
+    padding: 6px 12px;
+    border-radius: 12px;
+    background: #6EA152;
+    color: #fff;
+}
+
+.ak-save:hover,
+.ak-save:focus-visible {
+    background: #53793E;
+    color: #fff;
+}
+
+.ak-cancel {
+    padding: 6px 4px;
+    background: transparent;
+    color: var(--ptg-text);
+}
+
+.ak-cancel:hover,
+.ak-cancel:focus-visible {
+    background: transparent;
+    color: var(--primary-main);
+}
+
+.ak-upload {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px dashed var(--ptg-input-border);
+    border-radius: 8px;
+    background: var(--ptg-surface);
+    color: var(--ptg-muted);
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ak-upload:hover,
+.ak-upload:focus-within {
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px rgba(var(--primary-main-rgb), 0.10);
+}
+
+.ak-upload input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.ak-upload-preview {
+    width: 48px;
+    height: 48px;
+    margin-inline-end: 10px;
+    border-radius: 9999px;
+    object-fit: cover;
+}
+
+.ak-form-secondary-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    margin-inline-end: auto;
+    color: var(--primary-main);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.ak-form-secondary-action:hover,
+.ak-form-secondary-action:focus-visible {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.ak-role-permission-grid,
+.ak-role-nav-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 32px;
+}
+
+.ak-role-permission,
+.ak-role-nav-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider);
+    color: var(--ptg-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.ak-role-permission {
+    justify-content: space-between;
+}
+
+.ak-role-nav-grid {
+    margin-top: 24px;
+}
+
+.ak-role-nav-option input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-main);
+}
+
+.ak-role-nav-option.is-sensitive {
+    color: var(--ptg-danger-text);
+}
+
+.ak-role-nav-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    color: var(--primary-main);
+}
+
+@media (max-width: 640px) {
+    .ak-role-permission-grid,
+    .ak-role-nav-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .ak-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 20px;
+    }
+}
+
+/* =============================================================
+ * AK MODAL + CREATE-PAGE SHELL — one shared shell for every
+ * entity create modal / create page. Flat surface, no card /
+ * preview-visual chrome. Tokens only, no !important. All the
+ * Ajax/validation hooks (data-ptg-entity-modal-form,
+ * .ptg-modal-form-scroll, data-entity-modal*) live on the markup,
+ * this file only styles them.
+ * ============================================================= */
+.ak-modal-content {
+    border: 0;
+    border-radius: var(--ptg-radius-lg);
+    overflow: hidden;
+}
+
+.ak-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--divider);
+}
+
+.ak-modal-title {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.3;
+    font-weight: 600;
+    color: var(--ptg-text);
+}
+
+.ak-modal-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ptg-muted);
+}
+
+.ak-modal-close {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ptg-radius-sm);
+    background: transparent;
+    color: var(--ptg-muted);
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+}
+
+.ak-modal-close:hover {
+    background: rgba(var(--primary-main-rgb), 0.06);
+    color: var(--ptg-text);
+}
+
+.ak-modal-body {
+    padding: 0;
+}
+
+/* The scroll region is the shared JS swap anchor (.ptg-modal-form-scroll,
+ * styled in 08-modals). Inside the ak modal it needs a flat form context. */
+.ak-modal-content .ak-form {
+    max-width: none;
+}
+
+/* Same JS anchor is reused on the full create page for validation-swap
+ * parity; there it must not become a capped scroll-box. */
+.ak-form-page .ptg-modal-form-scroll {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+}
+
+.ak-modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--divider);
+}
+
+/* =============================================================
+ * AK ENTITY COMBOBOX — progressive enhancement over a real native
+ * select. The select keeps its id/name/data attributes, validation,
+ * model binding and change listeners; this layer only supplies the
+ * searchable Akaunting interaction and presentation.
+ * ============================================================= */
+.ak-entity-combobox {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.ak-entity-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    opacity: 0;
+}
+
+.ak-entity-input {
+    width: 100%;
+    height: 42px;
+    padding: 0 38px 0 12px;
+    border: 1px solid var(--ptg-field-border);
+    border-radius: 8px;
+    background: var(--ptg-field-bg);
+    color: var(--ptg-text);
+    font-size: 14px;
+    line-height: 20px;
+    outline: 0;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+[dir="rtl"] .ak-entity-input {
+    padding-right: 12px;
+    padding-left: 38px;
+}
+
+.ak-entity-combobox[data-open="true"] .ak-entity-input,
+.ak-entity-input:focus {
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px rgba(var(--primary-main-rgb), 0.10);
+}
+
+.ak-entity-combobox.is-invalid .ak-entity-input {
+    border-color: var(--ptg-danger-text);
+}
+
+.ak-entity-input::placeholder {
+    color: var(--ptg-field-placeholder);
+}
+
+/* Selected value → soft indigo chip laid over the (empty) search input.
+   pointer-events:none lets a click fall through to the input to open/search;
+   only the remove button re-enables pointer events. */
+.ak-entity-selection {
+    position: absolute;
+    inset-inline-start: 8px;
+    inset-inline-end: 34px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.ak-entity-combobox[data-open="true"] .ak-entity-selection {
+    display: none;
+}
+
+.ak-entity-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    height: var(--ak-selection-chip-height);
+    padding-inline: var(--ak-selection-chip-padding-inline);
+    border-radius: var(--ak-selection-chip-radius);
+    background: var(--ak-selection-chip-bg);
+    color: var(--ak-selection-chip-text);
+    font-size: 13px;
+    line-height: 1;
+}
+
+.ak-entity-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ak-entity-chip-x {
+    pointer-events: auto;
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    margin-inline-end: -3px;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ak-selection-chip-remove);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ak-entity-chip-x:hover {
+    color: #fff;
+}
+
+.ak-entity-combobox[data-disabled="true"] .ak-entity-chip {
+    background: var(--ak-selection-chip-muted-bg);
+    color: var(--ak-selection-chip-muted-text);
+}
+
+.ak-entity-chevron {
+    position: absolute;
+    inset-inline-end: 12px;
+    top: 14px;
+    z-index: 2;
+    width: 14px;
+    height: 14px;
+    color: var(--ptg-input-border);
+    pointer-events: none;
+    transition: transform 140ms ease;
+}
+
+.ak-entity-combobox[data-open="true"] .ak-entity-chevron {
+    transform: rotate(180deg);
+}
+
+.ak-entity-menu {
+    position: absolute;
+    z-index: 1085;
+    top: calc(100% + 8px);
+    inset-inline: 0;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    background: var(--ptg-surface);
+    box-shadow: 0 10px 24px rgba(66, 66, 66, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+}
+
+.ak-entity-combobox[data-open="true"] .ak-entity-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition-duration: 180ms;
+    transition-delay: 0s;
+}
+
+.ak-entity-options {
+    max-height: 248px;
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+.ak-entity-option {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 6px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--ptg-text);
+    text-align: start;
+    cursor: pointer;
+}
+
+.ak-entity-option:hover,
+.ak-entity-option.is-active {
+    background: #F5F7FA;
+}
+
+.ak-entity-option[aria-selected="true"] {
+    background: #F2F4FC;
+}
+
+.ak-entity-avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #E5E7EB;
+    border-radius: 9999px;
+    background: #FCFCFC;
+    color: var(--primary-main);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.ak-entity-copy {
+    min-width: 0;
+}
+
+.ak-entity-title,
+.ak-entity-meta {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ak-entity-title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+}
+
+.ak-entity-meta {
+    margin-top: 1px;
+    color: var(--ptg-muted);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.ak-entity-empty {
+    display: none;
+    padding: 18px 12px;
+    color: var(--ptg-muted);
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.ak-entity-combobox[data-empty="true"] .ak-entity-empty {
+    display: block;
+}
+
+.ak-entity-quick-create {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 12px;
+    border: 0;
+    border-top: 1px solid #E5E7EB;
+    background: var(--ptg-surface);
+    color: var(--primary-main);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: start;
+    cursor: pointer;
+}
+
+.ak-entity-quick-create:hover,
+.ak-entity-quick-create:focus-visible {
+    background: #F5F7FA;
+}
+
+.ak-entity-combobox[data-disabled="true"] .ak-entity-input {
+    background: #E5E7EB;
+    cursor: not-allowed;
+}
+
+/* Loading domain controls: multi-contract picker and the existing Jalali date dialog. */
+[data-loading-contract-field] {
+    position: relative;
+}
+
+[data-loading-contract-toggle] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    text-align: start;
+}
+
+[data-loading-contract-field] .loading-contract-checklist {
+    position: absolute;
+    z-index: 40;
+    inset-inline: 0;
+    top: calc(100% + 6px);
+    display: none;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    background: var(--ptg-surface);
+    box-shadow: var(--shadow-dropdown);
+}
+
+[data-loading-contract-field].is-open .loading-contract-checklist {
+    display: grid;
+    gap: 2px;
+}
+
+[data-loading-contract-field] .loading-contract-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 7px 9px;
+    border-radius: 6px;
+    color: var(--ptg-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+[data-loading-contract-field] .loading-contract-check:hover,
+[data-loading-contract-field] .loading-contract-check:focus-within {
+    background: #F5F7FA;
+}
+
+[data-loading-date-picker] {
+    display: flex;
+    align-items: stretch;
+    min-width: 150px;
+}
+
+[data-loading-date-picker] .loading-octane-date-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 36px;
+    border: 1px solid #C7C9D9;
+    border-inline-end: 0;
+    border-radius: 8px 0 0 8px;
+    background: var(--ptg-surface);
+    color: var(--primary-main);
+}
+
+[dir="rtl"] [data-loading-date-picker] .loading-octane-date-icon {
+    border-radius: 0 8px 8px 0;
+}
+
+[data-loading-date-picker] .loading-octane-date-display {
+    border-radius: 0 8px 8px 0;
+    direction: ltr;
+    text-align: center;
+}
+
+[dir="rtl"] [data-loading-date-picker] .loading-octane-date-display {
+    border-radius: 8px 0 0 8px;
+}
+
+[data-loading-date-overlay] {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, .48);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+[data-loading-date-overlay].is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+[data-loading-date-overlay] .loading-date-picker {
+    width: min(316px, 100%);
+    overflow: hidden;
+    border-radius: 12px;
+    background: var(--ptg-surface);
+    box-shadow: var(--shadow-dialog);
+}
+
+[data-loading-date-header] {
+    display: grid;
+    gap: 2px;
+    padding: 10px 18px;
+    background: var(--primary-main);
+    color: #fff;
+    direction: ltr;
+}
+
+.loading-date-year,
+.loading-date-nav,
+.loading-date-day,
+.loading-date-year-option {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.loading-date-year {
+    min-height: 28px;
+    color: rgba(255, 255, 255, .82);
+}
+
+.loading-date-long {
+    font-size: 22px;
+    line-height: 32px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.loading-date-locale {
+    display: none;
+}
+
+.loading-date-body {
+    padding: 6px 0 10px;
+}
+
+.loading-date-controls {
+    display: grid;
+    grid-template-columns: 46px 1fr 46px;
+    align-items: center;
+    min-height: 46px;
+}
+
+.loading-date-nav,
+.loading-date-month {
+    text-align: center;
+}
+
+.loading-date-week,
+.loading-date-days {
+    display: grid;
+    grid-template-columns: repeat(7, 40px);
+    width: 280px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.loading-date-week {
+    color: var(--ptg-muted);
+    font-size: 12px;
+}
+
+.loading-date-days {
+    min-height: 200px;
+}
+
+.loading-date-days.is-year-mode {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding-top: 8px;
+}
+
+[data-loading-date-overlay].is-year-mode .loading-date-week {
+    display: none;
+}
+
+.loading-date-day {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    color: var(--ptg-text);
+}
+
+.loading-date-day:hover,
+.loading-date-day.is-selected,
+.loading-date-year-option:hover,
+.loading-date-year-option.is-selected {
+    background: var(--primary-main);
+    color: #fff;
+}
+
+.loading-date-day.is-muted {
+    color: #C7C9D9;
+}
+
+.loading-date-year-option {
+    min-height: 44px;
+    border-radius: 8px;
+}
+
+[data-loading-logistics-pair] {
+    display: grid;
+    gap: 6px;
+    min-width: 180px;
+}
+
+.ak-input-unit {
+    display: flex;
+    align-items: stretch;
+}
+
+.ak-input-unit .ak-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ak-input-unit > span {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 10px;
+    border: 1px solid var(--ptg-border);
+    border-inline-start: 0;
+    border-radius: 8px 0 0 8px;
+    background: var(--ptg-surface-soft);
+    color: var(--ptg-muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Bulk-receipt loss fields: shown only while the "immediate loss" mode is picked.
+   Hook-based (no page selector), same behaviour the deleted journey skin provided. */
+[data-bulk-receipt-form] .ak-loss-only {
+    display: none;
+}
+
+[data-bulk-receipt-form]:has(input[data-loss-mode="immediate"]:checked) .ak-loss-only {
+    display: grid;
+}
+
+/* ============================================================= *
+ * Party profile pages (Suppliers/Customers/Sarrafs/… Details)
+ * Flat, account-first. No hero, no avatar card{
+    margin-top: 8px;
+}
+
+.ak-party-page > section.ak-form-section,
+.ak-party-page .ptg-tabs-rail ~ section.ak-form-section {
+    margin-top: 20px;
+}
+
+/* Flat finance summary — replaces decorative KPI/metric cards.
+   Real numbers only, LTR tabular, no colored card, no fake sparkline. */
+.ak-summary-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 4px 24px;
+    margin: 0;
+}
+
+.ak-summary-list > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--divider, #ececf1);
+}
+
+.ak-summary-list dt {
+    font-size: 12px;
+    color: var(--ptg-muted, #6b6f7b);
+    font-weight: 400;
+}
+
+.ak-summary-list dd {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+/* Treasury hub — flat action tiles (replaces card ds-card grid). */
+.ak-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.ak-hub-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    border: 1px solid var(--divider, #ececf1);
+    border-radius: 8px;
+    background: var(--ptg-surface, #fff);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 140ms ease, background 140ms ease;
+}
+
+.ak-hub-tile:hover {
+    border-color: var(--primary-main, #55588b);
+    background: var(--ptg-surface-soft, #f7f8fb);
+}
+
+.ak-hub-tile-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ptg-text, #424242);
+}
+
+.ak-hub-tile-desc {
+    font-size: 12px;
+    color: var(--ptg-muted, #6b6f7b);
+    line-height: 1.6;
+}
+
+/* Reports overview — flat Akaunting-like report directory. */
+.controller-reports.action-index .boltz-content-body {
+    background: #fcfcfc;
+}
+
+.ak-reports-page {
+    width: min(100%, 1128px);
+    margin-inline: auto;
+    padding-block: 42px 72px;
+    padding-inline: clamp(18px, 4vw, 56px);
+    background: #fcfcfc;
+}
+
+.ak-reports-header {
+    margin-block-end: 64px;
+}
+
+.ak-reports-title {
+    margin: 0;
+    color: #252a30;
+    font-size: var(--font-h1, 36px);
+    font-weight: var(--fw-h1, 300);
+    line-height: var(--lh-h1, 40px);
+}
+
+.ak-reports-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(48px, 5vw, 64px);
+}
+
+.ak-report-row {
+    display: flex;
+    align-items: center;
+    min-block-size: 110px;
+    gap: 24px;
+    padding-block: 20px;
+    padding-inline: 0;
+    border-block-end: 1px solid #eceef2;
+    color: inherit;
+    text-decoration: none;
+    background: transparent;
+    outline: 0;
+    transition: background-color 140ms ease, color 140ms ease;
+}
+
+.ak-report-row:hover {
+    color: inherit;
+    background: rgba(85, 88, 139, .025);
+}
+
+.ak-report-row:hover .ak-report-title {
+    color: #404268;
+}
+
+.ak-report-row:focus-visible {
+    background: rgba(85, 88, 139, .035);
+    box-shadow: inset 0 0 0 1px rgba(85, 88, 139, .22);
+}
+
+.ak-report-icon {
+    display: grid;
+    flex: 0 0 52px;
+    inline-size: 52px;
+    block-size: 52px;
+    place-items: center;
+    color: #6b6c7e;
+}
+
+.ak-report-icon .bi {
+    font-size: 40px;
+    line-height: 1;
+}
+
+.ak-report-copy {
+    display: block;
+    min-inline-size: 0;
+}
+
+.ak-report-title {
+    display: block;
+    overflow: hidden;
+    color: #252a30;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 22px;
+    margin-block-end: 5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ak-report-desc {
+    display: -webkit-box;
+    overflow: hidden;
+    color: #8a8d98;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 20px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+@media (max-width: 991.98px) {
+    .ak-reports-page {
+        width: 100%;
+        padding-inline: clamp(16px, 4vw, 28px);
+    }
+
+    .ak-reports-grid {
+        grid-template-columns: 1fr;
+        column-gap: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .ak-reports-page {
+        padding-block: 28px 48px;
+    }
+
+    .ak-reports-header {
+        margin-block-end: 44px;
+    }
+
+    .ak-reports-title {
+        font-size: 30px;
+        line-height: 36px;
+    }
+
+    .ak-report-row {
+        min-block-size: 92px;
+        gap: 18px;
+        padding-block: 14px;
+    }
+
+    .ak-report-icon {
+        flex-basis: 42px;
+        inline-size: 42px;
+        block-size: 42px;
+    }
+
+    .ak-report-icon .bi {
+        font-size: 34px;
+    }
+}
+
+/* Nested payment lines under a contract row — quiet, indented. */
+.ak-table tr.ak-subrow > td {
+    background: var(--ptg-surface-soft, #f7f8fb);
+    color: var(--ptg-muted, #6b6f7b);
+    font-size: 13px;
+}
+
+.ak-table tr.ak-row-muted > td {
+    color: var(--ptg-muted, #9aa0ab);
+}
+
+/* =============================================================
+ * AK PAGE-MODAL — shared iframe modal opened by [data-page-modal]
+ * links (contract pricing, loading expenses …). Sizing only; the
+ * chrome comes from the standard Bootstrap modal classes.
+ * ============================================================= */
+.ak-page-modal .modal-dialog {
+    width: min(1180px, calc(100vw - 36px));
+    max-width: min(1180px, calc(100vw - 36px));
+    height: min(820px, calc(100vh - 36px));
+    margin: 18px auto;
+}
+
+.ak-page-modal.is-compact .modal-dialog {
+    width: min(560px, calc(100vw - 28px));
+    max-width: min(560px, calc(100vw - 28px));
+    height: min(600px, calc(100vh - 28px));
+    margin: auto;
+}
+
+.ak-page-modal .modal-content {
+    height: 100%;
+    overflow: hidden;
+}
+
+.ak-page-modal .modal-body {
+    padding: 0;
+    overflow: hidden;
+}
+
+.ak-page-modal iframe[data-page-modal-frame] {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.ak-page-modal iframe[data-page-modal-frame].is-loading {
+    visibility: hidden;
+}
+
+@media (max-width: 767.98px) {
+    .ak-page-modal .modal-dialog,
+    .ak-page-modal.is-compact .modal-dialog {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+        height: calc(100vh - 16px);
+        margin: 8px auto;
+    }
+}
+
+/* ============================================================= *
+ * AK SEGMENTED BOOLEAN — shared two-state text control (Yes/No,
+ * فعال/غیرفعال, تأیید/رد …). Real radio inputs keep binding + a11y;
+ * this layer only supplies the compact segmented presentation.
+ * Markup:
+ *   <div class="ak-segment" role="group">
+ *     <input class="ak-segment-input" type="radio" id name value checked>
+ *     <label class="ak-segment-option" data-tone="yes" for>بله</label>
+ *     <input class="ak-segment-input" type="radio" id name value>
+ *     <label class="ak-segment-option" data-tone="no" for>خیر</label>
+ *   </div>
+ * Do NOT use for real on/off switches — those stay .ak-toggle-field.
+ * ============================================================= */
+.ak-segment {
+    display: inline-flex;
+    align-items: stretch;
+    height: var(--ak-segment-height);
+    border-radius: var(--ak-segment-radius);
+    overflow: hidden;
+    background: var(--ak-segment-off-bg);
+    vertical-align: middle;
+}
+
+.ak-segment-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.ak-segment-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding-inline: var(--ak-segment-padding-inline);
+    background: var(--ak-segment-off-bg);
+    color: var(--ak-segment-off-text);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ak-segment-option:hover {
+    background: color-mix(in srgb, var(--ak-segment-off-bg) 82%, #000 18%);
+}
+
+/* Checked: default indigo; per-tone overrides for Yes (green) / No (red). */
+.ak-segment-input:checked + .ak-segment-option {
+    background: var(--primary-main);
+    color: #fff;
+}
+
+.ak-segment-input:checked + .ak-segment-option[data-tone="no"] {
+    background: var(--ak-segment-no-bg);
+    color: var(--ak-segment-no-text);
+}
+
+.ak-segment-input:checked + .ak-segment-option[data-tone="yes"] {
+    background: var(--ak-segment-yes-bg);
+    color: var(--ak-segment-yes-text);
+}
+
+.ak-segment-input:focus-visible + .ak-segment-option {
+    outline: 2px solid var(--primary-main);
+    outline-offset: -2px;
+}
+
+.ak-segment-input:disabled + .ak-segment-option {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.ak-segment.is-disabled,
+.ak-segment:has(.ak-segment-input:disabled) {
+    opacity: 0.75;
+}
+
+/* ============================================================= *
+ * AK DATE PICKER — shared enhancement over <input type="date">.
+ * Native input hidden (kept for binding); custom field + calendar
+ * popup. ak-datepicker.js owns behaviour; tokens own the look.
+ * ============================================================= */
+.ak-datepicker {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.ak-date-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ak-date-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: var(--ak-control-height);
+    padding: 0 12px;
+    border: 1px solid var(--ak-control-border);
+    border-radius: var(--ak-control-radius);
+    background: var(--ak-control-bg);
+    color: var(--ak-control-text);
+    font: inherit;
+    font-size: 14px;
+    text-align: start;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ak-date-field:hover:not(:disabled) {
+    border-color: var(--ptg-field-border-hover);
+}
+
+.ak-datepicker[data-open="true"] .ak-date-field,
+.ak-date-field:focus-visible {
+    outline: 0;
+    border-color: var(--ak-control-border-focus);
+    box-shadow: 0 0 0 3px var(--ptg-field-focus-ring);
+}
+
+.ak-datepicker[data-invalid="true"] .ak-date-field {
+    border-color: var(--ptg-danger-text);
+}
+
+.ak-date-field:disabled,
+.ak-datepicker[data-readonly="true"] .ak-date-field {
+    background: var(--ptg-field-disabled-bg);
+    color: var(--ptg-muted);
+    cursor: default;
+}
+
+.ak-date-display {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: ltr;
+    text-align: start;
+}
+
+.ak-datepicker[data-empty="true"] .ak-date-display {
+    color: var(--ak-control-placeholder);
+}
+
+.ak-date-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: var(--ptg-field-placeholder);
+    pointer-events: none;
+}
+
+/* ============================================================= *
+ * Overlay root — body-level portal host (ak-datepicker.js).
+ * Any ancestor with overflow:auto (e.g. .ak-filter-popover, which keeps
+ * max-height + internal scroll for its option list) clips an absolutely
+ * positioned child; no z-index escapes a clip. So the calendar is moved
+ * here while open and positioned with position:fixed from the field's
+ * getBoundingClientRect(). Layering: filter host 20 < filter popover 60
+ * < overlay. The overlay sits above Bootstrap's modal (1055) too, because
+ * date fields also live inside create/edit modals.
+ * ============================================================= */
+.ak-overlay-root {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    pointer-events: none;
+}
+
+.ak-overlay-root > * {
+    pointer-events: auto;
+}
+
+/* Popup — opens flush under the field, LTR calendar. */
+.ak-date-pop {
+    position: absolute;
+    z-index: 1090;
+    top: calc(100% + 6px);
+    inset-inline-start: 0;
+    width: 268px;
+    max-width: calc(100vw - 24px);
+    padding: 10px;
+    border: 1px solid var(--ak-date-panel-border);
+    border-radius: var(--ak-date-panel-radius);
+    background: var(--ak-date-panel-bg);
+    box-shadow: var(--ak-date-panel-shadow);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(4px);
+    transform-origin: top center;
+    transition: opacity var(--ak-date-motion-duration) ease,
+                transform var(--ak-date-motion-duration) ease,
+                visibility 0s linear var(--ak-date-motion-duration);
+}
+
+/* While open the popup is portalled into .ak-overlay-root, so it is no longer a
+   descendant of .ak-datepicker — visibility is driven by .is-open, and position
+   by the inline top/left that ak-datepicker.js computes. */
+.ak-date-pop.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition-delay: 0s;
+}
+
+.ak-overlay-root > .ak-date-pop {
+    position: fixed;
+    top: 0;
+    inset-inline-start: auto;
+    left: 0;
+}
+
+.ak-date-head {
+    display: grid;
+    grid-template-columns: 32px 1fr 32px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.ak-date-nav {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ptg-muted);
+    cursor: pointer;
+    transition: background-color 120ms ease;
+}
+
+.ak-date-nav-next { transform: scaleX(-1); }
+.ak-date-nav:hover { background: var(--ak-date-hover-bg); }
+
+.ak-date-title {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ak-control-text);
+    cursor: pointer;
+}
+
+.ak-date-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 2px;
+}
+
+.ak-date-week span {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ak-date-weekday);
+}
+
+.ak-date-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+}
+
+.ak-date-day {
+    display: inline-grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ak-date-day-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 110ms ease, color 110ms ease;
+}
+
+.ak-date-day:hover:not(:disabled) { background: var(--ak-date-hover-bg); }
+.ak-date-day.is-outside { color: var(--ak-date-muted); cursor: default; }
+.ak-date-day.is-disabled { color: var(--ak-date-muted); cursor: not-allowed; }
+.ak-date-day.is-today { font-weight: 600; box-shadow: inset 0 0 0 1px var(--ak-date-panel-border); }
+
+.ak-date-day.is-selected,
+.ak-date-day.is-selected:hover {
+    background: var(--ak-date-selected-bg);
+    color: var(--ak-date-selected-text);
+    font-weight: 500;
+}
+
+.ak-date-years {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.ak-date-year {
+    padding: 9px 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ak-date-day-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 110ms ease, color 110ms ease;
+}
+
+.ak-date-year:hover { background: var(--ak-date-hover-bg); }
+.ak-date-year.is-selected { background: var(--ak-date-selected-bg); color: var(--ak-date-selected-text); }
+
+@media (prefers-reduced-motion: reduce) {
+    .ak-date-pop { transition-duration: 0s; }
+}
+
+/* Forms carry no section headings: the page/modal header already names the
+   record, and repeating a big title inside the form only adds noise. Markup
+   stays (partials + tests unchanged) — only the visual head is dropped, and
+   sibling sections keep a hairline so field groups still read apart. */
+.ak-form .ak-section-head {
+    display: none;
+}
+
+.ak-form .ak-form-section + .ak-form-section {
+    padding-top: 28px;
+    border-top: 1px solid var(--divider);
+}
+
+/* =============================================================
+ * LOADING REGISTRATION (Loading/Create + Loading/ImportWorkbook)
+ * Page-scoped UI/UX redesign. Wide flat canvas, sized line-item
+ * table with horizontal scroll, summary strip, paginated preview
+ * and sticky action footer. Markup names / model binding / Excel
+ * import / calculations are untouched — this governs layout,
+ * sizing and the preview affordances only.
+ * Scope: [data-loading-create-page] (alias .loading-import-workbook)
+ * ============================================================= */
+[data-loading-create-page].loading-import-workbook {
+    --lic-table-min: 1440px;
+    --lic-row-h: 58px;
+}
+
+/* Wide canvas — this page only. Lift the shared 1040px table-form
+   cap to ~1560px and drop the form's 1000px max-width guard so the
+   column can actually use the space beside the sidebar. */
+.ak-form-page:has(> form[data-loading-create-form]) {
+    --ak-form-content-wide-max: 1560px;
+    --ak-form-page-gutter: clamp(16px, 2.4vw, 36px);
+}
+
+.ak-form-page:has(> form[data-loading-create-form]) > form.ak-form,
+.ak-form-page:has(> form[data-loading-create-form]) > .ak-page-header {
+    max-width: none;
+}
+
+/* ---- Summary strip: one full-width row, hairline top/bottom,
+   thin vertical dividers between items, tabular figures. ---- */
+.loading-import-workbook .lic-summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    column-gap: 0;
+    row-gap: 0;
+    padding-block: 16px;
+    border-block: 1px solid var(--divider);
+}
+
+.loading-import-workbook .lic-summary-strip > .ak-field {
+    flex: 1 1 0;
+    min-width: 150px;
+    gap: 4px;
+    padding-inline: 20px;
+    border-inline-start: 1px solid var(--divider);
+}
+
+.loading-import-workbook .lic-summary-strip > .ak-field:first-child {
+    border-inline-start: 0;
+    padding-inline-start: 0;
+}
+
+.loading-import-workbook .lic-summary-strip > .ak-field.ak-col-full {
+    flex-basis: 100%;
+    border-inline-start: 0;
+    padding-inline-start: 0;
+}
+
+.loading-import-workbook .lic-summary-strip .ak-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ptg-muted);
+}
+
+.loading-import-workbook .lic-summary-strip .ak-num {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ptg-text);
+}
+
+/* ---- Line-item table: sized, scrollable, never crushed. ---- */
+.loading-import-workbook .ak-table-wrap {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.loading-import-workbook .ak-table-wrap::-webkit-scrollbar {
+    height: 9px;
+}
+
+.loading-import-workbook .ak-table-wrap::-webkit-scrollbar-thumb {
+    background: var(--ptg-field-border);
+    border-radius: 9999px;
+}
+
+.loading-import-workbook .ak-table {
+    min-width: var(--lic-table-min);
+}
+
+.loading-import-workbook .ak-table > thead > tr > th,
+.loading-import-workbook .ak-table > tbody > tr > td {
+    padding: 10px 10px;
+    white-space: nowrap;
+}
+
+.loading-import-workbook .ak-table > thead > tr > th {
+    font-size: 12.5px;
+    font-weight: 600;
+    background: var(--ptg-surface-subtle, #FAFAFC);
+}
+
+.loading-import-workbook .ak-table > tbody > tr > td {
+    height: var(--lic-row-h);
+    vertical-align: middle;
+    border-bottom: 1px solid #ECEEF3;
+}
+
+/* In-cell controls: readable, full-cell, comfortable min widths so
+   text and figures never bleed onto the neighbouring column. */
+.loading-import-workbook .ak-table td .ak-input {
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    min-width: 120px;
+}
+
+.loading-import-workbook .ak-table td.ak-col-num .ak-input {
+    min-width: 108px;
+}
+
+.loading-import-workbook .ak-table td [data-loading-date-picker] {
+    min-width: 150px;
+}
+
+.loading-import-workbook .ak-table td [data-loading-logistics-pair] {
+    display: flex;
+    gap: 6px;
+    min-width: 260px;
+}
+
+.loading-import-workbook .ak-table td [data-loading-logistics-pair] > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* Computed (read-only) money/qty cells render as text, right/end aligned. */
+.loading-import-workbook .ak-table td.ak-col-num > span {
+    display: inline-block;
+    min-width: 108px;
+}
+
+/* Per-cell premium / rub-status helper text stays on its own line, small. */
+.loading-import-workbook .ak-table td .ak-section-desc {
+    display: block;
+    margin-top: 3px;
+    font-size: 11.5px;
+    white-space: normal;
+    max-width: 150px;
+}
+
+/* Sticky index (#) + actions columns so the row stays anchored while
+   the middle scrolls horizontally. */
+.loading-import-workbook .ak-table > thead > tr > th:first-child,
+.loading-import-workbook .ak-table > tbody > tr > td:first-child {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 2;
+    background: var(--ptg-surface);
+}
+.loading-import-workbook .ak-table > thead > tr > th:first-child {
+    background: var(--ptg-surface-subtle, #FAFAFC);
+    z-index: 3;
+}
+
+.loading-import-workbook .ak-table > thead > tr > th.ak-col-actions,
+.loading-import-workbook .ak-table > tbody > tr > td.ak-col-actions {
+    position: sticky;
+    inset-inline-end: 0;
+    z-index: 2;
+    background: var(--ptg-surface);
+}
+.loading-import-workbook .ak-table > thead > tr > th.ak-col-actions {
+    background: var(--ptg-surface-subtle, #FAFAFC);
+    z-index: 3;
+}
+
+.loading-import-workbook .ak-table > tbody > tr:hover > td:first-child,
+.loading-import-workbook .ak-table > tbody > tr:hover > td.ak-col-actions {
+    background: #F7F8FA;
+}
+
+/* Soft error state for a preview row (client-side heuristic only). */
+.loading-import-workbook .ak-table > tbody > tr.lic-row-error > td {
+    background: var(--ptg-danger-soft, #FEF4F4);
+}
+.loading-import-workbook .ak-table > tbody > tr.lic-row-error > td:first-child {
+    box-shadow: inset 3px 0 0 var(--ptg-danger-text, #C0392B);
+}
+
+/* Rows filtered out / off the current preview page. */
+.loading-import-workbook .ak-table > tbody > tr.lic-row-hidden {
+    display: none;
+}
+
+/* ---- Table toolbar: counts + search + filters (flat, no card). ---- */
+.loading-import-workbook .lic-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.loading-import-workbook .lic-toolbar-counts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--ptg-muted);
+}
+
+.loading-import-workbook .lic-toolbar-counts strong {
+    color: var(--ptg-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.loading-import-workbook .lic-count-ok strong {
+    color: #2E7D32;
+}
+
+.loading-import-workbook .lic-count-err strong {
+    color: var(--ptg-danger-text, #C0392B);
+}
+
+.loading-import-workbook .lic-toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.loading-import-workbook .lic-search,
+.loading-import-workbook .lic-filter,
+.loading-import-workbook .lic-pagesize {
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--ptg-field-border);
+    border-radius: 7px;
+    background: var(--ptg-field-bg);
+    color: var(--ptg-text);
+    font-size: 13.5px;
+}
+
+.loading-import-workbook .lic-search {
+    min-width: 240px;
+}
+
+.loading-import-workbook .lic-search:focus,
+.loading-import-workbook .lic-filter:focus,
+.loading-import-workbook .lic-pagesize:focus {
+    outline: 0;
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px var(--ptg-field-focus-ring);
+}
+
+/* ---- Pagination bar under the table. ---- */
+.loading-import-workbook .lic-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--ptg-muted);
+}
+
+.loading-import-workbook .lic-page-info {
+    font-variant-numeric: tabular-nums;
+}
+
+.loading-import-workbook .lic-page-btn {
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--ptg-field-border);
+    border-radius: 7px;
+    background: var(--ptg-field-bg);
+    color: var(--ptg-text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.loading-import-workbook .lic-page-btn:hover:not(:disabled) {
+    border-color: var(--primary-main);
+    color: var(--primary-main);
+}
+
+.loading-import-workbook .lic-page-btn:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+/* ---- Sticky action footer. ---- */
+.loading-import-workbook .ak-footer-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-block: 14px;
+    background: var(--ptg-surface);
+    box-shadow: 0 -1px 0 var(--divider);
+}
+
+.loading-import-workbook .lic-footer-count {
+    font-size: 13px;
+    color: var(--ptg-muted);
+}
+
+.loading-import-workbook .lic-footer-count strong {
+    color: var(--ptg-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.loading-import-workbook .lic-footer-count .lic-count-err strong {
+    color: var(--ptg-danger-text, #C0392B);
+}
+
+@media (max-width: 991.98px) {
+    .loading-import-workbook .lic-summary-strip > .ak-field {
+        flex-basis: 33.333%;
+    }
+}
+
+@media (max-width: 640px) {
+    .loading-import-workbook .lic-summary-strip > .ak-field {
+        flex-basis: 50%;
+        padding-inline: 12px;
+    }
+    .loading-import-workbook .lic-table-toolbar,
+    .loading-import-workbook .lic-toolbar-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .loading-import-workbook .lic-search {
+        min-width: 0;
+    }
+}

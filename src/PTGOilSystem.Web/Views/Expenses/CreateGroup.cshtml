@@ -1,0 +1,797 @@
+@model PTGOilSystem.Web.Models.Expenses.GroupExpenseCreateViewModel
+@using PTGOilSystem.Web.Models.Expenses
+@{
+    ViewData["Title"] ="ثبت مصرف گروهی";
+    ViewData["HideSectionTabs"] = true;
+    var operations = (List<GroupExpenseOperationItem>)ViewBag.Operations;
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Index");
+    var selectedItemsJson = System.Text.Json.JsonSerializer.Serialize(
+        Model.Items?.Select(i => new { kind = i.Kind, id = i.Id, manualAmount = i.ManualAmount }) ?? Enumerable.Empty<object>());
+}
+
+<div class="ak-form-page">
+    @* data-no-spa: spa-nav submit را در capture قطع می‌کند و handler ساخت Items اجرا نمی‌شد.
+       novalidate: fx-rate-field روی input نرخ required می‌گذارد؛ در مرحله ۳ آن input مخفی است و
+       native validation مرورگر submit را بی‌صدا بلاک می‌کرد (invalid control not focusable). *@
+    @* data-no-submit-guard: گاردِ سراسریِ core.js روی فرمِ novalidate راهِ آزادسازی ندارد
+       (رویداد invalid هرگز شلیک نمی‌شود) و دکمه را روی «در حال ثبت…» قفل می‌کرد؛ این فرم
+       قفلِ ضدِ دابل‌کلیکِ خودش را با آزادسازیِ امنِ زمان‌دار مدیریت می‌کند. *@
+    <form asp-action="CreateGroup" method="post" id="gexpForm" class="ak-form" data-no-spa data-no-submit-guard novalidate>
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div id="gexpItemsContainer"></div>
+
+        <header class="ak-page-header">
+            <div class="ak-page-heading">
+                <span class="ak-page-icon"><i class="bi bi-journal-plus"></i></span>
+                <div>
+                    <h1>ثبت مصرف گروهی</h1>
+                    <p>ثبت یک مصرف برای چند عملیات به صورت همزمان</p>
+                </div>
+            </div>
+            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
+        </header>
+
+        <nav class="ptg-tabs-rail" aria-label="مراحل">
+            <button type="button" class="ptg-tabs-link is-active" data-step-btn="1"><span>1</span> انتخاب عملیات</button>
+            <span></span>
+            <button type="button" class="ptg-tabs-link" data-step-btn="2"><span>2</span> مشخصات مصرف</button>
+            <span></span>
+            <button type="button" class="ptg-tabs-link" data-step-btn="3"><span>3</span> بررسی و ثبت</button>
+        </nav>
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <!-- مرحله ۱: انتخاب عملیات -->
+        <section class="ak-form-section" data-step-panel="1">
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">انتخاب عملیات در جریان</h2>
+                    <div class="ak-form-grid">
+                        <label class="ak-field">
+                            <span>نوع عملیات</span>
+                            <select class="ak-input" id="fOperation"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>نوع وسیله</span>
+                            <select class="ak-input" id="fVehicle"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>مسیر</span>
+                            <select class="ak-input" id="fRoute"><option value="">همه مسیرها</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>وضعیت</span>
+                            <select class="ak-input" id="fStatus"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>تاریخ از</span>
+                            <input type="date" class="ak-input" id="fFrom" />
+                        </label>
+                        <label class="ak-field">
+                            <span>تاریخ تا</span>
+                            <input type="date" class="ak-input" id="fTo" />
+                        </label>
+                    </div>
+                    <div class="ak-subform-toolbar">
+                        <label class="ak-subform-search">
+                            <i class="bi bi-search"></i>
+                            <input type="search" id="fQuery" placeholder="جستجو..." />
+                        </label>
+                        <button type="button" class="btn ak-secondary-action" id="btnClearFilters">پاک کردن فیلتر</button>
+                    </div>
+
+                    <label class="ak-field">
+                        <input type="checkbox" id="chkAll" />
+                        <span>انتخاب همه نتایج (<span id="lblResultCount">0</span> عملیات)</span>
+                    </label>
+
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-check"></th>
+                                    <th>#</th>
+                                    <th>عملیات</th>
+                                    <th>نوع وسیله</th>
+                                    <th>شماره</th>
+                                    <th>مسیر</th>
+                                    <th>مقدار</th>
+                                    <th>واحد</th>
+                                    <th>تاریخ حرکت</th>
+                                    <th>وضعیت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="opsBody"></tbody>
+                        </table>
+                        <div class="ak-empty" id="opsEmpty" hidden>
+                            <i class="bi bi-inbox"></i>
+                            هیچ عملیات در جریانی با این فیلتر یافت نشد
+                        </div>
+                    </div>
+
+                    <div class="ak-pager">
+                        <label class="ak-field">
+                            <select class="ak-input" id="pageSize">
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                            <span>تعداد در صفحه</span>
+                        </label>
+                        <div class="ak-section-desc" id="pageInfo"></div>
+                        <div class="ak-pager" id="pager"></div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="ak-form-section">
+                <div class="ak-form-section ak-list">
+                    <h2 class="ak-section-title">خلاصه انتخاب</h2>
+                    <div class="ak-list-row">
+                        <span>تعداد عملیات انتخاب شده</span>
+                        <strong class="ak-num" id="sumCount">0</strong>
+                    </div>
+                    <div class="ak-list-row">
+                        <span>مجموع مقدار</span>
+                        <strong class="ak-num"><span id="sumQty">0</span> تن</strong>
+                    </div>
+                    <div class="ak-list-row">
+                        <span>نوع وسایل</span>
+                        <div id="sumVehicles" class="ak-list"></div>
+                    </div>
+                    <div class="ak-list-row">
+                        <span>مسیرها</span>
+                        <div id="sumRoutes" class="ak-list"></div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <!-- مرحله ۲: مشخصات مصرف -->
+        <section class="ak-form-section" data-step-panel="2" hidden>
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">مشخصات مصرف</h2>
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="ManualExpenseTypeName">نوع مصرف <em>*</em></label>
+                            <input asp-for="ManualExpenseTypeName"
+                                   id="ManualExpenseTypeName"
+                                   list="groupExpenseTypeSuggestions"
+                                   class="ak-input"
+                                   autocomplete="off"
+                                   placeholder="کرایه حمل، مصرف بندری، تخلیه، گمرک..." />
+                            <datalist id="groupExpenseTypeSuggestions">
+                                @foreach (var expenseTypeName in (ViewBag.ExpenseTypeNames as IEnumerable<string> ?? Array.Empty<string>()))
+                                {
+                                    <option value="@expenseTypeName"></option>
+                                }
+                            </datalist>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ServiceProviderId">پرداخت شونده</label>
+                            <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input">
+                                <option value="">— بدون شرکت خدماتی —</option>
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ExpenseDate">تاریخ مصرف <em>*</em></label>
+                            <input asp-for="ExpenseDate" type="date" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="Currency">ارز <em>*</em></label>
+                            <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input" id="currencySelect"></select>
+                        </div>
+                        <div class="ak-field" data-fx-rate-group data-fx-currency-source="#currencySelect">
+                            <div data-fx-rate-field>
+                                <label>نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                                <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input autocomplete="off" placeholder="مثال: ۷۷" />
+                                <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                            </div>
+                            <div data-fx-usd-note class="d-none">
+                                <small class="form-text text-muted"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</small>
+                            </div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="CostResponsibility">مصرف بدوش کیست</label>
+                            <select asp-for="CostResponsibility" class="ak-input">
+                                <option value="">— نامشخص —</option>
+                                <option value="1">بدوش خریدار</option>
+                                <option value="2">بدوش فروشنده</option>
+                                <option value="3">مشترک</option>
+                            </select>
+                        </div>
+                        <div class="ak-field ak-col-full">
+                            <label asp-for="Description">توضیحات</label>
+                            <textarea asp-for="Description" class="ak-input" rows="2" placeholder="توضیحات (اختیاری)..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">روش تقسیم مبلغ</h2>
+                    <div class="ak-form-grid" id="methodGroup">
+                        <label class="ak-field">
+                            <input type="radio" name="AllocationMethod" value="2" checked="@(Model.AllocationMethod == PTGOilSystem.Web.Models.Entities.ExpenseAllocationMethod.EqualSplit)" />
+                            <span class="ak-note">
+                                <strong>مساوی</strong>
+                                <small>تقسیم مساوی بین همه عملیات‌ها</small>
+                            </span>
+                        </label>
+                        <label class="ak-field">
+                            <input type="radio" name="AllocationMethod" value="3" checked="@(Model.AllocationMethod == PTGOilSystem.Web.Models.Entities.ExpenseAllocationMethod.ByQuantity)" />
+                            <span class="ak-note">
+                                <strong>بر اساس مقدار</strong>
+                                <small>نرخ فی تن × مقدار هر حمل (مثال: نرخ ۲ و حمل ۴۰ تن → ۸۰)</small>
+                            </span>
+                        </label>
+                        <label class="ak-field">
+                            <input type="radio" name="AllocationMethod" value="1" checked="@(Model.AllocationMethod == PTGOilSystem.Web.Models.Entities.ExpenseAllocationMethod.FixedPerOperation)" />
+                            <span class="ak-note">
+                                <strong>مبلغ برای هر عملیات</strong>
+                                <small>یک مبلغ ثابت برای هر عملیات انتخاب شده</small>
+                            </span>
+                        </label>
+                        <label class="ak-field">
+                            <input type="radio" name="AllocationMethod" value="4" checked="@(Model.AllocationMethod == PTGOilSystem.Web.Models.Entities.ExpenseAllocationMethod.Manual)" />
+                            <span class="ak-note">
+                                <strong>دستی</strong>
+                                <small>تعیین مبلغ برای هر عملیات به صورت دستی</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="ak-form-grid">
+                        <div class="ak-field" id="perOpField" hidden>
+                            <label asp-for="AmountPerOperation">مبلغ برای هر عملیات <em>*</em></label>
+                            <div class="ak-input-unit">
+                                <span data-cur-tag>USD</span>
+                                <input asp-for="AmountPerOperation" type="number" step="0.01" min="0" class="ak-input" placeholder="0.00" />
+                            </div>
+                        </div>
+                        <div class="ak-field" id="totalField">
+                            <label asp-for="TotalAmount">مبلغ کل برای تقسیم <em>*</em></label>
+                            <div class="ak-input-unit">
+                                <span data-cur-tag>USD</span>
+                                <input asp-for="TotalAmount" type="number" step="0.01" min="0" class="ak-input" placeholder="0.00" />
+                            </div>
+                        </div>
+                        <div class="ak-field" id="rateField" hidden>
+                            <label asp-for="RatePerTon">نرخ فی تن <em>*</em></label>
+                            <div class="ak-input-unit">
+                                <span data-cur-tag>USD</span>
+                                <input asp-for="RatePerTon" type="number" step="0.01" min="0" class="ak-input" placeholder="0.00" />
+                            </div>
+                            <small class="ak-note">سهم هر عملیات = نرخ × مقدار (تن) همان حمل</small>
+                        </div>
+                        <div class="ak-note" id="manualHint" hidden>
+                            <i class="bi bi-info-circle"></i>
+                            مبلغ هر عملیات را در مرحله «بررسی و ثبت» وارد می‌کنید.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- مرحله ۳: بررسی و ثبت -->
+        <section class="ak-form-section" data-step-panel="3" hidden>
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">پیش‌نمایش توزیع مبلغ</h2>
+                    <div class="ak-list" id="previewMeta"></div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>عملیات</th>
+                                    <th>نوع وسیله</th>
+                                    <th>شماره</th>
+                                    <th>مسیر</th>
+                                    <th>مقدار (تن)</th>
+                                    <th>سهم مصرف</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" class="ak-table-total">مبلغ مجموع</td>
+                                    <td class="ak-num"><span id="previewTotal">0.00</span> <span data-cur-tag>USD</span></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="ak-note">
+                        <i class="bi bi-shield-check"></i>
+                        برای هر عملیات یک سهم جداگانه با سند حسابداری خودش ثبت می‌شود؛ همه سهم‌ها زیر یک رکورد اصلی گروهی قرار می‌گیرند.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="ak-form-section">
+            <div class="ak-note">
+                <i class="bi bi-info-circle"></i>
+                <span id="footerNote">در مرحله بعد، مشخصات مصرف و روش تقسیم را تعیین خواهید کرد.</span>
+            </div>
+            <div class="ak-footer-actions">
+                <a href="@cancelUrl" class="btn ak-secondary-action">انصراف</a>
+                <button type="button" class="btn ak-secondary-action" id="btnPrev" hidden>مرحله قبلی</button>
+                <button type="button" class="btn ak-primary-action" id="btnNext">مرحله بعدی <i class="bi bi-arrow-left"></i></button>
+                <button type="submit" class="btn ak-primary-action" id="btnSubmit" hidden>
+                    <i class="bi bi-check2-circle"></i> ثبت نهایی مصرف گروهی
+                </button>
+            </div>
+        </footer>
+    </form>
+
+    @{
+        var registeredBatches = ViewBag.RegisteredGroupBatches as List<GroupExpenseBatchListItem> ?? new List<GroupExpenseBatchListItem>();
+        var currentReturnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    }
+    @if (registeredBatches.Count > 0)
+    {
+        <section class="ak-form-section" aria-label="مصارف گروهی ثبت‌شده">
+            <div class="section-title-row d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 pb-0">
+                <div>
+                    <h2 class="mb-0">مصارف گروهی ثبت‌شده</h2>
+                    <p class="text-muted mb-0">برای برگرداندن یک مصرف گروهی، همان ردیف را لغو کنید؛ همهٔ سهم‌ها و سندهای آن با سند معکوس برمی‌گردند.</p>
+                </div>
+                <form asp-action="CancelAllGroups" method="post" class="ak-form d-inline"
+                      onsubmit="return confirm('همهٔ @registeredBatches.Count.ToString("N0") مصرف گروهی فعال لغو شوند؟ برای هر سهم سند معکوس در لجر ثبت می‌شود و این کار برگشت‌پذیر نیست.');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@currentReturnUrl" />
+                    <button type="submit" class="btn btn-sm ak-secondary-action">
+                        <i class="bi bi-x-octagon"></i> لغو همه
+                    </button>
+                </form>
+            </div>
+            <div class="ak-table-wrap p-3 pt-2">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>شماره</th>
+                            <th>نوع مصرف</th>
+                            <th>شرکت خدماتی</th>
+                            <th>تاریخ</th>
+                            <th class="text-end">تعداد عملیات</th>
+                            <th class="text-end">مبلغ کل</th>
+                            <th class="text-end">USD</th>
+                            <th class="text-end">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var batch in registeredBatches)
+                    {
+                        <tr>
+                            <td><a asp-action="GroupDetails" asp-route-id="@batch.Id">@batch.BatchNumber</a></td>
+                            <td>@batch.ExpenseTypeName</td>
+                            <td>@(string.IsNullOrWhiteSpace(batch.ServiceProviderName) ?"-" : batch.ServiceProviderName)</td>
+                            <td dir="ltr">@batch.ExpenseDate.ToString("yyyy/MM/dd")</td>
+                            <td class="text-end">@batch.OperationCount.ToString("N0")</td>
+                            <td class="text-end">@batch.TotalAmount.ToString("N2") @batch.Currency</td>
+                            <td class="text-end">@batch.TotalAmountUsd.ToString("N2")</td>
+                            <td class="text-end">
+                                <form asp-action="CancelGroup" method="post" class="ak-form d-inline"
+                                      onsubmit="return confirm('مصرف گروهی @batch.BatchNumber لغو شود؟ همهٔ سهم‌های آن با سند معکوس برمی‌گردند.');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@batch.Id" />
+                                    <input type="hidden" name="returnUrl" value="@currentReturnUrl" />
+                                    <button type="submit" class="btn btn-sm ak-secondary-action">
+                                        <i class="bi bi-x-circle"></i> لغو
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+<script id="gexpOpsData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(operations.Select(o => new
+{
+    kind = o.Kind,
+    id = o.Id,
+    op = o.OperationLabel,
+    vehicle = o.VehicleKind,
+    number = o.Number,
+    route = o.Route,
+    qty = o.QuantityMt,
+    status = o.StatusLabel,
+    date = o.MoveDate.ToString("yyyy-MM-dd")
+})))</script>
+<script id="gexpSelectedData" type="application/json">@Html.Raw(selectedItemsJson)</script>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+    (function () {
+        'use strict';
+        var ops = JSON.parse(document.getElementById('gexpOpsData').textContent || '[]');
+        var preselected = JSON.parse(document.getElementById('gexpSelectedData').textContent || '[]');
+
+        var state = {
+            step: 1,
+            page: 1,
+            pageSize: 10,
+            selected: new Map(), // key kind:id -> { op, manualAmount }
+            filtered: ops.slice()
+        };
+
+        function key(o) { return o.kind + ':' + o.id; }
+        function fmt(n) { return (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function fmtQty(n) { return Number(n).toLocaleString('en-US', { maximumFractionDigits: 3 }); }
+
+        // ---------- پیش‌انتخاب بعد از خطای اعتبارسنجی ----------
+        preselected.forEach(function (s) {
+            var found = ops.find(function (o) { return o.kind === s.kind && o.id === s.id; });
+            if (found) state.selected.set(key(found), { op: found, manualAmount: s.manualAmount || null });
+        });
+
+        // ---------- فیلترها ----------
+        var $ = function (id) { return document.getElementById(id); };
+        var selects = { fOperation: 'op', fVehicle: 'vehicle', fRoute: 'route', fStatus: 'status' };
+        Object.keys(selects).forEach(function (selId) {
+            var field = selects[selId];
+            var values = Array.from(new Set(ops.map(function (o) { return o[field]; }))).filter(Boolean);
+            var el = $(selId);
+            values.forEach(function (v) {
+                var opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                el.appendChild(opt);
+            });
+        });
+
+        function applyFilters() {
+            var q = ($('fQuery').value || '').trim().toLowerCase();
+            var from = $('fFrom').value, to = $('fTo').value;
+            state.filtered = ops.filter(function (o) {
+                if ($('fOperation').value && o.op !== $('fOperation').value) return false;
+                if ($('fVehicle').value && o.vehicle !== $('fVehicle').value) return false;
+                if ($('fRoute').value && o.route !== $('fRoute').value) return false;
+                if ($('fStatus').value && o.status !== $('fStatus').value) return false;
+                if (from && o.date < from) return false;
+                if (to && o.date > to) return false;
+                if (q && (o.number + ' ' + o.route + ' ' + o.op + ' ' + o.vehicle).toLowerCase().indexOf(q) < 0) return false;
+                return true;
+            });
+            state.page = 1;
+            renderTable();
+        }
+
+        ['fOperation', 'fVehicle', 'fRoute', 'fStatus', 'fFrom', 'fTo'].forEach(function (id) {
+            $(id).addEventListener('change', applyFilters);
+        });
+        $('fQuery').addEventListener('input', applyFilters);
+        $('btnClearFilters').addEventListener('click', function () {
+            ['fOperation', 'fVehicle', 'fRoute', 'fStatus', 'fFrom', 'fTo', 'fQuery'].forEach(function (id) { $(id).value = ''; });
+            applyFilters();
+        });
+
+        // ---------- جدول + صفحه‌بندی ----------
+        function renderTable() {
+            var body = $('opsBody');
+            body.innerHTML = '';
+            var total = state.filtered.length;
+            $('lblResultCount').textContent = total;
+            $('opsEmpty').hidden = total > 0;
+
+            var pages = Math.max(1, Math.ceil(total / state.pageSize));
+            if (state.page > pages) state.page = pages;
+            var start = (state.page - 1) * state.pageSize;
+            var slice = state.filtered.slice(start, start + state.pageSize);
+
+            slice.forEach(function (o, idx) {
+                var tr = document.createElement('tr');
+                var checked = state.selected.has(key(o));
+                if (checked) tr.classList.add('is-selected');
+                tr.innerHTML =
+                    '<td class="ak-col-check"><input type="checkbox" ' + (checked ? 'checked' : '') + ' data-k="' + key(o) + '"></td>' +
+                    '<td>' + (start + idx + 1) + '</td>' +
+                    '<td>' + o.op + '</td>' +
+                    '<td>' + o.vehicle + '</td>' +
+                    '<td class="ak-num">' + o.number + '</td>' +
+                    '<td>' + o.route + '</td>' +
+                    '<td class="ak-num">' + fmtQty(o.qty) + '</td>' +
+                    '<td>تن</td>' +
+                    '<td class="ak-num">' + o.date + '</td>' +
+                    '<td><span class="ak-status is-active">' + o.status + '</span></td>';
+                tr.addEventListener('click', function (e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    toggle(o);
+                });
+                tr.querySelector('input').addEventListener('change', function () { toggle(o); });
+                body.appendChild(tr);
+            });
+
+            $('pageInfo').textContent = total === 0 ? '' :
+                'نمایش ' + (start + 1) + ' تا ' + Math.min(start + state.pageSize, total) + ' از ' + total + ' مورد';
+
+            var pager = $('pager');
+            pager.innerHTML = '';
+            for (var p = 1; p <= pages; p++) {
+                (function (pp) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'page-link' + (pp === state.page ? ' is-active' : '');
+                    b.textContent = pp;
+                    b.addEventListener('click', function () { state.page = pp; renderTable(); });
+                    pager.appendChild(b);
+                })(p);
+            }
+
+            var allChecked = slice.length > 0 && slice.every(function (o) { return state.selected.has(key(o)); });
+            $('chkAll').checked = state.filtered.length > 0 && state.filtered.every(function (o) { return state.selected.has(key(o)); });
+            void allChecked;
+            renderSummary();
+        }
+
+        function toggle(o) {
+            var k = key(o);
+            if (state.selected.has(k)) state.selected.delete(k);
+            else state.selected.set(k, { op: o, manualAmount: null });
+            renderTable();
+        }
+
+        $('chkAll').addEventListener('change', function () {
+            if (this.checked) state.filtered.forEach(function (o) { if (!state.selected.has(key(o))) state.selected.set(key(o), { op: o, manualAmount: null }); });
+            else state.filtered.forEach(function (o) { state.selected.delete(key(o)); });
+            renderTable();
+        });
+
+        $('pageSize').addEventListener('change', function () {
+            state.pageSize = parseInt(this.value, 10) || 10;
+            state.page = 1;
+            renderTable();
+        });
+
+        // ---------- خلاصه انتخاب ----------
+        function renderSummary() {
+            var items = Array.from(state.selected.values()).map(function (s) { return s.op; });
+            $('sumCount').textContent = items.length;
+            $('sumQty').textContent = fmtQty(items.reduce(function (a, o) { return a + Number(o.qty); }, 0));
+
+            var byVehicle = {};
+            items.forEach(function (o) { byVehicle[o.vehicle] = (byVehicle[o.vehicle] || 0) + 1; });
+            $('sumVehicles').innerHTML = Object.keys(byVehicle).map(function (v) {
+                return '<div><span>' + v + '</span><b>' + byVehicle[v] + ' عملیات</b></div>';
+            }).join('') || '<div class="ak-note">—</div>';
+
+            var routes = Array.from(new Set(items.map(function (o) { return o.route; })));
+            $('sumRoutes').innerHTML = routes.map(function (r) { return '<div><span>' + r + '</span></div>'; }).join('')
+                || '<div class="ak-note">—</div>';
+        }
+
+        // ---------- روش تقسیم ----------
+        function currentMethod() {
+            var el = document.querySelector('#methodGroup input[name="AllocationMethod"]:checked');
+            return el ? parseInt(el.value, 10) : 2;
+        }
+
+        function syncMethodFields() {
+            var m = currentMethod();
+            $('perOpField').hidden = m !== 1;
+            $('totalField').hidden = m !== 2;
+            $('rateField').hidden = m !== 3;
+            $('manualHint').hidden = m !== 4;
+        }
+        document.querySelectorAll('#methodGroup input').forEach(function (r) { r.addEventListener('change', syncMethodFields); });
+
+        var curSel = document.getElementById('currencySelect');
+        function syncCurrencyTags() {
+            document.querySelectorAll('[data-cur-tag]').forEach(function (t) { t.textContent = curSel.value || 'USD'; });
+        }
+        if (curSel) { curSel.addEventListener('change', syncCurrencyTags); syncCurrencyTags(); }
+
+        // ---------- پیش‌نمایش ----------
+        function computeShares() {
+            var items = Array.from(state.selected.values());
+            var m = currentMethod();
+            var n = items.length;
+            if (n === 0) return { shares: [], total: 0 };
+
+            var shares = [];
+            var total = 0;
+
+            if (m === 1) {
+                var per = parseFloat(document.getElementById('AmountPerOperation').value) || 0;
+                shares = items.map(function () { return per; });
+                total = per * n;
+            } else if (m === 4) {
+                shares = items.map(function (s) { return parseFloat(s.manualAmount) || 0; });
+                total = shares.reduce(function (a, b) { return a + b; }, 0);
+            } else if (m === 3) {
+                // نرخ فی تن × مقدار هر حمل
+                var rate = parseFloat(document.getElementById('RatePerTon').value) || 0;
+                shares = items.map(function (s) { return Math.round(rate * Number(s.op.qty) * 100) / 100; });
+                total = shares.reduce(function (a, b) { return a + b; }, 0);
+            } else {
+                total = parseFloat(document.getElementById('TotalAmount').value) || 0;
+                var eq = Math.round(total / n * 100) / 100;
+                shares = items.map(function () { return eq; });
+                var sum = shares.reduce(function (a, b) { return a + b; }, 0);
+                if (shares.length) shares[shares.length - 1] = Math.round((shares[shares.length - 1] + total - sum) * 100) / 100;
+            }
+            return { shares: shares, total: total };
+        }
+
+        function renderPreview() {
+            var items = Array.from(state.selected.values());
+            var m = currentMethod();
+            var result = computeShares();
+            var body = $('previewBody');
+            body.innerHTML = '';
+
+            var methodNames = { 1: 'مبلغ برای هر عملیات', 2: 'تقسیم مساوی', 3: 'بر اساس مقدار', 4: 'دستی' };
+            $('previewMeta').innerHTML =
+                '<span><b>روش تقسیم:</b> ' + methodNames[m] + '</span>' +
+                (m === 3 ? '<span><b>نرخ فی تن:</b> ' + fmt(parseFloat(document.getElementById('RatePerTon').value) || 0) + '</span>' : '') +
+                '<span><b>تعداد عملیات:</b> ' + items.length + '</span>';
+
+            items.forEach(function (s, i) {
+                var tr = document.createElement('tr');
+                var shareCell;
+                if (m === 4) {
+                    shareCell = '<td><input type="number" step="0.01" min="0" class="ak-input" data-manual-amount data-i="' + i + '" value="' + (s.manualAmount || '') + '" placeholder="0.00"></td>';
+                } else {
+                    shareCell = '<td class="ak-num">' + fmt(result.shares[i] || 0) + '</td>';
+                }
+                tr.innerHTML =
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + s.op.op + '</td>' +
+                    '<td>' + s.op.vehicle + '</td>' +
+                    '<td class="ak-num">' + s.op.number + '</td>' +
+                    '<td>' + s.op.route + '</td>' +
+                    '<td class="ak-num">' + fmtQty(s.op.qty) + '</td>' +
+                    shareCell;
+                body.appendChild(tr);
+            });
+
+            body.querySelectorAll('[data-manual-amount]').forEach(function (inp) {
+                inp.addEventListener('input', function () {
+                    var i = parseInt(this.dataset.i, 10);
+                    var items2 = Array.from(state.selected.values());
+                    if (items2[i]) items2[i].manualAmount = this.value;
+                    $('previewTotal').textContent = fmt(computeShares().total);
+                    syncItemsInputs();
+                });
+            });
+
+            $('previewTotal').textContent = fmt(result.total);
+            syncItemsInputs();
+        }
+
+        // ---------- ویزارد ----------
+        var notes = {
+            1: 'در مرحله بعد، مشخصات مصرف و روش تقسیم را تعیین خواهید کرد.',
+            2: 'در مرحله بعد، پیش‌نمایش توزیع مبلغ را مشاهده و ثبت نهایی را انجام خواهید داد.',
+            3: 'با ثبت نهایی، برای هر عملیات یک سهم جداگانه همراه سند حسابداری ایجاد می‌شود.'
+        };
+
+        function goStep(n) {
+            if (n < 1 || n > 3) return;
+            if (n > 1 && state.selected.size === 0) {
+                alert('حداقل یک عملیات را انتخاب کنید.');
+                return;
+            }
+            if (n === 3 && !validateStep2()) return;
+            state.step = n;
+            document.querySelectorAll('[data-step-panel]').forEach(function (p) {
+                p.hidden = parseInt(p.dataset.stepPanel, 10) !== n;
+            });
+            document.querySelectorAll('[data-step-btn]').forEach(function (b) {
+                var bn = parseInt(b.dataset.stepBtn, 10);
+                b.classList.toggle('is-active', bn === n);
+                b.classList.toggle('is-done', bn < n);
+            });
+            $('btnPrev').hidden = n === 1;
+            $('btnNext').hidden = n === 3;
+            $('btnSubmit').hidden = n !== 3;
+            $('footerNote').textContent = notes[n];
+            if (n === 3) renderPreview();
+        }
+
+        function validateStep2() {
+            var expType = document.getElementById('ManualExpenseTypeName');
+            if (!expType.value.trim()) { alert('نوع مصرف را وارد کنید.'); return false; }
+            // ارز غیر دالری → نرخ تبدیل الزامی (فیلد مخفیِ technical باید پر شده باشد)
+            var cur = (curSel && curSel.value) || 'USD';
+            if (cur !== 'USD') {
+                var tech = document.querySelector('[data-fx-rate-technical]');
+                if (!tech || !(parseFloat(tech.value) > 0)) {
+                    alert('برای ارز ' + cur + ' نرخ تبدیل را وارد کنید.');
+                    return false;
+                }
+            }
+            var m = currentMethod();
+            if (m === 1 && !(parseFloat(document.getElementById('AmountPerOperation').value) > 0)) {
+                alert('مبلغ برای هر عملیات را وارد کنید.'); return false;
+            }
+            if (m === 2 && !(parseFloat(document.getElementById('TotalAmount').value) > 0)) {
+                alert('مبلغ کل برای تقسیم را وارد کنید.'); return false;
+            }
+            if (m === 3 && !(parseFloat(document.getElementById('RatePerTon').value) > 0)) {
+                alert('نرخ فی تن را وارد کنید.'); return false;
+            }
+            return true;
+        }
+
+        document.querySelectorAll('[data-step-btn]').forEach(function (b) {
+            b.addEventListener('click', function () { goStep(parseInt(this.dataset.stepBtn, 10)); });
+        });
+        $('btnNext').addEventListener('click', function () { goStep(state.step + 1); });
+        $('btnPrev').addEventListener('click', function () { goStep(state.step - 1); });
+
+        // ---------- ساخت فیلدهای Items ----------
+        // همیشه قبل از submit ساخته شده باشند؛ حتی اگر اسکریپت دیگری submit را
+        // زودتر (capture) بگیرد، فیلدها از قبل داخل فرم هستند.
+        function syncItemsInputs() {
+            var m = currentMethod();
+            var container = document.getElementById('gexpItemsContainer');
+            container.innerHTML = '';
+            var i = 0;
+            state.selected.forEach(function (s) {
+                var mk = function (name, value) {
+                    var inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'Items[' + i + '].' + name;
+                    inp.value = value;
+                    container.appendChild(inp);
+                };
+                mk('Kind', s.op.kind);
+                mk('Id', s.op.id);
+                if (m === 4 && s.manualAmount) mk('ManualAmount', s.manualAmount);
+                i++;
+            });
+        }
+
+        // ---------- ارسال ----------
+        document.getElementById('gexpForm').addEventListener('submit', function (e) {
+            // اعتبارسنجیِ کامل سمت کلاینت تا submit بی‌صدا به سرور نرود و رد نشود.
+            if (state.selected.size === 0) {
+                e.preventDefault();
+                alert('حداقل یک عملیات را انتخاب کنید.');
+                return;
+            }
+            if (!validateStep2()) { e.preventDefault(); return; }
+            var m = currentMethod();
+            if (m === 4) {
+                var bad = Array.from(state.selected.values()).some(function (s) { return !(parseFloat(s.manualAmount) > 0); });
+                if (bad) {
+                    e.preventDefault();
+                    alert('در روش دستی، مبلغ همه عملیات‌ها باید بزرگ‌تر از صفر باشد.');
+                    return;
+                }
+            }
+            syncItemsInputs();
+
+            // قفلِ سادهٔ ضدِ دابل‌کلیک. اگر ناوبری انجام نشد (خطای شبکه/سرور)،
+            // بعد از چند ثانیه دکمه آزاد می‌شود تا هرگز روی «در حال ثبت…» گیر نکند.
+            var btn = $('btnSubmit');
+            if (btn && !btn.disabled) {
+                var original = btn.innerHTML;
+                setTimeout(function () {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال ثبت…';
+                }, 0);
+                setTimeout(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }, 8000);
+            }
+        });
+
+        // شروع
+        syncMethodFields();
+        renderTable();
+        goStep(1);
+    })();
+    </script>
+}

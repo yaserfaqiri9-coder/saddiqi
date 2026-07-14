@@ -1,0 +1,36 @@
+@model object
+@{
+    var pageTitle = ViewData["Title"] as string ?? "ویرایش";
+    var formPartialPath = ViewData["EditFormPartialPath"] as string;
+    var editId = ViewData["EditPageId"];
+
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEn = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEn ? en : fa;
+
+    if (string.IsNullOrWhiteSpace(formPartialPath))
+    {
+        throw new System.InvalidOperationException("EditFormPartialPath is required for _EditPageShell.");
+    }
+    if (editId == null)
+    {
+        throw new System.InvalidOperationException("EditPageId is required for _EditPageShell.");
+    }
+}
+
+<div class="ak-form-page">
+    <div class="ak-form-page-content">
+        <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+                 model="@((pageTitle, true,
+                           (string?)null, (string?)null, (string?)null, (string?)null,
+                           T("بازگشت", "Back"), "bi-arrow-right",
+                           (string?)Url.Action("Details", new { id = editId })))" />
+
+        <form asp-action="Edit" asp-route-id="@editId" method="post" class="ak-form">
+            <input type="hidden" name="Id" value="@editId" />
+            @await Html.PartialAsync(formPartialPath, Model)
+            <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                     model="@((T("ذخیره تغییرات", "Save Changes"), Url.Action("Details", new { id = editId }) ?? "#", T("انصراف", "Cancel")))" />
+        </form>
+    </div>
+</div>

@@ -1,0 +1,113 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseImportViewModel
+@{
+    ViewData["Title"] = "پیش‌نمایش مصارف واردشده";
+    ViewData["HideSectionTabs"] = true;
+    string Fa(decimal? v) => v.HasValue ? v.Value.ToString("N2") : "-";
+}
+
+<div class="ak-form-page">
+    <div class="ak-form-section mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h1 class="h5 mb-1">پیش‌نمایش مصارف واردشده</h1>
+                <p class="text-muted small mb-0">ردیف‌های درست را می‌توانید ثبت کنید. تا وقتی «ثبت نهایی» را نزنید چیزی ذخیره نمی‌شود.</p>
+            </div>
+            <div class="d-flex gap-3">
+                <span class="ak-status bg-success fs-6">آماده ثبت: @Model.ValidCount</span>
+                <span class="ak-status bg-danger fs-6">دارای خطا: @Model.ErrorCount</span>
+            </div>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div asp-validation-summary="All" class="alert alert-warning"></div>
+    }
+
+    @if (Model.HasErrors)
+    {
+        <div class="alert alert-warning">
+            بعضی ردیف‌ها خطا دارند. فایل اکسل را اصلاح کنید و دوباره وارد کنید. ثبت نهایی فقط وقتی فعال می‌شود که همهٔ ردیف‌ها درست باشند.
+        </div>
+    }
+
+    <div class="ak-form-section mb-3">
+        <div>
+            <div class="ak-table-wrap ptg-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ردیف</th>
+                            <th>تاریخ</th>
+                            <th>نوع مصرف</th>
+                            <th class="text-end">مبلغ</th>
+                            <th>ارز</th>
+                            <th class="text-end">معادل USD</th>
+                            <th>قرارداد</th>
+                            <th>شرح</th>
+                            <th>وضعیت</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            <tr class="@(row.IsValid ?"" : "table-danger")">
+                                <td>@row.ExcelRowNumber</td>
+                                <td dir="ltr">@(row.ExpenseDate?.ToString("yyyy-MM-dd") ?? row.ExpenseDateText)</td>
+                                <td>@(row.ResolvedExpenseTypeName ?? row.ExpenseTypeName)</td>
+                                <td class="text-end" dir="ltr">@Fa(row.Amount)</td>
+                                <td dir="ltr">@row.Currency</td>
+                                <td class="text-end ak-num" dir="ltr">@Fa(row.AmountUsd)</td>
+                                <td>@row.ContractNumber</td>
+                                <td>@row.Description</td>
+                                <td>
+                                    @if (row.IsValid)
+                                    {
+                                        <span class="ak-status bg-success">درست</span>
+                                    }
+                                    else
+                                    {
+                                        <ul class="mb-0 ps-3 small text-danger">
+                                            @foreach (var error in row.Errors)
+                                            {
+                                                <li>@error</li>
+                                            }
+                                        </ul>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        @if (Model.CanConfirm)
+        {
+            <form asp-action="ImportConfirm" method="post" class="ak-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="ReturnUrl" />
+                @for (var i = 0; i < Model.Rows.Count; i++)
+                {
+                    <input type="hidden" name="Rows[@i].ExcelRowNumber" value="@Model.Rows[i].ExcelRowNumber" />
+                    <input type="hidden" name="Rows[@i].ExpenseDateText" value="@Model.Rows[i].ExpenseDateText" />
+                    <input type="hidden" name="Rows[@i].ExpenseTypeName" value="@Model.Rows[i].ExpenseTypeName" />
+                    <input type="hidden" name="Rows[@i].AmountText" value="@Model.Rows[i].AmountText" />
+                    <input type="hidden" name="Rows[@i].Currency" value="@Model.Rows[i].Currency" />
+                    <input type="hidden" name="Rows[@i].RatePerUsdText" value="@Model.Rows[i].RatePerUsdText" />
+                    <input type="hidden" name="Rows[@i].ContractNumber" value="@Model.Rows[i].ContractNumber" />
+                    <input type="hidden" name="Rows[@i].Description" value="@Model.Rows[i].Description" />
+                }
+                <button type="submit" class="btn ak-primary-action">
+                    <i class="bi bi-check2-circle"></i> ثبت نهایی @Model.ValidCount ردیف
+                </button>
+            </form>
+        }
+        <a asp-action="Import" asp-route-returnUrl="@Model.ReturnUrl" class="btn ak-secondary-action">
+            <i class="bi bi-arrow-counterclockwise"></i> وارد کردن فایل دیگر
+        </a>
+        <a asp-action="Index" class="btn ak-secondary-action">بازگشت به لیست مصارف</a>
+    </div>
+</div>

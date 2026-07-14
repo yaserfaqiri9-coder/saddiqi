@@ -1,0 +1,12 @@
+@model (string Title, string? Subtitle, string? IconClass)
+@{
+    var iconClass = string.IsNullOrWhiteSpace(Model.IconClass) ? "bi-inbox" : Model.IconClass;
+}
+<div class="ak-empty">
+    <i class="bi @iconClass" aria-hidden="true"></i>
+    <strong>@Model.Title</strong>
+    @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+    {
+        <div>@Model.Subtitle</div>
+    }
+</div>

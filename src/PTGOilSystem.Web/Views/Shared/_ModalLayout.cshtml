@@ -1,0 +1,104 @@
+@{
+    var title = ViewData["Title"] as string ?? "PTG Oil System";
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var useModalDesignSystemAssets = ViewData["ModalDesignSystemAssets"] as bool? != false;
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEnglishUi = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    var htmlLanguage = isEnglishUi ? "en" : "fa";
+    var htmlDirection = isEnglishUi ? "ltr" : "rtl";
+    var routeBodyClass = $"controller-{currentController.ToLowerInvariant()} action-{currentAction.ToLowerInvariant()}";
+    var financeFormControllers = new[] { "AccountStatements", "Contracts", "Inventory", "LoadingReceipts", "Expenses", "LossEvents", "Sales", "Dispatch", "Payments" };
+    var financeFormActions = new[] { "Create", "Edit" };
+    var hasEmbeddedReceiptWizard = string.Equals(currentController, "Loading", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(currentAction, "Details", StringComparison.OrdinalIgnoreCase);
+    var useFinanceFormAssets = ViewData["FinanceFormAssets"] as bool? ?? (
+        hasEmbeddedReceiptWizard
+        || financeFormControllers.Any(controller => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase))
+        && financeFormActions.Any(action => string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase)));
+}
+<!DOCTYPE html>
+<html lang="@htmlLanguage" dir="@htmlDirection">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title - PTG Oil System</title>
+    @if (isEnglishUi)
+    {
+        <link rel="stylesheet" href="~/vendor/bootstrap/css/bootstrap.min.css" asp-append-version="true" />
+    }
+    else
+    {
+        <link rel="stylesheet" href="~/vendor/bootstrap/css/bootstrap.rtl.min.css" asp-append-version="true" />
+    }
+    <link rel="stylesheet" href="~/vendor/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/vendor/fonts/poppins/poppins.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/vendor/fonts/vazirmatn/vazirmatn.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/_variables.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/_utilities.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/boltz-shell.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/01-tokens.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/02-base.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/03-layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/04-sidebar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/05-components.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/06-forms.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/07-tables.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/08-modals.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/09-pages.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/10-responsive.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/11-details.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/12-dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/13-compat.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/14-master-details.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/15-system-lists.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/17-system-forms.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+    <link rel="stylesheet" href="~/css/ptg/16-system-tabs.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/41-compact.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/45-akaunting.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/50-ak-components.css" asp-append-version="true" />
+</head>
+<body class="app-body boltz-shell @(isEnglishUi ?"boltz-ltr" : "boltz-rtl") ptg-modal-document @routeBodyClass"
+      data-ui-language="@htmlLanguage">
+    @await Html.PartialAsync("_FlashAlerts")
+    <main class="ak-form-page ptg-modal-body-shell">
+        @RenderBody()
+    </main>
+
+    <script src="~/vendor/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true" defer></script>
+    <script src="~/js/core.js" asp-append-version="true" defer></script>
+    <script src="~/js/tables.js" asp-append-version="true" defer></script>
+    <script src="~/js/system-list-digits.js" asp-append-version="true" defer></script>
+    <script src="~/js/ptg-tabs.js" asp-append-version="true" defer></script>
+    <script src="~/js/ak-entity-combobox.js" asp-append-version="true" defer></script>
+    @if (useFinanceFormAssets)
+    {
+        <script src="~/js/finance-forms.js" asp-append-version="true" defer></script>
+    }
+    @if (useModalDesignSystemAssets)
+    {
+        <script src="~/js/modal-design-system.js" asp-append-version="true" defer></script>
+    }
+    <script>
+        window.PTG = window.PTG || {};
+        window.PTG.closeEmbeddedModal = function () {
+            if (window.parent && window.parent !== window && window.parent.PTG && typeof window.parent.PTG.closePageModal === "function") {
+                window.parent.PTG.closePageModal();
+                return;
+            }
+
+            window.history.back();
+        };
+
+        document.addEventListener("click", function (event) {
+            var closeButton = event.target.closest("[data-ptg-iframe-modal-close]");
+            if (!closeButton) return;
+            event.preventDefault();
+            window.PTG.closeEmbeddedModal();
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

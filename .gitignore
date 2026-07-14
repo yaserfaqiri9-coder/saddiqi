@@ -1,0 +1,192 @@
+# =========================================================
+# PTG Oil System - Git Ignore
+# Local-only files, secrets, build outputs, agent artifacts
+# =========================================================
+
+
+# ---------------------------------------------------------
+# Environment / secrets / local overrides
+# ---------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+run-server.bat
+*.local.bat
+scripts/*.local.bat
+scripts/run-local.local.ps1
+scripts/*.secrets.ps1
+scripts/*.local.env
+
+**/local-run-secrets.json
+**/secrets.json
+**/appsettings.Local.json
+**/appsettings.Development.local.json
+**/appsettings.Production.local.json
+
+**/.aspnet-data-protection-keys/
+
+
+# ---------------------------------------------------------
+# Certificates / private keys
+# ---------------------------------------------------------
+*.pfx
+*.pem
+*.key
+*.crt
+*.cer
+*.jks
+
+
+# ---------------------------------------------------------
+# Local logs
+# ---------------------------------------------------------
+*.log
+*.out.log
+*.err.log
+run-local.out.log
+run-local.err.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# ---------------------------------------------------------
+# Local database files and backups
+# ---------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+
+backups/postgres/
+backups/secure/local-keys/
+backups/secure/*.aes
+backups/secure/*.aes.sha256.txt
+
+
+# ---------------------------------------------------------
+# .NET build outputs
+# ---------------------------------------------------------
+**/bin/
+**/obj/
+TestResults/
+*.user
+*.suo
+
+
+# ---------------------------------------------------------
+# Frontend / package / cache outputs
+# ---------------------------------------------------------
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.parcel-cache/
+.next/
+.pnpm-store/
+.yarn/
+vite.config.*.timestamp-*
+
+
+# ---------------------------------------------------------
+# Local / editor folders
+# ---------------------------------------------------------
+.idea/
+.vs/
+.vscode/
+.sixth/
+.build-check/
+.codex-run/
+.playwright-mcp/
+.qodo/
+
+
+# ---------------------------------------------------------
+# Claude / AI agent local files
+# Keep CLAUDE.md and shared project rules tracked.
+# Ignore only local Claude settings/caches.
+# ---------------------------------------------------------
+.claude/settings.local.json
+.claude/*.local.json
+.claude/cache/
+.claude/logs/
+
+
+# ---------------------------------------------------------
+# Agent-generated build artifacts
+# ---------------------------------------------------------
+*.lscache
+_codexbin/
+_codexobj/
+.artifacts/
+artifacts/
+**/artifacts/build-check/
+**/artifacts/verify-build/
+~$*.xlsx
+
+
+# ---------------------------------------------------------
+# Local SonarQube analysis outputs
+# ---------------------------------------------------------
+.sonarqube/
+/sonar-report/
+/sonar-claude-compact/
+/sonar-claude-mini/
+/sonar-report-ptg.zip
+/sonar-claude-compact.zip
+/New folder/
+/graphify-out/
+
+
+# ---------------------------------------------------------
+# Agent / prototype leftovers
+# ---------------------------------------------------------
+/boltz-dashboard.*
+/tmp_content.txt
+/attached_assets/*.png
+/attached_assets/Pasted*.txt
+/attached_assets/screenshots/
+/wwwroot/uploads/
+
+
+# ---------------------------------------------------------
+# Local debug outputs and captures
+# ---------------------------------------------------------
+tmp/
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.rar
+/*.xlsx
+/*.pdf
+/*.docx
+
+
+# ---------------------------------------------------------
+# OS files
+# ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+# ---------------------------------------------------------
+# Additional generated/test/temp outputs
+# ---------------------------------------------------------
+**/TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+BenchmarkDotNet.Artifacts/
+
+*.tmp
+*.temp
+*.pid
+
+# Old Claude configuration backups
+.claude.backup-*/
+# Stray local backup accidentally nested in repo
+/%USERPROFILE%/

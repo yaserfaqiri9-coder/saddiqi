@@ -1,0 +1,159 @@
+@model PTGOilSystem.Web.Models.Reports.CompanyFinancialOverviewViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "نمای کلی مالی", "Company Financial Overview");
+    var hasActiveFilters = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ProductId.HasValue || Model.Filter.ContractId.HasValue
+        || Model.Filter.CustomerId.HasValue || Model.Filter.SupplierId.HasValue;
+    var netClass = Model.NetProfitUsd >= 0m ? "ak-num" : "ak-num";
+    var cashClass = Model.NetCashMovementUsd >= 0m ? "ak-num" : "ak-num";
+}
+
+<div class="ak-list-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "نمای کلی مالی", "Company Financial Overview"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "گزارشات", "Reports"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <p class="ak-note">@UiText.T(Context, "تصویر سریع از فروش، مصارف، نقدینگی و مانده‌های مهم شرکت.", "A focused view of sales, costs, cash movement and key balances.")</p>
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "خلاصهٔ مالی", "Financial summary")">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context, "فروش", "Sales")</dt><dd class="ak-num">@Model.RevenueUsd.ToString("N2") USD</dd></div>
+            <div><dt>@UiText.T(Context, "مصارف و ضایعات", "Expenses and Losses")</dt><dd class="ak-num">@((Model.ExpenseUsd + Model.LossCostUsd).ToString("N2")) USD</dd></div>
+            <div><dt>@UiText.T(Context, "سود خالص", "Net Profit")</dt><dd class="ak-num @netClass">@Model.NetProfitUsd.ToString("N2") USD</dd></div>
+            <div><dt>@UiText.T(Context, "حرکت نقدی", "Cash Movement")</dt><dd class="ak-num @cashClass">@Model.NetCashMovementUsd.ToString("N2") USD</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        <form method="get" class="ak-report-parameters" id="coFilterForm">
+            <div class="ak-report-parameters-bar">
+                <div class="ak-report-parameters-anchor">
+                    <button type="button" class="btn btn-light ak-report-parameters-toggle @(hasActiveFilters ?"is-on" : null)" id="coFilterToggle" aria-label="فیلتر" aria-expanded="false">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <div class="ak-report-parameters-pop" id="coFilterPop" hidden>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "از تاریخ", "From date")</label>
+                        <input class="ak-input" type="date" name="FromDate" value="@Model.Filter.FromDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "تا تاریخ", "To date")</label>
+                        <input class="ak-input" type="date" name="ToDate" value="@Model.Filter.ToDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "جنس", "Product")</label>
+                        <select class="ak-input" name="ProductId" asp-items="ViewBag.Products"><option value="">@UiText.T(Context, "همه اجناس", "All products")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "قرارداد", "Contract")</label>
+                        <select class="ak-input" name="ContractId" asp-items="ViewBag.Contracts"><option value="">@UiText.T(Context, "همه قراردادها", "All contracts")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "مشتری", "Customer")</label>
+                        <select class="ak-input" name="CustomerId" asp-items="ViewBag.Customers"><option value="">@UiText.T(Context, "همه مشتری‌ها", "All customers")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "تأمین‌کننده", "Supplier")</label>
+                        <select class="ak-input" name="SupplierId" asp-items="ViewBag.Suppliers"><option value="">@UiText.T(Context, "همه تأمین‌کنندگان", "All suppliers")</option></select>
+                        <button type="submit" class="btn btn-primary ak-report-parameters-apply">@UiText.T(Context, "اعمال", "Apply")</button>
+                        <button type="button" class="btn btn-light ak-report-parameters-apply" onclick="window.print()"><i class="bi bi-printer"></i> @UiText.T(Context, "چاپ", "Print")</button>
+                        @if (hasActiveFilters)
+                        {
+                            <a asp-action="CompanyOverview" class="btn btn-light ak-report-parameters-apply">@UiText.T(Context, "پاک‌کردن", "Clear")</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "خلاصه مدیریتی", "Management summary"), UiText.T(Context, "اعداد کلیدی که وضعیت مالی را سریع نشان می‌دهد.", "Key numbers that show the financial position quickly.")))" />
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th class="ak-col-grow">@UiText.T(Context, "شاخص", "Metric")</th>
+                            <th class="ak-col-num">@UiText.T(Context, "مبلغ (USD)", "Amount (USD)")</th>
+                            <th>@UiText.T(Context, "وضعیت", "Status")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="ak-col-grow">@UiText.T(Context, "سود ناخالص", "Gross profit")</td>
+                            <td class="ak-col-num ak-num">@Model.GrossProfitUsd.ToString("N2")</td>
+                            <td class="@(Model.GrossProfitUsd >= 0 ?"ak-num" : "ak-num")">@(Model.GrossProfitUsd >= 0 ? UiText.T(Context, "مثبت", "Positive") : UiText.T(Context, "منفی", "Negative"))</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">@UiText.T(Context, "سود خالص", "Net profit")</td>
+                            <td class="ak-col-num ak-num">@Model.NetProfitUsd.ToString("N2")</td>
+                            <td class="@netClass">@(Model.NetProfitUsd >= 0 ? UiText.T(Context, "مثبت", "Positive") : UiText.T(Context, "نیاز به بررسی", "Needs review"))</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">@UiText.T(Context, "طلب مشتریان", "Customer receivable")</td>
+                            <td class="ak-col-num ak-num">@Model.CustomerReceivableUsd.ToString("N2")</td>
+                            <td>@UiText.T(Context, "قابل پیگیری", "Trackable")</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">@UiText.T(Context, "بدهی تأمین‌کنندگان", "Supplier payable")</td>
+                            <td class="ak-col-num ak-num">@Model.SupplierPayableUsd.ToString("N2")</td>
+                            <td>@UiText.T(Context, "قابل پرداخت", "Payable")</td>
+                        </tr>
+                        <tr>
+                            <td class="ak-col-grow">@UiText.T(Context, "مانده صراف‌ها", "Sarraf balance")</td>
+                            <td class="ak-col-num ak-num">@Model.SarrafNetUsd.ToString("N2")</td>
+                            <td>@UiText.T(Context, "خالص دریافت و پرداخت", "Net cash relation")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "قراردادهای مهم", "Key contracts"), UiText.T(Context, "قراردادهایی که بیشترین اثر مالی را دارند.", "Contracts with the largest financial impact.")))" />
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th class="ak-col-grow">@UiText.T(Context, "قرارداد", "Contract")</th>
+                            <th>@UiText.T(Context, "جنس", "Product")</th>
+                            <th>@UiText.T(Context, "طرف حساب", "Counterparty")</th>
+                            <th class="ak-col-num">@UiText.T(Context, "مصرف (USD)", "Cost (USD)")</th>
+                            <th class="ak-col-num">@UiText.T(Context, "فروش (USD)", "Revenue (USD)")</th>
+                            <th class="ak-col-num">@UiText.T(Context, "سود (USD)", "Profit (USD)")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.TopContracts)
+                        {
+                            <tr>
+                                <td class="ak-col-grow"><a class="ak-name" asp-controller="ContractJourney" asp-action="Details" asp-route-id="@row.ContractId">@row.ContractNumber</a></td>
+                                <td>@row.ProductName</td>
+                                <td>@(row.CounterpartyName ?? "-")</td>
+                                <td class="ak-col-num ak-num">@row.TotalCostUsd.ToString("N2")</td>
+                                <td class="ak-col-num ak-num">@row.TotalRevenueUsd.ToString("N2")</td>
+                                <td class="ak-col-num ak-num @(row.GrossMarginUsd >= 0 ?"ak-num" : "ak-num")">@row.GrossMarginUsd.ToString("N2")</td>
+                            </tr>
+                        }
+                        @if (!Model.TopContracts.Any())
+                        {
+                            <tr>
+                                <td colspan="6"><div class="ak-empty"><i class="bi bi-graph-up"></i> @UiText.T(Context, "فیلترها را تغییر دهید یا بازه تاریخ را گسترده‌تر بگیرید.", "Change the filters or widen the date range.")</div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('coFilterToggle');
+            var pop = document.getElementById('coFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}

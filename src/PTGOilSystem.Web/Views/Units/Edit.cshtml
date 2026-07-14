@@ -1,0 +1,11 @@
+@model Unit
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش واحد", "Edit Unit");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "واحدها", "Units");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "کد، وضعیت و اطلاعات تبدیل مرجع این واحد را به‌روز کنید.", "Update code, status and conversion reference for this unit.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Units/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,11 @@
+@model Location
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش مکان", "Edit Location");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "مکان‌ها", "Locations");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "نام، کشور و نوع این مکان را به‌روزرسانی کنید.", "Update name, country and type of this location.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Locations/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

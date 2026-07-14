@@ -1,0 +1,232 @@
+@model SarrafDetailsViewModel
+@using PTGOilSystem.Web.Models.Shared
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = Model.Name;
+    ViewData["HideSectionTabs"] = true;
+
+    var notRecorded = "ثبت نشده";
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+
+    var sarrafEditUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
+    var sarrafIndexUrl = Url.Action("Index") ?? "#";
+
+    // مانده اصلی با زبان واضح برای کارمند دفتر.
+    var payableLabel = Model.PayableUsd > 0
+        ? "قابل پرداخت به صراف"
+        : Model.PayableUsd < 0
+            ? "طلب ما از صراف"
+            : "حساب تسویه است";
+    var payableClass = Model.PayableUsd > 0
+        ? "ak-num"
+        : Model.PayableUsd < 0
+            ? "ak-num"
+            : "";
+
+    var lastRow = Model.StatementRows.Count > 0 ? Model.StatementRows[^1] : null;
+    var recentRows = Model.StatementRows.Reverse().Take(5).ToList();
+
+    var sarrafPayForSupplierUrl = Url.Action("Create", "Payments", new { method = "sarraf", sarrafId = Model.Id, returnUrl }) ?? "#";
+    var sarrafSettleUrl = Url.Action("Create", "Payments", new { sarrafId = Model.Id, returnUrl }) ?? "#";
+
+    var sarrafStatementTable = new PTGOilSystem.Web.Models.Shared.PartyStatementTableViewModel
+    {
+        EmptyTitle = "صورت‌حساب خالی است",
+        EmptyMessage = "هنوز پرداختی از صراف یا تسویه‌ای با صراف ثبت نشده است.",
+        Rows = Model.StatementRows
+    };
+
+    var sarrafTabs = new[]
+    {
+        "#sarraf-overview|خلاصه حساب|bi-grid-1x2|active",
+        "#sarraf-statement|صورت‌حساب|bi-journal-text|",
+        $"#sarraf-documents|اسناد و حواله‌ها|bi-folder2-open|"
+    };
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((Model.Name, false,
+                       "صراف برای تأمین‌کننده پرداخت کرد", "bi-currency-exchange", sarrafPayForSupplierUrl, (string?)null,
+                       "فهرست صراف‌ها", "bi-arrow-right", (string?)sarrafIndexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@sarrafEditUrl"><i class="bi bi-pencil"></i> ویرایش</a></li>
+                <li><a class="dropdown-item" href="@sarrafSettleUrl"><i class="bi bi-cash-coin"></i> ما با صراف حساب کردیم</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>شماره تماس</dt><dd>@(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? notRecorded : Model.PhoneNumber)</dd></div>
+                <div class="ak-list-row"><dt>تاریخ ثبت</dt><dd>@Model.CreatedAtUtc.ToLocalTime().ToDisplayDate()</dd></div>
+                <div class="ak-list-row"><dt>آدرس</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? notRecorded : Model.Address)</dd></div>
+                <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? notRecorded : Model.Notes)</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", payableLabel))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>مانده فعلی</dt><dd class="ak-num @payableClass">@Math.Abs(Model.PayableUsd).ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>پرداخت صراف برای تأمین‌کننده‌ها</dt><dd class="ak-num">@Model.ChargedUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>پرداخت ما به صراف</dt><dd class="ak-num">@Model.PaidUsd.ToString("N2") USD</dd></div>
+                @if (lastRow is not null)
+                {
+                    <div class="ak-list-row"><dt>آخرین حرکت حساب</dt><dd>@lastRow.Date.ToDisplayDate()</dd></div>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل صراف", sarrafTabs)" />
+
+    @* ===== تب ۱: خلاصه — آخرین حرکت‌ها ===== *@
+    <section id="sarraf-overview" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("آخرین حرکت‌های حساب", "پنج سند آخر."))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع</th>
+                        <th>شرح</th>
+                        <th class="ak-col-num">مبلغ USD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in recentRows)
+                {
+                    var pos = row.SignedUsd.StartsWith("+");
+                    var neg = row.SignedUsd.StartsWith("-");
+                    <tr>
+                        <td>@row.Date.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.Type</td>
+                        <td>@row.Description</td>
+                        <td class="ak-col-num ak-num @(pos ?"ak-num" : neg ? "ak-num" : "")">@(string.IsNullOrWhiteSpace(row.SignedUsd) || row.SignedUsd == "-" ? "—" : row.SignedUsd)</td>
+                    </tr>
+                }
+                @if (recentRows.Count == 0)
+                {
+                    <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-journal-text"></i> هنوز هیچ پرداخت یا تسویه‌ای برای این صراف ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۲: صورت‌حساب ===== *@
+    <section id="sarraf-statement" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("گردش کامل حساب صراف", "داده‌شده = پرداخت ما به صراف؛ گرفته‌شده = پرداخت صراف از طرف ما. مانده مثبت = طلب ما؛ مانده منفی = قابل پرداخت به صراف."))" />
+        <partial name="~/Views/Shared/Partials/_PartyStatementTable.cshtml" model="sarrafStatementTable" />
+    </section>
+
+    @* ===== تب ۳: اسناد و حواله‌ها ===== *@
+    <section id="sarraf-documents" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت‌های صراف برای تأمین‌کنندگان", $"{Model.Settlements.Count:N0}"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">تأمین‌کننده</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th>شماره حواله</th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions">سند</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Settlements)
+                {
+                    <tr>
+                        <td>@row.SettlementDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@(row.SupplierName ?? "-")</td>
+                        <td class="ak-col-num ak-num">@row.SarrafChargedAmount.ToString("N2") @row.SarrafCurrency</td>
+                        <td>@(row.ReferenceNumber ?? $"#{row.Id}")</td>
+                        <td><span class="ak-status @(row.Status == SarrafSettlementStatus.Cancelled ?"is-inactive" : "is-active")">@row.UserStatusName</span></td>
+                        <td class="ak-col-actions"><a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@row.Id">مشاهده</a></td>
+                    </tr>
+                }
+                @if (!Model.Settlements.Any())
+                {
+                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-currency-exchange"></i> هنوز پرداخت صراف برای تأمین‌کننده ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت‌های ما به صراف", $"{Model.Payments.Count:N0}"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">حساب</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th>شماره حواله</th>
+                        <th class="ak-col-actions">سند</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Payments)
+                {
+                    <tr>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.CashAccountName</td>
+                        <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
+                        <td>@(row.Reference ?? $"#{row.PaymentId}")</td>
+                        <td class="ak-col-actions"><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.PaymentId">مشاهده</a></td>
+                    </tr>
+                }
+                @if (!Model.Payments.Any())
+                {
+                    <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-cash-coin"></i> وقتی شرکت با صراف حساب کند، پرداخت‌های مرتبط اینجا دیده می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حواله‌های مشتری", "بدون اثر بر مانده صراف — فقط برای ردیابی."))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">مشتری</th>
+                        <th>تأمین‌کننده</th>
+                        <th>مرجع حواله</th>
+                        <th class="ak-col-num">مبلغ USD</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.CustomerHawalas)
+                {
+                    <tr>
+                        <td>@row.SettlementDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@(row.CustomerName ?? "-")</td>
+                        <td>@(row.SupplierName ?? "-")</td>
+                        <td>@(row.HawalaReference ?? $"#{row.Id}")</td>
+                        <td class="ak-col-num ak-num">@row.CustomerPaidUsd.ToString("N2")</td>
+                        <td><span class="ak-status">@row.StatusName</span></td>
+                    </tr>
+                }
+                @if (!Model.CustomerHawalas.Any())
+                {
+                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-arrow-left-right"></i> حواله‌های مشتری که این صراف واسطه آن بوده، اینجا فقط برای ردیابی دیده می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

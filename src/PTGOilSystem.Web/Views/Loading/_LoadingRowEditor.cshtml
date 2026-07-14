@@ -1,0 +1,263 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.Loading.LoadingCreateRowEditorViewModel
+@{
+    var prefix = $"Rows[{Model.RowKey}]";
+    var freightColumnCss = Model.RecordFreight ? "" : "d-none";
+    var vesselCss = Model.TransportType == LoadingTransportType.Vessel ? "" : "d-none";
+    var wagonCss = Model.TransportType == LoadingTransportType.Wagon ? "" : "d-none";
+    var truckCss = Model.TransportType == LoadingTransportType.Truck ? "" : "d-none";
+    var referenceLabel = Model.TransportType switch
+    {
+        LoadingTransportType.Vessel => "Bill of Lading / بارنامه کشتی",
+        LoadingTransportType.Truck => "CMR No / شماره CMR",
+        _ => "RWB / CMR / Bill of Lading"
+    };
+    var loadingValue = Model.Row.LoadedQuantityMt * (Model.Row.LoadingPriceUsd ?? 0m);
+    var selectedContractValue = Model.Row.ContractId?.ToString() ?? "";
+    var effectiveLoadingDate = Model.Row.LoadingDate == default ? DateTime.UtcNow.Date : Model.Row.LoadingDate;
+    var logisticsServiceProviderOptions = ViewBag.LogisticsServiceProviders as IReadOnlyList<SelectListItem> ?? Array.Empty<SelectListItem>();
+    var selectedLogisticsServiceProviderValue = Model.Row.LogisticsServiceProviderId?.ToString() ?? "";
+    var operationalAssetOptions = ViewBag.LoadingOperationalAssets as IReadOnlyList<SelectListItem> ?? Array.Empty<SelectListItem>();
+    var selectedOperationalAssetValue = Model.Row.OperationalAssetId?.ToString() ?? "";
+    var logisticsMode = !string.IsNullOrEmpty(selectedOperationalAssetValue)
+        ? "owned"
+        : !string.IsNullOrEmpty(selectedLogisticsServiceProviderValue) ? "free" : "";
+    var isRubSettlement = string.Equals(Model.Row.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase);
+    var rubLoadingAmount = Model.Row.AmountRubAtRubLock
+        ?? (isRubSettlement && Model.Row.RubPerUsdRate.HasValue && Model.Row.LoadingPriceUsd.HasValue
+            ? loadingValue * Model.Row.RubPerUsdRate.Value
+            : null);
+    var rubStatusText = isRubSettlement
+        ? rubLoadingAmount.HasValue ? $"₽ {rubLoadingAmount.Value:N2}" : "در انتظار نرخ"
+        : "-";
+    var rubRateNote = isRubSettlement
+        ? Model.Row.RubRateStatus == RubSettlementRateStatus.Locked ? "قفل‌شده"
+            : Model.Row.RubRatePolicy == RubSettlementRatePolicy.FixedContractRate ? "نرخ قرارداد"
+            : Model.Row.RubRatePolicy == RubSettlementRatePolicy.PerLoadingRate ? "نرخ همین بارگیری"
+            : "بعداً قابل ثبت"
+        : string.Empty;
+    // وقتی روبل از فایل آمده، ستون FX «معادل روبلی» تکراری است؛ در سرور هم پنهان شود.
+    var rowHasFileRub = Model.Row.SettlementValueRub.HasValue || Model.Row.SettlementUnitPriceRub.HasValue;
+    var fxRubCellCss = rowHasFileRub ? "d-none" : "";
+    var freightRateUsdPerMt = Model.Row.FreightRateUsdPerMt;
+    if (!freightRateUsdPerMt.HasValue && Model.Row.LoadedQuantityMt > 0m)
+    {
+        if (Model.TransportType == LoadingTransportType.Wagon && Model.Row.RailwayExpenseUsd.HasValue)
+        {
+            var chargeableQuantityMt = Model.Row.ChargeableQuantityMt ?? Model.Row.LoadedQuantityMt;
+            freightRateUsdPerMt = chargeableQuantityMt > 0m
+                ? decimal.Round(Model.Row.RailwayExpenseUsd.Value / chargeableQuantityMt, 4, MidpointRounding.AwayFromZero)
+                : null;
+        }
+        else if (Model.Row.TransportExpenseUsd.HasValue)
+        {
+            freightRateUsdPerMt = decimal.Round(Model.Row.TransportExpenseUsd.Value / Model.Row.LoadedQuantityMt, 4, MidpointRounding.AwayFromZero);
+        }
+    }
+}
+
+<tr data-loading-row data-row-key="@Model.RowKey">
+    <td>
+        <input type="hidden" name="Rows.Index" value="@Model.RowKey" />
+        <input type="hidden" name="@($"{prefix}.RowKey")" value="@Model.RowKey" />
+        <input type="hidden" name="@($"{prefix}.OtherExpenseUsd")" value="@Model.Row.OtherExpenseUsd" data-row-other-expense />
+        <input type="hidden" name="@($"{prefix}.TransportExpenseUsd")" value="@Model.Row.TransportExpenseUsd" data-row-freight-expense />
+        <input type="hidden" name="@($"{prefix}.PlattsUsd")" value="@Model.Row.PlattsUsd" data-row-platts />
+        <input type="hidden" name="@($"{prefix}.WarehouseExpenseUsd")" value="@Model.Row.WarehouseExpenseUsd" data-row-warehouse-expense />
+        <input type="hidden" name="@($"{prefix}.ChargeableQuantityMt")" value="@Model.Row.ChargeableQuantityMt" data-row-chargeable-quantity />
+        <input type="hidden" name="@($"{prefix}.RailwayRateUsd")" value="@Model.Row.RailwayRateUsd" data-row-railway-rate />
+        <input type="hidden" name="@($"{prefix}.RailwayExpenseUsd")" value="@Model.Row.RailwayExpenseUsd" data-row-railway-expense />
+        <input type="hidden" name="@($"{prefix}.SettlementCurrencyCode")" value="@Model.Row.SettlementCurrencyCode" data-row-settlement-currency />
+        <input type="hidden" name="@($"{prefix}.RubRatePolicy")" value="@Model.Row.RubRatePolicy" data-row-rub-policy />
+        <input type="hidden" name="@($"{prefix}.RubRateStatus")" value="@Model.Row.RubRateStatus" data-row-rub-status />
+        <input type="hidden" name="@($"{prefix}.RubRateDate")" value="@(Model.Row.RubRateDate?.ToHtmlDateInput())" data-row-rub-date />
+        <input type="hidden" name="@($"{prefix}.RubRateSource")" value="@Model.Row.RubRateSource" data-row-rub-source />
+        <input type="hidden" name="@($"{prefix}.AmountUsdAtRubLock")" value="@Model.Row.AmountUsdAtRubLock" data-row-rub-usd />
+        <input type="hidden" name="@($"{prefix}.AmountRubAtRubLock")" value="@Model.Row.AmountRubAtRubLock" data-row-rub-amount-hidden />
+        <input type="hidden" name="@($"{prefix}.SettlementUnitPriceRub")" value="@Model.Row.SettlementUnitPriceRub" data-row-frub-rate-hidden />
+        <input type="hidden" name="@($"{prefix}.SettlementValueRub")" value="@Model.Row.SettlementValueRub" data-row-frub-amount-hidden />
+        <input type="hidden" name="@($"{prefix}.LogisticsCompanyName")" value="@Model.Row.LogisticsCompanyName" data-row-logistics-name />
+        <input type="hidden" name="@($"{prefix}.RouteDescription")" value="@Model.Row.RouteDescription" />
+        <input type="hidden" name="@($"{prefix}.Loss.Enabled")" value="false" />
+        <input type="hidden" name="@($"{prefix}.Loss.Stage")" value="@Model.Row.Loss.Stage" />
+        <span data-loading-row-sequence>@Model.Sequence</span>
+    </td>
+
+        <td class="@(Model.ShowContractSelector ?"" : "d-none")" data-loading-contract-cell>
+            <select name="@($"{prefix}.ContractId")" class="ak-input" data-row-contract-select aria-label="قرارداد">
+                <option value=""></option>
+                @foreach (var option in Model.ContractOptions)
+                {
+                    <option value="@option.Value" selected="@(string.Equals(option.Value, selectedContractValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                }
+            </select>
+        </td>
+
+        <td>
+            <div data-loading-date-picker>
+                <button type="button" class="loading-octane-date-icon" data-loading-date-open aria-label="انتخاب تاریخ">
+                    <i class="bi bi-calendar3" aria-hidden="true"></i>
+                </button>
+                <input type="hidden"
+                       name="@($"{prefix}.LoadingDate")"
+                       value="@effectiveLoadingDate.ToHtmlDateInput()"
+                       data-row-date-value />
+                <button type="button"
+                         class="ak-input loading-octane-date-display"
+                        data-row-date-display
+                        data-date-display="@effectiveLoadingDate.ToString("yyyy-MM-dd")"
+                        aria-label="تاریخ بارگیری">
+                    <span data-row-date-text>@effectiveLoadingDate.ToString("yyyy-MM-dd")</span>
+                </button>
+            </div>
+        </td>
+
+        <td>
+            <input name="@($"{prefix}.BillOfLadingNumber")"
+                   value="@Model.Row.BillOfLadingNumber"
+                   class="ak-input text-center"
+                   aria-label="@referenceLabel" />
+        </td>
+
+        <td>
+        <div class="@vesselCss" data-transport-field="Vessel">
+            <input name="@($"{prefix}.ImportedTransportReference")"
+                   value="@Model.Row.ImportedTransportReference"
+                   class="ak-input"
+                   list="loading-vessel-options"
+                   autocomplete="off" />
+        </div>
+
+        <div class="@truckCss" data-transport-field="Truck">
+            <input name="@($"{prefix}.ImportedTransportReference")"
+                   value="@Model.Row.ImportedTransportReference"
+                   class="ak-input"
+                   list="loading-truck-options"
+                   autocomplete="off" />
+        </div>
+
+        <div class="@wagonCss" data-transport-field="Wagon">
+            <input name="@($"{prefix}.WagonNumber")" value="@Model.Row.WagonNumber" class="ak-input text-center" />
+        </div>
+        </td>
+
+        <td class="ak-col-num">
+            <input name="@($"{prefix}.LoadedQuantityMt")"
+                   value="@(Model.Row.LoadedQuantityMt > 0 ? Model.Row.LoadedQuantityMt.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : null)"
+                   class="ak-input text-center fw-bold"
+                   data-row-quantity
+                   />
+        </td>
+
+        <td class="ak-col-num">
+            <input name="@($"{prefix}.LoadingPriceUsd")"
+                   value="@(Model.Row.LoadingPriceUsd > 0 ? Model.Row.LoadingPriceUsd.Value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : null)"
+                   class="ak-input ak-num"
+                   data-row-loading-price
+                   />
+            <span class="ak-section-desc" data-row-premium-display></span>
+        </td>
+
+        <td class="ak-col-num fw-bold">
+            <span data-row-loading-value>@(Model.Row.LoadingPriceUsd.HasValue ? $"$ {NumberDisplay.Money(loadingValue)}" : "در انتظار نرخ")</span>
+        </td>
+
+        <td class="ak-col-num" data-loading-frub-column>
+            <span data-row-frub-rate-text>@(Model.Row.SettlementUnitPriceRub.HasValue ? $"₽ {NumberDisplay.Money(Model.Row.SettlementUnitPriceRub.Value)}" : "-")</span>
+        </td>
+
+        <td class="ak-col-num fw-bold" data-loading-frub-column>
+            <span data-row-frub-amount-text>@(Model.Row.SettlementValueRub.HasValue ? $"₽ {NumberDisplay.Money(Model.Row.SettlementValueRub.Value)}" : "-")</span>
+        </td>
+
+        <td class="ak-col-num @fxRubCellCss" data-loading-rub-column>
+            <input name="@($"{prefix}.RubPerUsdRate")"
+                   value="@(Model.Row.RubPerUsdRate > 0 ? Model.Row.RubPerUsdRate.Value.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture) : null)"
+                   class="ak-input ak-num"
+                   data-row-rub-rate
+                   />
+            <span class="ak-section-desc" data-row-rub-status-text>@rubRateNote</span>
+        </td>
+
+        <td class="ak-col-num fw-bold @fxRubCellCss" data-loading-rub-column>
+            <span data-row-rub-value>@rubStatusText</span>
+        </td>
+
+        <td class="@freightColumnCss" data-loading-freight-column>
+            <div data-row-logistics-editor>
+                <div data-loading-logistics-pair>
+                    <div data-loading-logistics-type-field>
+                        <select class="ak-input"
+                                data-row-logistics-type
+                                aria-label="نوعیت ترانسپورت">
+                            <option value=""></option>
+                            <option value="owned" selected="@(logisticsMode == "owned" ? "selected" : null)">ترانسپورت شخصی شرکت</option>
+                            <option value="free" selected="@(logisticsMode == "free" ? "selected" : null)">ترانسپورت آزاد</option>
+                        </select>
+                    </div>
+                    <div data-loading-logistics-item-field>
+                        <select class="ak-input"
+                                data-row-logistics-display
+                                aria-label="انتخاب ترانسپورت">
+                            <option value=""></option>
+                            @if (logisticsMode == "owned")
+                            {
+                                foreach (var option in operationalAssetOptions)
+                                {
+                                    <option value="@option.Value" selected="@(string.Equals(option.Value, selectedOperationalAssetValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                                }
+                            }
+                            else if (logisticsMode == "free")
+                            {
+                                foreach (var option in logisticsServiceProviderOptions)
+                                {
+                                    <option value="@option.Value" selected="@(string.Equals(option.Value, selectedLogisticsServiceProviderValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <select name="@($"{prefix}.LogisticsServiceProviderId")"
+                        class="d-none"
+                        data-row-logistics-provider
+                        aria-hidden="true"
+                        tabindex="-1">
+                    <option value=""></option>
+                    @foreach (var option in logisticsServiceProviderOptions)
+                    {
+                        <option value="@option.Value" selected="@(string.Equals(option.Value, selectedLogisticsServiceProviderValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                    }
+                </select>
+                <select name="@($"{prefix}.OperationalAssetId")"
+                        class="d-none"
+                        data-row-operational-asset
+                        aria-hidden="true"
+                        tabindex="-1">
+                    <option value=""></option>
+                    @foreach (var option in operationalAssetOptions)
+                    {
+                        <option value="@option.Value" selected="@(string.Equals(option.Value, selectedOperationalAssetValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                    }
+                </select>
+            </div>
+        </td>
+
+        <td class="ak-col-num @freightColumnCss" data-loading-freight-column>
+            <input name="@($"{prefix}.FreightRateUsdPerMt")"
+                   value="@(freightRateUsdPerMt > 0 ? freightRateUsdPerMt : null)"
+                   class="ak-input ak-num"
+                   data-row-freight-rate
+                   />
+        </td>
+
+        <td><input name="@($"{prefix}.ConsigneeName")" value="@Model.Row.ConsigneeName" class="ak-input" /></td>
+
+        <td><input name="@($"{prefix}.DestinationName")" value="@Model.Row.DestinationName" class="ak-input" /></td>
+
+        <td class="ak-col-actions">
+            <button type="button" class="ak-row-menu-btn" data-loading-row-remove aria-label="حذف سطر" title="حذف سطر">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </td>
+</tr>

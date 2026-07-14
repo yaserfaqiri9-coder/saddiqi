@@ -1,0 +1,537 @@
+/*
+ * PTG sidebar — Akaunting two-rail model.
+ *
+ *   .ak-rail      56px   #DCE2F9   global toolbar (brand + quick actions + logout)
+ *   .ak-navpanel  248px  #F2F4FC   main menu (icon + label + inline submenus)
+ *   ------------------------------------------------------------------
+ *   desktop sidebar column = 304px  (rail 56 + panel 248)
+ *
+ * The panel is 248px, not 224px: at 224px a group row left only ~90px for the
+ * label, so Persian items ("طرف حساب‌ها", "تعاریف پایه") hit the ellipsis.
+ *
+ * Collapsed (desktop): the 248px panel is dropped; only the 56px rail remains.
+ * Mobile / tablet: the whole sidebar becomes an off-canvas drawer.
+ * All geometry uses logical properties so RTL keeps the sidebar on the right,
+ * with the rail on the outer edge and the panel toward the content.
+ */
+
+body.boltz-shell.app-shell-authenticated {
+    --ptg-sidebar-width: var(--layout-sidebar);
+    --boltz-sidebar-width: var(--layout-sidebar);
+}
+
+@media (min-width: 1200px) {
+    body.boltz-shell.app-shell-authenticated:not(.is-sidebar-collapsed) .boltz-shell-frame {
+        grid-template-columns: var(--layout-sidebar) minmax(0, 1fr) !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-shell-frame {
+        grid-template-columns: var(--layout-sidebar-mini) minmax(0, 1fr) !important;
+    }
+}
+
+/* ---- Sidebar shell: flex row of rail + panel, no colour of its own ---- */
+body.boltz-shell.app-shell-authenticated .ptg-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: stretch;
+    inline-size: var(--layout-sidebar);
+    min-block-size: 100vh;
+    max-block-size: 100vh;
+    overflow: hidden;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ============================================================= *
+ * 56px toolbar rail
+ * ============================================================= */
+body.boltz-shell.app-shell-authenticated .ak-rail {
+    flex: 0 0 var(--layout-rail);
+    inline-size: var(--layout-rail);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding-block: 14px 12px;
+    background: var(--ptg-sidebar-rail);
+    color: var(--ptg-sidebar-ink);
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-brand {
+    display: block;
+    text-decoration: none;
+    margin-block-end: 6px;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-monogram {
+    display: grid;
+    place-items: center;
+    inline-size: 36px;
+    block-size: 36px;
+    border-radius: 10px;
+    background: var(--ptg-sidebar-ink);
+    color: #fff;
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1;
+    font-family: "Poppins", var(--font-sans, sans-serif);
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-actions,
+body.boltz-shell.app-shell-authenticated .ak-rail-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    inline-size: 100%;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-actions {
+    flex: 1 1 auto;
+    min-block-size: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-actions::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-foot {
+    flex: 0 0 auto;
+    margin-block-start: 6px;
+    padding-block-start: 8px;
+    border-block-start: 1px solid rgba(85, 88, 139, 0.14);
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-logout {
+    margin: 0;
+    inline-size: auto;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-btn {
+    display: grid;
+    place-items: center;
+    inline-size: 40px;
+    block-size: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ptg-sidebar-ink);
+    cursor: pointer;
+    transition: background-color var(--ptg-motion-fast) ease-out,
+                color var(--ptg-motion-fast) ease-out;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-btn > svg {
+    inline-size: 22px;
+    block-size: 22px;
+    color: currentColor;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-btn:hover,
+body.boltz-shell.app-shell-authenticated .ak-rail-btn:focus-visible {
+    background: rgba(85, 88, 139, 0.12);
+    color: var(--primary-dark);
+    outline: none;
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-btn.is-active {
+    background: #fff;
+    color: var(--ptg-sidebar-ink);
+}
+
+body.boltz-shell.app-shell-authenticated .ak-rail-btn-danger:hover,
+body.boltz-shell.app-shell-authenticated .ak-rail-btn-danger:focus-visible {
+    color: var(--ptg-danger-text);
+    background: rgba(var(--danger-rgb, 220, 53, 69), 0.10);
+}
+
+/* ============================================================= *
+ * 224px menu panel
+ * ============================================================= */
+body.boltz-shell.app-shell-authenticated .sidebar-panel,
+body.boltz-shell.app-shell-authenticated .ak-navpanel {
+    display: flex;
+    flex: 0 0 var(--layout-navpanel);
+    inline-size: var(--layout-navpanel);
+    min-inline-size: 0;
+    background: var(--ptg-sidebar-panel);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-scroll {
+    display: flex;
+    flex-direction: column;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 100vh;
+    max-block-size: 100vh;
+    gap: 18px;
+    padding: 22px 12px;
+    background: transparent;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ptg-sidebar-line) transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-scroll::-webkit-scrollbar {
+    width: 5px;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: var(--ptg-sidebar-line);
+    border-radius: 10px;
+}
+
+/* ---- Brand ---- */
+body.boltz-shell.app-shell-authenticated .boltz-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 36px;
+    padding-inline: 4px;
+    border: 0 !important;
+    background: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-brand-mark {
+    display: block;
+    block-size: 34px;
+    inline-size: auto;
+    max-inline-size: 100%;
+    border-radius: 0;
+    background: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-brand-logo {
+    block-size: 100%;
+    inline-size: auto;
+    max-inline-size: 100%;
+    object-fit: contain;
+}
+
+/* ---- Nav ---- */
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    inline-size: 100%;
+    min-block-size: 0;
+    padding: 0;
+    margin: 0;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-sidebar-nav,
+body.boltz-shell.app-shell-authenticated .boltz-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-item {
+    margin: 0;
+    list-style: none;
+}
+
+/* Top-level item / group toggle */
+body.boltz-shell.app-shell-authenticated .boltz-nav-link,
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    inline-size: 100%;
+    min-block-size: 44px;
+    gap: 10px;
+    padding-block: 6px;
+    padding-inline: 10px;
+    border: 0 !important;
+    border-radius: 8px;
+    background: transparent !important;
+    color: var(--ptg-sidebar-ink) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    text-align: start;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color var(--ptg-motion-fast) ease-out,
+                color var(--ptg-motion-fast) ease-out;
+}
+
+/* Icon container 32px with a 24px glyph */
+body.boltz-shell.app-shell-authenticated .ptg-nav-ic {
+    display: grid;
+    place-items: center;
+    flex: 0 0 28px;
+    inline-size: 28px;
+    block-size: 28px;
+    margin: 0;
+    background: transparent !important;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-nav-ic {
+    color: var(--ptg-sidebar-icon);
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-nav-ic > svg {
+    display: block;
+    inline-size: 22px;
+    block-size: 22px;
+    color: var(--ptg-sidebar-icon);
+    stroke-width: 1.9;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-link > span,
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link span {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ptg-sidebar-ink) !important;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+/* Submenu arrow — rotates 180° when open */
+body.boltz-shell.app-shell-authenticated .ptg-nav-arrow {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    inline-size: 18px;
+    block-size: 18px;
+    color: var(--primary-light);
+    transition: transform 0.3s ease;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-nav-arrow > svg {
+    inline-size: 16px;
+    block-size: 16px;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-has-sub.is-open > .boltz-nav-group-toggle .ptg-nav-arrow {
+    transform: rotate(180deg);
+}
+
+/* Hover / focus */
+body.boltz-shell.app-shell-authenticated .boltz-nav-link:hover,
+body.boltz-shell.app-shell-authenticated .boltz-nav-link:focus-visible,
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link:hover,
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link:focus-visible {
+    color: var(--primary-dark) !important;
+    background: rgba(85, 88, 139, 0.08) !important;
+    box-shadow: none !important;
+    outline: none;
+}
+
+/* Active — bold dark label + indigo leading rail (Akaunting) */
+body.boltz-shell.app-shell-authenticated .boltz-nav-link.is-active {
+    color: var(--ptg-sidebar-ink-strong) !important;
+    background: rgba(98, 96, 196, 0.08) !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-link.is-active > span {
+    color: var(--ptg-sidebar-ink-strong) !important;
+    font-weight: 700;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-link.is-active .ptg-nav-ic {
+    color: var(--ptg-sidebar-accent);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-link.is-active::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 50%;
+    inline-size: 3px;
+    block-size: 22px;
+    transform: translateY(-50%);
+    border-radius: 3px;
+    background: var(--ptg-sidebar-accent);
+}
+
+/* ---- Submenu (inline accordion) ---- */
+body.boltz-shell.app-shell-authenticated .boltz-nav-sub {
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    max-block-size: 0;
+    opacity: 0;
+    transform: translateY(-0.5em);
+    transition: max-block-size 0.5s ease-out,
+                opacity 0.5s ease-out,
+                transform 0.5s ease-out;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-has-sub.is-open > .boltz-nav-sub {
+    max-block-size: 40em;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 1px connector line running down the submenu, under the icon centre */
+body.boltz-shell.app-shell-authenticated .boltz-nav-sub::before {
+    content: "";
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: 19px;
+    inline-size: 1px;
+    background: var(--ptg-sidebar-line);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-subitem {
+    margin: 0;
+    list-style: none;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-sublink {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: 34px;
+    margin-block-start: 2px;
+    padding-block: 5px;
+    padding-inline-start: 36px;
+    padding-inline-end: 8px;
+    border-radius: 8px;
+    color: #6C6E88;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color var(--ptg-motion-fast) ease-out,
+                color var(--ptg-motion-fast) ease-out;
+}
+
+/* horizontal tick joining the connector line to the item */
+body.boltz-shell.app-shell-authenticated .ptg-nav-dot {
+    position: absolute;
+    inset-inline-start: 19px;
+    inset-block-start: 50%;
+    inline-size: 10px;
+    block-size: 1px;
+    transform: translateY(-50%);
+    background: var(--ptg-sidebar-line);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-sublink:hover,
+body.boltz-shell.app-shell-authenticated .boltz-nav-sublink:focus-visible {
+    color: var(--primary-dark);
+    background: rgba(85, 88, 139, 0.08);
+    outline: none;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-sublink.is-active {
+    color: var(--ptg-sidebar-ink-strong);
+    font-weight: 700;
+    background: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-nav-sublink.is-active .ptg-nav-dot {
+    background: var(--ptg-sidebar-accent);
+    inline-size: 12px;
+}
+
+/* ---- Footer (change password / logout) ---- */
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-block-start: auto;
+    padding-block: 12px 0;
+    padding-inline: 0;
+    border-block-start: 1px solid var(--ptg-sidebar-line);
+    background: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot form {
+    inline-size: 100%;
+    margin: 0;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link-danger {
+    color: var(--ptg-danger-text) !important;
+    background: transparent !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link-danger:hover,
+body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link-danger:focus-visible {
+    color: var(--ptg-danger-text) !important;
+    background: rgba(var(--danger-rgb, 220, 53, 69), 0.06) !important;
+}
+
+/* ============================================================= *
+ * Collapsed (desktop ≥992): drop the 224px panel, keep the rail.
+ * ============================================================= */
+@media (min-width: 992px) {
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-sidebar {
+        inline-size: var(--layout-sidebar-mini);
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ak-navpanel {
+        display: none;
+    }
+}
+
+/* ============================================================= *
+ * Mobile / tablet: off-canvas drawer (rail + panel together).
+ * ============================================================= */
+@media (max-width: 1199.98px) {
+    body.boltz-shell.app-shell-authenticated .ptg-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        inline-size: min(var(--layout-nav-mobile), calc(100vw - 24px));
+        min-block-size: 100dvh;
+        max-block-size: 100dvh;
+        box-shadow: none !important;
+        transition: transform var(--ptg-motion-fast) ease-out;
+    }
+
+    body.boltz-shell.app-shell-authenticated.boltz-rtl .ptg-sidebar {
+        right: 0 !important;
+        left: auto !important;
+        transform: translateX(100%);
+    }
+
+    body.boltz-shell.app-shell-authenticated.boltz-ltr .ptg-sidebar {
+        right: auto !important;
+        left: 0 !important;
+        transform: translateX(-100%);
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-shell-nav-open .ptg-sidebar {
+        transform: translateX(0);
+    }
+
+    body.boltz-shell.app-shell-authenticated:not(.is-shell-nav-open) .ptg-sidebar {
+        display: none !important;
+    }
+
+    /* Panel takes the remaining width beside the fixed 56px rail. */
+    body.boltz-shell.app-shell-authenticated .ak-navpanel {
+        flex: 1 1 auto;
+        inline-size: auto;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-sidebar-scroll {
+        min-block-size: 100%;
+        max-block-size: 100%;
+    }
+}

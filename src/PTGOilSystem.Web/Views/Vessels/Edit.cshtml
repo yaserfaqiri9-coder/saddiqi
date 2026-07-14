@@ -1,0 +1,11 @@
+@model Vessel
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش کشتی", "Edit Vessel");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "کشتی‌ها", "Vessels");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "مشخصات این کشتی و وضعیت فعالیت آن را به‌روزرسانی کنید.", "Update vessel specs and activity status.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Vessels/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

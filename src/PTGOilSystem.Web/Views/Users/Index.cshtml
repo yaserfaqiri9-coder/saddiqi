@@ -1,0 +1,105 @@
+@model IEnumerable<PTGOilSystem.Web.Models.Entities.User>
+@{
+    ViewData["Title"] = UiText.T(Context, "کاربران", "Users");
+    var q = ViewData["q"]?.ToString();
+    var status = ViewData["status"]?.ToString();
+    var date = ViewData["date"]?.ToString();
+}
+
+<div class="ak-form-page ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "کاربران", "Users"), true,
+                       UiText.T(Context, "افزودن کاربر", "Add user"), "bi-plus-lg",
+                       (string?)Url.Action("Create"), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @{
+        var usersFilter = new AkSearchFilterModel(
+            "q", q,
+            UiText.T(Context, "جستجو نام", "Search name"),
+            new List<AkFilterDefinition>
+            {
+                new("status", UiText.T(Context, "وضعیت حساب", "Account status"), "select",
+                    new List<AkFilterOption>
+                    {
+                        new("active", UiText.T(Context, "فعال", "Active")),
+                        new("inactive", UiText.T(Context, "غیرفعال", "Inactive"))
+                    }, status)
+            });
+    }
+    <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="usersFilter" />
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context, "نام", "Name")</th>
+                        <th>@UiText.T(Context, "نام کاربری", "Username")</th>
+                        <th>@UiText.T(Context, "نقش", "Role")</th>
+                        <th>@UiText.T(Context, "وضعیت حساب", "Account status")</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr data-href="@Url.Action("Details", new { id = user.Id })" data-user-row>
+                            <td><partial name="~/Views/Shared/Partials/_PersonCell.cshtml" model="@((user.FullName, (string?)Url.Action("Details", new { id = user.Id }), (string?)null))" /></td>
+                            <td class="ak-num">@user.Username</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(user.Role?.Name))
+                                {
+                                    <partial name="~/Views/Shared/Partials/_Capsule.cshtml" model="@((user.Role!.Name!, (string?)null))" />
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+                            </td>
+                            <td>
+                                <span class="ak-status @(user.IsActive ?"is-active" : "is-inactive")">
+                                    @(user.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive"))
+                                </span>
+                            </td>
+                            <td class="ak-col-actions">
+                                <div class="ak-row-menu dropdown">
+                                    <button class="ak-row-menu-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@UiText.T(Context, "عملیات", "Actions")"><i class="bi bi-three-dots"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a asp-action="Details" asp-route-id="@user.Id" class="dropdown-item"><i class="bi bi-eye"></i> @UiText.T(Context, "مشاهده", "View")</a></li>
+                                        <li><a asp-action="Edit" asp-route-id="@user.Id" class="dropdown-item"><i class="bi bi-pencil"></i> @UiText.T(Context, "ویرایش", "Edit")</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="5">
+                                <div class="ak-empty"><i class="bi bi-people"></i>@UiText.T(Context, "کاربری برای نمایش پیدا نشد", "No users found")</div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_PagedListFooter")
+        </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            document.querySelectorAll('[data-user-row][data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

@@ -1,0 +1,1390 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using PTGOilSystem.Web.Data;
+using PTGOilSystem.Web.Helpers;
+using PTGOilSystem.Web.Models.Entities;
+using PTGOilSystem.Web.Models.OperationalAssets;
+using PTGOilSystem.Web.Security;
+using PTGOilSystem.Web.Services;
+using PTGOilSystem.Web.Services.Exceptions;
+using System.Text.Json;
+
+namespace PTGOilSystem.Web.Controllers;
+
+[Authorize]
+public class OperationalAssetsController : Controller
+{
+    private const int IndexPageSize = 20;
+    private const int LookupLimit = 250;
+    private const decimal PercentTolerance = 0.0001m;
+    private readonly ApplicationDbContext _db;
+    private readonly ICurrencyConversionService _currencyConversion;
+
+    [ActivatorUtilitiesConstructor]
+    public OperationalAssetsController(
+        ApplicationDbContext db,
+        ICurrencyConversionService currencyConversion)
+    {
+        _db = db;
+        _currencyConversion = currencyConversion;
+    }
+
+    public OperationalAssetsController(ApplicationDbContext db)
+        : this(db, new CurrencyConversionService(new PricingService(db)))
+    {
+    }
+
+    public async Task<IActionResult> Index([FromQuery] OperationalAssetIndexFilterViewModel? filter = null, int page = 1)
+    {
+        filter ??= new OperationalAssetIndexFilterViewModel();
+        var query = _db.OperationalAssets
+            .AsNoTracking()
+            .Include(a => a.LinkedTruck)
+            .Include(a => a.LinkedStorageTank)
+            .AsQueryable();
+
+        if (filter.AssetType.HasValue)
+        {
+            query = query.Where(a => a.AssetType == filter.AssetType.Value);
+        }
+
+        if (filter.IsActive.HasValue)
+        {
+            query = query.Where(a => a.IsActive == filter.IsActive.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Query))
+        {
+            var q = filter.Query.Trim();
+            query = query.Where(a =>
+                a.AssetCode.Contains(q)
+                || a.Name.Contains(q)
+                || (a.LinkedTruck != null && a.LinkedTruck.PlateNumber.Contains(q))
+                || (a.LinkedStorageTank != null && (
+                    a.LinkedStorageTank.TankCode.Contains(q)
+                    || (a.LinkedStorageTank.DisplayName != null && a.LinkedStorageTank.DisplayName.Contains(q)))));
+        }
+
+        var filteredAssetIdQuery = query.Select(a => a.Id);
+        var totalCount = await filteredAssetIdQuery.CountAsync();
+        var pageCount = page <= 0
+            ? 1
+            : Math.Max(1, (int)Math.Ceiling(totalCount / (double)IndexPageSize));
+        var currentPage = page <= 0 ? 1 : Math.Clamp(page, 1, pageCount);
+
+        var assets = await (page <= 0
+                ? query.OrderBy(a => a.AssetCode).ThenBy(a => a.Name)
+                : query
+                    .OrderBy(a => a.AssetCode)
+                    .ThenBy(a => a.Name)
+                    .Skip((currentPage - 1) * IndexPageSize)
+                    .Take(IndexPageSize))
+            .ToListAsync();
+
+        var filteredRentTotals = totalCount == 0
+            ? new Dictionary<int, (decimal Internal, decimal External)>()
+            : await _db.AssetRentTransactions
+                .AsNoTracking()
+                .Where(r => filteredAssetIdQuery.Contains(r.OperationalAssetId) && !r.IsCancelled)
+                .GroupBy(r => r.OperationalAssetId)
+                .Select(g => new
+                {
+                    AssetId = g.Key,
+                    Internal = g.Where(r => r.UsageType == AssetRentUsageType.InternalCompanyUse).Sum(r => r.AmountUsd),
+                    External = g.Where(r => r.UsageType == AssetRentUsageType.ExternalCustomerRental).Sum(r => r.AmountUsd)
+                })
+                .ToDictionaryAsync(g => g.AssetId, g => (g.Internal, g.External));
+
+        // مصارف هر دارایی به دو بخش جدا می‌شود: کرایه/حمل با دارایی شرکت (درآمد دارایی) و بقیهٔ مصارف (هزینه).
+        // معیار درآمد = دستهٔ «Transport» یا کدهای کرایهٔ سیستم — هم‌راستا با IsAssetFreightIncome.
+        var freightCategory = AssetRevenueExpenseCategory.ToLowerInvariant();
+        var receiptFreightCode = InventoryTransportReceiptService.ReceiptFreightExpenseCode;
+        var transportFreightCode = InventoryTransportReceiptService.TransportFreightExpenseCode;
+        var filteredExpenseGroups = totalCount == 0
+            ? new Dictionary<int, (decimal Direct, decimal Freight)>()
+            : (await _db.ExpenseTransactions
+                .AsNoTracking()
+                .Where(e => e.OperationalAssetId.HasValue
+                    && filteredAssetIdQuery.Contains(e.OperationalAssetId.Value)
+                    && !e.IsCancelled)
+                .GroupBy(e => e.OperationalAssetId!.Value)
+                .Select(g => new
+                {
+                    AssetId = g.Key,
+                    Total = g.Sum(e => e.AmountUsd),
+                    Freight = g.Where(e => e.ExpenseType!.Category.ToLower() == freightCategory
+                        || e.ExpenseType.Code == receiptFreightCode
+                        || e.ExpenseType.Code == transportFreightCode).Sum(e => e.AmountUsd)
+                })
+                .ToListAsync())
+                .ToDictionary(g => g.AssetId, g => (Direct: g.Total - g.Freight, Freight: g.Freight));
+
+        var totalInternalRentUsd = filteredRentTotals.Values.Sum(v => v.Internal);
+        var totalExternalRentUsd = filteredRentTotals.Values.Sum(v => v.External);
+        var totalFreightIncomeUsd = filteredExpenseGroups.Values.Sum(v => v.Freight);
+        var totalDirectExpensesUsd = filteredExpenseGroups.Values.Sum(v => v.Direct);
+        var totalMonthlyDepreciationUsd = assets.Count == totalCount
+            ? assets.Sum(a => a.MonthlyDepreciationUsd)
+            : await query.SumAsync(a => a.MonthlyDepreciationUsd);
+
+        ViewBag.AssetTypes = EnumOptions<OperationalAssetType>(filter.AssetType);
+        return View(new OperationalAssetIndexViewModel
+        {
+            Filter = filter,
+            CurrentPage = currentPage,
+            PageCount = pageCount,
+            TotalCount = totalCount,
+            TotalInternalRentUsd = totalInternalRentUsd,
+            TotalExternalRentUsd = totalExternalRentUsd,
+            TotalFreightIncomeUsd = totalFreightIncomeUsd,
+            TotalDirectExpensesUsd = totalDirectExpensesUsd,
+            TotalMonthlyDepreciationUsd = totalMonthlyDepreciationUsd,
+            Items = assets.Select(a =>
+            {
+                filteredRentTotals.TryGetValue(a.Id, out var rent);
+                filteredExpenseGroups.TryGetValue(a.Id, out var exp);
+                return new OperationalAssetIndexItemViewModel
+                {
+                    Id = a.Id,
+                    AssetCode = a.AssetCode,
+                    Name = a.Name,
+                    AssetType = a.AssetType,
+                    LinkedResourceText = BuildLinkedResourceText(a),
+                    OwnershipMode = a.OwnershipMode,
+                    MonthlyDepreciationUsd = a.MonthlyDepreciationUsd,
+                    InternalRentUsd = rent.Internal,
+                    ExternalRentUsd = rent.External,
+                    FreightIncomeUsd = exp.Freight,
+                    DirectExpensesUsd = exp.Direct,
+                    IsActive = a.IsActive
+                };
+            }).ToList()
+        });
+    }
+
+    public async Task<IActionResult> Details(int id, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var model = await BuildProfileAsync(id, fromDate, toDate);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    public async Task<IActionResult> Create()
+    {
+        var model = new OperationalAssetFormViewModel();
+        await PopulateAssetFormLookupsAsync(model);
+        return View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(OperationalAssetFormViewModel model)
+    {
+        NormalizeAssetForm(model);
+        await ValidateAssetFormAsync(model);
+        if (!ModelState.IsValid)
+        {
+            await PopulateAssetFormLookupsAsync(model);
+            return View(model);
+        }
+
+        var asset = new OperationalAsset();
+        ApplyAssetForm(asset, model);
+        _db.OperationalAssets.Add(asset);
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = Ui("دارایی عملیاتی ذخیره شد.", "Operational asset saved.");
+        return RedirectToAction(nameof(Details), new { id = asset.Id });
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var asset = await _db.OperationalAssets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == id);
+        if (asset is null)
+        {
+            return NotFound();
+        }
+
+        var model = ToFormModel(asset);
+        await PopulateAssetFormLookupsAsync(model);
+        return View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleActive(int id, string? returnUrl = null)
+    {
+        var item = await _db.OperationalAssets.FirstOrDefaultAsync(x => x.Id == id);
+        if (item is null) return NotFound();
+
+        item.IsActive = !item.IsActive;
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = item.IsActive ? "رکورد فعال شد." : "رکورد غیرفعال شد.";
+        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, OperationalAssetFormViewModel model)
+    {
+        if (id != model.Id)
+        {
+            return BadRequest();
+        }
+
+        NormalizeAssetForm(model);
+        await ValidateAssetFormAsync(model);
+        if (!ModelState.IsValid)
+        {
+            await PopulateAssetFormLookupsAsync(model);
+            return View(model);
+        }
+
+        var asset = await _db.OperationalAssets.FirstOrDefaultAsync(a => a.Id == id);
+        if (asset is null)
+        {
+            return NotFound();
+        }
+
+        ApplyAssetForm(asset, model);
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = Ui("دارایی عملیاتی به‌روزرسانی شد.", "Operational asset updated.");
+        return RedirectToAction(nameof(Details), new { id = asset.Id });
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddOwnershipShare(AssetOwnershipShareCreateViewModel model)
+    {
+        NormalizeOwnershipModel(model);
+        var assetExists = await _db.OperationalAssets
+            .AsNoTracking()
+            .AnyAsync(a => a.Id == model.OperationalAssetId);
+        if (!assetExists)
+        {
+            return NotFound();
+        }
+
+        var issue = await ValidateOwnershipShareAsync(model);
+        if (issue is not null)
+        {
+            TempData["err"] = issue;
+            return RedirectToAction(nameof(Details), new { id = model.OperationalAssetId });
+        }
+
+        _db.AssetOwnershipShares.Add(new AssetOwnershipShare
+        {
+            OperationalAssetId = model.OperationalAssetId,
+            OwnerType = model.OwnerType,
+            CompanyId = model.OwnerType == AssetOwnerType.Company ? model.CompanyId : null,
+            PartnerId = model.OwnerType == AssetOwnerType.Partner ? model.PartnerId : null,
+            OwnerName = model.OwnerType is AssetOwnerType.ExternalOwner or AssetOwnerType.Other ? model.OwnerName : null,
+            SharePercent = model.SharePercent,
+            EffectiveFrom = model.EffectiveFrom,
+            EffectiveTo = model.EffectiveTo,
+            Notes = model.Notes
+        });
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = Ui("سهم مالکیت ذخیره شد.", "Ownership share saved.");
+        return RedirectToAction(nameof(Details), new { id = model.OperationalAssetId });
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    public async Task<IActionResult> CreateRent(int? assetId = null)
+    {
+        var model = new AssetRentCreateViewModel
+        {
+            OperationalAssetId = assetId ?? 0,
+            RentDate = DateTime.UtcNow.Date,
+            Currency = SystemCurrency.BaseCurrencyCode,
+            FxRateToUsd = 1m
+        };
+
+        if (assetId.HasValue)
+        {
+            var asset = await _db.OperationalAssets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == assetId.Value);
+            if (asset is not null)
+            {
+                model.Rate = asset.DefaultInternalRateUsd ?? asset.DefaultExternalRateUsd ?? 0m;
+            }
+        }
+
+        await PopulateRentLookupsAsync(model);
+        return View(model);
+    }
+
+    [Authorize(Policy = AuthPolicies.ManageData)]
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateRent(AssetRentCreateViewModel model)
+    {
+        NormalizeRentModel(model);
+        var asset = await _db.OperationalAssets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == model.OperationalAssetId);
+
+        if (asset is null)
+        {
+            ModelState.AddModelError(nameof(model.OperationalAssetId), Ui("انتخاب دارایی عملیاتی معتبر نیست.", "Operational asset selection is invalid."));
+        }
+        else if (!asset.IsActive)
+        {
+            ModelState.AddModelError(nameof(model.OperationalAssetId), Ui("دارایی عملیاتی غیرفعال است.", "Operational asset is inactive."));
+        }
+        else
+        {
+            ValidateRentMeasurementInputs(model, asset.AssetType);
+        }
+
+        await ValidateRentCounterpartyAsync(model);
+
+        var activeOwnershipShares = asset is null
+            ? new List<AssetOwnershipShare>()
+            : await GetActiveOwnershipSharesAsync(asset.Id, model.RentDate);
+        var activeShareTotal = activeOwnershipShares.Sum(s => s.SharePercent);
+        if (asset is not null
+            && (activeOwnershipShares.Count == 0
+                || Math.Abs(decimal.Round(activeShareTotal, 4, MidpointRounding.AwayFromZero) - 100m) > PercentTolerance))
+        {
+            ModelState.AddModelError(string.Empty, Ui("برای ثبت کرایه، مجموع سهم‌های مالکیت فعال در تاریخ کرایه باید 100٪ باشد.", "Active ownership shares for the rent date must total 100% before rent can be recorded."));
+        }
+
+        var amountOriginal = ResolveRentAmountOriginal(model);
+        if (amountOriginal <= 0m)
+        {
+            ModelState.AddModelError(nameof(model.AmountOriginal), Ui("مبلغ کرایه باید بزرگتر از صفر باشد.", "Rent amount must be greater than zero."));
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateRentLookupsAsync(model);
+            return View(model);
+        }
+
+        if (asset is not null)
+        {
+            NormalizeRentMeasurementInputs(model, asset.AssetType);
+        }
+
+        var newCustomer = await ResolveNewRentCustomerAsync(model);
+
+        CurrencyConversionResult conversion;
+        try
+        {
+            conversion = await _currencyConversion.ResolveToBaseAsync(
+                model.Currency,
+                model.RentDate,
+                model.FxRateToUsd);
+        }
+        catch (BusinessRuleException ex)
+        {
+            ModelState.AddModelError(nameof(model.FxRateToUsd), ex.Message);
+            await PopulateRentLookupsAsync(model);
+            return View(model);
+        }
+
+        var rent = new AssetRentTransaction
+        {
+            OperationalAssetId = model.OperationalAssetId,
+            RentDate = model.RentDate,
+            UsageType = model.UsageType,
+            ChargedToType = model.ChargedToType,
+            ChargedToContractId = model.ChargedToContractId,
+            ChargedToCustomerId = model.ChargedToCustomerId,
+            ChargedToCustomer = newCustomer,
+            ChargedToCompanyId = model.ChargedToCompanyId,
+            ChargedToPartnerId = model.ChargedToPartnerId,
+            ChargedToServiceProviderId = model.ChargedToServiceProviderId,
+            QuantityMt = model.QuantityMt,
+            DistanceKm = model.DistanceKm,
+            Days = model.Days,
+            Rate = model.Rate,
+            Currency = conversion.SourceCurrencyCode,
+            FxRateToUsd = conversion.AppliedRateToBase,
+            AmountOriginal = amountOriginal,
+            AmountUsd = conversion.ConvertToBase(amountOriginal),
+            ReferenceDocument = model.ReferenceDocument,
+            Description = model.Description,
+            IsPostedToLedger = false
+        };
+
+        _db.AssetRentTransactions.Add(rent);
+        await _db.SaveChangesAsync();
+
+        var rentShares = BuildRentShareSnapshots(rent.Id, rent.AmountUsd, activeOwnershipShares);
+        _db.AssetRentShares.AddRange(rentShares);
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = Ui("تراکنش کرایه/استفاده دارایی ذخیره شد. در این مرحله ثبت Ledger ساخته نشد.", "Asset rent/use transaction saved. Ledger posting was not created in this phase.");
+        return RedirectToAction(nameof(Details), new { id = rent.OperationalAssetId });
+    }
+
+    public async Task<IActionResult> Profitability([FromQuery] OperationalAssetProfitabilityFilterViewModel? filter = null)
+    {
+        filter ??= new OperationalAssetProfitabilityFilterViewModel();
+        NormalizeProfitabilityFilter(filter);
+        await PopulateProfitabilityLookupsAsync(filter);
+        var reportFromDate = filter.FromDate!.Value;
+        var reportToDate = filter.ToDate!.Value;
+
+        var assetQuery = _db.OperationalAssets.AsNoTracking().AsQueryable();
+        if (filter.AssetType.HasValue)
+        {
+            assetQuery = assetQuery.Where(a => a.AssetType == filter.AssetType.Value);
+        }
+
+        if (filter.OperationalAssetId.HasValue)
+        {
+            assetQuery = assetQuery.Where(a => a.Id == filter.OperationalAssetId.Value);
+        }
+
+        var assets = await assetQuery
+            .OrderBy(a => a.AssetCode)
+            .ThenBy(a => a.Name)
+            .ToListAsync();
+        var assetIds = assets.Select(a => a.Id).ToArray();
+
+        var rentQuery = _db.AssetRentTransactions
+            .AsNoTracking()
+            .Where(r => assetIds.Contains(r.OperationalAssetId)
+                && !r.IsCancelled
+                && r.RentDate >= reportFromDate
+                && r.RentDate <= reportToDate);
+        if (filter.UsageType.HasValue)
+        {
+            rentQuery = rentQuery.Where(r => r.UsageType == filter.UsageType.Value);
+        }
+        if (filter.ContractId.HasValue)
+        {
+            rentQuery = rentQuery.Where(r => r.ChargedToContractId == filter.ContractId.Value);
+        }
+        if (filter.CustomerId.HasValue)
+        {
+            rentQuery = rentQuery.Where(r => r.ChargedToCustomerId == filter.CustomerId.Value);
+        }
+
+        var rents = await rentQuery.ToListAsync();
+        var rentIds = rents.Select(r => r.Id).ToArray();
+
+        var expenses = await _db.ExpenseTransactions
+            .AsNoTracking()
+            .Include(e => e.ExpenseType)
+            .Where(e => e.OperationalAssetId.HasValue
+                && assetIds.Contains(e.OperationalAssetId.Value)
+                && !e.IsCancelled
+                && e.ExpenseDate >= reportFromDate
+                && e.ExpenseDate <= reportToDate)
+            .ToListAsync();
+
+        var ownerShares = rentIds.Length == 0
+            ? new List<AssetRentShare>()
+            : await _db.AssetRentShares
+                .AsNoTracking()
+                .Include(s => s.Company)
+                .Include(s => s.Partner)
+                .Include(s => s.AssetRentTransaction)
+                    .ThenInclude(r => r!.OperationalAsset)
+                .Where(s => rentIds.Contains(s.AssetRentTransactionId)
+                    && (!filter.PartnerId.HasValue || s.PartnerId == filter.PartnerId.Value))
+                .OrderByDescending(s => s.AssetRentTransaction!.RentDate)
+                .ThenByDescending(s => s.AssetRentTransactionId)
+                .ToListAsync();
+
+        var rows = assets.Select(asset =>
+        {
+            var assetRents = rents.Where(r => r.OperationalAssetId == asset.Id).ToList();
+            var assetExpenses = expenses.Where(e => e.OperationalAssetId == asset.Id).ToList();
+            return new OperationalAssetProfitabilityRowViewModel
+            {
+                OperationalAssetId = asset.Id,
+                AssetCode = asset.AssetCode,
+                AssetName = asset.Name,
+                AssetType = asset.AssetType,
+                UsageCount = assetRents.Count,
+                QuantityMt = assetRents.Sum(r => r.QuantityMt ?? 0m),
+                DistanceKm = assetRents.Sum(r => r.DistanceKm ?? 0m),
+                Days = assetRents.Sum(r => r.Days ?? 0m),
+                InternalRentUsd = assetRents.Where(r => r.UsageType == AssetRentUsageType.InternalCompanyUse).Sum(r => r.AmountUsd),
+                ExternalRentUsd = assetRents.Where(r => r.UsageType == AssetRentUsageType.ExternalCustomerRental).Sum(r => r.AmountUsd),
+                // کرایهٔ حمل/رسید با دارایی خودِ شرکت = درآمد دارایی؛ بقیهٔ مصارف = هزینه.
+                FreightIncomeUsd = assetExpenses.Where(IsAssetFreightIncome).Sum(e => e.AmountUsd),
+                DirectExpensesUsd = assetExpenses.Where(e => !IsAssetFreightIncome(e)).Sum(e => e.AmountUsd),
+                DepreciationUsd = CalculateDepreciation(asset.MonthlyDepreciationUsd, reportFromDate, reportToDate)
+            };
+        }).ToList();
+
+        return View(new OperationalAssetProfitabilityViewModel
+        {
+            Filter = filter,
+            Rows = rows,
+            OwnerShareRows = ownerShares.Select(ToRentShareRow).ToList()
+        });
+    }
+
+    private async Task<OperationalAssetProfileViewModel?> BuildProfileAsync(int id, DateTime? fromDate, DateTime? toDate)
+    {
+        var today = ToUtcDate(DateTime.UtcNow);
+        var defaultPeriodFrom = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodFrom = fromDate.HasValue ? ToUtcDate(fromDate.Value) : defaultPeriodFrom;
+        var periodTo = toDate.HasValue ? ToUtcDate(toDate.Value) : today;
+        if (periodTo < periodFrom)
+        {
+            (periodFrom, periodTo) = (periodTo, periodFrom);
+        }
+
+        var asset = await _db.OperationalAssets
+            .AsNoTracking()
+            .Include(a => a.LinkedTruck)
+            .Include(a => a.LinkedStorageTank)
+            .Include(a => a.Location)
+            .Include(a => a.Terminal)
+            .FirstOrDefaultAsync(a => a.Id == id);
+        if (asset is null)
+        {
+            return null;
+        }
+
+        var ownershipShares = await _db.AssetOwnershipShares
+            .AsNoTracking()
+            .Include(s => s.Company)
+            .Include(s => s.Partner)
+            .Where(s => s.OperationalAssetId == id)
+            .OrderByDescending(s => s.EffectiveFrom)
+            .ThenBy(s => s.OwnerType)
+            .ToListAsync();
+
+        var rents = await _db.AssetRentTransactions
+            .AsNoTracking()
+            .Include(r => r.ChargedToContract)
+            .Include(r => r.ChargedToCustomer)
+            .Include(r => r.ChargedToCompany)
+            .Include(r => r.ChargedToPartner)
+            .Include(r => r.ChargedToServiceProvider)
+            .Where(r => r.OperationalAssetId == id
+                && !r.IsCancelled
+                && r.RentDate >= periodFrom
+                && r.RentDate <= periodTo)
+            .OrderByDescending(r => r.RentDate)
+            .ThenByDescending(r => r.Id)
+            .ToListAsync();
+
+        var expenses = await _db.ExpenseTransactions
+            .AsNoTracking()
+            .Include(e => e.ExpenseType)
+            .Include(e => e.Contract)
+            .Include(e => e.Shipment)
+            .Include(e => e.TransportLeg)
+            .Include(e => e.TruckDispatch)
+                .ThenInclude(d => d!.Truck)
+            .Include(e => e.ServiceProvider)
+            .Where(e => e.OperationalAssetId == id
+                && !e.IsCancelled
+                && e.ExpenseDate >= periodFrom
+                && e.ExpenseDate <= periodTo)
+            .OrderByDescending(e => e.ExpenseDate)
+            .ThenByDescending(e => e.Id)
+            .ToListAsync();
+
+        var rentIds = rents.Select(r => r.Id).ToArray();
+        var rentShares = rentIds.Length == 0
+            ? new List<AssetRentShare>()
+            : await _db.AssetRentShares
+                .AsNoTracking()
+                .Include(s => s.Company)
+                .Include(s => s.Partner)
+                .Include(s => s.AssetRentTransaction)
+                    .ThenInclude(r => r!.OperationalAsset)
+                .Where(s => rentIds.Contains(s.AssetRentTransactionId))
+                .OrderByDescending(s => s.AssetRentTransaction!.RentDate)
+                .ThenByDescending(s => s.AssetRentTransactionId)
+                .ToListAsync();
+
+        var newRent = new AssetRentCreateViewModel
+        {
+            OperationalAssetId = asset.Id,
+            RentDate = DateTime.UtcNow.Date,
+            UsageType = AssetRentUsageType.ExternalCustomerRental,
+            ChargedToType = AssetRentChargedToType.Customer,
+            Rate = asset.DefaultExternalRateUsd ?? asset.DefaultInternalRateUsd ?? 1m,
+            Currency = SystemCurrency.BaseCurrencyCode,
+            FxRateToUsd = 1m
+        };
+
+        await PopulateOwnershipLookupsAsync();
+        await PopulateRentLookupsAsync(newRent);
+
+        return new OperationalAssetProfileViewModel
+        {
+            Id = asset.Id,
+            AssetCode = asset.AssetCode,
+            Name = asset.Name,
+            AssetType = asset.AssetType,
+            LinkedResourceText = BuildLinkedResourceText(asset),
+            OwnershipMode = asset.OwnershipMode,
+            CapacityMt = asset.CapacityMt,
+            LocationName = asset.Location?.Name,
+            TerminalName = asset.Terminal?.Name,
+            MonthlyDepreciationUsd = asset.MonthlyDepreciationUsd,
+            DefaultInternalRateUsd = asset.DefaultInternalRateUsd,
+            DefaultExternalRateUsd = asset.DefaultExternalRateUsd,
+            IsActive = asset.IsActive,
+            Notes = asset.Notes,
+            FromDate = periodFrom,
+            ToDate = periodTo,
+            InternalRentUsd = rents.Where(r => r.UsageType == AssetRentUsageType.InternalCompanyUse).Sum(r => r.AmountUsd),
+            ExternalRentUsd = rents.Where(r => r.UsageType == AssetRentUsageType.ExternalCustomerRental).Sum(r => r.AmountUsd),
+            // کرایهٔ حمل/رسید با دارایی خودِ شرکت = درآمد دارایی؛ بقیهٔ مصارف = هزینه.
+            FreightIncomeUsd = expenses.Where(IsAssetFreightIncome).Sum(e => e.AmountUsd),
+            DirectExpensesUsd = expenses.Where(e => !IsAssetFreightIncome(e)).Sum(e => e.AmountUsd),
+            DepreciationUsd = CalculateDepreciation(asset.MonthlyDepreciationUsd, periodFrom, periodTo),
+            OwnershipShares = ownershipShares.Select(ToOwnershipShareRow).ToList(),
+            RentTransactions = rents.Select(ToRentRow).ToList(),
+            Expenses = expenses.Select(ToExpenseRow).ToList(),
+            RentShares = rentShares.Select(ToRentShareRow).ToList(),
+            NewOwnershipShare = new AssetOwnershipShareCreateViewModel
+            {
+                OperationalAssetId = asset.Id,
+                EffectiveFrom = DateTime.UtcNow.Date
+            },
+            NewRent = newRent
+        };
+    }
+
+    private async Task ValidateAssetFormAsync(OperationalAssetFormViewModel model)
+    {
+        if (await _db.OperationalAssets.AsNoTracking().AnyAsync(a => a.Id != model.Id && a.AssetCode == model.AssetCode))
+        {
+            ModelState.AddModelError(nameof(model.AssetCode), Ui("کد دارایی از قبل وجود دارد.", "Asset code already exists."));
+        }
+
+        if (model.LinkedTruckId.HasValue
+            && !await _db.Trucks.AsNoTracking().AnyAsync(t => t.Id == model.LinkedTruckId.Value))
+        {
+            ModelState.AddModelError(nameof(model.LinkedTruckId), Ui("انتخاب موتر مرتبط معتبر نیست.", "Linked truck selection is invalid."));
+        }
+
+        if (model.LinkedTruckId.HasValue
+            && await _db.OperationalAssets.AsNoTracking().AnyAsync(a => a.Id != model.Id && a.LinkedTruckId == model.LinkedTruckId.Value))
+        {
+            ModelState.AddModelError(nameof(model.LinkedTruckId), Ui("این موتر قبلاً به یک دارایی عملیاتی دیگر وصل شده است.", "This truck is already linked to another operational asset."));
+        }
+
+        if (model.LinkedStorageTankId.HasValue
+            && !await _db.StorageTanks.AsNoTracking().AnyAsync(t => t.Id == model.LinkedStorageTankId.Value))
+        {
+            ModelState.AddModelError(nameof(model.LinkedStorageTankId), Ui("انتخاب مخزن مرتبط معتبر نیست.", "Linked storage tank selection is invalid."));
+        }
+
+        if (model.LinkedStorageTankId.HasValue
+            && await _db.OperationalAssets.AsNoTracking().AnyAsync(a => a.Id != model.Id && a.LinkedStorageTankId == model.LinkedStorageTankId.Value))
+        {
+            ModelState.AddModelError(nameof(model.LinkedStorageTankId), Ui("این مخزن قبلاً به یک دارایی عملیاتی دیگر وصل شده است.", "This storage tank is already linked to another operational asset."));
+        }
+
+        if (model.LocationId.HasValue
+            && !await _db.Locations.AsNoTracking().AnyAsync(l => l.Id == model.LocationId.Value))
+        {
+            ModelState.AddModelError(nameof(model.LocationId), Ui("انتخاب موقعیت معتبر نیست.", "Location selection is invalid."));
+        }
+
+        if (model.TerminalId.HasValue
+            && !await _db.Terminals.AsNoTracking().AnyAsync(t => t.Id == model.TerminalId.Value))
+        {
+            ModelState.AddModelError(nameof(model.TerminalId), Ui("انتخاب ترمینال معتبر نیست.", "Terminal selection is invalid."));
+        }
+    }
+
+    private async Task<string?> ValidateOwnershipShareAsync(AssetOwnershipShareCreateViewModel model)
+    {
+        if (model.SharePercent <= 0m || model.SharePercent > 100m)
+        {
+            return Ui("درصد سهم باید بین 0 و 100 باشد.", "Share percent must be between 0 and 100.");
+        }
+
+        if (model.EffectiveTo.HasValue && model.EffectiveTo.Value.Date < model.EffectiveFrom.Date)
+        {
+            return Ui("تاریخ ختم نمی‌تواند قبل از تاریخ شروع باشد.", "Effective To cannot be before Effective From.");
+        }
+
+        if (model.OwnerType == AssetOwnerType.Company)
+        {
+            if (!model.CompanyId.HasValue)
+            {
+                return Ui("انتخاب شرکت مالک الزامی است.", "Company owner is required.");
+            }
+
+            if (!await _db.Companies.AsNoTracking().AnyAsync(c => c.Id == model.CompanyId.Value))
+            {
+                return Ui("انتخاب شرکت مالک معتبر نیست.", "Company owner selection is invalid.");
+            }
+        }
+        else if (model.OwnerType == AssetOwnerType.Partner)
+        {
+            if (!model.PartnerId.HasValue)
+            {
+                return Ui("انتخاب شریک مالک الزامی است.", "Partner owner is required.");
+            }
+
+            if (!await _db.Partners.AsNoTracking().AnyAsync(p => p.Id == model.PartnerId.Value))
+            {
+                return Ui("انتخاب شریک مالک معتبر نیست.", "Partner owner selection is invalid.");
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(model.OwnerName))
+        {
+            return Ui("برای مالک بیرونی یا سایر مالک‌ها، نام مالک الزامی است.", "Owner name is required for external or other owner.");
+        }
+
+        var existing = await _db.AssetOwnershipShares
+            .AsNoTracking()
+            .Where(s => s.OperationalAssetId == model.OperationalAssetId)
+            .ToListAsync();
+
+        if (existing.Any(s => IsSameOwner(s, model) && DateRangesOverlap(s.EffectiveFrom, s.EffectiveTo, model.EffectiveFrom, model.EffectiveTo)))
+        {
+            return Ui("همین مالک برای این دارایی یک دوره مالکیت هم‌پوشان دارد.", "The same owner already has an overlapping ownership period for this asset.");
+        }
+
+        var activeAtEffectiveFrom = existing
+            .Where(s => IsActiveOn(s, model.EffectiveFrom.Date))
+            .Sum(s => s.SharePercent);
+        if (activeAtEffectiveFrom + model.SharePercent > 100m + PercentTolerance)
+        {
+            return Ui("مجموع سهم‌های مالکیت فعال در تاریخ شروع از 100٪ بیشتر می‌شود.", "Active ownership shares exceed 100% on the effective date.");
+        }
+
+        return null;
+    }
+
+    private async Task ValidateRentCounterpartyAsync(AssetRentCreateViewModel model)
+    {
+        if (model.ChargedToType is AssetRentChargedToType.PurchaseContract or AssetRentChargedToType.SalesContract)
+        {
+            if (!model.ChargedToContractId.HasValue)
+            {
+                ModelState.AddModelError(nameof(model.ChargedToContractId), Ui("برای این نوع طرف حساب، انتخاب قرارداد الزامی است.", "Contract is required for this charged-to type."));
+                return;
+            }
+
+            var contract = await _db.Contracts.AsNoTracking().FirstOrDefaultAsync(c => c.Id == model.ChargedToContractId.Value);
+            if (contract is null)
+            {
+                ModelState.AddModelError(nameof(model.ChargedToContractId), Ui("انتخاب قرارداد معتبر نیست.", "Contract selection is invalid."));
+                return;
+            }
+
+            if (model.ChargedToType == AssetRentChargedToType.PurchaseContract && contract.ContractType != ContractType.Purchase)
+            {
+                ModelState.AddModelError(nameof(model.ChargedToContractId), Ui("قرارداد انتخاب‌شده باید قرارداد خرید باشد.", "Selected contract must be a purchase contract."));
+            }
+
+            if (model.ChargedToType == AssetRentChargedToType.SalesContract && contract.ContractType != ContractType.Sale)
+            {
+                ModelState.AddModelError(nameof(model.ChargedToContractId), Ui("قرارداد انتخاب‌شده باید قرارداد فروش باشد.", "Selected contract must be a sales contract."));
+            }
+        }
+
+        if (model.ChargedToCustomerId.HasValue
+            && !await _db.Customers.AsNoTracking().AnyAsync(c => c.Id == model.ChargedToCustomerId.Value))
+        {
+            ModelState.AddModelError(nameof(model.ChargedToCustomerId), Ui("انتخاب مشتری معتبر نیست.", "Customer selection is invalid."));
+        }
+
+        if (model.ChargedToCompanyId.HasValue
+            && !await _db.Companies.AsNoTracking().AnyAsync(c => c.Id == model.ChargedToCompanyId.Value))
+        {
+            ModelState.AddModelError(nameof(model.ChargedToCompanyId), Ui("انتخاب شرکت معتبر نیست.", "Company selection is invalid."));
+        }
+
+        if (model.ChargedToPartnerId.HasValue
+            && !await _db.Partners.AsNoTracking().AnyAsync(p => p.Id == model.ChargedToPartnerId.Value))
+        {
+            ModelState.AddModelError(nameof(model.ChargedToPartnerId), Ui("انتخاب شریک معتبر نیست.", "Partner selection is invalid."));
+        }
+
+        if (model.ChargedToServiceProviderId.HasValue
+            && !await _db.ServiceProviders.AsNoTracking().AnyAsync(p => p.Id == model.ChargedToServiceProviderId.Value))
+        {
+            ModelState.AddModelError(nameof(model.ChargedToServiceProviderId), Ui("انتخاب شرکت خدماتی معتبر نیست.", "Service provider selection is invalid."));
+        }
+
+        if (model.ChargedToType == AssetRentChargedToType.Customer
+            && !model.ChargedToCustomerId.HasValue
+            && string.IsNullOrWhiteSpace(model.NewCustomerName))
+        {
+            ModelState.AddModelError(nameof(model.ChargedToCustomerId), Ui("برای کرایه به مشتری، انتخاب مشتری الزامی است.", "Customer is required for customer rental."));
+        }
+
+        if (model.ChargedToType == AssetRentChargedToType.Partner && !model.ChargedToPartnerId.HasValue)
+        {
+            ModelState.AddModelError(nameof(model.ChargedToPartnerId), Ui("برای استفاده شریک، انتخاب شریک الزامی است.", "Partner is required for partner use."));
+        }
+
+        if (model.UsageType == AssetRentUsageType.ExternalCustomerRental
+            && !model.ChargedToCustomerId.HasValue
+            && string.IsNullOrWhiteSpace(model.NewCustomerName)
+            && !model.ChargedToCompanyId.HasValue
+            && !model.ChargedToServiceProviderId.HasValue)
+        {
+            ModelState.AddModelError(string.Empty, Ui("کرایه بیرونی باید به مشتری، شرکت یا شرکت خدماتی نسبت داده شود.", "External rental must be charged to a customer, company or service provider."));
+        }
+
+        if (model.ChargedToType == AssetRentChargedToType.Other && !model.ChargedToServiceProviderId.HasValue)
+        {
+            ModelState.AddModelError(nameof(model.ChargedToServiceProviderId), Ui("برای شرکت خدماتی، انتخاب شرکت خدماتی الزامی است.", "Service provider is required."));
+        }
+    }
+
+    private async Task<List<AssetOwnershipShare>> GetActiveOwnershipSharesAsync(int assetId, DateTime date)
+    {
+        var utcDate = ToUtcDate(date);
+        return await _db.AssetOwnershipShares
+            .AsNoTracking()
+            .Where(s => s.OperationalAssetId == assetId
+                && s.EffectiveFrom <= utcDate
+                && (!s.EffectiveTo.HasValue || s.EffectiveTo.Value >= utcDate))
+            .OrderBy(s => s.Id)
+            .ToListAsync();
+    }
+
+    private static IReadOnlyList<AssetRentShare> BuildRentShareSnapshots(
+        int rentTransactionId,
+        decimal amountUsd,
+        IReadOnlyList<AssetOwnershipShare> ownershipShares)
+    {
+        var rows = new List<AssetRentShare>();
+        var allocated = 0m;
+        for (var i = 0; i < ownershipShares.Count; i++)
+        {
+            var share = ownershipShares[i];
+            var shareAmount = i == ownershipShares.Count - 1
+                ? amountUsd - allocated
+                : decimal.Round(amountUsd * share.SharePercent / 100m, 4, MidpointRounding.AwayFromZero);
+            allocated += shareAmount;
+            rows.Add(new AssetRentShare
+            {
+                AssetRentTransactionId = rentTransactionId,
+                OwnerType = share.OwnerType,
+                CompanyId = share.CompanyId,
+                PartnerId = share.PartnerId,
+                OwnerName = share.OwnerName,
+                SharePercent = share.SharePercent,
+                ShareAmountUsd = shareAmount,
+                Notes = share.Notes
+            });
+        }
+
+        return rows;
+    }
+
+    private async Task PopulateAssetFormLookupsAsync(OperationalAssetFormViewModel model)
+    {
+        ViewBag.AssetTypes = EnumOptions<OperationalAssetType>(model.AssetType);
+        ViewBag.OwnershipModes = EnumOptions<OperationalAssetOwnershipMode>(model.OwnershipMode);
+        ViewBag.Trucks = new SelectList(
+            await _db.Trucks.AsNoTracking()
+                .OrderBy(t => model.LinkedTruckId.HasValue && t.Id == model.LinkedTruckId.Value ? 0 : 1)
+                .ThenBy(t => t.PlateNumber)
+                .Take(LookupLimit)
+                .Select(t => new { t.Id, Text = t.PlateNumber })
+                .ToListAsync(),
+            "Id",
+            "Text",
+            model.LinkedTruckId);
+        ViewBag.StorageTanks = new SelectList(
+            await StorageTankDisplay.LoadOptionsAsync(_db.StorageTanks.AsNoTracking()
+                .OrderBy(t => model.LinkedStorageTankId.HasValue && t.Id == model.LinkedStorageTankId.Value ? 0 : 1)
+                .ThenBy(t => t.DisplayName ?? t.TankCode)
+                .Take(LookupLimit)),
+            "Id",
+            "Display",
+            model.LinkedStorageTankId);
+        ViewBag.Locations = new SelectList(
+            await _db.Locations.AsNoTracking()
+                .OrderBy(l => l.Name)
+                .Take(LookupLimit)
+                .Select(l => new { l.Id, Text = l.Name })
+                .ToListAsync(),
+            "Id",
+            "Text",
+            model.LocationId);
+        ViewBag.Terminals = new SelectList(
+            await _db.Terminals.AsNoTracking()
+                .OrderBy(t => t.Name)
+                .Take(LookupLimit)
+                .Select(t => new { t.Id, Text = t.Code + " - " + t.Name })
+                .ToListAsync(),
+            "Id",
+            "Text",
+            model.TerminalId);
+    }
+
+    private async Task PopulateOwnershipLookupsAsync()
+    {
+        ViewBag.OwnerTypes = EnumOptions<AssetOwnerType>();
+        ViewBag.Companies = new SelectList(
+            await _db.Companies.AsNoTracking().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name }).ToListAsync(),
+            "Id",
+            "Name");
+        ViewBag.Partners = new SelectList(
+            await _db.Partners.AsNoTracking().OrderBy(p => p.Name).Select(p => new { p.Id, p.Name }).ToListAsync(),
+            "Id",
+            "Name");
+    }
+
+    private async Task PopulateRentLookupsAsync(AssetRentCreateViewModel model)
+    {
+        var assets = await _db.OperationalAssets.AsNoTracking()
+            .Where(a => a.IsActive || a.Id == model.OperationalAssetId)
+            .OrderBy(a => a.AssetCode)
+            .Select(a => new { a.Id, a.AssetType, Text = a.AssetCode + " - " + a.Name })
+            .ToListAsync();
+
+        ViewBag.Assets = new SelectList(
+            assets.Select(a => new { a.Id, a.Text }).ToList(),
+            "Id",
+            "Text",
+            model.OperationalAssetId);
+        ViewBag.AssetTypeByIdJson = JsonSerializer.Serialize(
+            assets.ToDictionary(a => a.Id, a => (int)a.AssetType));
+        ViewBag.UsageTypes = EnumOptions<AssetRentUsageType>(model.UsageType);
+        ViewBag.ChargedToTypes = EnumOptions<AssetRentChargedToType>(model.ChargedToType);
+        ViewBag.Contracts = await ContractLookupAsync(model.ChargedToContractId);
+        ViewBag.Customers = new SelectList(
+            await _db.Customers.AsNoTracking().OrderBy(c => c.Name).Take(LookupLimit).Select(c => new { c.Id, c.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            model.ChargedToCustomerId);
+        ViewBag.Companies = new SelectList(
+            await _db.Companies.AsNoTracking().OrderBy(c => c.Name).Take(LookupLimit).Select(c => new { c.Id, c.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            model.ChargedToCompanyId);
+        ViewBag.Partners = new SelectList(
+            await _db.Partners.AsNoTracking().OrderBy(p => p.Name).Take(LookupLimit).Select(p => new { p.Id, p.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            model.ChargedToPartnerId);
+        ViewBag.ServiceProviders = new SelectList(
+            await _db.ServiceProviders.AsNoTracking().OrderBy(p => p.Name).Take(LookupLimit).Select(p => new { p.Id, p.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            model.ChargedToServiceProviderId);
+        ViewBag.Currencies = new SelectList(
+            await _db.Currencies.AsNoTracking().Where(c => c.IsActive).OrderBy(c => c.Code).Select(c => new { c.Code }).ToListAsync(),
+            "Code",
+            "Code",
+            model.Currency);
+    }
+
+    private async Task PopulateProfitabilityLookupsAsync(OperationalAssetProfitabilityFilterViewModel filter)
+    {
+        ViewBag.AssetTypes = EnumOptions<OperationalAssetType>(filter.AssetType);
+        ViewBag.UsageTypes = EnumOptions<AssetRentUsageType>(filter.UsageType);
+        ViewBag.Assets = new SelectList(
+            await _db.OperationalAssets.AsNoTracking().OrderBy(a => a.AssetCode).Select(a => new { a.Id, Text = a.AssetCode + " - " + a.Name }).ToListAsync(),
+            "Id",
+            "Text",
+            filter.OperationalAssetId);
+        ViewBag.Partners = new SelectList(
+            await _db.Partners.AsNoTracking().OrderBy(p => p.Name).Select(p => new { p.Id, p.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            filter.PartnerId);
+        ViewBag.Contracts = await ContractLookupAsync(filter.ContractId);
+        ViewBag.Customers = new SelectList(
+            await _db.Customers.AsNoTracking().OrderBy(c => c.Name).Select(c => new { c.Id, c.Name }).ToListAsync(),
+            "Id",
+            "Name",
+            filter.CustomerId);
+    }
+
+    private async Task<SelectList> ContractLookupAsync(int? selectedId)
+    {
+        var contracts = await _db.Contracts
+            .AsNoTracking()
+            .OrderBy(c => selectedId.HasValue && c.Id == selectedId.Value ? 0 : 1)
+            .ThenByDescending(c => c.ContractDate)
+            .ThenBy(c => c.ContractNumber)
+            .Take(LookupLimit)
+            .Select(c => new
+            {
+                c.Id,
+                Text = c.ContractNumber + " - " + c.ContractType.ToString()
+            })
+            .ToListAsync();
+        return new SelectList(contracts, "Id", "Text", selectedId);
+    }
+
+    private static void ApplyAssetForm(OperationalAsset asset, OperationalAssetFormViewModel model)
+    {
+        asset.AssetCode = model.AssetCode;
+        asset.Name = model.Name;
+        asset.AssetType = model.AssetType;
+        asset.LinkedTruckId = model.LinkedTruckId;
+        asset.LinkedStorageTankId = model.LinkedStorageTankId;
+        asset.CapacityMt = model.CapacityMt;
+        asset.LocationId = model.LocationId;
+        asset.TerminalId = model.TerminalId;
+        asset.OwnershipMode = model.OwnershipMode;
+        asset.MonthlyDepreciationUsd = model.MonthlyDepreciationUsd;
+        asset.DefaultInternalRateUsd = model.DefaultInternalRateUsd;
+        asset.DefaultExternalRateUsd = model.DefaultExternalRateUsd;
+        asset.IsActive = model.IsActive;
+        asset.Notes = model.Notes;
+    }
+
+    private static OperationalAssetFormViewModel ToFormModel(OperationalAsset asset)
+        => new()
+        {
+            Id = asset.Id,
+            AssetCode = asset.AssetCode,
+            Name = asset.Name,
+            AssetType = asset.AssetType,
+            LinkedTruckId = asset.LinkedTruckId,
+            LinkedStorageTankId = asset.LinkedStorageTankId,
+            CapacityMt = asset.CapacityMt,
+            LocationId = asset.LocationId,
+            TerminalId = asset.TerminalId,
+            OwnershipMode = asset.OwnershipMode,
+            MonthlyDepreciationUsd = asset.MonthlyDepreciationUsd,
+            DefaultInternalRateUsd = asset.DefaultInternalRateUsd,
+            DefaultExternalRateUsd = asset.DefaultExternalRateUsd,
+            IsActive = asset.IsActive,
+            Notes = asset.Notes
+        };
+
+    private static void NormalizeAssetForm(OperationalAssetFormViewModel model)
+    {
+        model.AssetCode = model.AssetCode.Trim();
+        model.Name = model.Name.Trim();
+        model.Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim();
+    }
+
+    private static void NormalizeOwnershipModel(AssetOwnershipShareCreateViewModel model)
+    {
+        model.EffectiveFrom = ToUtcDate(model.EffectiveFrom);
+        model.EffectiveTo = ToUtcDate(model.EffectiveTo);
+        model.OwnerName = string.IsNullOrWhiteSpace(model.OwnerName) ? null : model.OwnerName.Trim();
+        model.Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim();
+    }
+
+    private static void NormalizeRentModel(AssetRentCreateViewModel model)
+    {
+        model.RentDate = ToUtcDate(model.RentDate);
+        model.Currency = SystemCurrency.Normalize(model.Currency);
+        if (SystemCurrency.IsBaseCurrency(model.Currency))
+        {
+            model.FxRateToUsd = 1m;
+        }
+
+        model.ReferenceDocument = string.IsNullOrWhiteSpace(model.ReferenceDocument) ? null : model.ReferenceDocument.Trim();
+        model.Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim();
+        model.NewCustomerName = string.IsNullOrWhiteSpace(model.NewCustomerName) ? null : model.NewCustomerName.Trim();
+    }
+
+    private async Task<Customer?> ResolveNewRentCustomerAsync(AssetRentCreateViewModel model)
+    {
+        if (model.ChargedToType != AssetRentChargedToType.Customer
+            || model.ChargedToCustomerId.HasValue
+            || string.IsNullOrWhiteSpace(model.NewCustomerName))
+        {
+            return null;
+        }
+
+        var name = model.NewCustomerName.Trim();
+        var existingCustomer = await _db.Customers
+            .FirstOrDefaultAsync(c => c.Name == name || c.NamePersian == name);
+
+        if (existingCustomer is not null)
+        {
+            model.ChargedToCustomerId = existingCustomer.Id;
+            return null;
+        }
+
+        return new Customer
+        {
+            Name = name,
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    private static void NormalizeProfitabilityFilter(OperationalAssetProfitabilityFilterViewModel filter)
+    {
+        var today = ToUtcDate(DateTime.UtcNow);
+        var defaultFromDate = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        filter.FromDate = filter.FromDate.HasValue ? ToUtcDate(filter.FromDate.Value) : defaultFromDate;
+        filter.ToDate = filter.ToDate.HasValue ? ToUtcDate(filter.ToDate.Value) : today;
+        if (filter.ToDate < filter.FromDate)
+        {
+            (filter.FromDate, filter.ToDate) = (filter.ToDate, filter.FromDate);
+        }
+    }
+
+    private static decimal ResolveRentAmountOriginal(AssetRentCreateViewModel model)
+    {
+        if (model.AmountOriginal.HasValue && model.AmountOriginal.Value > 0m)
+        {
+            return decimal.Round(model.AmountOriginal.Value, 4, MidpointRounding.AwayFromZero);
+        }
+
+        var billableQuantity = model.Days.GetValueOrDefault() > 0m
+            ? model.Days!.Value
+            : model.DistanceKm.GetValueOrDefault() > 0m
+                ? model.DistanceKm!.Value
+                : model.QuantityMt.GetValueOrDefault() > 0m
+                    ? model.QuantityMt!.Value
+                    : 1m;
+        return decimal.Round(model.Rate * billableQuantity, 4, MidpointRounding.AwayFromZero);
+    }
+
+    private void ValidateRentMeasurementInputs(AssetRentCreateViewModel model, OperationalAssetType assetType)
+    {
+        var profile = ResolveRentMeasurementProfile(assetType);
+        if (profile == RentMeasurementProfile.Transport && model.QuantityMt.GetValueOrDefault() > 0m)
+        {
+            ModelState.AddModelError(nameof(model.QuantityMt), Ui("برای دارایی حمل‌ونقل، فیلد مقدار MT قابل استفاده نیست.", "Quantity MT is not applicable for transport assets."));
+        }
+
+        if (profile == RentMeasurementProfile.Storage && model.DistanceKm.GetValueOrDefault() > 0m)
+        {
+            ModelState.AddModelError(nameof(model.DistanceKm), Ui("برای دارایی ثابت، فیلد مسافت KM قابل استفاده نیست.", "Distance KM is not applicable for stationary assets."));
+        }
+    }
+
+    private static void NormalizeRentMeasurementInputs(AssetRentCreateViewModel model, OperationalAssetType assetType)
+    {
+        var profile = ResolveRentMeasurementProfile(assetType);
+        if (profile == RentMeasurementProfile.Transport)
+        {
+            model.QuantityMt = null;
+        }
+
+        if (profile == RentMeasurementProfile.Storage)
+        {
+            model.DistanceKm = null;
+        }
+    }
+
+    private static RentMeasurementProfile ResolveRentMeasurementProfile(OperationalAssetType assetType)
+        => assetType switch
+        {
+            OperationalAssetType.Truck or OperationalAssetType.Trailer or OperationalAssetType.TankerTruck or OperationalAssetType.Wagon
+                => RentMeasurementProfile.Transport,
+            OperationalAssetType.StorageTank or OperationalAssetType.Warehouse or OperationalAssetType.Terminal
+                => RentMeasurementProfile.Storage,
+            _ => RentMeasurementProfile.Flexible
+        };
+
+    private enum RentMeasurementProfile
+    {
+        Flexible = 0,
+        Transport = 1,
+        Storage = 2
+    }
+
+    private static decimal CalculateDepreciation(decimal monthlyDepreciationUsd, DateTime fromDate, DateTime toDate)
+    {
+        if (monthlyDepreciationUsd <= 0m || toDate < fromDate)
+        {
+            return 0m;
+        }
+
+        var days = (toDate.Date - fromDate.Date).Days + 1;
+        return decimal.Round(monthlyDepreciationUsd * days / 30m, 4, MidpointRounding.AwayFromZero);
+    }
+
+    private static DateTime ToUtcDate(DateTime value)
+        => DateTime.SpecifyKind(value.Date, DateTimeKind.Utc);
+
+    private static DateTime? ToUtcDate(DateTime? value)
+        => value.HasValue ? ToUtcDate(value.Value) : null;
+
+    private AssetOwnershipShareRowViewModel ToOwnershipShareRow(AssetOwnershipShare share)
+        => new()
+        {
+            Id = share.Id,
+            OwnerType = share.OwnerType,
+            OwnerName = OwnerLabel(share),
+            SharePercent = share.SharePercent,
+            EffectiveFrom = share.EffectiveFrom,
+            EffectiveTo = share.EffectiveTo,
+            Notes = share.Notes,
+            IsActiveNow = IsActiveOn(share, DateTime.UtcNow.Date)
+        };
+
+    private AssetRentRowViewModel ToRentRow(AssetRentTransaction rent)
+        => new()
+        {
+            Id = rent.Id,
+            RentDate = rent.RentDate,
+            UsageType = rent.UsageType,
+            ChargedToType = rent.ChargedToType,
+            ChargedToName = ChargedToLabel(rent),
+            ReferenceDocument = rent.ReferenceDocument,
+            QuantityMt = rent.QuantityMt,
+            DistanceKm = rent.DistanceKm,
+            Days = rent.Days,
+            AmountUsd = rent.AmountUsd,
+            Description = rent.Description,
+            IsPostedToLedger = rent.IsPostedToLedger
+        };
+
+    // کرایهٔ حمل/رسید که با دارایی عملیاتی خودِ شرکت انجام شده، برای آن دارایی درآمد است نه هزینه.
+    // دستهٔ نوع‌مصرف که نشان می‌دهد کار با خودِ دارایی شرکت انجام شده (کرایه/حمل) ⇒ درآمد دارایی، نه هزینه.
+    // همهٔ کدهای کرایهٔ سیستم (TRANSPORT-RECEIPT-FREIGHT / TRANSPORT-FREIGHT / TRUCK-DISPATCH-FREIGHT) و
+    // کرایه‌های دستیِ Loading/InventoryTransport («کرایه حمل/واگن») با همین دسته ثبت می‌شوند.
+    private const string AssetRevenueExpenseCategory = "Transport";
+
+    // کرایه/استفاده از دارایی شرکت = درآمد دارایی؛ مصارف واقعی (ترمیم، تیل، پرزه، مصرف داخلی) = هزینه می‌مانند.
+    private static bool IsAssetFreightIncome(ExpenseTransaction expense)
+        => string.Equals(
+            expense.ExpenseType?.Category,
+            AssetRevenueExpenseCategory,
+            StringComparison.OrdinalIgnoreCase)
+        || string.Equals(
+            expense.ExpenseType?.Code,
+            InventoryTransportReceiptService.ReceiptFreightExpenseCode,
+            StringComparison.OrdinalIgnoreCase)
+        || string.Equals(
+            expense.ExpenseType?.Code,
+            InventoryTransportReceiptService.TransportFreightExpenseCode,
+            StringComparison.OrdinalIgnoreCase);
+
+    private static AssetExpenseRowViewModel ToExpenseRow(ExpenseTransaction expense)
+        => new()
+        {
+            Id = expense.Id,
+            ExpenseDate = expense.ExpenseDate,
+            ExpenseTypeName = expense.ExpenseType?.NamePersian ?? expense.ExpenseType?.Name ?? "-",
+            ContractNumber = expense.Contract?.ContractNumber,
+            ShipmentCode = expense.Shipment?.ShipmentCode,
+            TransportLegLabel = BuildTransportLegLabel(expense.TransportLeg),
+            TruckDispatchLabel = BuildTruckDispatchLabel(expense.TruckDispatch),
+            ServiceProviderName = expense.ServiceProvider?.Name,
+            AmountUsd = expense.AmountUsd,
+            IsFreightIncome = IsAssetFreightIncome(expense),
+            Description = expense.Description
+        };
+
+    private AssetRentShareRowViewModel ToRentShareRow(AssetRentShare share)
+        => new()
+        {
+            RentTransactionId = share.AssetRentTransactionId,
+            RentDate = share.AssetRentTransaction?.RentDate ?? default,
+            AssetName = share.AssetRentTransaction?.OperationalAsset?.Name ?? "-",
+            UsageType = share.AssetRentTransaction?.UsageType ?? AssetRentUsageType.Other,
+            OwnerType = share.OwnerType,
+            OwnerName = OwnerLabel(share),
+            SharePercent = share.SharePercent,
+            ShareAmountUsd = share.ShareAmountUsd
+        };
+
+    private static string? BuildTransportLegLabel(InventoryTransportLeg? leg)
+        => leg is null
+            ? null
+            : $"#{leg.Id} - {FirstNonEmpty(leg.RwbNo, leg.WagonNumber) ?? leg.TransportType.ToString()}";
+
+    private static string? BuildTruckDispatchLabel(TruckDispatch? dispatch)
+        => dispatch is null
+            ? null
+            : $"#{dispatch.Id} - {dispatch.Truck?.PlateNumber ?? dispatch.DispatchDate.ToString("yyyy-MM-dd")}";
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private string BuildLinkedResourceText(OperationalAsset asset)
+    {
+        if (asset.LinkedTruck is not null)
+        {
+            return Ui("موتر ", "Truck ") + asset.LinkedTruck.PlateNumber;
+        }
+
+        if (asset.LinkedStorageTank is not null)
+        {
+            return Ui("مخزن ", "Tank ") + StorageTankDisplay.Build(asset.LinkedStorageTank);
+        }
+
+        return "-";
+    }
+
+    private string OwnerLabel(AssetOwnershipShare share)
+        => share.OwnerType switch
+        {
+            AssetOwnerType.Company => share.Company?.Name ?? (share.CompanyId.HasValue ? Ui("شرکت #", "Company #") + share.CompanyId : Ui("شرکت", "Company")),
+            AssetOwnerType.Partner => share.Partner?.Name ?? (share.PartnerId.HasValue ? Ui("شریک #", "Partner #") + share.PartnerId : Ui("شریک", "Partner")),
+            _ => share.OwnerName ?? "-"
+        };
+
+    private string OwnerLabel(AssetRentShare share)
+        => share.OwnerType switch
+        {
+            AssetOwnerType.Company => share.Company?.Name ?? (share.CompanyId.HasValue ? Ui("شرکت #", "Company #") + share.CompanyId : Ui("شرکت", "Company")),
+            AssetOwnerType.Partner => share.Partner?.Name ?? (share.PartnerId.HasValue ? Ui("شریک #", "Partner #") + share.PartnerId : Ui("شریک", "Partner")),
+            _ => share.OwnerName ?? "-"
+        };
+
+    private string ChargedToLabel(AssetRentTransaction rent)
+        => rent.ChargedToType switch
+        {
+            AssetRentChargedToType.PurchaseContract or AssetRentChargedToType.SalesContract =>
+                rent.ChargedToContract?.ContractNumber ?? (rent.ChargedToContractId.HasValue ? Ui("قرارداد #", "Contract #") + rent.ChargedToContractId : "-"),
+            AssetRentChargedToType.Customer =>
+                rent.ChargedToCustomer?.Name ?? (rent.ChargedToCustomerId.HasValue ? Ui("مشتری #", "Customer #") + rent.ChargedToCustomerId : "-"),
+            AssetRentChargedToType.CompanyInternal =>
+                rent.ChargedToCompany?.Name ?? (rent.ChargedToCompanyId.HasValue ? Ui("شرکت #", "Company #") + rent.ChargedToCompanyId : Ui("داخلی شرکت", "Company Internal")),
+            AssetRentChargedToType.Partner =>
+                rent.ChargedToPartner?.Name ?? (rent.ChargedToPartnerId.HasValue ? Ui("شریک #", "Partner #") + rent.ChargedToPartnerId : Ui("شریک", "Partner")),
+            _ => rent.ChargedToServiceProvider?.Name ?? "-"
+        };
+
+    private static bool IsActiveOn(AssetOwnershipShare share, DateTime date)
+        => share.EffectiveFrom.Date <= date.Date
+           && (!share.EffectiveTo.HasValue || share.EffectiveTo.Value.Date >= date.Date);
+
+    private static bool DateRangesOverlap(DateTime aFrom, DateTime? aTo, DateTime bFrom, DateTime? bTo)
+    {
+        var aEnd = aTo?.Date ?? DateTime.MaxValue.Date;
+        var bEnd = bTo?.Date ?? DateTime.MaxValue.Date;
+        return aFrom.Date <= bEnd && bFrom.Date <= aEnd;
+    }
+
+    private static bool IsSameOwner(AssetOwnershipShare share, AssetOwnershipShareCreateViewModel model)
+        => share.OwnerType == model.OwnerType
+           && share.CompanyId == (model.OwnerType == AssetOwnerType.Company ? model.CompanyId : null)
+           && share.PartnerId == (model.OwnerType == AssetOwnerType.Partner ? model.PartnerId : null)
+           && string.Equals(share.OwnerName ?? "", model.OwnerName ?? "", StringComparison.OrdinalIgnoreCase);
+
+    private List<SelectListItem> EnumOptions<TEnum>(TEnum? selected = null)
+        where TEnum : struct, Enum
+        => Enum.GetValues<TEnum>()
+            .Select(value => new SelectListItem
+            {
+                Value = Convert.ToInt32(value).ToString(),
+                Text = value switch
+                {
+                    OperationalAssetType assetType => OperationalAssetLabels.AssetType(assetType, HttpContext),
+                    OperationalAssetOwnershipMode ownershipMode => OperationalAssetLabels.OwnershipMode(ownershipMode, HttpContext),
+                    AssetOwnerType ownerType => OperationalAssetLabels.OwnerType(ownerType, HttpContext),
+                    AssetRentUsageType usageType => OperationalAssetLabels.UsageType(usageType, HttpContext),
+                    AssetRentChargedToType chargedToType => OperationalAssetLabels.ChargedToType(chargedToType, HttpContext),
+                    _ => value.ToString()
+                },
+                Selected = selected.HasValue && EqualityComparer<TEnum>.Default.Equals(value, selected.Value)
+            })
+            .ToList();
+
+    private string Ui(string fa, string en) => UiText.T(HttpContext, fa, en);
+}

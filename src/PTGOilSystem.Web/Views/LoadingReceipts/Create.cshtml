@@ -1,0 +1,69 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingReceiptCreateViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت رسید بارگیری", "Create Loading Receipt");
+    ViewData["HideSectionTabs"] = true;
+    ViewData["ModalDesignSystemAssets"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    var hasLoadingSource = Model.LoadingRegisterId > 0;
+    var loadingOptions = ViewBag.LoadingReceiptSourceOptions as IReadOnlyList<SelectListItem> ?? Array.Empty<SelectListItem>();
+    var isPageModal = string.Equals(Context.Request.Query["modal"].ToString(), "1", StringComparison.Ordinal);
+    var modalViewData = new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData)
+    {
+        ["IsReceiptModal"] = isPageModal,
+        ["IsReceiptIframeModal"] = isPageModal,
+        ["CancelUrl"] = Model.ReturnUrl
+    };
+}
+
+@if (!hasLoadingSource)
+{
+    <div class="ak-form-page">
+        <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+                 model="@((ViewData["Title"]?.ToString() ?? "Create Loading Receipt", false,
+                           (string?)null, (string?)null, (string?)null, (string?)null,
+                           UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+                <form asp-action="Create" method="get" class="ak-form">
+                    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                    <section class="ak-form-section">
+                        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                                 model="@((UiText.T(Context, "انتخاب بارگیری", "Select loading"), (string?)UiText.T(Context, "بارگیری دارای مقدار باقی‌مانده را انتخاب کنید.", "Choose a loading with remaining quantity.")))" />
+                    <div class="ak-form-grid">
+                    <div class="ak-field ak-span-2">
+                        <label>@UiText.T(Context, "انتخاب بارگیری", "Select Loading")</label>
+                        <select name="loadingId" class="ak-input" required>
+                            <option value="">@UiText.T(Context, "بارگیری قابل رسید را انتخاب کنید", "Select a loading with remaining quantity")</option>
+                            @foreach (var option in loadingOptions)
+                            {
+                                <option value="@option.Value">@option.Text</option>
+                            }
+                        </select>
+                    </div>
+                    </div>
+                    </section>
+                    <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                             model="@((UiText.T(Context, "ادامه ثبت", "Continue"), (string?)Url.Action("Index") ?? "/LoadingReceipts", UiText.T(Context, "انصراف", "Cancel")))" />
+                </form>
+    </div>
+}
+else if (isPageModal)
+{
+    <div class="ak-form-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+        <partial name="_ReceiptCreateForm" model="Model" view-data="modalViewData" />
+    </div>
+}
+else
+{
+    <div class="ak-form-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+        <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+                 model="@((ViewData["Title"]?.ToString() ?? "Create Loading Receipt", false,
+                           (string?)null, (string?)null, (string?)null, (string?)null,
+                           UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", Model.ReturnUrl))" />
+        <partial name="_ReceiptCreateForm" model="Model" />
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

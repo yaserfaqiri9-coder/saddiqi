@@ -1,0 +1,479 @@
+@model PTGOilSystem.Web.Models.Shipments.ShipmentCreateViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت محموله / کشتی", "Create Shipment");
+    var vesselOptions = ViewBag.Vessels as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var locationOptions = ViewBag.Locations as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var purchaseContracts = (ViewBag.PurchaseContracts as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var allocationRows = Model.ContractAllocations.ToList();
+    var showShipmentAdvanced = Model.PrimaryContractId.HasValue || !string.IsNullOrWhiteSpace(Model.Notes);
+    while (allocationRows.Count > 2 && !allocationRows[^1].HasAnyValue)
+    {
+        allocationRows.RemoveAt(allocationRows.Count - 1);
+    }
+    while (allocationRows.Count < 2)
+    {
+        allocationRows.Add(new PTGOilSystem.Web.Models.Shipments.ShipmentContractAllocationInput());
+    }
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت محموله / کشتی", "Create Shipment"), false, (string?)null, (string?)null, (string?)null, (string?)null, UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", Url.Action("Index", "ShipmentPnl")))" />
+    <form asp-action="Create" method="post" class="ak-form-section ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div class="ak-section-body">
+            <div asp-validation-summary="All" class="alert alert-danger mb-3"></div>
+
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ShipmentCode" class="ak-label fw-semibold">@UiText.T(Context,"کد محموله / نام کشتی","Shipment code")</label>
+                    <input asp-for="ShipmentCode" class="ak-input" />
+                    <span asp-validation-for="ShipmentCode" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="VesselId" class="ak-label fw-semibold">@UiText.T(Context,"کشتی","Vessel")</label>
+                    <select asp-for="VesselId" asp-items="vesselOptions" class="ak-input">
+                        <option value="">@UiText.T(Context,"بدون رکورد کشتی","No vessel master record")</option>
+                    </select>
+                    <span asp-validation-for="VesselId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="QuantityMt" class="ak-label fw-semibold">@UiText.T(Context,"مقدار کل محموله MT","Total shipment quantity MT")</label>
+                    <input asp-for="QuantityMt" type="number" step="0.0001" min="0" class="ak-input text-end bg-light" placeholder="0.0000" data-shipment-total readonly aria-readonly="true" />
+                    <span asp-validation-for="QuantityMt" class="field-validation-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <details class="ak-advanced" open="@(showShipmentAdvanced ? "open" : null)">
+                        <summary class="ak-advanced-summary">
+                            <span><i class="bi bi-sliders" aria-hidden="true"></i>@UiText.T(Context,"جزئیات بیشتر (تاریخ، مبدا/مقصد، قرارداد اصلی، یادداشت)","More details (dates, origin/destination, primary contract, notes)")</span>
+                        </summary>
+                        <div class="ak-advanced-body ak-form-grid">
+                            <div class="ak-field">
+                                <label asp-for="DepartureDate" class="ak-label fw-semibold">@UiText.T(Context,"تاریخ حرکت","Departure date")</label>
+                                <input asp-for="DepartureDate" type="date" class="ak-input" />
+                                <span asp-validation-for="DepartureDate" class="field-validation-error"></span>
+                            </div>
+                            <div class="ak-field">
+                                <label asp-for="ArrivalDate" class="ak-label fw-semibold">@UiText.T(Context,"تاریخ رسیدن","Arrival date")</label>
+                                <input asp-for="ArrivalDate" type="date" class="ak-input" />
+                                <span asp-validation-for="ArrivalDate" class="field-validation-error"></span>
+                            </div>
+                            <div class="ak-field">
+                                <label asp-for="OriginLocationId" class="ak-label fw-semibold">@UiText.T(Context,"مبدا","Origin")</label>
+                                <select asp-for="OriginLocationId" asp-items="locationOptions" class="ak-input">
+                                    <option value="">@UiText.T(Context,"بدون مبدا","No origin")</option>
+                                </select>
+                                <span asp-validation-for="OriginLocationId" class="field-validation-error"></span>
+                            </div>
+                            <div class="ak-field">
+                                <label asp-for="DestinationLocationId" class="ak-label fw-semibold">@UiText.T(Context,"مقصد","Destination")</label>
+                                <select asp-for="DestinationLocationId" asp-items="locationOptions" class="ak-input">
+                                    <option value="">@UiText.T(Context,"بدون مقصد","No destination")</option>
+                                </select>
+                                <span asp-validation-for="DestinationLocationId" class="field-validation-error"></span>
+                            </div>
+                            <div class="ak-field">
+                                <label asp-for="PrimaryContractId" class="ak-label fw-semibold">@UiText.T(Context,"قرارداد اصلی","Primary contract")</label>
+                                <select asp-for="PrimaryContractId" class="ak-input">
+                                    <option value="">@UiText.T(Context,"اولین تخصیص به عنوان قرارداد اصلی استفاده شود","Use first allocation as primary")</option>
+                                    @foreach (var opt in purchaseContracts)
+                                    {
+                                        <option value="@opt.Value">@opt.Text</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="PrimaryContractId" class="field-validation-error"></span>
+                                <small class="text-muted">@UiText.T(Context,"این فیلد برای گزارش‌های قدیمی نگه داشته شده؛ منطق چندقراردادی از ردیف‌های تخصیص پایین استفاده می‌کند.","Kept for older reports; multi-contract logic uses the allocation rows below.")</small>
+                            </div>
+                            <div class="ak-field">
+                                <label asp-for="Notes" class="ak-label fw-semibold">@UiText.T(Context,"یادداشت","Notes")</label>
+                                <input asp-for="Notes" class="ak-input" placeholder="@UiText.T(Context,"مسیر، مقصد کشور ثالث، توضیحات سفر","Route, third-country destination, voyage notes")" />
+                                <span asp-validation-for="Notes" class="field-validation-error"></span>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                @{
+                    var contractOptionsHtml = new System.Text.StringBuilder();
+                    contractOptionsHtml.Append($"<option value=\"\">{UiText.T(Context, "انتخاب قرارداد خرید", "Select purchase contract")}</option>");
+                    foreach (var opt in purchaseContracts)
+                    {
+                        contractOptionsHtml.Append($"<option value=\"{opt.Value}\">{System.Net.WebUtility.HtmlEncode(opt.Text)}</option>");
+                    }
+                    var contractOptionsMarkup = contractOptionsHtml.ToString();
+                }
+
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle mb-0" data-allocation-table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>@UiText.T(Context,"قرارداد خرید","Purchase contract")</th>
+                                <th>@UiText.T(Context,"مخزن دارای موجودی","Tank with stock")</th>
+                                <th class="text-end">@UiText.T(Context,"مقدار تخصیص MT","Allocated quantity MT")</th>
+                                <th>@UiText.T(Context,"یادداشت","Notes")</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody data-allocation-body>
+                            @for (var i = 0; i < allocationRows.Count; i++)
+                            {
+                                var row = allocationRows[i];
+                                var selectedContract = row.ContractId.HasValue ? row.ContractId.Value.ToString() : null;
+                                var quantityValue = row.QuantityMt.HasValue ? row.QuantityMt.Value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "";
+
+                                <tr data-allocation-row>
+                                    <td class="text-muted" data-allocation-seq>@(i + 1)</td>
+                                    <td>
+                                        @Html.DropDownList($"ContractAllocations[{i}].ContractId", new SelectList(purchaseContracts, "Value", "Text", selectedContract), UiText.T(Context,"انتخاب قرارداد خرید","Select purchase contract"), new { @class = "ak-input ak-input", data_contract_select = "" })
+                                        @Html.ValidationMessage($"ContractAllocations[{i}].ContractId", null, new { @class = "field-validation-error" })
+                                    </td>
+                                    <td>
+                                        <select name="ContractAllocations[@i].StorageTankId" class="ak-input" data-tank-select required disabled>
+                                            <option value="">@UiText.T(Context,"ابتدا قرارداد را انتخاب کنید","Select contract first")</option>
+                                        </select>
+                                        <div class="alert alert-info py-1 px-2 mt-1 mb-0 small" data-tank-status hidden></div>
+                                    </td>
+                                    <td>
+                                        <input name="ContractAllocations[@i].QuantityMt" value="@quantityValue" type="number" step="0.0001" min="0" class="ak-input text-end" data-alloc-qty disabled />
+                                        @Html.ValidationMessage($"ContractAllocations[{i}].QuantityMt", null, new { @class = "field-validation-error" })
+                                    </td>
+                                    <td>
+                                        <input name="ContractAllocations[@i].Notes" value="@row.Notes" maxlength="500" class="ak-input" placeholder="@UiText.T(Context,"یادداشت اختیاری","Optional note")" />
+                                        @Html.ValidationMessage($"ContractAllocations[{i}].Notes", null, new { @class = "field-validation-error" })
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm ak-text-action text-danger p-0" data-allocation-remove title="@UiText.T(Context,"حذف ردیف","Remove row")" aria-label="@UiText.T(Context,"حذف ردیف","Remove row")">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-light ak-secondary-action" data-allocation-add>
+                        <i class="bi bi-plus-lg me-1"></i>@UiText.T(Context,"افزودن قرارداد","Add contract")
+                    </button>
+                </div>
+
+                <template id="allocation-row-template">
+                    <tr data-allocation-row>
+                        <td class="text-muted" data-allocation-seq></td>
+                        <td>
+                            <select name="ContractAllocations[__index__].ContractId" class="ak-input" data-contract-select>@Html.Raw(contractOptionsMarkup)</select>
+                        </td>
+                        <td>
+                            <select name="ContractAllocations[__index__].StorageTankId" class="ak-input" data-tank-select required disabled>
+                                <option value="">@UiText.T(Context,"ابتدا قرارداد را انتخاب کنید","Select contract first")</option>
+                            </select>
+                            <div class="alert alert-info py-1 px-2 mt-1 mb-0 small" data-tank-status hidden></div>
+                        </td>
+                        <td>
+                            <input name="ContractAllocations[__index__].QuantityMt" value="" type="number" step="0.0001" min="0" class="ak-input text-end" data-alloc-qty disabled />
+                        </td>
+                        <td>
+                            <input name="ContractAllocations[__index__].Notes" value="" maxlength="500" class="ak-input" placeholder="@UiText.T(Context,"یادداشت اختیاری","Optional note")" />
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm ak-text-action text-danger p-0" data-allocation-remove title="@UiText.T(Context,"حذف ردیف","Remove row")" aria-label="@UiText.T(Context,"حذف ردیف","Remove row")">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+
+            </div>
+        </div>
+
+        <div class="ak-summary ak-note mx-3 mb-2" data-save-summary>
+            <i class="bi bi-clipboard-check"></i>
+            <div>
+                <strong>@UiText.T(Context, "بررسی قبل از ثبت", "Before saving")</strong>
+                <div class="d-flex flex-wrap gap-3 mt-1 small">
+                    <span>@UiText.T(Context,"مقدار کل محموله:","Total:") <strong data-sum-total>0.0000</strong> MT</span>
+                    <span>@UiText.T(Context,"تعداد قراردادها:","Contracts:") <strong data-sum-count>0</strong></span>
+                    <span data-sum-status class="badge text-bg-secondary">@UiText.T(Context,"در حال تکمیل","Filling")</span>
+                </div>
+                <div class="text-muted small mt-1">@UiText.T(Context, "مقدار کل از جمع مقادیر واردشده برای قراردادها محاسبه می‌شود.", "The total is calculated from the quantities entered for the contracts.")</div>
+            </div>
+        </div>
+
+        <div class="ak-footer-actions d-flex justify-content-end gap-2">
+            <a asp-controller="ShipmentPnl" asp-action="Index" class="btn btn-light ak-secondary-action">@UiText.T(Context,"لغو","Cancel")</a>
+            <button type="submit" class="btn btn-primary ak-primary-action">@UiText.T(Context,"ثبت محموله","Create Shipment")</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const table = document.querySelector('[data-allocation-table]');
+            const body = document.querySelector('[data-allocation-body]');
+            const template = document.getElementById('allocation-row-template');
+            const addButton = document.querySelector('[data-allocation-add]');
+            const totalInput = document.querySelector('[data-shipment-total]');
+            const form = table?.closest('form');
+            const elTotal = document.querySelector('[data-sum-total]');
+            const elCount = document.querySelector('[data-sum-count]');
+            const elStatus = document.querySelector('[data-sum-status]');
+            if (!table || !body || !template || !addButton || !totalInput || !form) {
+                return;
+            }
+
+            const endpoint = '@Url.Action("TankAvailability", "Shipments")';
+            const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                selectContract = UiText.T(Context, "ابتدا قرارداد را انتخاب کنید", "Select contract first"),
+                loading = UiText.T(Context, "در حال دریافت مخازن...", "Loading tanks..."),
+                selectTank = UiText.T(Context, "انتخاب مخزن", "Select tank"),
+                noStock = UiText.T(Context, "برای این قرارداد موجودی مخزن نیست", "No tank stock for this contract"),
+                loadError = UiText.T(Context, "دریافت موجودی ناموفق بود؛ قرارداد را دوباره انتخاب کنید.", "Could not load stock; select the contract again."),
+                available = UiText.T(Context, "موجودی قابل تخصیص", "Available stock"),
+                ready = UiText.T(Context, "آماده ثبت", "Ready"),
+                incomplete = UiText.T(Context, "قرارداد، مخزن و مقدار را تکمیل کنید", "Complete contract, tank and quantity")
+            }));
+            const seed = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                allocationRows
+                    .Where(a => a.ContractId.HasValue && a.StorageTankId.HasValue)
+                    .Select(a => new { contractId = a.ContractId!.Value, storageTankId = a.StorageTankId!.Value })
+                    .Concat(Model.TankPicks
+                        .Where(p => p.HasQuantity)
+                        .Select(p => new { contractId = p.ContractId, storageTankId = p.StorageTankId }))));
+            const seededTankByContract = {};
+            seed.forEach(function (item) {
+                if (!seededTankByContract[item.contractId]) {
+                    seededTankByContract[item.contractId] = item.storageTankId;
+                }
+            });
+
+            function formatQuantity(value) {
+                return (Number(value) || 0).toFixed(4);
+            }
+
+            function reindex() {
+                const rows = body.querySelectorAll('[data-allocation-row]');
+                rows.forEach((row, i) => {
+                    const seq = row.querySelector('[data-allocation-seq]');
+                    if (seq) {
+                        seq.textContent = (i + 1).toString();
+                    }
+                    row.querySelectorAll('[name]').forEach(field => {
+                        field.name = field.name.replace(/ContractAllocations\[\d+\]/, 'ContractAllocations[' + i + ']');
+                    });
+                });
+            }
+
+            function refreshSummary() {
+                let total = 0;
+                let count = 0;
+                body.querySelectorAll('[data-allocation-row]').forEach(function (row) {
+                    const contractId = row.querySelector('[data-contract-select]')?.value;
+                    const tankId = row.querySelector('[data-tank-select]')?.value;
+                    const quantity = Number(row.querySelector('[data-alloc-qty]')?.value || 0);
+                    if (contractId && tankId && quantity > 0) {
+                        total += quantity;
+                        count += 1;
+                    }
+                });
+
+                totalInput.value = formatQuantity(total);
+                if (elTotal) { elTotal.textContent = formatQuantity(total); }
+                if (elCount) { elCount.textContent = count.toString(); }
+                if (elStatus) {
+                    const ready = total > 0 && count > 0;
+                    elStatus.textContent = ready ? labels.ready : labels.incomplete;
+                    elStatus.classList.toggle('text-bg-success', ready);
+                    elStatus.classList.toggle('text-bg-warning', !ready);
+                    elStatus.classList.remove('text-bg-secondary');
+                }
+            }
+
+            function setSingleOption(select, value, text) {
+                select.replaceChildren(new Option(text, value));
+            }
+
+            function showTankStatus(status, message, level) {
+                if (!status) { return; }
+                status.textContent = message || '';
+                status.hidden = !message;
+                status.classList.remove('alert-info', 'alert-warning', 'alert-danger');
+                status.classList.add('alert-' + (level || 'info'));
+            }
+
+            function resetTank(row, clearQuantity) {
+                const tankSelect = row.querySelector('[data-tank-select]');
+                const quantityInput = row.querySelector('[data-alloc-qty]');
+                const status = row.querySelector('[data-tank-status]');
+                if (!tankSelect || !quantityInput) { return; }
+
+                setSingleOption(tankSelect, '', labels.selectContract);
+                tankSelect.disabled = true;
+                quantityInput.disabled = true;
+                quantityInput.removeAttribute('max');
+                if (clearQuantity !== false) { quantityInput.value = ''; }
+                showTankStatus(status, '', 'info');
+            }
+
+            function showTankAvailability(row) {
+                const tankSelect = row.querySelector('[data-tank-select]');
+                const quantityInput = row.querySelector('[data-alloc-qty]');
+                const status = row.querySelector('[data-tank-status]');
+                const selected = tankSelect?.selectedOptions[0];
+                const quantity = Number(selected?.dataset.available || 0);
+
+                if (quantityInput) {
+                    if (tankSelect?.value && quantity > 0) {
+                        quantityInput.disabled = false;
+                        quantityInput.max = formatQuantity(quantity);
+                    } else {
+                        quantityInput.disabled = true;
+                        quantityInput.removeAttribute('max');
+                    }
+                }
+                showTankStatus(
+                    status,
+                    tankSelect?.value && quantity > 0
+                        ? labels.available + ': ' + formatQuantity(quantity) + ' MT'
+                        : '',
+                    'info');
+                refreshSummary();
+            }
+
+            async function loadTanks(row, preferredTankId, preserveQuantity) {
+                const contractSelect = row.querySelector('[data-contract-select]');
+                const tankSelect = row.querySelector('[data-tank-select]');
+                const status = row.querySelector('[data-tank-status]');
+                const contractId = contractSelect?.value;
+                resetTank(row, !preserveQuantity);
+                refreshSummary();
+
+                if (!contractId || !tankSelect) { return; }
+
+                const requestId = (Number(row.dataset.tankRequestId || 0) + 1).toString();
+                row.dataset.tankRequestId = requestId;
+                setSingleOption(tankSelect, '', labels.loading);
+                showTankStatus(status, labels.loading, 'info');
+
+                try {
+                    const response = await fetch(endpoint + '?contractId=' + encodeURIComponent(contractId), {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (!response.ok) { throw new Error('stock request failed'); }
+
+                    const data = await response.json();
+                    if (row.dataset.tankRequestId !== requestId || contractSelect.value !== contractId) { return; }
+
+                    const tanks = (data.tanks || []).filter(function (tank) {
+                        return Number(tank.availableQuantityMt || 0) > 0;
+                    });
+                    tankSelect.replaceChildren(new Option(tanks.length ? labels.selectTank : labels.noStock, ''));
+
+                    tanks.forEach(function (tank) {
+                        const text = (tank.tankCode || ('#' + tank.storageTankId))
+                            + (tank.terminalName ? ' — ' + tank.terminalName : '');
+                        const option = new Option(text, tank.storageTankId.toString());
+                        option.dataset.available = tank.availableQuantityMt;
+                        tankSelect.add(option);
+                    });
+
+                    tankSelect.disabled = tanks.length === 0;
+                    showTankStatus(status, tanks.length ? '' : labels.noStock, 'warning');
+
+                    const preferred = preferredTankId ? preferredTankId.toString() : '';
+                    if (preferred && tanks.some(t => t.storageTankId.toString() === preferred)) {
+                        tankSelect.value = preferred;
+                    } else if (tanks.length === 1) {
+                        tankSelect.value = tanks[0].storageTankId.toString();
+                    }
+                    if (tankSelect.value) {
+                        showTankAvailability(row);
+                    } else {
+                        refreshSummary();
+                    }
+                } catch (error) {
+                    if (row.dataset.tankRequestId !== requestId) { return; }
+                    setSingleOption(tankSelect, '', labels.loadError);
+                    tankSelect.disabled = true;
+                    showTankStatus(status, labels.loadError, 'danger');
+                    refreshSummary();
+                }
+            }
+
+            function addRow() {
+                const fragment = template.content.cloneNode(true);
+                const index = body.querySelectorAll('[data-allocation-row]').length;
+                fragment.querySelectorAll('[name]').forEach(field => {
+                    field.name = field.name.replace('__index__', index);
+                });
+                body.appendChild(fragment);
+                reindex();
+                refreshSummary();
+            }
+
+            addButton.addEventListener('click', addRow);
+
+            body.addEventListener('change', function (event) {
+                const row = event.target.closest('[data-allocation-row]');
+                if (!row) { return; }
+                if (event.target.matches('[data-contract-select]')) {
+                    loadTanks(row, null);
+                } else if (event.target.matches('[data-tank-select]')) {
+                    showTankAvailability(row);
+                }
+            });
+
+            body.addEventListener('input', function (event) {
+                if (event.target.matches('[data-alloc-qty]')) {
+                    refreshSummary();
+                }
+            });
+
+            body.addEventListener('click', event => {
+                const removeButton = event.target.closest('[data-allocation-remove]');
+                if (!removeButton) {
+                    return;
+                }
+                const rows = body.querySelectorAll('[data-allocation-row]');
+                // همیشه حداقل یک ردیف باقی بماند؛ آخرین ردیف به‌جای حذف، پاک می‌شود.
+                if (rows.length <= 1) {
+                    const row = removeButton.closest('[data-allocation-row]');
+                    if (row) {
+                        row.querySelectorAll('input:not([readonly])').forEach(input => { input.value = ''; });
+                        const contractSelect = row.querySelector('[data-contract-select]');
+                        if (contractSelect) { contractSelect.selectedIndex = 0; }
+                        resetTank(row);
+                    }
+                    refreshSummary();
+                    return;
+                }
+                removeButton.closest('[data-allocation-row]')?.remove();
+                reindex();
+                refreshSummary();
+            });
+
+            form.addEventListener('submit', function () {
+                reindex();
+                refreshSummary();
+            });
+
+            body.querySelectorAll('[data-allocation-row]').forEach(function (row) {
+                const contractId = row.querySelector('[data-contract-select]')?.value;
+                if (contractId) {
+                    loadTanks(row, seededTankByContract[contractId], true);
+                }
+            });
+            refreshSummary();
+        })();
+    </script>
+}

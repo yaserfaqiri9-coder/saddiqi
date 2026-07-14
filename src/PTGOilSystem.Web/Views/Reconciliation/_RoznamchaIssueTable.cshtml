@@ -1,0 +1,52 @@
+@model IReadOnlyList<PTGOilSystem.Web.Models.Reconciliation.RoznamchaReconciliationItemViewModel>
+
+<div class="ak-table-wrap">
+    <table class="ak-table">
+        <thead>
+            <tr>
+                <th>تاریخ</th>
+                <th>سند</th>
+                <th>نوع</th>
+                <th class="ak-col-grow">طرف حساب</th>
+                <th>حساب</th>
+                <th class="ak-col-num">USD</th>
+                <th>Ledger</th>
+                <th>Issue</th>
+                <th>وضعیت</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model)
+        {
+            <tr>
+                <td>@row.PaymentDate.ToDisplayDate()</td>
+                <td><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.PaymentTransactionId">@(row.Reference ?? $"#{row.PaymentTransactionId}")</a></td>
+                <td>@row.PaymentKindName</td>
+                <td class="ak-col-grow">@(row.CounterpartyName ?? "—")</td>
+                <td>@(row.CashAccountName ?? "—")</td>
+                <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                <td>
+                    @if (row.LedgerEntryId.HasValue)
+                    {
+                        <a asp-controller="Ledger" asp-action="Details" asp-route-id="@row.LedgerEntryId.Value">#@row.LedgerEntryId</a>
+                        @if (row.LedgerAmountUsd.HasValue)
+                        {
+                            <div class="ak-note">@row.LedgerAmountUsd.Value.ToString("N2")</div>
+                        }
+                    }
+                    else
+                    {
+                        <span>—</span>
+                    }
+                </td>
+                <td>@row.Issue</td>
+                <td><span class="ak-status @(row.Status =="Warning" ? "" : "is-inactive")">@row.Status</span></td>
+            </tr>
+        }
+        @if (!Model.Any())
+        {
+            <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-check2-circle"></i> موردی پیدا نشد.</div></td></tr>
+        }
+        </tbody>
+    </table>
+</div>

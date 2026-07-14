@@ -1,0 +1,430 @@
+@model PTGOilSystem.Web.Models.Dispatch.DispatchUnloadViewModel
+@{
+    ViewData["Title"] = "ثبت تخلیه موتر";
+    ViewData["ContentBodyClass"] = "boltz-content-body-fluid";
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var backUrl = hasLocalReturnUrl
+        ? Model.ReturnUrl!
+        : (Url.Action("Details", "Dispatch", new { id = Model.TruckDispatchId }) ?? "/Dispatch");
+    var listUrl = Url.Action("Index", "Dispatch") ?? "/Dispatch";
+    var driverName = string.IsNullOrWhiteSpace(Model.DriverName) ? "—" : Model.DriverName;
+    var productName = string.IsNullOrWhiteSpace(Model.ProductName) ? "—" : Model.ProductName;
+    var sourceTerminal = string.IsNullOrWhiteSpace(Model.SourceTerminalName) ? "—" : Model.SourceTerminalName;
+    var sourceTank = string.IsNullOrWhiteSpace(Model.SourceStorageTankCode) ? "—" : Model.SourceStorageTankCode;
+    var destinationName = string.IsNullOrWhiteSpace(Model.DestinationName) ? "—" : Model.DestinationName;
+    var contractNumber = string.IsNullOrWhiteSpace(Model.ContractNumber) ? "—" : Model.ContractNumber;
+    var freightOpen = (Model.FreightCostUsd ?? 0m) > 0m
+        || Model.ServiceProviderId.HasValue
+        || Model.OperationalAssetId.HasValue;
+    var shortageOpen = (Model.AllowanceMt ?? 0m) > 0m
+        || (Model.ShortageRateUsd ?? 0m) > 0m;
+    string DecimalInput(decimal? value) => (value ?? 0m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+    var unloadUrl = Url.Action("Unload", "Dispatch", new { id = Model.TruckDispatchId }) ?? "";
+    var saleUrl = Url.Action("CreateSaleFromDirectDispatch", "Dispatch") ?? "";
+    var loadedQtyInput = Model.LoadedQuantityMt.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="page-stack  ak-form-page itr-unload-page is-to-inventory"
+     dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+    <form asp-action="Unload"
+          asp-route-id="@Model.TruckDispatchId"
+          method="post"
+          class="ak-form"
+          data-unload-form
+          data-unload-url="@unloadUrl"
+          data-sale-url="@saleUrl"
+          data-loaded-quantity="@Model.LoadedQuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+        @Html.AntiForgeryToken()
+        <input asp-for="TruckDispatchId" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <header class="ak-page-header">
+            <div class="ak-page-header-main">
+                <span class="ak-page-icon" aria-hidden="true">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                </span>
+                <div class="ak-section-desc">
+                    <strong>@T("ثبت تخلیه یا فروش موتر", "Register truck unload or sale")</strong>
+                </div>
+            </div>
+            <div class="ak-page-actions">
+                <a href="@backUrl" class="ak-secondary-action" aria-label="@T("بازگشت", "Back")" title="@T("بازگشت", "Back")">
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    <span>@T("بازگشت", "Back")</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="ak-section-body">
+
+            <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+            <section class="ak-summary" aria-label="@T("خلاصه ارسال", "Dispatch summary")">
+                <article class="ak-field is-primary">
+                    <span>@T("بارگیری‌شده", "Loaded")</span>
+                    <strong>@NumberDisplay.Quantity(Model.LoadedQuantityMt) @T("تن", "MT")</strong>
+                </article>
+                <article class="ak-field">
+                    <span>@T("جنس", "Product")</span>
+                    <strong>@productName</strong>
+                </article>
+                <article class="ak-field">
+                    <span>@T("موتر", "Truck")</span>
+                    <strong>@Model.TruckPlateNumber</strong>
+                </article>
+            </section>
+
+            <div class="ak-form-grid">
+                <section class="ak-form-section is-summary-meta">
+                    <h2>@T("۱. مشخصات ارسال", "1. Dispatch details")</h2>
+                    <div class="ak-field">
+                        <label>@T("شماره ارسال", "Dispatch number")</label>
+                        <div class="ak-note">#@Model.TruckDispatchId</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("راننده", "Driver")</label>
+                        <div class="ak-note">@driverName</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("قرارداد", "Contract")</label>
+                        <div class="ak-note">@contractNumber</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("منبع", "Source")</label>
+                        <div class="ak-note">@sourceTerminal</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("مخزن منبع", "Source tank")</label>
+                        <div class="ak-note">@sourceTank</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("مقصد ثبت‌شده", "Recorded destination")</label>
+                        <div class="ak-note">@destinationName</div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("تاریخ حرکت", "Dispatch date")</label>
+                        <div class="ak-note">@Model.DispatchDate.ToDisplayDate()</div>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ReceiptDate">@T("تاریخ تخلیه", "Unload date") <b>*</b></label>
+                        <input asp-for="ReceiptDate" type="date" class="ak-input" />
+                        <span asp-validation-for="ReceiptDate" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-note">
+                        <i class="bi bi-info-circle"></i>
+                        <span>@T("وزن تخلیه = مقدار رسیده در مقصد؛ کسری = بارگیری − تخلیه", "Unload weight = received at destination; shortage = loaded − unloaded")</span>
+                    </div>
+                </section>
+
+                <section class="ak-form-section is-wide">
+                    <h2>@T("۲. مقصد بار موتر", "2. Truck load destination")</h2>
+                    <div class="ak-field">
+                        <label>@T("این بار چه می‌شود؟", "What happens to this load?") <b>*</b></label>
+                        <select class="ak-input" data-receipt-destination>
+                            <option value="to-inventory" selected>@T("تخلیه به مخزن", "Unload to tank")</option>
+                            <option value="direct-sale">@T("فروش مستقیم", "Direct sale")</option>
+                        </select>
+                    </div>
+                    <div class="ak-note">
+                        <i class="bi bi-info-circle"></i>
+                        <span>@T("اول مقدار تخلیه، کسری و کرایه را مشخص کن؛ بعد انتخاب کن به مخزن تخلیه شود یا فروخته شود.", "First set unload quantity, shortage and freight; then choose to unload to tank or sell.")</span>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-to-inventory-fields>
+                    <h2>@T("۳. اطلاعات تخلیه", "3. Unload information")</h2>
+                    <div class="ak-field">
+                        <label asp-for="DestinationTerminalId">@T("ترمینال مقصد", "Destination terminal") <b>*</b></label>
+                        <select asp-for="DestinationTerminalId" asp-items="ViewBag.DestinationTerminals" class="ak-input">
+                            <option value="">@T("انتخاب ترمینال مقصد", "Select destination terminal")</option>
+                        </select>
+                        <span asp-validation-for="DestinationTerminalId" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="DestinationStorageTankId">@T("مخزن مقصد", "Destination tank")</label>
+                        <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input">
+                            <option value="">@T("بدون مخزن مشخص", "No specific tank")</option>
+                        </select>
+                        <span asp-validation-for="DestinationStorageTankId" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="DischargedQuantityMt">@T("وزن تخلیه", "Unload weight") <b>*</b></label>
+                        <div class="ak-input-unit">
+                            <input asp-for="DischargedQuantityMt" id="DischargedQuantityMt" type="number" step="0.0001" min="0" class="ak-input" />
+                            <span>MT</span>
+                        </div>
+                        <span asp-validation-for="DischargedQuantityMt" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ShortageMt">@T("کسری", "Shortage")</label>
+                        <div class="ak-input-unit">
+                            <input asp-for="ShortageMt" id="ShortageMt" type="number" step="0.0001" class="ak-input" readonly />
+                            <span>MT</span>
+                        </div>
+                        <span asp-validation-for="ShortageMt" class="field-validation-error"></span>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-optional-section data-to-inventory-fields>
+                    <label class="ak-advanced-summary">
+                        <span class="rt-left">
+                            <input type="checkbox" data-optional-toggle="freight" @(freightOpen ? "checked" : null) />
+                            <strong>@T("ثبت کرایه", "Register freight")</strong>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </label>
+                    <div class="ak-advanced-body" data-optional-body="freight" @(freightOpen ? null : "hidden")>
+                        <div class="ak-field">
+                            <label asp-for="FreightCostUsd">@T("کرایه ناخالص", "Gross freight")</label>
+                            <div class="ak-input-unit"><input asp-for="FreightCostUsd" id="FreightCostUsd" type="number" step="0.0001" min="0" class="ak-input" /><span>USD</span></div>
+                            <span asp-validation-for="FreightCostUsd" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ServiceProviderId">@T("شرکت خدماتی بیرونی", "External service provider")</label>
+                            <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input">
+                                <option value="">@T("بدون شرکت خدماتی", "No service provider")</option>
+                            </select>
+                            <span asp-validation-for="ServiceProviderId" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="OperationalAssetId">@T("دارایی عملیاتی شرکت", "Operational asset")</label>
+                            <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input">
+                                <option value="">@T("بدون دارایی عملیاتی", "No operational asset")</option>
+                            </select>
+                            <span asp-validation-for="OperationalAssetId" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-optional-section data-to-inventory-fields>
+                    <label class="ak-advanced-summary">
+                        <span class="rt-left">
+                            <input type="checkbox" data-optional-toggle="shortage" @(shortageOpen ? "checked" : null) />
+                            <strong>@T("ثبت کمبودی قابل مجرا", "Register chargeable shortage")</strong>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </label>
+                    <div class="ak-advanced-body" data-optional-body="shortage" @(shortageOpen ? null : "hidden")>
+                        <div class="ak-field">
+                            <label asp-for="AllowanceMt">@T("حواکت / تلورانس مجاز", "Allowed tolerance")</label>
+                            <div class="ak-input-unit"><input asp-for="AllowanceMt" id="AllowanceMt" type="number" step="0.0001" min="0" class="ak-input" /><span>MT</span></div>
+                            <span asp-validation-for="AllowanceMt" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ChargeableShortageMt">@T("کسری قابل مجرا", "Chargeable shortage")</label>
+                            <div class="ak-input-unit"><input asp-for="ChargeableShortageMt" id="ChargeableShortageMt" type="number" step="0.0001" class="ak-input" readonly /><span>MT</span></div>
+                            <span asp-validation-for="ChargeableShortageMt" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageRateUsd">@T("نرخ کسری", "Shortage rate")</label>
+                            <div class="ak-input-unit"><input asp-for="ShortageRateUsd" id="ShortageRateUsd" type="number" step="0.0001" min="0" class="ak-input" /><span>USD/MT</span></div>
+                            <span asp-validation-for="ShortageRateUsd" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DriverShortageChargeUsd">@T("پول مجرا / قابل پرداخت راننده", "Driver shortage charge")</label>
+                            <div class="ak-input-unit"><input asp-for="DriverShortageChargeUsd" id="DriverShortageChargeUsd" type="number" step="0.0001" class="ak-input" readonly /><span>USD</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section is-wide is-docs" data-direct-sale-fields hidden>
+                    <h2>@T("اطلاعات فروش مستقیم", "Direct sale information")</h2>
+                    <div class="ak-field">
+                        <label>@T("مشتری", "Customer") <b>*</b></label>
+                        <select name="CustomerId" class="ak-input" asp-items="ViewBag.Customers" disabled>
+                            <option value="">@T("انتخاب مشتری", "Select customer")</option>
+                        </select>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("شماره فاکتور", "Invoice number") <b>*</b></label>
+                        <input name="InvoiceNumber" class="ak-input" disabled />
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("تاریخ فروش", "Sale date") <b>*</b></label>
+                        <input name="SaleDate" type="date" value="@DateTime.UtcNow.Date.ToString("yyyy-MM-dd")" class="ak-input" disabled />
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("مقدار فروش", "Sale quantity") <b>*</b></label>
+                        <div class="ak-input-unit"><input name="QuantityMt" type="number" step="0.0001" value="@loadedQtyInput" class="ak-input" data-sale-quantity readonly disabled /><span>MT</span></div>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("واحد پول", "Currency") <b>*</b></label>
+                        <select name="Currency" class="ak-input" asp-items="ViewBag.Currencies" data-sale-currency disabled></select>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("قیمت واحد", "Unit price") <b>*</b></label>
+                        <input name="UnitPriceInCurrency" type="number" step="0.0001" min="0" class="ak-input" disabled />
+                    </div>
+                    <div class="ak-field" data-sale-fx-field hidden>
+                        <label>@T("نرخ تبدیل به USD", "FX rate to USD")</label>
+                        <input name="AppliedFxRateToUsd" type="number" step="0.000001" min="0" class="ak-input" disabled />
+                    </div>
+                    <div class="ak-note">
+                        <i class="bi bi-info-circle"></i>
+                        <span>@T("فروش کل بار موتر ثبت می‌شود؛ موجودی دوباره کم نمی‌شود (هنگام بارگیری کم شده).", "Sells the full truck load; inventory is not deducted again (already deducted at loading).")</span>
+                    </div>
+                </section>
+
+                <section class="ak-form-section is-wide is-docs">
+                    <h2>@T("۴. سند و یادداشت", "4. Document & notes")</h2>
+                    <div class="ak-field">
+                        <label asp-for="ReceivedBy">@T("تحویل‌گیرنده", "Received by")</label>
+                        <input asp-for="ReceivedBy" class="ak-input" />
+                        <span asp-validation-for="ReceivedBy" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="DocumentReference">@T("مرجع سند / تکت تخلیه", "Document / ticket ref")</label>
+                        <input asp-for="DocumentReference" class="ak-input" />
+                        <span asp-validation-for="DocumentReference" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field is-full">
+                        <label asp-for="Notes">@T("یادداشت", "Notes")</label>
+                        <textarea asp-for="Notes" rows="3" class="ak-input"></textarea>
+                        <span asp-validation-for="Notes" class="field-validation-error"></span>
+                    </div>
+                </section>
+            </div>
+
+            <section class="ak-form-section ak-summary" data-to-inventory-fields>
+                <h2>@T("نتیجه تخلیه", "Unload result")</h2>
+                <div class="ak-form-grid">
+                    <div>
+                        <span>@T("کرایه ناخالص", "Gross freight")</span>
+                        <strong class="is-blue"><b data-preview-freight>@DecimalInput(Model.FreightCostUsd)</b> USD</strong>
+                    </div>
+                    <div>
+                        <span>@T("کسری", "Shortage")</span>
+                        <strong><b data-preview-shortage>@NumberDisplay.Quantity(Model.ShortageMt ?? 0m)</b> MT</strong>
+                    </div>
+                    <div>
+                        <span>@T("مجرای کمبودی", "Shortage deduction")</span>
+                        <strong><b data-preview-deduction>@DecimalInput(Model.DriverShortageChargeUsd)</b> USD</strong>
+                    </div>
+                    <div>
+                        <span>@T("کرایه پرداختی", "Payable freight")</span>
+                        <strong><b data-preview-payable>@DecimalInput(Model.FreightPayableUsd)</b> USD</strong>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="ak-footer-actions no-print">
+                <button type="submit" class="btn ak-primary-action" data-submit-btn
+                        data-label-unload="@T("ثبت تخلیه موتر", "Save unload")"
+                        data-label-sale="@T("ثبت فروش موتر", "Save sale")">@T("ثبت تخلیه موتر", "Save unload")</button>
+                <a href="@listUrl" class="btn ak-secondary-action is-neutral">@T("برگشت به لیست", "Back to list")</a>
+                <a href="@backUrl" class="btn ak-secondary-action is-neutral">@T("انصراف", "Cancel")</a>
+            </footer>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var form = document.querySelector('[data-unload-form]');
+            if (!form) return;
+            var loaded = parseFloat(form.dataset.loadedQuantity || '0') || 0;
+            var unloadUrl = form.dataset.unloadUrl || form.getAttribute('action');
+            var saleUrl = form.dataset.saleUrl || '';
+            var destSelect = document.querySelector('[data-receipt-destination]');
+            var toInventoryGroups = [].slice.call(document.querySelectorAll('[data-to-inventory-fields]'));
+            var saleGroups = [].slice.call(document.querySelectorAll('[data-direct-sale-fields]'));
+            var submitBtn = document.querySelector('[data-submit-btn]');
+            var saleCurrency = document.querySelector('[data-sale-currency]');
+            var saleFxField = document.querySelector('[data-sale-fx-field]');
+            function isSale() { return !!(destSelect && destSelect.value === 'direct-sale'); }
+            function field(id) { return document.getElementById(id); }
+            function value(id) {
+                var raw = field(id)?.value;
+                return raw === undefined || raw === null || raw === '' ? 0 : (parseFloat(raw) || 0);
+            }
+            function setValue(id, number) {
+                var el = field(id);
+                if (!el) return;
+                el.value = number > 0 ? number.toFixed(4) : '0.0000';
+            }
+            function setGroup(nodes, visible) {
+                nodes.forEach(function (node) {
+                    node.hidden = !visible;
+                    node.querySelectorAll('input, select, textarea').forEach(function (input) {
+                        if (input.type !== 'hidden') input.disabled = !visible;
+                    });
+                });
+            }
+            var previewFreight = document.querySelector('[data-preview-freight]');
+            var previewShortage = document.querySelector('[data-preview-shortage]');
+            var previewDeduction = document.querySelector('[data-preview-deduction]');
+            var previewPayable = document.querySelector('[data-preview-payable]');
+            function fmt(n) {
+                return new Intl.NumberFormat('fa-AF', { maximumFractionDigits: 4 }).format(Number.isFinite(n) ? n : 0);
+            }
+            function calculate() {
+                var discharged = value('DischargedQuantityMt');
+                var allowance = value('AllowanceMt');
+                var freight = value('FreightCostUsd');
+                var rate = value('ShortageRateUsd');
+                var shortage = Math.max(0, loaded - discharged);
+                var chargeable = Math.max(0, shortage - allowance);
+                var charge = chargeable * rate;
+                var freightPayable = freight > 0 ? freight - charge : 0;
+                setValue('ShortageMt', shortage);
+                setValue('ChargeableShortageMt', chargeable);
+                setValue('DriverShortageChargeUsd', charge);
+                setValue('FreightPayableUsd', freightPayable);
+                if (previewFreight) previewFreight.textContent = fmt(freight);
+                if (previewShortage) previewShortage.textContent = fmt(shortage);
+                if (previewDeduction) previewDeduction.textContent = fmt(charge);
+                if (previewPayable) previewPayable.textContent = fmt(freightPayable);
+            }
+            ['DischargedQuantityMt', 'AllowanceMt', 'FreightCostUsd', 'ShortageRateUsd'].forEach(function (id) {
+                var el = field(id);
+                if (el) el.addEventListener('input', calculate);
+            });
+
+            var optionalSections = [].slice.call(document.querySelectorAll('[data-optional-section]'));
+            function refreshOptionalSections() {
+                optionalSections.forEach(function (section) {
+                    var checkbox = section.querySelector('[data-optional-toggle]');
+                    var body = section.querySelector('[data-optional-body]');
+                    var open = Boolean(checkbox && checkbox.checked) && !isSale();
+                    section.classList.toggle('is-open', open);
+                    if (body) {
+                        body.hidden = !open;
+                        body.querySelectorAll('input, select, textarea').forEach(function (input) {
+                            if (input.type !== 'hidden') input.disabled = !open;
+                        });
+                    }
+                });
+                calculate();
+            }
+            document.querySelectorAll('[data-optional-toggle]').forEach(function (cb) {
+                cb.addEventListener('change', refreshOptionalSections);
+            });
+
+            function refreshSaleFx() {
+                if (!saleFxField) return;
+                var cur = ((saleCurrency && saleCurrency.value) || 'USD').toUpperCase();
+                var show = isSale() && cur !== 'USD';
+                saleFxField.hidden = !show;
+                saleFxField.querySelectorAll('input').forEach(function (i) { i.disabled = !show; });
+            }
+            function applyDestination() {
+                var sale = isSale();
+                setGroup(toInventoryGroups, !sale);
+                setGroup(saleGroups, sale);
+                form.setAttribute('action', sale ? saleUrl : unloadUrl);
+                if (submitBtn) submitBtn.textContent = sale ? submitBtn.dataset.labelSale : submitBtn.dataset.labelUnload;
+                refreshOptionalSections();
+                refreshSaleFx();
+            }
+            if (destSelect) destSelect.addEventListener('change', applyDestination);
+            if (saleCurrency) saleCurrency.addEventListener('change', refreshSaleFx);
+
+            applyDestination();
+            calculate();
+        })();
+    </script>
+}

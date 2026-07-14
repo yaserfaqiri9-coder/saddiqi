@@ -1,0 +1,88 @@
+@*
+    Global PTG toast notification host (RTL-friendly, design-system based).
+
+    Reads operation-result messages from TempData and renders them as compact
+    toasts (top-left for RTL). Activation, auto-dismiss and the destructive
+    confirm dialog are handled by wwwroot/js/ptg-toasts.js.
+
+    Supported TempData keys (priority high -> low):
+      New contract:   Toast.Success / Toast.Error / Toast.Warning / Toast.Info
+      Legacy aliases: SuccessMessage / ErrorMessage / WarningMessage / InfoMessage / Message
+      Project keys:   ok (success) / err, error (error)
+
+    UI-only. No business logic, no entity, no ledger/payment/inventory change.
+*@
+@{
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEnglishUi = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEnglishUi ? en : fa;
+
+    string? Pick(params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (TempData[key] is string value && !string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    var toasts = new List<(string Type, string Icon, string Title, string Message)>();
+
+    void Add(string? message, string type, string icon, string title)
+    {
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            toasts.Add((type, icon, title, message!));
+        }
+    }
+
+    // Success: new key, legacy alias, project "ok".
+    Add(Pick("Toast.Success", "SuccessMessage", "ok"),
+        "success", "bi-check-circle-fill", T("انجام شد", "Done"));
+
+    // Error: new key, legacy alias, project "err"/"error".
+    Add(Pick("Toast.Error", "ErrorMessage", "err", "error"),
+        "error", "bi-exclamation-octagon-fill", T("خطا", "Error"));
+
+    // Warning.
+    Add(Pick("Toast.Warning", "WarningMessage"),
+        "warning", "bi-exclamation-triangle-fill", T("هشدار", "Warning"));
+
+    // Info: new key, legacy alias, generic "Message".
+    Add(Pick("Toast.Info", "InfoMessage", "Message"),
+        "info", "bi-info-circle-fill", T("اطلاع", "Notice"));
+}
+
+<div class="ptg-toast-host" data-ptg-toast-host aria-live="polite" aria-relevant="additions">
+    @foreach (var toast in toasts)
+    {
+        <div class="ptg-toast ptg-toast--@toast.Type" data-ptg-toast data-ptg-toast-duration="5000" role="@(toast.Type == "error" ? "alert" : "status")">
+            <span class="ptg-toast__icon" aria-hidden="true"><i class="bi @toast.Icon"></i></span>
+            <div class="ptg-toast__body">
+                <strong class="ptg-toast__title">@toast.Title</strong>
+                <div class="ptg-toast__message">@toast.Message</div>
+            </div>
+            <button type="button" class="ptg-toast__close" data-ptg-toast-close aria-label="@T("بستن", "Close")">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+            <span class="ptg-toast__bar" aria-hidden="true"></span>
+        </div>
+    }
+</div>
+
+@* Reusable destructive-action confirm dialog (RTL, toast design language). *@
+<div class="ptg-confirm" data-ptg-confirm-dialog hidden aria-hidden="true">
+    <div class="ptg-confirm__backdrop" data-ptg-confirm-cancel></div>
+    <div class="ptg-confirm__panel" role="alertdialog" aria-modal="true" aria-labelledby="ptgConfirmTitle" aria-describedby="ptgConfirmMessage">
+        <span class="ptg-confirm__icon" aria-hidden="true"><i class="bi bi-exclamation-triangle-fill"></i></span>
+        <h2 class="ptg-confirm__title" id="ptgConfirmTitle" data-ptg-confirm-title>@T("تأیید عملیات", "Confirm Action")</h2>
+        <p class="ptg-confirm__message" id="ptgConfirmMessage" data-ptg-confirm-text>@T("آیا مطمئن هستید؟", "Are you sure?")</p>
+        <div class="ptg-confirm__actions">
+            <button type="button" class="ptg-confirm__btn ptg-confirm__btn--ghost" data-ptg-confirm-cancel>@T("انصراف", "Cancel")</button>
+            <button type="button" class="ptg-confirm__btn ptg-confirm__btn--danger" data-ptg-confirm-ok>@T("حذف", "Delete")</button>
+        </div>
+    </div>
+</div>

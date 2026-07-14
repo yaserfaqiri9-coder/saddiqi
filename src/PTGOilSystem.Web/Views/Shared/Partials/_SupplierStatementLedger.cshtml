@@ -1,0 +1,111 @@
+@model PTGOilSystem.Web.Models.Suppliers.SupplierStatementLedgerTableViewModel
+@*
+    صورت‌حساب خطی تأمین‌کننده به سبک دفتر BNK-HIMOR (فقط نمایش).
+    هر ردیف یک حرکت مالی است؛ دالر و روبل، نرخ دالر و مانده جاری هر دو ارز
+    نشان داده می‌شوند. هر قرارداد رنگ ملایم جدا دارد و نوع حرکت با badge مشخص است.
+    این partial مخصوص Supplier است و جدول مشترک _PartyStatementTable را تغییر نمی‌دهد.
+*@
+@{
+    string Money2(decimal? v) => NumberDisplay.Money(v);
+    string Qty(decimal? v) => NumberDisplay.Quantity(v);
+    string Rate(decimal? v) => NumberDisplay.UnitPrice(v);
+}
+<div class="ak-table-wrap supplier-statement-ledger-wrap">
+    <table class="ak-table align-middle mb-0 supplier-statement-ledger" dir="rtl">
+        <thead>
+            <tr>
+                <th>تاریخ</th>
+                <th>قرارداد</th>
+                <th>شرح</th>
+                <th class="text-end">مقدار MT</th>
+                <th class="text-end">نرخ/قیمت</th>
+                <th class="text-end sl-rub" title="چیزی که شرکت به تأمین‌کننده داده (پرداخت/پیش‌پرداخت/انتقال ورودی)">داده‌شده RUB</th>
+                <th class="text-end sl-rub" title="چیزی که شرکت از تأمین‌کننده گرفته (بار/مصرف/دموراژ/انتقال خروجی)">گرفته‌شده RUB</th>
+                <th class="text-end sl-rub">مانده RUB</th>
+                <th class="text-end">نرخ دالر</th>
+                <th class="text-end sl-usd" title="چیزی که شرکت به تأمین‌کننده داده (پرداخت/پیش‌پرداخت/انتقال ورودی)">داده‌شده USD</th>
+                <th class="text-end sl-usd" title="چیزی که شرکت از تأمین‌کننده گرفته (بار/مصرف/دموراژ/انتقال خروجی)">گرفته‌شده USD</th>
+                <th class="text-end sl-usd">مانده USD</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr class="sl-row @row.ContractColorClass">
+                <td class="sl-date">@row.Date.ToDisplayDate()</td>
+                <td class="sl-contract">
+                    @if (!string.IsNullOrWhiteSpace(row.ContractNumber))
+                    {
+                        <span class="sl-contract-chip">@row.ContractNumber</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="sl-desc">
+                    <div class="sl-desc-line">
+                        <span class="sl-badge @row.BadgeClass">@row.BadgeText</span>
+                        @if (row.LedgerEntryId > 0)
+                        {
+                            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@row.LedgerEntryId" class="sl-type-link">@row.Type</a>
+                        }
+                        else
+                        {
+                            <span class="sl-type-link">@row.Type</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(row.Description))
+                    {
+                        <div class="sl-desc-text">@row.Description</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(row.SourceDetailsController) && !string.IsNullOrWhiteSpace(row.SourceDetailsAction) && row.SourceDetailsRouteId.HasValue)
+                    {
+                        <a class="sl-ref" asp-controller="@row.SourceDetailsController" asp-action="@row.SourceDetailsAction" asp-route-id="@row.SourceDetailsRouteId.Value">@(row.Reference ?? $"#{row.SourceDetailsRouteId.Value}")</a>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(row.Reference))
+                    {
+                        <span class="sl-ref text-muted">@row.Reference</span>
+                    }
+                </td>
+                <td class="text-end ak-num">@Qty(row.QuantityMt)</td>
+                <td class="text-end ak-num">@Rate(row.UnitPrice)</td>
+                <td class="text-end ak-num sl-rub sl-credit">@Money2(row.CreditOriginal)</td>
+                <td class="text-end ak-num sl-rub sl-debit">@Money2(row.DebitOriginal)</td>
+                <td class="text-end sl-rub">
+                    @if (row.RunningBalanceOriginal.HasValue)
+                    {
+                        <span class="ak-num sl-balance">@NumberDisplay.Money(Math.Abs(row.RunningBalanceOriginal.Value))</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-end sl-fx">
+                    @if (row.FxRateDisplayPerUsd.HasValue)
+                    {
+                        <span title="نرخ داخلی: @(NumberDisplay.FxRate(row.FxRateUsed))">@NumberDisplay.Number(row.FxRateDisplayPerUsd.Value, 4)</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-end ak-num sl-usd sl-credit">@Money2(row.CreditUsd)</td>
+                <td class="text-end ak-num sl-usd sl-debit">@Money2(row.DebitUsd)</td>
+                <td class="text-end sl-usd">
+                    <span class="statement-balance-stack">
+                        <strong class="ak-num @(row.RunningBalanceUsd < 0 ?"ak-num" : row.RunningBalanceUsd > 0 ? "ak-num" : "")">@NumberDisplay.Money(Math.Abs(row.RunningBalanceUsd))</strong>
+                        <small>@(row.RunningBalanceUsd < 0 ? "قابل پرداخت" : row.RunningBalanceUsd > 0 ? "طلب شرکت" : "تسویه")</small>
+                    </span>
+                </td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="12">@await Html.PartialAsync("_EmptyState", (Model.EmptyTitle, Model.EmptyMessage, "bi-journal-text"))</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,258 @@
+@model SarrafSettlementCreateViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "صراف برای تأمین‌کننده پرداخت کرد";
+    ViewData["HideSectionTabs"] = true;
+    var sarrafs = ViewBag.Sarrafs as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var suppliers = ViewBag.Suppliers as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var contracts = ViewBag.Contracts as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var currencies = ViewBag.Currencies as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var treatments = ViewBag.DifferenceTreatments as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"] as string ?? "تسویه صراف", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت", "bi-arrow-right", Url.Action("Index")))" />
+
+    <form asp-action="Create" method="post" class="ak-form" id="sarrafSettlementForm">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="ak-form-alert"></div>
+
+        <p class="ak-note"><strong>صراف از طرف شرکت برای تأمین‌کننده پول پرداخت کرده است.</strong> این پول از صندوق شرکت فعلاً کم نمی‌شود؛ شرکت به صراف بدهکار می‌شود. برای حساب‌کردن بعدی با صراف، همین شماره حواله/رسید را در فرم پرداخت به صراف وارد کنید.</p>
+
+        <nav class="ptg-tabs-rail sarraf-settlement-section-switch" role="tablist" aria-label="بخش‌های فرم تسویه صراف">
+            <button type="button" class="ptg-tab-item is-active" data-settlement-section-choice="document"><span>صراف و تأمین‌کننده</span></button>
+            <button type="button" class="ptg-tab-item" data-settlement-section-choice="supplier"><span>پرداخت به تأمین‌کننده</span></button>
+            <button type="button" class="ptg-tab-item" data-settlement-section-choice="sarraf"><span>طلب صراف از ما</span></button>
+            <button type="button" class="ptg-tab-item" data-settlement-section-choice="request"><span>مبلغ حواله</span></button>
+            <button type="button" class="ptg-tab-item" data-settlement-section-choice="preview"><span>خلاصه</span></button>
+        </nav>
+
+        <section class="ak-form-section" data-settlement-section="document">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="SettlementDate" class="ak-label"></label>
+                    <input asp-for="SettlementDate" class="ak-input" />
+                    <span asp-validation-for="SettlementDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SarrafId" class="ak-label"></label>
+                    <select asp-for="SarrafId" asp-items="sarrafs" class="ak-input"><option value=""></option></select>
+                    <span asp-validation-for="SarrafId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierId" class="ak-label"></label>
+                    <select asp-for="SupplierId" asp-items="suppliers" class="ak-input"><option value=""></option></select>
+                    <span asp-validation-for="SupplierId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ContractId" class="ak-label"></label>
+                    <select asp-for="ContractId" asp-items="contracts" class="ak-input"><option value=""></option></select>
+                    <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ReferenceNumber" class="ak-label">شماره حواله/رسید</label>
+                    <input asp-for="ReferenceNumber" class="ak-input" required />
+                    <span class="ak-note">همین شماره را در پرداخت بعدی به صراف هم وارد کنید.</span>
+                    <span asp-validation-for="ReferenceNumber" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Description" class="ak-label"></label>
+                    <input asp-for="Description" class="ak-input" />
+                    <span asp-validation-for="Description" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section d-none" data-settlement-section="request">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مبلغ حواله", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="RequestedAmount" class="ak-label">مبلغی که باید پرداخت می‌شد</label>
+                    <input asp-for="RequestedAmount" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="RequestedAmount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="RequestedCurrency" class="ak-label">ارز</label>
+                    <select asp-for="RequestedCurrency" asp-items="currencies" class="ak-input"><option value="USD">USD</option></select>
+                    <span asp-validation-for="RequestedCurrency" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="RequestedFxRateToUsd" class="ak-label">نرخ دالر</label>
+                    <input asp-for="RequestedFxRateToUsd" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="RequestedFxRateToUsd" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section d-none" data-settlement-section="sarraf">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مبلغی که صراف از ما طلب دارد", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="SarrafChargedAmount" class="ak-label">مبلغی که صراف از ما طلب دارد</label>
+                    <input asp-for="SarrafChargedAmount" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SarrafChargedAmount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SarrafCurrency" class="ak-label">ارز</label>
+                    <select asp-for="SarrafCurrency" asp-items="currencies" class="ak-input"><option value="AFN">AFN</option></select>
+                    <span asp-validation-for="SarrafCurrency" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SarrafRate" class="ak-label"></label>
+                    <input asp-for="SarrafRate" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SarrafRate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SarrafFxRateToUsd" class="ak-label">نرخ دالر</label>
+                    <input asp-for="SarrafFxRateToUsd" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SarrafFxRateToUsd" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section d-none" data-settlement-section="supplier">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت صراف به تأمین‌کننده", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="SupplierAcceptedAmount" class="ak-label">مبلغ پرداخت‌شده به تأمین‌کننده</label>
+                    <input asp-for="SupplierAcceptedAmount" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SupplierAcceptedAmount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierAcceptedCurrency" class="ak-label">ارز</label>
+                    <select asp-for="SupplierAcceptedCurrency" asp-items="currencies" class="ak-input"><option value="USD">USD</option></select>
+                    <span asp-validation-for="SupplierAcceptedCurrency" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierAcceptedFxRateToUsd" class="ak-label">نرخ دالر</label>
+                    <input asp-for="SupplierAcceptedFxRateToUsd" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SupplierAcceptedFxRateToUsd" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierRate" class="ak-label"></label>
+                    <input asp-for="SupplierRate" class="ak-input" data-settlement-number />
+                    <span asp-validation-for="SupplierRate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DifferenceTreatment" class="ak-label">روش ثبت تفاوت</label>
+                    <select asp-for="DifferenceTreatment" asp-items="treatments" class="ak-input"></select>
+                    <span asp-validation-for="DifferenceTreatment" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DifferenceReason" class="ak-label">دلیل تفاوت</label>
+                    <select asp-for="DifferenceReason" class="ak-input">
+                        <option value="">بدون تفاوت</option>
+                        <option value="2">کمیشن</option>
+                        <option value="1">تفاوت نرخ</option>
+                        <option value="3">مصرف حواله</option>
+                    </select>
+                    <span class="ak-note">اگر مبلغ صراف با مبلغ تأمین‌کننده فرق دارد، دلیل را انتخاب کنید.</span>
+                    <span asp-validation-for="DifferenceReason" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section d-none" data-settlement-section="preview">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه قبل از ثبت", (string?)null))" />
+            <dl class="ak-summary-list ak-summary">
+                <div><dt>درخواست USD</dt><dd class="ak-num" data-preview-requested>0.00</dd></div>
+                <div><dt>طلب صراف USD</dt><dd class="ak-num" data-preview-sarraf>0.00</dd></div>
+                <div><dt>قبول‌شده USD</dt><dd class="ak-num" data-preview-accepted>0.00</dd></div>
+                <div><dt>اختلاف USD</dt><dd class="ak-num" data-preview-difference>0.00</dd></div>
+            </dl>
+        </section>
+
+        <p class="ak-note"><strong>قبل از ثبت بررسی کنید:</strong> صراف، تأمین‌کننده، مبلغ پرداخت‌شده، مبلغ طلب صراف و شماره حواله/رسید درست باشد. قدم بعدی: وقتی شرکت با صراف حساب کرد، از فرم پرداخت به صراف استفاده کنید.</p>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ثبت پرداخت صراف برای تأمین‌کننده", Url.Action("Index", "Sarrafs") ?? "/Sarrafs", "بازگشت"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            const form = document.getElementById("sarrafSettlementForm");
+            if (!form) return;
+            const sectionButtons = Array.from(form.querySelectorAll("[data-settlement-section-choice]"));
+            const sections = Array.from(form.querySelectorAll("[data-settlement-section]"));
+            const setSection = section => {
+                sectionButtons.forEach(button => {
+                    const active = button.dataset.settlementSectionChoice === section;
+                    button.classList.toggle("is-active", active);
+                    button.setAttribute("aria-selected", active ? "true" : "false");
+                });
+                sections.forEach(panel => {
+                    panel.classList.toggle("d-none", panel.dataset.settlementSection !== section);
+                });
+            };
+            sectionButtons.forEach(button => {
+                button.addEventListener("click", () => setSection(button.dataset.settlementSectionChoice || "document"));
+            });
+            form.addEventListener("submit", () => {
+                sections.forEach(panel => panel.classList.remove("d-none"));
+            });
+
+            const get = id => Number((document.getElementById(id)?.value || "0").replace(/,/g, "")) || 0;
+            const set = (selector, value) => {
+                const node = form.querySelector(selector);
+                if (node) node.textContent = value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+            };
+            const requestedCurrency = document.getElementById("RequestedCurrency");
+            const sarrafCurrency = document.getElementById("SarrafCurrency");
+            const supplierAcceptedCurrency = document.getElementById("SupplierAcceptedCurrency");
+            const supplierAcceptedAmount = document.getElementById("SupplierAcceptedAmount");
+            let supplierCurrencyTouched = false;
+
+            const ensureCurrencyOption = (select, currency) => {
+                if (!select || !currency) return;
+                const code = currency.toUpperCase();
+                let option = Array.from(select.options || []).find(opt => (opt.value || "").toUpperCase() === code);
+                if (!option) {
+                    option = document.createElement("option");
+                    option.value = code;
+                    option.textContent = code;
+                    select.appendChild(option);
+                }
+                select.value = option.value;
+            };
+
+            const syncSupplierCurrency = source => {
+                if (!supplierAcceptedCurrency || supplierCurrencyTouched) return;
+                const currency = (source?.value || "").trim();
+                if (!currency) return;
+                ensureCurrencyOption(supplierAcceptedCurrency, currency);
+            };
+
+            const syncSupplierAmount = () => {
+                const requestedAmount = document.getElementById("RequestedAmount");
+                if (!supplierAcceptedAmount || !requestedAmount || supplierAcceptedAmount.value) return;
+                supplierAcceptedAmount.value = requestedAmount.value;
+            };
+
+            const sync = () => {
+                const requested = get("RequestedAmount") * get("RequestedFxRateToUsd");
+                const sarraf = get("SarrafChargedAmount") * get("SarrafFxRateToUsd");
+                const accepted = get("SupplierAcceptedAmount") * get("SupplierAcceptedFxRateToUsd");
+                const difference = requested - accepted;
+                set("[data-preview-requested]", requested);
+                set("[data-preview-sarraf]", sarraf);
+                set("[data-preview-accepted]", accepted);
+                set("[data-preview-difference]", difference);
+            };
+            supplierAcceptedCurrency?.addEventListener("change", () => { supplierCurrencyTouched = true; });
+            requestedCurrency?.addEventListener("change", () => syncSupplierCurrency(requestedCurrency));
+            sarrafCurrency?.addEventListener("change", () => syncSupplierCurrency(sarrafCurrency));
+            document.getElementById("RequestedAmount")?.addEventListener("input", syncSupplierAmount);
+            form.querySelectorAll("[data-settlement-number]").forEach(input => input.addEventListener("input", sync));
+            syncSupplierCurrency(supplierAcceptedCurrency?.value ? supplierAcceptedCurrency : requestedCurrency || sarrafCurrency);
+            syncSupplierAmount();
+            sync();
+        })();
+    </script>
+}

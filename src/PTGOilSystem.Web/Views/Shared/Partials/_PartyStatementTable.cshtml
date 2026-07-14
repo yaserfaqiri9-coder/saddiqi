@@ -1,0 +1,87 @@
+@model PTGOilSystem.Web.Models.Shared.PartyStatementTableViewModel
+@*
+    جدول صورت‌حساب خطی مشترک طرف‌حساب‌ها (تأمین‌کننده/مشتری/صراف/خدمات‌دهنده) — فقط نمایش.
+    قاعدهٔ یک‌دستِ «داده/گرفته» سبک BNK-HIMOR:
+      داده‌شده (Credit) = چیزی که شرکت به طرف داده،
+      گرفته‌شده (Debit) = چیزی که شرکت از طرف گرفته،
+      مانده = Σ(داده − گرفته).
+    همهٔ مقادیر از قبل در View صدازننده ساخته می‌شوند؛ اینجا محاسبهٔ مالی نیست.
+*@
+@{
+    string Money2(decimal? v) => v.HasValue && v.Value != 0m ? NumberDisplay.Money(v.Value) : "—";
+}
+<div class="ak-table-wrap">
+    <table class="ak-table align-middle mb-0 supplier-statement-table">
+        <thead>
+            <tr>
+                <th>تاریخ</th>
+                <th>سند</th>
+                <th>مرجع</th>
+                <th>قرارداد</th>
+                <th>شرح</th>
+                <th class="text-end">مبلغ سند</th>
+                <th class="text-end">نرخ ارز</th>
+                <th class="text-end sl-credit" title="@Model.CreditTooltip">@Model.CreditHeader</th>
+                <th class="text-end sl-debit" title="@Model.DebitTooltip">@Model.DebitHeader</th>
+                <th class="text-end">مانده حساب USD</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.Date.ToDisplayDate()</td>
+                <td>
+                    @if (row.LedgerEntryId > 0)
+                    {
+                        <a asp-controller="Ledger" asp-action="Details" asp-route-id="@row.LedgerEntryId">@row.Type</a>
+                    }
+                    else
+                    {
+                        <span>@row.Type</span>
+                    }
+                </td>
+                <td>
+                    @if (!string.IsNullOrWhiteSpace(row.SourceDetailsController) && !string.IsNullOrWhiteSpace(row.SourceDetailsAction) && row.SourceDetailsRouteId.HasValue)
+                    {
+                        <a asp-controller="@row.SourceDetailsController" asp-action="@row.SourceDetailsAction" asp-route-id="@row.SourceDetailsRouteId.Value">@(row.Reference ?? $"#{row.SourceDetailsRouteId.Value}")</a>
+                    }
+                    else
+                    {
+                        <span>@(row.Reference ?? "-")</span>
+                    }
+                </td>
+                <td>@(row.ContractNumber ?? "-")</td>
+                <td>@row.Description</td>
+                <td class="text-end ak-num">@(row.SourceAmount.HasValue ? NumberDisplay.Money(row.SourceAmount.Value, row.Currency) : "-")</td>
+                <td class="text-end">
+                    @if (row.FxRateDisplayPerUsd.HasValue)
+                    {
+                        <span title="نرخ داخلی: @(NumberDisplay.FxRate(row.FxRateUsed))">@NumberDisplay.Number(row.FxRateDisplayPerUsd.Value, 4) @row.Currency/USD</span>
+                    }
+                    else if (row.FxRateUsed.HasValue && row.FxRateUsed.Value > 0m)
+                    {
+                        <span>@NumberDisplay.FxRate(row.FxRateUsed.Value)</span>
+                    }
+                    else
+                    {
+                        <span>—</span>
+                    }
+                </td>
+                <td class="text-end ak-num sl-credit">@Money2(row.StatementCreditUsd)</td>
+                <td class="text-end ak-num sl-debit">@Money2(row.StatementDebitUsd)</td>
+                <td class="text-end">
+                    <span class="statement-balance-stack">
+                        <strong class="ak-num @row.BalanceClass">@NumberDisplay.Money(Math.Abs(row.RunningBalanceUsd))</strong>
+                        <small>@row.BalanceLabel</small>
+                    </span>
+                </td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="10">@await Html.PartialAsync("_EmptyState", (Model.EmptyTitle, Model.EmptyMessage, "bi-journal-text"))</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

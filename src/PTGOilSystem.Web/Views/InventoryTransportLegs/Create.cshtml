@@ -1,0 +1,461 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.InventoryTransport
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportLegCreateViewModel
+@{
+    ViewData["InventoryTransportLegFormAssets"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    ViewData["ContentBodyClass"] = "boltz-content-body-fluid";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["Title"] = UiText.T(Context, "انتقال از موجودی", "Inventory Transfer");
+
+    var transportTypeOptions = new List<SelectListItem>
+    {
+        new() { Value = ((int)LoadingTransportType.Unspecified).ToString(CultureInfo.InvariantCulture), Text = UiText.T(Context, "انتخاب نوع وسیله", "Select vehicle type"), Selected = Model.TransportType == LoadingTransportType.Unspecified },
+        new() { Value = ((int)LoadingTransportType.Vessel).ToString(CultureInfo.InvariantCulture), Text = UiText.T(Context, "کشتی", "Vessel"), Selected = Model.TransportType == LoadingTransportType.Vessel },
+        new() { Value = ((int)LoadingTransportType.Wagon).ToString(CultureInfo.InvariantCulture), Text = UiText.T(Context, "واگن", "Wagon"), Selected = Model.TransportType == LoadingTransportType.Wagon },
+        new() { Value = ((int)LoadingTransportType.Truck).ToString(CultureInfo.InvariantCulture), Text = UiText.T(Context, "موتر", "Truck"), Selected = Model.TransportType == LoadingTransportType.Truck }
+    };
+
+    var wagonNumberOptions = ViewBag.WagonNumberOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+    var truckNumberOptions = ViewBag.TruckNumberOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+    var vesselNameOptions = ViewBag.VesselNameOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+
+    var contractOptions = (ViewBag.Contracts as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var productOptions = (ViewBag.Products as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var sourceTerminalOptions = (ViewBag.SourceTerminals as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var sourceTankOptions = (ViewBag.SourceStorageTanks as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var destinationTerminalOptions = (ViewBag.DestinationTerminals as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var destinationTankOptions = (ViewBag.DestinationStorageTanks as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var destinationLocationOptions = (ViewBag.Destinations as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var contractStockScopesJson = ViewBag.ContractStockScopesJson as string ?? "[]";
+    var transferSourceOptions = ViewBag.InventoryTransferSourceOptions as IReadOnlyList<ShipmentTransportLoadingSourceOption>
+        ?? Array.Empty<ShipmentTransportLoadingSourceOption>();
+    var transferSourceMetricsJson = System.Text.Json.JsonSerializer.Serialize(transferSourceOptions.Select(source => new
+    {
+        terminalId = source.TerminalId,
+        storageTankId = source.StorageTankId,
+        inbound = source.InboundToSourceQuantityMt,
+        outbound = source.OutboundFromSourceQuantityMt,
+        available = source.AvailableForTransferQuantityMt
+    }));
+    var hasShipmentSourceMetrics = Model.ShipmentId.HasValue && transferSourceOptions.Count > 0;
+
+    var allocationRows = (Model.Allocations ?? new List<InventoryTransportLegAllocationInput>()).ToList();
+    if (allocationRows.Count == 0)
+    {
+        allocationRows.Add(new InventoryTransportLegAllocationInput());
+    }
+
+    var selectedTransportPartyType = Model.OperationalAssetId.HasValue
+        ? "operational-asset"
+        : Model.ServiceProviderId.HasValue
+            ? "service-provider"
+            : "";
+    var hasSelectedTransportType = Model.TransportType != LoadingTransportType.Unspecified;
+
+    var initialContractCount = allocationRows
+        .Where(row => row.SourcePurchaseContractId.GetValueOrDefault() > 0)
+        .Select(row => row.SourcePurchaseContractId!.Value)
+        .Distinct()
+        .Count();
+    var initialTotalQuantityMt = allocationRows.Sum(row => row.QuantityMt ?? 0m);
+    var initialWeightedCostBase = allocationRows
+        .Where(row => (row.QuantityMt ?? 0m) > 0m && (row.PurchaseUnitCostUsd ?? 0m) > 0m)
+        .Sum(row => (row.QuantityMt ?? 0m) * (row.PurchaseUnitCostUsd ?? 0m));
+    var initialWeightedCostQty = allocationRows
+        .Where(row => (row.QuantityMt ?? 0m) > 0m && (row.PurchaseUnitCostUsd ?? 0m) > 0m)
+        .Sum(row => row.QuantityMt ?? 0m);
+    var initialAverageCostUsd = initialWeightedCostQty > 0m ? initialWeightedCostBase / initialWeightedCostQty : 0m;
+    var contractUnitLabel = UiText.T(Context, "قرارداد", "contracts");
+    var initialDestinationSummary =
+        destinationTerminalOptions.FirstOrDefault(item => item.Value == Model.DestinationTerminalId?.ToString(CultureInfo.InvariantCulture))?.Text
+        ?? destinationLocationOptions.FirstOrDefault(item => item.Value == Model.DestinationLocationId?.ToString(CultureInfo.InvariantCulture))?.Text
+        ?? destinationTankOptions.FirstOrDefault(item => item.Value == Model.DestinationStorageTankId?.ToString(CultureInfo.InvariantCulture))?.Text
+        ?? UiText.T(Context, "در حال تعیین", "Pending");
+    var initialPrimaryTerminal = sourceTerminalOptions
+        .FirstOrDefault(item => item.Value == allocationRows.FirstOrDefault(row => row.SourceTerminalId.GetValueOrDefault() > 0)?.SourceTerminalId?.ToString(CultureInfo.InvariantCulture))
+        ?.Text ?? UiText.T(Context, "از ردیف‌ها تعیین می‌شود", "Determined from rows");
+    var initialPrimaryProduct = productOptions
+        .FirstOrDefault(item => item.Value == allocationRows.FirstOrDefault(row => row.ProductId.GetValueOrDefault() > 0)?.ProductId?.ToString(CultureInfo.InvariantCulture))
+        ?.Text ?? UiText.T(Context, "از ردیف‌ها تعیین می‌شود", "Determined from rows");
+
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Index");
+    var advancedOpen = Model.ExpectedArrivalDate.HasValue
+        || Model.DestinationTerminalId.HasValue
+        || Model.DestinationStorageTankId.HasValue
+        || Model.DestinationLocationId.HasValue
+        || Model.ShipmentId.HasValue
+        || Model.ServiceProviderId.HasValue
+        || Model.OperationalAssetId.HasValue
+        || !string.IsNullOrWhiteSpace(Model.BillOfLadingNumber)
+        || !string.IsNullOrWhiteSpace(Model.RouteDescription)
+        || !string.IsNullOrWhiteSpace(Model.Notes);
+}
+
+<div class="page-stack ak-form-page" dir="rtl" data-transfer-mode="single">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "انتقال از موجودی", "Inventory Transfer"), false, (string?)null, (string?)null, (string?)null, (string?)null, UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+    <form asp-action="Create" method="post" class="ak-form" data-inventory-transport-leg-form>
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <script type="application/json" data-contract-stock-scopes>@Html.Raw(contractStockScopesJson)</script>
+        <script type="application/json" data-transfer-source-metrics>@Html.Raw(transferSourceMetricsJson)</script>
+
+        @await Html.PartialAsync("_InventoryTransportModeSelector", new InventoryTransportModeSelectorViewModel
+        {
+            ActiveMode = "single",
+            ShipmentId = Model.ShipmentId,
+            ReturnUrl = Model.ReturnUrl
+        })
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-summary" aria-label="@UiText.T(Context, "خلاصه انتقال", "Transfer summary")">
+            <article class="ak-field">
+                <i class="bi bi-database" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "وارد شده به این مبدأ", "Inbound to this source")</span>
+                <strong data-transfer-source-inbound>@(hasShipmentSourceMetrics ? $"{NumberDisplay.Quantity(Model.InboundToSourceQuantityMt)} {UiText.T(Context, "تن", "MT")}" : UiText.T(Context, "پس از انتخاب", "After selection"))</strong>
+            </article>
+            <article class="ak-field">
+                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "قبلاً از این مبدأ خارج شده", "Previously moved out from this source")</span>
+                <strong data-transfer-source-outbound>@(hasShipmentSourceMetrics ? $"{NumberDisplay.Quantity(Model.OutboundFromSourceQuantityMt)} {UiText.T(Context, "تن", "MT")}" : UiText.T(Context, "پس از انتخاب", "After selection"))</strong>
+            </article>
+            <article class="ak-field">
+                <i class="bi bi-truck" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "نوع وسیله", "Vehicle type")</span>
+                <strong>@UiText.T(Context, "موتر", "Truck")</strong>
+            </article>
+            <article class="is-primary ak-field">
+                <i class="bi bi-box-seam" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "قابل انتقال", "Available to transfer")</span>
+                <strong data-transfer-source-available>@(hasShipmentSourceMetrics ? $"{NumberDisplay.Quantity(Model.AvailableForTransferQuantityMt)} {UiText.T(Context, "تن", "MT")}" : UiText.T(Context, "پس از انتخاب", "After selection"))</strong>
+            </article>
+        </section>
+
+        <section class="ak-form-section">
+            <h2><i class="bi bi-geo-alt" aria-hidden="true"></i>@UiText.T(Context, "۲. مقصد انتقال", "2. Transfer destination")</h2>
+            <div class="ak-form-grid">
+                <label>
+                    <span>@UiText.T(Context, "نوع وسیله", "Vehicle type")</span>
+                    <select asp-for="TransportType" asp-items="transportTypeOptions" class="ak-input"
+                            data-transport-type-select
+                            data-transport-value-wagon="@((int)LoadingTransportType.Wagon)"
+                            data-transport-value-truck="@((int)LoadingTransportType.Truck)"
+                            data-transport-value-vessel="@((int)LoadingTransportType.Vessel)"></select>
+                    <small asp-validation-for="TransportType"></small>
+                </label>
+
+                <label>
+                    <span data-transport-dynamic-label
+                          data-transport-field-kind="vehicle"
+                          data-transport-label-default="@UiText.T(Context, "وسیله", "Vehicle")"
+                          data-transport-label-wagon="@UiText.T(Context, "شماره واگن", "Wagon number")"
+                          data-transport-label-truck="@UiText.T(Context, "نمبر پلیت موتر", "Truck plate number")"
+                          data-transport-label-vessel="@UiText.T(Context, "نام کشتی", "Vessel name")">@UiText.T(Context, "وسیله", "Vehicle")</span>
+                    <input asp-for="WagonNumber" class="ak-input"
+                           list="transportUnitOptionsWagon"
+                           data-transport-unit-input
+                           data-transport-dynamic-placeholder
+                           data-transport-dynamic-list
+                           data-transport-field-kind="vehicle"
+                           data-transport-list-default=""
+                           data-transport-list-wagon="transportUnitOptionsWagon"
+                           data-transport-list-truck="transportUnitOptionsTruck"
+                           data-transport-list-vessel="transportUnitOptionsVessel" />
+                    <datalist id="transportUnitOptionsWagon">
+                        @foreach (var option in wagonNumberOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <datalist id="transportUnitOptionsTruck">
+                        @foreach (var option in truckNumberOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <datalist id="transportUnitOptionsVessel">
+                        @foreach (var option in vesselNameOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <small asp-validation-for="WagonNumber"></small>
+                </label>
+
+                <label>
+                    <span data-transport-dynamic-label
+                          data-transport-field-kind="primary-reference"
+                          data-transport-label-default="@UiText.T(Context, "سند", "Document")"
+                          data-transport-label-wagon="@UiText.T(Context, "شماره RWB", "RWB number")"
+                          data-transport-label-truck="@UiText.T(Context, "شماره CMR", "CMR number")"
+                          data-transport-label-vessel="@UiText.T(Context, "شماره سفر کشتی", "Voyage number")">@UiText.T(Context, "سند", "Document")</span>
+                    <input asp-for="RwbNo" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="primary-reference" />
+                    <small asp-validation-for="RwbNo"></small>
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "تاریخ انتقال", "Transfer date")</span>
+                    <input asp-for="LoadedDate" type="date" class="ak-input" />
+                    <small asp-validation-for="LoadedDate"></small>
+                </label>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <div class="ak-section-head">
+                <h2><i class="bi bi-upload" aria-hidden="true"></i>@UiText.T(Context, "۱. منبع انتقال", "1. Transfer source")</h2>
+                <button type="button" class="ak-secondary-action" data-add-transport-allocation-row>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    @UiText.T(Context, "افزودن ردیف", "Add row")
+                </button>
+            </div>
+
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th>@UiText.T(Context, "ردیف", "Row")</th>
+                            <th>@UiText.T(Context, "قرارداد", "Contract")</th>
+                            <th>@UiText.T(Context, "محصول", "Product")</th>
+                            <th>@UiText.T(Context, "ترمینال منبع", "Source terminal")</th>
+                            <th>@UiText.T(Context, "مخزن منبع", "Source tank")</th>
+                            <th>@UiText.T(Context, "مقدار تن", "Quantity MT")</th>
+                            <th>@UiText.T(Context, "یادداشت", "Note")</th>
+                            <th>@UiText.T(Context, "عملیات", "Action")</th>
+                        </tr>
+                    </thead>
+                    <tbody data-transport-allocation-rows>
+                    @for (var i = 0; i < allocationRows.Count; i++)
+                    {
+                        var row = allocationRows[i];
+                        var sourceContractId = row.SourcePurchaseContractId.GetValueOrDefault();
+                        var productId = row.ProductId.GetValueOrDefault();
+                        var sourceTerminalId = row.SourceTerminalId.GetValueOrDefault();
+                        var contractSelected = sourceContractId > 0 ? sourceContractId.ToString(CultureInfo.InvariantCulture) : null;
+                        var productValue = productId > 0 ? productId.ToString(CultureInfo.InvariantCulture) : "";
+                        var terminalSelected = sourceTerminalId > 0 ? sourceTerminalId.ToString(CultureInfo.InvariantCulture) : null;
+                        var tankSelected = row.SourceStorageTankId.HasValue ? row.SourceStorageTankId.Value.ToString(CultureInfo.InvariantCulture) : null;
+                        var quantityValue = row.QuantityMt.HasValue ? row.QuantityMt.Value.ToString("0.####", CultureInfo.InvariantCulture) : "";
+                        var chargeableValue = row.ChargeableQuantityMt.HasValue ? row.ChargeableQuantityMt.Value.ToString("0.####", CultureInfo.InvariantCulture) : "";
+                        var purchaseUnitCostValue = row.PurchaseUnitCostUsd.HasValue ? row.PurchaseUnitCostUsd.Value.ToString("0.####", CultureInfo.InvariantCulture) : "";
+
+                        <tr data-transport-allocation-row data-allocation-index="@i">
+                            <td data-allocation-row-number aria-label="@UiText.T(Context, "شماره ردیف", "Row number")">@(i + 1)</td>
+                            <td>
+                                @Html.DropDownList($"Allocations[{i}].SourcePurchaseContractId", new SelectList(contractOptions, "Value", "Text", contractSelected), "", new { @class = "ak-input", data_transport_summary_contract = "true" })
+                                @Html.ValidationMessage($"Allocations[{i}].SourcePurchaseContractId", null, new { @class = "ak-field-error" })
+                            </td>
+                            <td>
+                                @Html.DropDownList($"Allocations[{i}].ProductId", new SelectList(productOptions, "Value", "Text", productValue), "", new { @class = "ak-input", disabled = "disabled", data_transport_summary_product = "true" })
+                                @Html.ValidationMessage($"Allocations[{i}].ProductId", null, new { @class = "ak-field-error" })
+                            </td>
+                            <td>
+                                @Html.DropDownList($"Allocations[{i}].SourceTerminalId", new SelectList(sourceTerminalOptions, "Value", "Text", terminalSelected), "", new { @class = "ak-input", data_transport_summary_terminal = "true" })
+                                @Html.ValidationMessage($"Allocations[{i}].SourceTerminalId", null, new { @class = "ak-field-error" })
+                            </td>
+                            <td>
+                                @Html.DropDownList($"Allocations[{i}].SourceStorageTankId", new SelectList(sourceTankOptions, "Value", "Text", tankSelected), "", new { @class = "ak-input" })
+                                @Html.ValidationMessage($"Allocations[{i}].SourceStorageTankId", null, new { @class = "ak-field-error" })
+                                <div class="ak-note" data-transport-stock-notice
+                                     data-stock-label="@UiText.T(Context, "موجودی فعلی مخزن", "Current tank stock")"
+                                     data-stock-unit="MT"></div>
+                            </td>
+                            <td>
+                                <input name="Allocations[@i].QuantityMt" value="@quantityValue" type="number" step="0.0001" min="0" class="ak-input" data-transport-allocation-quantity />
+                                @Html.ValidationMessage($"Allocations[{i}].QuantityMt", null, new { @class = "ak-field-error" })
+                                <input name="Allocations[@i].ChargeableQuantityMt" value="@chargeableValue" type="hidden" data-transport-allocation-chargeable disabled />
+                                <input name="Allocations[@i].PurchaseUnitCostUsd" value="@purchaseUnitCostValue" type="hidden" data-transport-allocation-cost disabled />
+                            </td>
+                            <td>
+                                <input name="Allocations[@i].Notes" value="@row.Notes" maxlength="1000" class="ak-input" disabled />
+                            </td>
+                            <td>
+                                <button type="button" class="ak-row-menu-btn" data-remove-transport-allocation-row title="@UiText.T(Context, "حذف ردیف", "Remove row")" aria-label="@UiText.T(Context, "حذف ردیف", "Remove row")">
+                                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td></td>
+                            <td data-transport-table-contracts data-transport-table-contract-unit="@contractUnitLabel">@($"{initialContractCount} {contractUnitLabel}")</td>
+                            <td colspan="3">@UiText.T(Context, "جمع مقدار", "Quantity total")</td>
+                            <td data-transport-table-quantity>@NumberDisplay.Quantity(initialTotalQuantityMt) TON</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+        <details class="ak-advanced" open="@(advancedOpen ? "open" : null)">
+            <summary>
+                <span>@UiText.T(Context, "جزئیات بیشتر", "More details")</span>
+                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </summary>
+            <div class="ak-form-grid">
+                <label class="@(Model.TransportType == LoadingTransportType.Vessel ? null :"d-none")" data-vessel-only-field>
+                    <span>@UiText.T(Context, "محموله کشتی", "Vessel shipment")</span>
+                    <select asp-for="ShipmentId" asp-items="ViewBag.Shipments" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                    <small asp-validation-for="ShipmentId"></small>
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "راننده/مسئول", "Driver/person")</span>
+                    <select id="TransportPartyType" name="TransportPartyType" class="ak-input" data-transport-party-type disabled="@(!hasSelectedTransportType ? "disabled" : null)">
+                        <option value=""></option>
+                        <option value="service-provider" selected="@(selectedTransportPartyType == "service-provider" ? "selected" : null)">@UiText.T(Context, "شرکت خدماتی بیرونی", "External service provider")</option>
+                        <option value="operational-asset" selected="@(selectedTransportPartyType == "operational-asset" ? "selected" : null)">@UiText.T(Context, "دارایی عملیاتی شرکت", "Company operational asset")</option>
+                    </select>
+                </label>
+
+                <label class="ak-field @((hasSelectedTransportType && selectedTransportPartyType =="service-provider") ? null : "d-none")" data-ak-field="service-provider">
+                    <span>@UiText.T(Context, "شرکت خدماتی", "Service provider")</span>
+                    <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input" disabled="@((hasSelectedTransportType && selectedTransportPartyType == "service-provider") ? null : "disabled")">
+                        <option value=""></option>
+                    </select>
+                    <small asp-validation-for="ServiceProviderId"></small>
+                </label>
+
+                <label class="ak-field @((hasSelectedTransportType && selectedTransportPartyType =="operational-asset") ? null : "d-none")" data-ak-field="operational-asset">
+                    <span>@UiText.T(Context, "دارایی عملیاتی", "Operational asset")</span>
+                    <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input" disabled="@((hasSelectedTransportType && selectedTransportPartyType == "operational-asset") ? null : "disabled")">
+                        <option value=""></option>
+                    </select>
+                    <small asp-validation-for="OperationalAssetId"></small>
+                </label>
+
+                <label>
+                    <span data-transport-dynamic-label
+                          data-transport-field-kind="bill-of-lading"
+                          data-transport-label-default="@UiText.T(Context, "شماره بارنامه", "Bill of lading")"
+                          data-transport-label-wagon="@UiText.T(Context, "شماره بارنامه واگن", "Wagon bill number")"
+                          data-transport-label-truck="@UiText.T(Context, "بارنامه / CMR", "Waybill / CMR")"
+                          data-transport-label-vessel="@UiText.T(Context, "Bill of Lading کشتی", "Vessel bill of lading")">@UiText.T(Context, "شماره بارنامه", "Bill of lading")</span>
+                    <input asp-for="BillOfLadingNumber" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="bill-of-lading" />
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "تاریخ رسیدن", "Expected arrival")</span>
+                    <input asp-for="ExpectedArrivalDate" type="date" class="ak-input" />
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "ترمینال مقصد", "Destination terminal")</span>
+                    <select asp-for="DestinationTerminalId" asp-items="ViewBag.DestinationTerminals" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "مخزن مقصد", "Destination tank")</span>
+                    <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "موقعیت مقصد", "Destination location")</span>
+                    <select asp-for="DestinationLocationId" asp-items="ViewBag.Destinations" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                </label>
+
+                <label>
+                    <span data-transport-dynamic-label
+                          data-transport-field-kind="route"
+                          data-transport-label-default="@UiText.T(Context, "مسیر انتقال", "Transfer route")"
+                          data-transport-label-wagon="@UiText.T(Context, "مسیر واگن", "Wagon route")"
+                          data-transport-label-truck="@UiText.T(Context, "مسیر موتر", "Truck route")"
+                          data-transport-label-vessel="@UiText.T(Context, "مسیر کشتی", "Vessel route")">@UiText.T(Context, "مسیر انتقال", "Transfer route")</span>
+                    <input asp-for="RouteDescription" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="route" />
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "ترمینال منبع پایه", "Primary source terminal")</span>
+                    <output class="ak-note" data-transport-primary-source-terminal>@initialPrimaryTerminal</output>
+                </label>
+
+                <label>
+                    <span>@UiText.T(Context, "جنس غالب", "Primary product")</span>
+                    <output class="ak-note" data-transport-primary-product>@initialPrimaryProduct</output>
+                </label>
+
+                <label class="ak-field is-full">
+                    <span>@UiText.T(Context, "توضیح کوچک", "Short note")</span>
+                    <input asp-for="Notes" class="ak-input" />
+                </label>
+            </div>
+        </details>
+
+        <section class="ak-form-section ak-summary">
+            <h2><i class="bi bi-pie-chart" aria-hidden="true"></i>@UiText.T(Context, "خلاصه انتقال", "Transfer summary")</h2>
+            <div class="ak-form-grid">
+                <div>
+                    <span>@UiText.T(Context, "تعداد وسایل", "Vehicle count")</span>
+                    <strong>1</strong>
+                </div>
+                <div>
+                    <span>@UiText.T(Context, "جمع مقدار انتقال", "Total transfer")</span>
+                    <strong>@NumberDisplay.Quantity(initialTotalQuantityMt) TON</strong>
+                </div>
+                <div>
+                    <span>@UiText.T(Context, "موجودی قبل از ثبت", "Before save")</span>
+                    <strong data-transfer-summary-available>@(hasShipmentSourceMetrics ? $"{NumberDisplay.Quantity(Model.AvailableForTransferQuantityMt)} {UiText.T(Context, "تن", "MT")}" : UiText.T(Context, "از منبع انتخابی", "Selected source"))</strong>
+                </div>
+                <div>
+                    <span>@UiText.T(Context, "جمع کرایه", "Total freight")</span>
+                    <strong>$ @NumberDisplay.Money(0)</strong>
+                </div>
+            </div>
+            <div class="ak-note is-valid">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>
+                @UiText.T(Context, "اطلاعات انتقال معتبر است و می‌توانید ثبت کنید.", "Transfer information is valid and can be saved.")
+            </div>
+        </section>
+
+        <section class="ak-form-section btn btn-success ak-primary-action">
+            <h2>@UiText.T(Context, "مراحل بعدی هر حمل", "Next steps for each transport")</h2>
+            <ol>
+                <li><i class="bi bi-truck" aria-hidden="true"></i>@UiText.T(Context, "در مسیر", "In transit")</li>
+                <li><i class="bi bi-bank" aria-hidden="true"></i>@UiText.T(Context, "گمرک", "Customs")</li>
+                <li><i class="bi bi-tag" aria-hidden="true"></i>@UiText.T(Context, "فروش قبل از گمرک", "Sale before customs")</li>
+                <li><i class="bi bi-tag" aria-hidden="true"></i>@UiText.T(Context, "فروش بعد از گمرک", "Sale after customs")</li>
+                <li><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i>@UiText.T(Context, "تخلیه به مخزن / وسیله دیگر", "Unload to tank / another vehicle")</li>
+                <li><i class="bi bi-clipboard-check" aria-hidden="true"></i>@UiText.T(Context, "کسرات / جریمه / تکمیل", "Shortage / penalty / complete")</li>
+            </ol>
+        </section>
+
+        <footer class="ak-footer-actions">
+            <a href="@cancelUrl" class="btn btn-light ak-secondary-action is-neutral">@UiText.T(Context, "انصراف", "Cancel")</a>
+            <button type="button" class="btn btn-light ak-secondary-action is-outline" onclick="window.print()">
+                <i class="bi bi-printer" aria-hidden="true"></i>
+                @UiText.T(Context, "ثبت و چاپ لیست", "Save and print list")
+            </button>
+            <button type="submit" class="btn btn-light ak-secondary-action is-primary">
+                <i class="bi bi-check2" aria-hidden="true"></i>
+                @UiText.T(Context, "ثبت انتقال", "Save transfer")
+            </button>
+        </footer>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

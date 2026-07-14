@@ -1,0 +1,139 @@
+@model PTGOilSystem.Web.Models.Payments.SupplierPaymentAllocationCreateViewModel
+@{
+    ViewData["Title"] = "مصرف پیش‌پرداخت برای قرارداد";
+    ViewData["HideSectionTabs"] = true;
+    var backUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Details", new { id = Model.PaymentTransactionId }) ?? "/Payments";
+    var contractCurrencies = ViewBag.AllocationContractCurrencies as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var contractCurrenciesJson = System.Text.Json.JsonSerializer.Serialize(contractCurrencies);
+    var paymentFx = Model.PaymentAmount != 0m ? Model.PaymentAmountUsd / Model.PaymentAmount : 1m;
+    var paymentFxText = paymentFx.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("مصرف پیش‌پرداخت برای قرارداد", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+
+    <p class="ak-note">بخشی از پیش‌پرداخت آزاد تأمین‌کننده به یک قرارداد خرید منتقل می‌شود. این یک پرداخت جدید نیست و مانده کلی تأمین‌کننده را تغییر نمی‌دهد: از پیشکیِ آزاد کم و به قرارداد وصل می‌شود.</p>
+
+    <form asp-action="AllocateToContract" asp-route-modal="@(Context.Request.Query["modal"] == "1" ? "1" : null)" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="PaymentTransactionId" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="SupplierId" type="hidden" />
+
+        <div asp-validation-summary="All" class="ak-form-alert @(ViewData.ModelState.IsValid ?"d-none" : null)"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصهٔ پیش‌پرداخت", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>تأمین‌کننده</dt><dd>@Model.SupplierName</dd></div>
+                <div class="ak-list-row"><dt>پرداخت</dt><dd>@Model.PaymentReference — @Model.PaymentAmount.ToString("N2") @Model.PaymentCurrencyCode (معادل @Model.PaymentAmountUsd.ToString("N2") USD)</dd></div>
+                <div class="ak-list-row"><dt>مانده قابل تخصیص</dt><dd class="ak-num">@Model.AllocatableBalanceUsd.ToString("N2") USD</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تخصیص به قرارداد", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ContractId" class="ak-label"></label>
+                    <select asp-for="ContractId" id="allocContract" class="ak-input" asp-items="ViewBag.AllocationContracts">
+                        <option value="">— انتخاب قرارداد خرید —</option>
+                    </select>
+                    <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="AllocationDate" class="ak-label"></label>
+                    <input asp-for="AllocationDate" class="ak-input" type="date" />
+                    <span asp-validation-for="AllocationDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="AllocatedPaymentAmount" class="ak-label"></label>
+                    <div class="ak-input-unit">
+                        <input asp-for="AllocatedPaymentAmount" id="allocAmount" class="ak-input" type="number" min="0.0001" step="0.0001" />
+                        <span>@Model.PaymentCurrencyCode</span>
+                    </div>
+                    <span class="ak-note">به ارز پرداخت. نباید از مانده قابل تخصیص بیشتر باشد.</span>
+                    <span asp-validation-for="AllocatedPaymentAmount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ContractCurrencyPerUsdRate" class="ak-label">نرخ دالر به ارز قرارداد</label>
+                    <div class="ak-input-unit">
+                        <input asp-for="ContractCurrencyPerUsdRate" id="allocRate" class="ak-input" type="number" min="0.0001" step="0.0001" />
+                        <span id="allocRateCurrency">@Model.ContractCurrencyCode/USD</span>
+                    </div>
+                    <span class="ak-note">۱ دالر برابر چند واحد ارز قرارداد است؟ برای قرارداد دالری برابر ۱.</span>
+                    <span asp-validation-for="ContractCurrencyPerUsdRate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label class="ak-label">معادل به ارز قرارداد</label>
+                    <div class="ak-input-unit">
+                        <input id="allocEquivalent" class="ak-input" type="text" readonly />
+                        <span id="allocEquivCurrency">@Model.ContractCurrencyCode</span>
+                    </div>
+                    <span class="ak-note">به‌صورت تخمینی نمایش داده می‌شود؛ مقدار نهایی هنگام ذخیره قفل می‌شود.</span>
+                </div>
+            </div>
+        </section>
+
+        <details class="ak-advanced">
+            <summary class="ak-advanced-summary fw-bold">گزینه‌های بیشتر (اختیاری)</summary>
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ReferenceNumber" class="ak-label">شماره مرجع</label>
+                    <input asp-for="ReferenceNumber" class="ak-input" placeholder="شماره مرجع سند" />
+                    <span asp-validation-for="ReferenceNumber" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Notes" class="ak-label">توضیحات</label>
+                    <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+                    <span asp-validation-for="Notes" class="ak-field-error"></span>
+                </div>
+            </div>
+        </details>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ثبت تخصیص", backUrl, "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var contractCurrencies = @Html.Raw(contractCurrenciesJson);
+            var paymentFx = parseFloat("@paymentFxText") || 1;
+            var contractSelect = document.getElementById('allocContract');
+            var amountInput = document.getElementById('allocAmount');
+            var rateInput = document.getElementById('allocRate');
+            var equivInput = document.getElementById('allocEquivalent');
+            var rateCurrency = document.getElementById('allocRateCurrency');
+            var equivCurrency = document.getElementById('allocEquivCurrency');
+
+            function currentCurrency() {
+                var id = contractSelect ? contractSelect.value : '';
+                return (id && contractCurrencies[id]) ? contractCurrencies[id] : 'USD';
+            }
+
+            function recalc() {
+                var cur = currentCurrency();
+                if (rateCurrency) { rateCurrency.textContent = cur + '/USD'; }
+                if (equivCurrency) { equivCurrency.textContent = cur; }
+                if (cur === 'USD' && rateInput) { rateInput.value = 1; }
+                var amount = parseFloat(amountInput && amountInput.value) || 0;
+                var rate = parseFloat(rateInput && rateInput.value) || 0;
+                var bookUsd = amount * paymentFx;
+                var equiv = bookUsd * rate;
+                if (equivInput) { equivInput.value = equiv ? equiv.toFixed(2) : ''; }
+            }
+
+            if (contractSelect) { contractSelect.addEventListener('change', recalc); }
+            if (amountInput) { amountInput.addEventListener('input', recalc); }
+            if (rateInput) { rateInput.addEventListener('input', recalc); }
+            recalc();
+        })();
+    </script>
+}

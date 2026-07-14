@@ -1,0 +1,269 @@
+@model PTGOilSystem.Web.Models.Partners.PartnerProfileViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "پروفایل شریک";
+    ViewData["HideSectionTabs"] = true;
+    var notRecorded = "ثبت نشده";
+
+    var settlementUsd = Model.PartnerGrossProfitUsd;
+    var balanceLabel = settlementUsd > 0m ? "سهم سود شریک — قابل تسویه" : settlementUsd < 0m ? "سهم زیان شریک — قابل دریافت" : "بدون مانده قابل تسویه";
+    var balanceClass = settlementUsd > 0m ? "ak-num" : settlementUsd < 0m ? "ak-num" : "";
+
+    var showAccount = Model.ActiveTab == "account";
+    var showContracts = Model.ActiveTab == "contracts";
+    var showOverview = !showAccount && !showContracts;
+
+    var partnerTotalCostUsd = Model.Contracts.Sum(c => c.TotalCostUsd * c.SharePercent / 100m);
+    var recentStatement = Model.StatementRows.Reverse().Take(5).ToList();
+    var filteredPayments = Model.SelectedContractId.HasValue
+        ? Model.Payments.Where(p => p.ContractId == Model.SelectedContractId.Value).ToList()
+        : Model.Payments.ToList();
+
+    var editUrl = Url.Action("Edit", new { id = Model.PartnerId }) ?? "#";
+    var indexUrl = Url.Action("Index") ?? "#";
+
+    var partnerTabs = new[]
+    {
+        $"#partner-overview|خلاصه حساب|bi-grid-1x2|{(showOverview ? "active" : "")}",
+        $"#partner-account|حساب شریک|bi-journal-text|{(showAccount ? "active" : "")}",
+        $"#partner-contracts|معاملات و سود/زیان|bi-diagram-3|{(showContracts ? "active" : "")}"
+    };
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((Model.Name, false,
+                       "ویرایش شریک", "bi-pencil", editUrl, (string?)null,
+                       "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
+    </div>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>نام فارسی</dt><dd>@(string.IsNullOrWhiteSpace(Model.NamePersian) ? notRecorded : Model.NamePersian)</dd></div>
+                <div class="ak-list-row"><dt>کد</dt><dd>@(string.IsNullOrWhiteSpace(Model.Code) ? notRecorded : Model.Code)</dd></div>
+                <div class="ak-list-row"><dt>کشور</dt><dd>@(string.IsNullOrWhiteSpace(Model.Country) ? notRecorded : Model.Country)</dd></div>
+                <div class="ak-list-row"><dt>شخص تماس</dt><dd>@(string.IsNullOrWhiteSpace(Model.ContactPerson) ? notRecorded : Model.ContactPerson)</dd></div>
+                <div class="ak-list-row"><dt>تلفن</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? notRecorded : Model.Phone)</dd></div>
+                <div class="ak-list-row"><dt>ایمیل</dt><dd>@(string.IsNullOrWhiteSpace(Model.Email) ? notRecorded : Model.Email)</dd></div>
+                <div class="ak-list-row"><dt>آدرس</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? notRecorded : Model.Address)</dd></div>
+                <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? notRecorded : Model.Notes)</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", balanceLabel))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>مانده قابل تسویه</dt><dd class="ak-num @balanceClass">@Math.Abs(settlementUsd).ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>سهم درآمد فروش</dt><dd class="ak-num">@Model.PartnerSalesRevenueUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>سهم مصرف و خرید</dt><dd class="ak-num">@partnerTotalCostUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>میانگین سهم</dt><dd class="ak-num">@Model.AverageSharePercent.ToString("N2")٪</dd></div>
+                <div class="ak-list-row"><dt>قرارداد شراکتی</dt><dd class="ak-num">@Model.ContractsCount.ToString("N0")</dd></div>
+                @if (Model.LastFinancialDate.HasValue)
+                {
+                    <div class="ak-list-row"><dt>آخرین حرکت مالی</dt><dd>@Model.LastFinancialDate.Value.ToDisplayDate()</dd></div>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل شریک", partnerTabs)" />
+
+    @* ===== تب ۱: خلاصه — آخرین حرکت‌ها ===== *@
+    <section id="partner-overview" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("آخرین حرکت‌های حساب", "پنج سند آخر سهم این شریک."))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع حرکت</th>
+                        <th>قرارداد</th>
+                        <th>شرح</th>
+                        <th class="ak-col-num">سهم USD</th>
+                        <th class="ak-col-num">مانده</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in recentStatement)
+                {
+                    var inc = r.PartnerCreditUsd.HasValue && r.PartnerCreditUsd.Value != 0m;
+                    var dec = r.PartnerDebitUsd.HasValue && r.PartnerDebitUsd.Value != 0m;
+                    var eff = inc ? r.PartnerCreditUsd : dec ? r.PartnerDebitUsd : null;
+                    <tr>
+                        <td>@r.Date.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@r.Type</td>
+                        <td>@(r.ContractNumber ?? "-")</td>
+                        <td>@r.Description</td>
+                        <td class="ak-col-num ak-num @(inc ?"ak-num" : dec ? "ak-num" : "")">@(eff.HasValue ? (inc ? "+" : "-") + eff.Value.ToString("N2") : "—")</td>
+                        <td class="ak-col-num ak-num @(r.RunningBalanceUsd >= 0 ?"" : "ak-num")">@Math.Abs(r.RunningBalanceUsd).ToString("N2")</td>
+                    </tr>
+                }
+                @if (recentStatement.Count == 0)
+                {
+                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-clock-history"></i> هنوز سند مالی مرتبط با سهم این شریک ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۲: حساب شریک ===== *@
+    <section id="partner-account" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("صورت‌حساب سهم شریک", "فقط اثر سهم این شریک از اسناد قراردادهای شراکتی."))" />
+
+        <form asp-action="Details" asp-route-id="@Model.PartnerId" method="get" class="ak-detail-toolbar">
+            <input type="hidden" name="tab" value="account" />
+            <div class="ak-field">
+                <label class="ak-label" for="partnerStatementContract">نمایش بر اساس قرارداد</label>
+                <select id="partnerStatementContract" name="contractId" class="ak-input">
+                    <option value="">همه قراردادهای شریک</option>
+                    @foreach (var option in Model.StatementContractOptions)
+                    {
+                        <option value="@option.ContractId" selected="@(Model.SelectedContractId == option.ContractId)">@option.ContractNumber</option>
+                    }
+                </select>
+            </div>
+            <button type="submit" class="btn btn-light">نمایش</button>
+            @if (Model.SelectedContractId.HasValue)
+            {
+                <a asp-action="Details" asp-route-id="@Model.PartnerId" asp-route-tab="account" class="btn btn-light">نمایش همه</a>
+            }
+        </form>
+
+        @if (Model.SelectedContract is not null)
+        {
+            var sc = Model.SelectedContract;
+            var scClass = sc.PartnerGrossProfitUsd > 0m ? "ak-num" : sc.PartnerGrossProfitUsd < 0m ? "ak-num" : "";
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>درصد سهم</dt><dd class="ak-num">@sc.SharePercent.ToString("N2")٪</dd></div>
+                <div class="ak-list-row"><dt>سهم درآمد USD</dt><dd class="ak-num">@sc.SalesRevenueUsd.ToString("N2")</dd></div>
+                <div class="ak-list-row"><dt>کل مصرف USD</dt><dd class="ak-num">@sc.TotalCostUsd.ToString("N2")</dd></div>
+                <div class="ak-list-row"><dt>سهم سود/زیان USD</dt><dd class="ak-num @scClass">@sc.PartnerGrossProfitUsd.ToString("N2")</dd></div>
+            </dl>
+        }
+
+        @{
+            // شریک معناشناسی «سهم» دارد؛ عنوان ستون‌ها بازنویسی می‌شود اما همان مقادیر سهم مثبت/منفی نشان داده می‌شود.
+            var partnerStatementTable = new PTGOilSystem.Web.Models.Shared.PartyStatementTableViewModel
+            {
+                EmptyTitle = "صورت‌حساب خالی است",
+                EmptyMessage = "برای این شریک یا قرارداد انتخاب‌شده هنوز سند مالی مرتبط ثبت نشده است.",
+                CreditHeader = "سهم مثبت",
+                DebitHeader = "سهم منفی",
+                CreditTooltip = "افزایش سهم شریک",
+                DebitTooltip = "کاهش سهم شریک",
+                Rows = Model.StatementRows.Select(row =>
+                {
+                    var hasIncrease = row.PartnerCreditUsd.HasValue && row.PartnerCreditUsd.Value != 0m;
+                    var hasDecrease = row.PartnerDebitUsd.HasValue && row.PartnerDebitUsd.Value != 0m;
+                    var sourceAmount = hasIncrease ? row.Credit : hasDecrease ? row.Debit : row.Credit ?? row.Debit;
+                    var effectUsd = hasIncrease ? row.PartnerCreditUsd : hasDecrease ? row.PartnerDebitUsd : row.PartnerCreditUsd ?? row.PartnerDebitUsd;
+                    return new PTGOilSystem.Web.Models.Shared.PartyStatementRowViewModel
+                    {
+                        LedgerEntryId = row.LedgerEntryId,
+                        Date = row.Date,
+                        Type = row.Type,
+                        Reference = row.Reference,
+                        ContractNumber = row.ContractNumber,
+                        Description = row.Description,
+                        SourceAmount = sourceAmount,
+                        Currency = row.Currency,
+                        StatementCreditUsd = row.PartnerCreditUsd,
+                        StatementDebitUsd = row.PartnerDebitUsd,
+                        EffectLabel = hasIncrease ? "سهم مثبت" : hasDecrease ? "سهم منفی" : "بدون اثر",
+                        EffectClass = hasIncrease ? "is-increase" : hasDecrease ? "is-decrease" : "is-neutral",
+                        SignedUsd = effectUsd.HasValue ? $"{(hasIncrease ? "+" : hasDecrease ? "-" : "")}{effectUsd.Value:N2}" : "-",
+                        RunningBalanceUsd = row.RunningBalanceUsd,
+                        BalanceLabel = row.RunningBalanceUsd > 0 ? "مثبت" : row.RunningBalanceUsd < 0 ? "منفی" : "صفر",
+                        BalanceClass = row.RunningBalanceUsd > 0 ? "ak-num" : row.RunningBalanceUsd < 0 ? "ak-num" : ""
+                    };
+                }).ToList()
+            };
+        }
+        <partial name="~/Views/Shared/Partials/_PartyStatementTable.cshtml" model="partnerStatementTable" />
+
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حرکات نقدی سهم شریک", $"{filteredPayments.Count:N0} مورد"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع</th>
+                        <th>حساب</th>
+                        <th>قرارداد</th>
+                        <th class="ak-col-num">سهم شریک USD</th>
+                        <th>مرجع</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in filteredPayments)
+                {
+                    <tr>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.PaymentKindName</td>
+                        <td>@row.CashAccount</td>
+                        <td>@(row.ContractNumber ?? "-")</td>
+                        <td class="ak-col-num ak-num">@row.PartnerAmountUsd.ToString("N2")</td>
+                        <td><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.PaymentId">@(row.Reference ?? $"#{row.PaymentId}")</a></td>
+                    </tr>
+                }
+                @if (filteredPayments.Count == 0)
+                {
+                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-cash-stack"></i> پرداخت/دریافت‌های قراردادهای این شریک اینجا دیده می‌شوند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۳: معاملات و سود/زیان ===== *@
+    <section id="partner-contracts" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قراردادهای شراکتی", $"{Model.Contracts.Count:N0} قرارداد"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">قرارداد</th>
+                        <th>نوع</th>
+                        <th>طرف معامله</th>
+                        <th>محصول</th>
+                        <th class="ak-col-num">سهم٪</th>
+                        <th class="ak-col-num">سهم درآمد USD</th>
+                        <th class="ak-col-num">سهم مصرف USD</th>
+                        <th class="ak-col-num">سهم سود/زیان USD</th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Contracts)
+                {
+                    var rowClass = row.PartnerGrossProfitUsd > 0m ? "ak-num" : row.PartnerGrossProfitUsd < 0m ? "ak-num" : "";
+                    var partnerCost = row.TotalCostUsd * row.SharePercent / 100m;
+                    <tr>
+                        <td class="ak-col-grow"><a class="ak-name" asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@row.ContractId">@row.ContractNumber</a></td>
+                        <td>@row.ContractTypeName</td>
+                        <td>@row.CounterpartyName</td>
+                        <td>@row.Product</td>
+                        <td class="ak-col-num ak-num">@row.SharePercent.ToString("N2")٪</td>
+                        <td class="ak-col-num ak-num">@row.SalesRevenueUsd.ToString("N2")</td>
+                        <td class="ak-col-num ak-num">@partnerCost.ToString("N2")</td>
+                        <td class="ak-col-num ak-num @rowClass">@row.PartnerGrossProfitUsd.ToString("N2")</td>
+                        <td><span class="ak-status">@row.StatusName</span></td>
+                        <td class="ak-col-actions"><a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@row.ContractId">جریان</a></td>
+                    </tr>
+                }
+                @if (!Model.Contracts.Any())
+                {
+                    <tr><td colspan="10"><div class="ak-empty"><i class="bi bi-diagram-3"></i> برای این شریک هنوز قرارداد شراکتی ثبت نشده است.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

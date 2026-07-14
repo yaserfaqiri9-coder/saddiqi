@@ -1,0 +1,10 @@
+@model Unit
+@{
+    ViewData["Title"] = "واحد جدید";
+    ViewData["CreatePageIndexLabel"] = "واحدها";
+    ViewData["CreatePageSubtitle"] = "واحدهایی مثل MT، LTR یا BBL را از اینجا تعریف کنید تا در فرم اجناس قابل انتخاب باشند.";
+    ViewData["CreateFormPartialPath"] = "/Views/Units/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

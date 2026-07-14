@@ -1,0 +1,13 @@
+@*
+    Akaunting form section head (phase-2 real markup).
+    Title (16/500) + optional short description (12 muted) + divider.
+    Model: (Title, Description). Place a <div class="ak-form-grid"> after it.
+*@
+@model (string Title, string? Description)
+<header class="ak-section-head">
+    <h2 class="ak-section-title">@Model.Title</h2>
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <p class="ak-section-desc">@Model.Description</p>
+    }
+</header>

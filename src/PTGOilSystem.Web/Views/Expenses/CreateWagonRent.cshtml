@@ -1,0 +1,191 @@
+@model PTGOilSystem.Web.Models.Expenses.WagonRentCreateViewModel
+@{
+    ViewData["Title"] = "ثبت کرایه واگون";
+    ViewData["HideSectionTabs"] = true;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index");
+    var expenseTypeNames = ViewBag.ExpenseTypeNames as IEnumerable<string> ?? Array.Empty<string>();
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="Components/Ak/_AkPageHeader"
+             model='((ViewData["Title"]?.ToString() ?? "Wagon Rent", false, (string?)null, (string?)null, (string?)null, (string?)null, UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", cancelUrl))' />
+
+    <form asp-action="CreateWagonRent" method="post" class="ak-form">
+        <input asp-for="ReturnUrl" type="hidden" />
+
+
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="ak-form-alert text-danger"></div>
+            <div class="ak-note" role="alert">
+                <i class="bi bi-info-circle mt-1"></i>
+                <div>
+                    این کرایه واگون به عنوان مصرف رسمی قرارداد ثبت می‌شود و در P&amp;L فقط از مسیر ExpenseTransaction حساب خواهد شد.
+                    اگر نرخ سند به شکل RUB per USD است، آن را در «نرخ سند» وارد کنید تا سیستم نرخ USD per RUB را محاسبه کند.
+                </div>
+            </div>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">قرارداد و نوع مصرف</h2>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="ContractId" class="ak-label"></label>
+                        <select asp-for="ContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                            <option value="">انتخاب قرارداد</option>
+                        </select>
+                        <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ExpenseTypeId" class="ak-label"></label>
+                        <select asp-for="ExpenseTypeId" asp-items="ViewBag.ExpenseTypes" class="ak-input">
+                            <option value="">انتخاب نوع مصرف</option>
+                        </select>
+                        <span class="ak-note">اگر Wagon Rent در لیست نیست، نام دستی پایین استفاده می‌شود.</span>
+                        <span asp-validation-for="ExpenseTypeId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ManualExpenseTypeName" class="ak-label"></label>
+                        <input asp-for="ManualExpenseTypeName" list="expenseTypeSuggestions" class="ak-input" autocomplete="off" />
+                        <datalist id="expenseTypeSuggestions">
+                            @foreach (var expenseTypeName in expenseTypeNames)
+                            {
+                                <option value="@expenseTypeName"></option>
+                            }
+                        </datalist>
+                        <span asp-validation-for="ManualExpenseTypeName" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ExpenseDate" class="ak-label"></label>
+                        <input asp-for="ExpenseDate" type="date" class="ak-input" />
+                        <span asp-validation-for="ExpenseDate" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">محاسبه کرایه</h2>
+                <p class="ak-note mb-3">Rent Amount = M-Tone × Unit Price. مقدار نهایی روی سرور دوباره محاسبه می‌شود.</p>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="QuantityMt" class="ak-label"></label>
+                        <input asp-for="QuantityMt" class="ak-input" />
+                        <span asp-validation-for="QuantityMt" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="UnitPriceOriginal" class="ak-label"></label>
+                        <input asp-for="UnitPriceOriginal" class="ak-input" />
+                        <span asp-validation-for="UnitPriceOriginal" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="Currency" class="ak-label"></label>
+                        <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input">
+                            <option value="">انتخاب ارز</option>
+                        </select>
+                        <span asp-validation-for="Currency" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="AmountOriginal" class="ak-label"></label>
+                        <input asp-for="AmountOriginal" class="ak-input" readonly />
+                        <span class="ak-note">نمایشی است؛ هنگام ثبت از M-Tone و Unit Price محاسبه می‌شود.</span>
+                    </div>
+                </div>
+                <details class="ak-advanced mt-3">
+                    <summary class="ak-advanced-summary">
+                        <span><i class="bi bi-sliders2" aria-hidden="true"></i>جزئیات بیشتر سند</span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div class="ak-form-grid mt-1">
+                        <div class="ak-field" data-fx-rate-group data-fx-currency-source="#Currency">
+                            <div data-fx-rate-field>
+                                <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                                <input asp-for="DocumentCurrencyPerUsdRate" class="ak-input" data-fx-rate-input
+                                       placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                                <span class="ak-note">۱ دالر = چند واحد ارز سند؟</span>
+                                <span asp-validation-for="DocumentCurrencyPerUsdRate" class="ak-field-error"></span>
+                            </div>
+                            <div data-fx-usd-note class="d-none">
+                                <span class="ak-note"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</span>
+                            </div>
+                        </div>
+                        <input asp-for="AppliedFxRateToUsd" type="hidden" />
+                        <div class="ak-field">
+                            <label asp-for="Reference" class="ak-label"></label>
+                            <input asp-for="Reference" class="ak-input" />
+                            <span asp-validation-for="Reference" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="CostResponsibility" class="ak-label"></label>
+                            <select asp-for="CostResponsibility" class="ak-input">
+                                <option value="">— نامشخص —</option>
+                                <option value="1">بدوش خریدار</option>
+                                <option value="2">بدوش فروشنده</option>
+                                <option value="3">مشترک</option>
+                                <option value="4">نامشخص</option>
+                            </select>
+                        </div>
+                        <div class="ak-field ak-col-full">
+                            <label asp-for="Notes" class="ak-label"></label>
+                            <textarea asp-for="Notes" rows="3" class="ak-input"></textarea>
+                            <span asp-validation-for="Notes" class="ak-field-error"></span>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <div class="ak-note mb-3">
+                <i class="bi bi-clipboard-check"></i>
+                <div>
+                    <strong>قبل از ثبت بررسی کنید:</strong>
+                    کرایه واگون به عنوان مصرف رسمی قرارداد ثبت می‌شود و پرداخت بانکی جدید نمی‌سازد.
+                    <div class="text-muted small mt-1">قدم بعدی: بعد از ثبت، مصرف در گزارشات و P&amp;L قرارداد قابل بررسی است.</div>
+                </div>
+            </div>
+
+            <div class="ak-footer-actions">
+                <button type="submit" class="btn ak-primary-action">ثبت کرایه واگون</button>
+                <a href="@cancelUrl" class="btn ak-secondary-action">انصراف</a>
+            </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+        (() => {
+            const quantity = document.getElementById("QuantityMt");
+            const unitPrice = document.getElementById("UnitPriceOriginal");
+            const amount = document.getElementById("AmountOriginal");
+            const currency = document.getElementById("Currency");
+            const documentRate = document.getElementById("DocumentCurrencyPerUsdRate");
+            const fxRate = document.getElementById("AppliedFxRateToUsd");
+            const toNumber = value => Number(String(value || "").replace(/,/g, ""));
+
+            function updateAmount() {
+                const calculated = toNumber(quantity?.value) * toNumber(unitPrice?.value);
+                if (amount && Number.isFinite(calculated) && calculated > 0) {
+                    amount.value = calculated.toFixed(4);
+                }
+            }
+
+            function updateFx() {
+                if (!fxRate) return;
+                if (String(currency?.value || "").toUpperCase() === "USD") {
+                    fxRate.value = "1";
+                    return;
+                }
+
+                const rate = toNumber(documentRate?.value);
+                if (Number.isFinite(rate) && rate > 0) {
+                    fxRate.value = (1 / rate).toFixed(6);
+                }
+            }
+
+            [quantity, unitPrice].forEach(input => input?.addEventListener("input", updateAmount));
+            [currency, documentRate].forEach(input => input?.addEventListener("input", updateFx));
+            currency?.addEventListener("change", updateFx);
+            updateAmount();
+            updateFx();
+        })();
+    </script>
+}

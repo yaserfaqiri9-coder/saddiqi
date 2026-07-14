@@ -1,0 +1,131 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"مصارف","Expenses");
+    var query = Context.Request.Query;
+    bool HasQ(string key) => !string.IsNullOrWhiteSpace(query[key]);
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || HasQ("Filter.ExpenseTypeId") || HasQ("Filter.ContractId") || HasQ("Filter.ShipmentId")
+        || HasQ("Filter.TruckDispatchId") || HasQ("Filter.ServiceProviderId") || HasQ("Filter.OperationalAssetId");
+    var hasAnyFilter = hasAdvancedFilter || !string.IsNullOrWhiteSpace(Model.Filter.Query);
+}
+
+<div class="ak-form-page ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "مصارف", "Expenses"), true, UiText.T(Context, "ثبت مصرف جدید", "New expense"), "bi-plus-lg", Url.Action("Create"), (string?)null, UiText.T(Context, "ثبت مصرف گروهی", "Group expense"), "bi-collection", Url.Action("CreateGroup")))" />
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> ExpOpts(string viewBagKey)
+                => ((ViewData[viewBagKey] as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                    ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                    .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            var expFilter = new AkSearchFilterModel(
+                "Filter.Query", Model.Filter.Query,
+                UiText.T(Context, "جست‌وجو در مصارف...", "Search expenses..."),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.ExpenseTypeId", UiText.T(Context, "نوع مصرف", "Expense Type"), "select",
+                        ExpOpts("ExpenseTypes"), Model.Filter.ExpenseTypeId?.ToString()),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد", "Contract"), "select",
+                        ExpOpts("Contracts"), Model.Filter.ContractId?.ToString()),
+                    new("Filter.ShipmentId", UiText.T(Context, "حمل", "Shipment"), "select",
+                        ExpOpts("Shipments"), Model.Filter.ShipmentId?.ToString()),
+                    new("Filter.TruckDispatchId", UiText.T(Context, "ارسال موتر", "Truck send"), "select",
+                        ExpOpts("TruckDispatches"), Model.Filter.TruckDispatchId?.ToString()),
+                    new("Filter.ServiceProviderId", UiText.T(Context, "شرکت خدماتی", "Service Provider"), "select",
+                        ExpOpts("ServiceProviders"), Model.Filter.ServiceProviderId?.ToString()),
+                    new("Filter.OperationalAssetId", UiText.T(Context, "دارایی عملیاتی", "Owned Asset"), "select",
+                        ExpOpts("OperationalAssets"), Model.Filter.OperationalAssetId?.ToString()),
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToHtmlDateInput(), "Filter.ToDate", Model.Filter.ToDate?.ToHtmlDateInput())
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="expFilter" />
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="col-name">@UiText.T(Context,"نوع مصرف","Expense Type")</th>
+                        <th>@UiText.T(Context,"قرارداد / مرجع","Contract / Reference")</th>
+                        <th>@UiText.T(Context, "شرکت / دارایی", "Provider / Asset")</th>
+                        <th>@UiText.T(Context,"مبلغ","Amount")</th>
+                        <th class="col-status">@UiText.T(Context,"ارز","Currency")</th>
+                        <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Items.Count; index++)
+                    {
+                        var item = Model.Items[index];
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                            <td class="col-name">
+                                @await Html.PartialAsync("_OperationsListIdentity", ("bi-receipt", item.ExpenseTypeName, item.ExpenseDate.ToDisplayDate(), false))
+                            </td>
+                            <td>
+                                <span class="col-ltr">@(item.ContractNumber ?? "-")</span>
+                                <span class="ak-note">@(item.ShipmentCode ?? item.TruckDispatchLabel ?? item.TransportLegLabel ?? "-")</span>
+                            </td>
+                            <td>
+                                <span>@(item.ServiceProviderName ?? item.OperationalAssetName ?? "-")</span>
+                                <span class="ak-note">@(string.IsNullOrWhiteSpace(item.Description) ? "-" : item.Description)</span>
+                            </td>
+                            <td>
+                                <span class="col-ltr">@item.AmountUsd.ToString("N2") USD</span>
+                                <span class="ak-note col-ltr">@item.Amount.ToString("N2") @item.Currency</span>
+                            </td>
+                            <td class="col-status"><span class="ak-status is-info">@item.Currency</span></td>
+                            <td class="col-actions">
+                                <div class="ak-row-menu">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"مشاهده","View")" aria-label="@UiText.T(Context,"مشاهده","View")"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-cash-stack"></i>
+                                    @UiText.T(Context,"هیچ مصرفی برای فیلتر انتخابی یافت نشد","No expenses found for the selected filter")
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="col-ltr fw-bold">@(((decimal)ViewBag.SumAmountUsd).ToString("N2"))</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

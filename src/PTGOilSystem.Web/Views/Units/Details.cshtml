@@ -1,0 +1,27 @@
+@model Unit
+@{
+    ViewData["Title"] = $"واحد {Model.Code}";
+    var statusText = Model.IsActive ? "فعال" : "غیرفعال";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
+                       "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
+<section id="unit-info" class="ak-form-section">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("مشخصات واحد", (string?)"اطلاعات کامل این واحد اندازه‌گیری."))
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>کد</dt><dd><code>@Model.Code</code></dd></div>
+            <div class="ak-list-row"><dt>نام</dt><dd>@Model.Name</dd></div>
+            <div class="ak-list-row"><dt>نماد</dt><dd>@(string.IsNullOrWhiteSpace(Model.Symbol) ? "—" : Model.Symbol)</dd></div>
+            <div class="ak-list-row"><dt>نوع واحد</dt><dd>@(string.IsNullOrWhiteSpace(Model.UnitType) ? "—" : Model.UnitType)</dd></div>
+            <div class="ak-list-row"><dt>کد واحد پایه</dt><dd>@(string.IsNullOrWhiteSpace(Model.BaseUnitCode) ? "—" : Model.BaseUnitCode)</dd></div>
+            <div class="ak-list-row"><dt>ضریب تبدیل به پایه</dt><dd>@(Model.ConversionFactorToBase?.ToString("N10") ?? "—")</dd></div>
+            <div class="ak-list-row"><dt>واحد پایه</dt><dd>@(Model.IsBaseUnit ? "بله" : "خیر")</dd></div>
+            <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@statusText</span></dd></div>
+            <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? "—" : Model.Notes)</dd></div>
+            <div class="ak-list-row"><dt>تاریخ ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+        </dl>
+    </section>
+</div>

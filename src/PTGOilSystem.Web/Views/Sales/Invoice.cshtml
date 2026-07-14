@@ -1,0 +1,116 @@
+﻿@model PTGOilSystem.Web.Models.Sales.SalesInvoicePrintViewModel
+@using PTGOilSystem.Web.Models.Sales
+@{
+    Layout = null;
+    var pageBackground = Url.Content(Model.PageBackgroundPath);
+    var signature = Url.Content(Model.SignaturePath);
+    var stamp = Url.Content(Model.StampPath);
+    string FitClass(string value, int compactAt = 28, int tightAt = 44)
+        => value.Length > tightAt ? "fit-tight" : value.Length > compactAt ? "fit-compact" : string.Empty;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sales Invoice @Model.InvoiceNumber</title>
+    <link rel="stylesheet" href="~/vendor/fonts/vazirmatn/vazirmatn.css" />
+    <link rel="stylesheet" href="~/css/sales-invoice-print.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="invoice-actions">
+        <button type="button" onclick="window.print()">Print / Save PDF</button>
+        <a asp-action="Details" asp-route-id="@Model.SalesTransactionId">Back to Sale</a>
+    </div>
+
+    <main class="invoice-shell">
+        <section class="invoice-page @Model.TemplateCssClass" style="--theme-color:@Model.ThemeColor; --invoice-page-bg:url('@pageBackground')">
+            <h1 class="invoice-title">Sales Invoice</h1>
+
+            <div class="meta-line invoice-number">Invoice Number: @Model.InvoiceNumber</div>
+            <div class="meta-line invoice-date">Date : @Model.InvoiceDateDisplay</div>
+
+            <section class="party-block buyer-block">
+                <div class="party-heading">Buyer details:</div>
+                <div class="party-row">
+                    <span class="party-label">Name of Company:</span>
+                    <span class="party-value @FitClass(Model.BuyerCompanyName)">@Model.BuyerCompanyName</span>
+                </div>
+                <div class="party-row highlight">
+                    <span class="party-label">Representative Name:</span>
+                    <span class="party-value @FitClass(Model.BuyerRepresentativeName, 22, 34)">@Model.BuyerRepresentativeName</span>
+                </div>
+                <div class="party-row">
+                    <span class="party-label">Phone Number:</span>
+                    <span class="party-value @FitClass(Model.BuyerPhoneNumber, 18, 30)">@Model.BuyerPhoneNumber</span>
+                </div>
+                <div class="party-row">
+                    <span class="party-label">Address:</span>
+                    <span class="party-value @FitClass(Model.BuyerAddress, 26, 42)">@Model.BuyerAddress</span>
+                </div>
+            </section>
+
+            <section class="party-block seller-block">
+                <div class="party-heading">Seller Details</div>
+                <div class="party-row seller-name-row">
+                    <span class="party-value @FitClass(Model.SellerName, 28, 42)">@Model.SellerName</span>
+                </div>
+            </section>
+
+            <div class="sales-table-wrap">
+                <table class="sales-table" aria-label="Sales invoice lines">
+                    <colgroup>
+                        <col class="col-n" />
+                        <col class="col-type" />
+                        <col class="col-border" />
+                        <col class="col-qty" />
+                        <col class="col-unit" />
+                        <col class="col-total" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>N</th>
+                            <th>Type</th>
+                            <th>Border</th>
+                            <th>Quantity in Tons</th>
+                            <th>Amount per Ton in Dollars</th>
+                            <th>Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td class="@FitClass(Model.ProductType, 14, 24)">@Model.ProductType</td>
+                            <td class="@FitClass(Model.BorderOrLocation, 12, 20)">@Model.BorderOrLocation</td>
+                            <td>@Model.FormattedQuantityMt</td>
+                            <td>@Model.FormattedUnitPriceUsd</td>
+                            <td>@Model.FormattedTotalPriceUsd</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td colspan="4" class="total-label">Total</td>
+                            <td class="total-value">@Model.FormattedTotalPriceUsd</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <section class="invoice-note">
+                <div class="note-label">Note:</div>
+                <div class="note-persian">@Model.PersianNote</div>
+                @if (!string.IsNullOrWhiteSpace(Model.EnglishNote))
+                {
+                    <div>@Model.EnglishNote</div>
+                }
+            </section>
+
+            <div class="signature-label seller-signature-label">@Model.SignatureOfSellerLabel</div>
+            <div class="signature-label buyer-signature-label">@Model.SignatureOfBuyerLabel</div>
+            <div class="seller-mark">
+                <img class="seller-signature" src="@signature" alt="" />
+                <img class="seller-stamp" src="@stamp" alt="" />
+            </div>
+        </section>
+    </main>
+</body>
+</html>

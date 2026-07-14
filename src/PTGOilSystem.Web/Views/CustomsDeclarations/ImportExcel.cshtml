@@ -1,0 +1,179 @@
+@model PTGOilSystem.Web.Models.Customs.CustomsImportViewModel
+@using PTGOilSystem.Web.Models.Customs
+@{
+    ViewData["Title"] = "اپلود اکسل گروهی گمرک";
+}
+
+<div class="ak-form-page">
+    <div class="ak-form-section">
+        <div class="ak-section-head">
+            <h1 class="ak-section-title"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> اپلود اکسل گروهی گمرک</h1>
+            <a asp-action="Index" asp-route-returnUrl="@Model.ReturnUrl" class="btn btn-light ak-secondary-action">
+                <i class="bi bi-arrow-right" aria-hidden="true"></i><span>بازگشت</span>
+            </a>
+        </div>
+
+        <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+
+        <form method="post" asp-action="ImportExcel" enctype="multipart/form-data" class="ak-form" data-customs-import data-preview-url="@Url.Action("ImportExcelPreview")" data-save-url="@Url.Action("ImportExcel")" data-details-url="@Url.Action("Details")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div class="mb-3">
+                <label class="ak-label fw-bold">این گمرک‌ها برای کدام عملیات است؟</label>
+                <div class="d-flex flex-column gap-2">
+                    <label class="d-flex align-items-center gap-2">
+                        <input type="radio" asp-for="Scope" value="@((int)CustomsImportScope.InventoryTransport)" />
+                        <span>حمل از موجودی‌ها <small class="text-muted">(تطبیق با نمبر پلیت + سیمیر)</small></span>
+                    </label>
+                    <label class="d-flex align-items-center gap-2">
+                        <input type="radio" asp-for="Scope" value="@((int)CustomsImportScope.TruckDispatch)" />
+                        <span>ارسال‌های موتر <small class="text-muted">(تطبیق فقط با نمبر پلیت)</small></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-3" style="max-width:320px">
+                <label class="ak-label fw-bold" asp-for="FxRateToUsd"></label>
+                <input asp-for="FxRateToUsd" type="number" step="0.0001" min="0.0001" class="ak-input" placeholder="مثلاً ۷۰" required />
+                <span asp-validation-for="FxRateToUsd" class="text-danger small"></span>
+                <div class="form-text">همه مبالغ افغانی با این نرخ به دالر تبدیل و به‌صورت USD ثبت می‌شوند.</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="ak-label fw-bold">فایل اکسل</label>
+                <input type="file" name="file" class="ak-input" accept=".xlsx,.xls" required />
+                <div class="form-text">
+                    ستون‌های شناخته‌شده (همه افغانی): تاریخ، سیمیر، نمبر موتر، وزن سیمیر، مقصد، مصرف محصولی،
+                    مصارف فواید عامه، کمیشن بانک، نورم استندرد، حق‌الخدمه مواد نفت، مصرف ۲۰ پول، مصارف خط آهن،
+                    بارنامه واگن، ترازوی موتر، یوزبلاغ، کمیشن بارچلانی.
+                    ستون «مصرف محصول به دالر» فقط رهنماست و در محاسبه حساب نمی‌شود.
+                    فقط ردیف‌هایی که با عملیاتِ <strong>در جریان</strong> (نه تکمیل‌شده) تطبیق شوند ثبت می‌گردند.
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-light ak-secondary-action" data-preview-btn>
+                    <i class="bi bi-eye" aria-hidden="true"></i><span>پیش‌نمایش</span>
+                </button>
+                <button type="button" class="btn btn-primary ak-primary-action" data-save-btn disabled>
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i><span>ثبت نهایی</span>
+                </button>
+                <span class="d-none align-items-center gap-2 text-muted" data-import-loading>
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span data-import-loading-text>در حال وارد کردن… لطفاً صبر کنید</span>
+                </span>
+            </div>
+            <div class="small text-muted mt-2" data-import-hint>
+                ابتدا «پیش‌نمایش» را بزنید تا ببینید کدام ردیف‌ها ثبت و کدام رد می‌شوند؛ سپس «ثبت نهایی».
+            </div>
+            <div class="small text-danger mt-2 d-none" data-import-error></div>
+        </form>
+    </div>
+
+    <div class="ak-form-section mt-3 d-none" data-preview-card>
+        <div class="ak-section-head">
+            <h2 class="ak-section-title">پیش‌نمایش <span class="text-muted small">(هنوز ثبت نشده)</span></h2>
+            <span class="text-muted small">
+                قابل ثبت: <strong class="text-success" data-preview-saved>0</strong> —
+                رد‌شده: <strong class="text-danger" data-preview-skipped>0</strong>
+            </span>
+        </div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>ردیف</th><th>سیمیر</th><th>نمبر موتر</th><th>وزن</th>
+                        <th>مجموع AFN</th><th>مجموع USD</th><th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody data-preview-rows></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-form-section mt-3 d-none" data-result-card>
+        <div class="ak-section-head">
+            <h2 class="ak-section-title">نتیجهٔ ثبت</h2>
+            <span class="text-muted small">
+                ثبت‌شده: <strong class="text-success" data-result-saved>0</strong> —
+                رد‌شده: <strong class="text-danger" data-result-skipped>0</strong>
+            </span>
+        </div>
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>ردیف</th><th>سیمیر</th><th>نمبر موتر</th><th>وزن</th>
+                        <th>مجموع AFN</th><th>مجموع USD</th><th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody data-result-rows></tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (Model.HasResult)
+    {
+        <div class="ak-form-section mt-3">
+            <div class="ak-section-head">
+                <h2 class="ak-section-title">نتیجه</h2>
+                <span class="text-muted small">
+                    ثبت‌شده: <strong class="text-success">@Model.SavedCount</strong> —
+                    رد‌شده: <strong class="text-danger">@Model.SkippedCount</strong>
+                </span>
+            </div>
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th>ردیف</th>
+                            <th>سیمیر</th>
+                            <th>نمبر موتر</th>
+                            <th>وزن</th>
+                            <th>مجموع AFN</th>
+                            <th>مجموع USD</th>
+                            <th>وضعیت</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Rows)
+                        {
+                            <tr>
+                                <td>@r.RowNumber</td>
+                                <td>@r.Simir</td>
+                                <td>@r.PlateNumber</td>
+                                <td>@(r.WeightMt?.ToString("0.###"))</td>
+                                <td>@r.TotalAfn.ToString("0.##")</td>
+                                <td>@(r.TotalUsd > 0 ? r.TotalUsd.ToString("0.##") : "—")</td>
+                                <td>
+                                    @if (r.Matched)
+                                    {
+                                        <span class="badge bg-success">ثبت شد</span>
+                                        @if (r.DeclarationId.HasValue)
+                                        {
+                                            <a asp-action="Details" asp-route-id="@r.DeclarationId" class="ms-1 small">@r.MatchedLabel</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="ms-1 small">@r.MatchedLabel</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">رد شد</span>
+                                        <span class="ms-1 small text-muted">@r.SkipReason</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/customs-import.js" asp-append-version="true"></script>
+}

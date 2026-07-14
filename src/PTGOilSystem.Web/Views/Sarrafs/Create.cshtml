@@ -1,0 +1,24 @@
+@model SarrafFormViewModel
+@{
+    ViewData["Title"] = "ثبت صراف";
+    var requestedReturnUrl = Context.Request.Query["returnUrl"].ToString();
+    var returnUrl = Url.IsLocalUrl(requestedReturnUrl) ? requestedReturnUrl : Url.Action("Index") ?? "/";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("ثبت صراف", true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)returnUrl)) " />
+
+    <form asp-action="Create" asp-route-returnUrl="@returnUrl" method="post" class="ak-form">
+        <partial name="_Form" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@(("ذخیره", returnUrl, "بازگشت"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

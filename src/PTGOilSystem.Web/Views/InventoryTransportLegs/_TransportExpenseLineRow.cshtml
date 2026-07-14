@@ -1,0 +1,113 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupExpenseModalRow
+@using System.Globalization
+@using System.Linq
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    var token = ViewData["RowToken"] as string ?? "__INDEX__";
+    var typeItems = (ViewBag.ExpenseTypes as SelectList)?.ToList() ?? new List<SelectListItem>();
+    var providerOptions = ViewBag.ServiceProviders as SelectList;
+    var assetOptions = ViewBag.OperationalAssets as SelectList;
+
+    string Name(string field) => $"Lines[{token}].{field}";
+    string Num(decimal? value) => value.HasValue && value.Value != 0m ? value.Value.ToString(CultureInfo.InvariantCulture) : "";
+
+    var typeValue = Model.ExpenseTypeId?.ToString() ?? "";
+    var typeEntryValue = !string.IsNullOrWhiteSpace(Model.ManualExpenseTypeName)
+        ? Model.ManualExpenseTypeName
+        : typeItems.FirstOrDefault(o => o.Value == typeValue)?.Text ?? "";
+    var typeSuggestionsId = $"transportExpenseTypeSuggestions-{token}";
+    var calcValue = ((int)Model.CalculationMode).ToString();
+    var partyValue = ((int)Model.PartyType).ToString();
+    var providerValue = Model.ServiceProviderId?.ToString() ?? "";
+    var assetValue = Model.OperationalAssetId?.ToString() ?? "";
+    var isPerMt = Model.CalculationMode == PTGOilSystem.Web.Models.Entities.LoadingExpenseCalculationMode.PerMetricTon;
+    var isProvider = Model.PartyType == PTGOilSystem.Web.Models.Entities.LoadingExpensePartyType.ServiceProvider;
+    var isAsset = Model.PartyType == PTGOilSystem.Web.Models.Entities.LoadingExpensePartyType.OperationalAsset;
+    var isNone = Model.PartyType == PTGOilSystem.Web.Models.Entities.LoadingExpensePartyType.None;
+}
+<div class="ak-form-grid" data-expense-row>
+    <input type="hidden" name="Lines.Index" value="@token" />
+
+    <div class="ak-field">
+        <input type="text"
+               name="@Name("ExpenseTypeEntry")"
+               value="@typeEntryValue"
+               list="@typeSuggestionsId"
+               class="ak-input"
+               autocomplete="off"
+               placeholder="انتخاب یا درج نوع مصرف"
+               data-row-type
+               data-row-type-entry
+               aria-label="نوع مصرف" />
+        <input type="hidden" name="@Name("ExpenseTypeId")" value="@typeValue" data-row-type-id />
+        <input type="hidden" name="@Name("ManualExpenseTypeName")" value="@Model.ManualExpenseTypeName" data-row-type-manual />
+        <datalist id="@typeSuggestionsId">
+            @foreach (var o in typeItems)
+            {
+                <option value="@o.Text" data-expense-type-id="@o.Value"></option>
+            }
+        </datalist>
+    </div>
+
+    <div class="ak-field">
+        <select name="@Name("CalculationMode")" class="ak-input" data-row-calc aria-label="روش محاسبه">
+            <option value="1" selected="@(calcValue == "1" ? "selected" : null)">مبلغ ثابت</option>
+            <option value="2" selected="@(calcValue == "2" ? "selected" : null)">بر اساس تن</option>
+        </select>
+    </div>
+
+    <div class="ak-field">
+        <input name="@Name("QuantityMt")" value="@Num(Model.QuantityMt)" type="number" min="0" step="0.0001"
+               class="ak-input ak-num" data-row-qty aria-label="مقدار" placeholder="—" @(isPerMt ? null : "disabled") />
+    </div>
+
+    <div class="ak-field">
+        <input name="@Name("UnitRateUsd")" value="@Num(Model.UnitRateUsd)" type="number" min="0" step="0.0001"
+               class="ak-input ak-num" data-row-rate aria-label="نرخ فی تن" placeholder="—" @(isPerMt ? null : "disabled") />
+    </div>
+
+    <div class="ak-field">
+        <input name="@Name("AmountUsd")" value="@Num(Model.AmountUsd)" type="number" min="0" step="0.0001"
+               class="ak-input ak-num" data-row-amount aria-label="مبلغ کل" placeholder="0" @(isPerMt ? "readonly" : null) />
+    </div>
+
+    <div class="ak-field">
+        <select name="@Name("PartyType")" class="ak-input" data-row-party aria-label="طرف حساب">
+            <option value="0" selected="@(partyValue == "0" ? "selected" : null)">بدون طرف حساب</option>
+            <option value="1" selected="@(partyValue == "1" ? "selected" : null)">شرکت خدماتی</option>
+            <option value="2" selected="@(partyValue == "2" ? "selected" : null)">دارایی / موتر ملکی</option>
+        </select>
+    </div>
+
+    <div class="ak-field">
+        <select name="@Name("ServiceProviderId")" class="ak-input" data-row-provider aria-label="انتخاب شرکت خدماتی"
+                @(isProvider ? null : "disabled") style="@(isProvider ? null : "display:none")">
+            <option value="">انتخاب شرکت</option>
+            @if (providerOptions != null)
+            {
+                foreach (var o in providerOptions)
+                {
+                    <option value="@o.Value" selected="@(o.Value == providerValue ? "selected" : null)">@o.Text</option>
+                }
+            }
+        </select>
+        <select name="@Name("OperationalAssetId")" class="ak-input" data-row-asset aria-label="انتخاب دارایی ملکی"
+                @(isAsset ? null : "disabled") style="@(isAsset ? null : "display:none")">
+            <option value="">انتخاب دارایی</option>
+            @if (assetOptions != null)
+            {
+                foreach (var o in assetOptions)
+                {
+                    <option value="@o.Value" selected="@(o.Value == assetValue ? "selected" : null)">@o.Text</option>
+                }
+            }
+        </select>
+        <span class="ak-note" data-row-noparty style="@(isNone ? null : "display:none")">—</span>
+    </div>
+
+    <div class="ak-field">
+        <button type="button" class="btn ak-text-action text-danger p-0" data-row-remove title="حذف ردیف" aria-label="حذف ردیف">
+            <i class="bi bi-trash-fill"></i>
+        </button>
+    </div>
+</div>

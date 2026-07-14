@@ -1,0 +1,17 @@
+@model (string ToneClass, string IconClass, string Label, string Value, string Subtitle, string ValueClass)
+@*
+    Flat report metric tile (Akaunting migration). Renders one <div> inside an
+    <dl class="ak-summary-list">. Decorative tone/icon/sparkline dropped; real
+    numbers only, LTR tabular. Tuple shape kept for existing call sites.
+*@
+@{
+    var valueClass = string.IsNullOrWhiteSpace(Model.ValueClass) ? string.Empty : Model.ValueClass;
+}
+<div>
+    <dt>@Model.Label</dt>
+    <dd class="ak-num @valueClass">@Model.Value</dd>
+    @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+    {
+        <small>@Model.Subtitle</small>
+    }
+</div>

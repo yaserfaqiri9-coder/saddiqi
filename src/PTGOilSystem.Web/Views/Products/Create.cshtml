@@ -1,0 +1,10 @@
+@model Product
+@{
+    ViewData["Title"] = UiText.T(Context, "جنس جدید", "New Product");
+    ViewData["CreatePageIndexLabel"] = UiText.T(Context, "جنس‌ها", "Products");
+    ViewData["CreatePageSubtitle"] = UiText.T(Context, "کد، نام، واحد اصلی و وضعیت جنس را ثبت کنید.", "Enter code, name, main unit and status of the product.");
+    ViewData["CreateFormPartialPath"] = "/Views/Products/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

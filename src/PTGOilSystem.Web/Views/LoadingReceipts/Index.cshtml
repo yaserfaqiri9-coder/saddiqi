@@ -1,0 +1,122 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingReceiptIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "رسیدهای بارگیری", "Loading Receipts");
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var hasAdvancedFilter = Model.FromDate.HasValue || Model.ToDate.HasValue;
+    var hasAnyFilter = hasAdvancedFilter || !string.IsNullOrWhiteSpace(Model.Query);
+}
+
+<div class="ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"]?.ToString() ?? "Loading Receipts", true,
+                       UiText.T(Context, "ثبت رسید", "New Receipt"), "bi-plus-lg",
+                       (string?)Url.Action("Create", new { returnUrl = currentUrl }), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+        @{
+            var lrFilter = new AkSearchFilterModel("q", Model.Query,
+                UiText.T(Context, "قرارداد، جنس، مخزن یا مرجع...", "Contract, product, tank or reference..."),
+                new List<AkFilterDefinition>
+                {
+                    new("fromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.FromDate?.ToString("yyyy-MM-dd"), "toDate", Model.ToDate?.ToString("yyyy-MM-dd"))
+                });
+        }
+        <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="lrFilter" />
+
+    <div class="ak-list">
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-check"><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="ak-col-grow">@UiText.T(Context, "قرارداد", "Contract")</th>
+                        <th>@UiText.T(Context, "جنس", "Product")</th>
+                        <th>@UiText.T(Context, "مخزن", "Tank")</th>
+                        <th>@UiText.T(Context, "مقدار", "Quantity")</th>
+                        <th>@UiText.T(Context, "مرجع", "Reference")</th>
+                        <th class="ak-col-actions">@UiText.T(Context, "عملیات", "Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Items.Count; index++)
+                    {
+                        var item = Model.Items[index];
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td class="ak-col-check"><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                            <td class="ak-col-grow">
+                                @await Html.PartialAsync("_OperationsListIdentity", ("bi-box-arrow-in-down", string.IsNullOrWhiteSpace(item.ContractNumber) ? "-" : item.ContractNumber, item.ReceiptDate.ToDisplayDate(), true))
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(item.ProductName) ? "-" : item.ProductName)</td>
+                            <td>
+                                <span class="ak-name">@(item.StorageTankCode ?? item.TerminalName)</span>
+                                <small>@item.TerminalName</small>
+                            </td>
+                            <td class="ak-num">@NumberDisplay.Quantity(item.ReceivedQuantityMt) MT</td>
+                            <td><span class="ak-status @(string.IsNullOrWhiteSpace(item.ReferenceDocument) ?"is-inactive" : "is-active")">@(string.IsNullOrWhiteSpace(item.ReferenceDocument) ? UiText.T(Context,"بدون مرجع","No reference") : item.ReferenceDocument)</span></td>
+                            <td class="ak-col-actions">
+                                <div>
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="ak-row-menu-btn" title="@UiText.T(Context, "مشاهده", "View")" aria-label="@UiText.T(Context, "مشاهده", "View")"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-box-arrow-in-down"></i>
+                                    @UiText.T(Context, "رسیدی یافت نشد", "No receipts found.")
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="ak-num fw-bold">@NumberDisplay.Quantity((decimal)ViewBag.SumQuantity)</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('lrFilterToggle');
+            var pop = document.getElementById('lrFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

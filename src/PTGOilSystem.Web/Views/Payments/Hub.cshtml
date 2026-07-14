@@ -1,0 +1,68 @@
+@model PTGOilSystem.Web.Models.Payments.TreasuryHubViewModel
+@{
+    ViewData["Title"] = "مرکز رزنامچه و تسویه‌ها";
+    var suspenseTone = Model.SuspenseCount > 0 ? "ak-num" : "";
+    var reviewTone = Model.NeedsReviewCount > 0 ? "ak-num" : "";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("مرکز رزنامچه و تسویه‌ها", false,
+                       "ثبت دریافت/پرداخت", "bi-plus-lg", Url.Action("Create"), (string?)null,
+                       "همه اسناد رزنامچه", "bi-list-ul", Url.Action("Index")))" />
+
+    <p class="ak-note">همه عملیات پولی از یک‌جا: دریافت، پرداخت، پیشکی، حواله، انتقال مانده، صراف و بررسی پول‌های معلق. این صفحه فقط راهنما و خلاصه است و خودش هیچ سندی ثبت نمی‌کند.</p>
+
+    <section class="ak-form-section ak-summary" aria-label="آمار مرکز روزنامچه">
+        <dl class="ak-summary-list">
+            <div><dt>جمع دریافتی</dt><dd class="ak-num">@Model.TodayReceiptUsd.ToString("N2") USD</dd></div>
+            <div><dt>جمع پرداختی</dt><dd class="ak-num">@Model.TodayPaymentUsd.ToString("N2") USD</dd></div>
+            <div><dt>پول‌های معلق</dt><dd class="ak-num @suspenseTone">@Model.SuspenseCount</dd></div>
+            <div><dt>حواله‌های ثبت‌شده</dt><dd class="ak-num">@Model.PostedHawalaCount</dd></div>
+            <div><dt>نیازمند بررسی</dt><dd class="ak-num @reviewTone">@Model.NeedsReviewCount</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-hub-grid">
+        <a asp-action="Create" asp-route-kind="customer-receipt" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-arrow-down-left"></i> دریافت از مشتری</span>
+            <span class="ak-hub-tile-desc">پولی که از مشتری می‌گیرید را ثبت کنید؛ طلب ما از مشتری کم می‌شود.</span>
+        </a>
+        <a asp-action="Create" asp-route-kind="supplier-payment" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-arrow-up-right"></i> پرداخت به تأمین‌کننده</span>
+            <span class="ak-hub-tile-desc">پولی که به تأمین‌کننده می‌دهید را ثبت کنید؛ بدهی ما به تأمین‌کننده کم می‌شود.</span>
+        </a>
+        <a asp-action="Create" asp-route-kind="supplier-advance" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-wallet2"></i> پیشکی تأمین‌کننده</span>
+            <span class="ak-hub-tile-desc">پیش‌پرداخت (پیشکی) به تأمین‌کننده پیش از تحویل؛ به‌عنوان پیشکی ثبت می‌شود.</span>
+        </a>
+        <a asp-controller="ThreeWaySettlement" asp-action="Index" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-diagram-3"></i> تسویه سه‌طرفه / حواله</span>
+            <span class="ak-hub-tile-desc">وقتی مشتری مستقیم یا از طریق صراف به تأمین‌کننده حواله می‌کند.</span>
+        </a>
+        <a asp-controller="ContractBalanceTransfers" asp-action="Index" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-shuffle"></i> انتقال مانده بین قراردادها</span>
+            <span class="ak-hub-tile-desc">انتقال مانده پول از یک قرارداد به قرارداد دیگر.</span>
+        </a>
+        <a asp-action="Create" asp-route-method="sarraf" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-currency-exchange"></i> پرداخت از طریق صراف</span>
+            <span class="ak-hub-tile-desc">صراف از طرف شرکت به تأمین‌کننده پول می‌دهد؛ در همان فرم با «روش پرداخت: از طریق صراف».</span>
+        </a>
+        <a asp-controller="Reconciliation" asp-action="SuspenseMoney" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-exclamation-octagon"></i> پول‌های معلق</span>
+            <span class="ak-hub-tile-desc">پول‌هایی که طرف‌حساب یا سند ندارند و باید «وصل» شوند.</span>
+        </a>
+        <a asp-controller="Customers" asp-action="Index" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-person-lines-fill"></i> صورت‌حساب مشتری</span>
+            <span class="ak-hub-tile-desc">مانده و گردش حساب هر مشتری.</span>
+        </a>
+        <a asp-controller="Suppliers" asp-action="Index" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-truck"></i> صورت‌حساب تأمین‌کننده</span>
+            <span class="ak-hub-tile-desc">مانده و گردش حساب هر تأمین‌کننده.</span>
+        </a>
+        <a asp-controller="Sarrafs" asp-action="Index" class="ak-hub-tile">
+            <span class="ak-hub-tile-title"><i class="bi bi-bank"></i> صراف‌ها</span>
+            <span class="ak-hub-tile-desc">فهرست صراف‌ها، مانده و حواله‌های مرتبط.</span>
+        </a>
+    </div>
+</div>

@@ -1,0 +1,135 @@
+@model PTGOilSystem.Web.Models.LossEvents.LossEventIndexViewModel
+@using PTGOilSystem.Web.Models.LossEvents
+@{
+    ViewData["Title"] = "Loss Events";
+    var hasAdvancedFilter = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ProductId.HasValue || Model.Filter.ContractId.HasValue || Model.Filter.Stage.HasValue;
+    var hasAnyFilter = hasAdvancedFilter || !string.IsNullOrWhiteSpace(Model.Filter.ResponsiblePartyName);
+}
+
+<div class="ak-form-page ak-list-page" data-operations-list>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "کسری و ضایعات", "Loss events"), true, UiText.T(Context, "ثبت کسری جدید", "New loss event"), "bi-plus-lg", Url.Action("Create"), (string?)null, (string?)null, (string?)null, (string?)null))" />
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> LossOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Where(i => !string.IsNullOrEmpty(i.Value)).Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? LossQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var lossFilter = new AkSearchFilterModel("Filter.ResponsiblePartyName", Model.Filter.ResponsiblePartyName,
+                UiText.T(Context, "جست‌وجوی مسئول...", "Search responsible..."),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.ProductId", UiText.T(Context, "جنس", "Product"), "select", LossOpts(ViewBag.Products), LossQ("Filter.ProductId")),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد", "Contract"), "select", LossOpts(ViewBag.Contracts), LossQ("Filter.ContractId")),
+                    new("Filter.Stage", UiText.T(Context, "مرحله", "Stage"), "select", LossOpts(ViewBag.Stages), LossQ("Filter.Stage")),
+                    new("Filter.AffectsInventory", UiText.T(Context, "اثر بر موجودی", "Affects inventory"), "select", LossOpts(ViewBag.AffectsInventoryOptions), LossQ("Filter.AffectsInventory"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="lossFilter" />
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" class="ak-check" data-ops-select-all aria-label="@UiText.T(Context,"انتخاب همه","Select all")" /></th>
+                        <th class="col-name">@UiText.T(Context,"رویداد","Event")</th>
+                        <th>@UiText.T(Context,"جنس / قرارداد","Product / Contract")</th>
+                        <th>@UiText.T(Context,"مسئول","Responsible")</th>
+                        <th>@UiText.T(Context,"مقدار / فیصدی","Quantity / Percent")</th>
+                        <th class="col-status">@UiText.T(Context,"وضعیت","Status")</th>
+                        <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < Model.Items.Count; index++)
+                    {
+                        var item = Model.Items[index];
+                        var needsReview = item.ChargeableLossMt > 0m;
+                        var statusText = needsReview ? UiText.T(Context,"نیاز بررسی","Needs review") : UiText.T(Context,"تایید شده","Approved");
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td><input type="checkbox" class="ak-check" data-ops-row-select aria-label="@UiText.T(Context,"انتخاب ردیف","Select row")" /></td>
+                            <td class="col-name">
+                                @await Html.PartialAsync("_OperationsListIdentity", ("bi-exclamation-circle", LossEventStageLabels.ToPersian(item.Stage), item.EventDate.ToDisplayDate(), false))
+                            </td>
+                            <td>
+                                <span>@item.ProductName</span>
+                                <span class="ak-note col-ltr">@(item.ContractNumber ?? "-")</span>
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePartyName) ? "-" : item.ResponsiblePartyName)</td>
+                            <td>
+                                <span class="col-ltr">@item.ChargeableLossMt.ToString("N2") MT</span>
+                                <span class="ak-note col-ltr">@(item.AllowableLossMt > 0m ? (item.ChargeableLossMt / item.AllowableLossMt * 100m).ToString("N2") + "%" : "-")</span>
+                            </td>
+                            <td class="col-status"><span class="ak-status @(needsReview ?"is-pending" : "is-active")" title="@statusText">@statusText</span></td>
+                            <td class="col-actions">
+                                <div class="ak-row-menu">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"مشاهده","Details")" aria-label="@UiText.T(Context,"مشاهده","Details")"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                    <tr>
+                            <td colspan="7">
+                                <div class="ak-empty">
+                                    <i class="bi bi-exclamation-diamond"></i>
+                                    رویدادی یافت نشد
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.Items.Any())
+                {
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
+                            <td class="col-ltr fw-bold">@(((decimal)ViewBag.SumChargeableLoss).ToString("N2")) MT</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_OperationsListFooter", (Model.CurrentPage, Model.PageCount, Model.TotalCount, 5))
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('lossFilterToggle');
+            var pop = document.getElementById('lossFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-list-page .ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

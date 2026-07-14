@@ -1,0 +1,90 @@
+@model PTGOilSystem.Web.Controllers.ShipmentContractCreateViewModel
+@{
+    ViewData["Title"] = "افزودن قرارداد به محموله";
+    int shipmentId = ViewBag.ShipmentId;
+    string shipmentCode = ViewBag.ShipmentCode ?? "";
+    var contractOptions = ViewBag.ContractOptions as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+        ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    var showAdvanced = !string.IsNullOrWhiteSpace(Model.Notes);
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-header-main">
+<h1 class="ak-page-title">افزودن قرارداد به محموله</h1>
+            <p class="ak-section-desc">
+                محموله: <strong>@shipmentCode</strong>
+                <span class="badge text-bg-info ms-2">ثبت قرارداد جدید</span>
+            </p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Index" asp-route-shipmentId="@shipmentId" class="btn btn-light ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
+        </div>
+    </div>
+
+    <form asp-action="Create" method="post" class="ak-form-section ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="ShipmentId" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div class="ak-section-body">
+            <div asp-validation-summary="All" class="alert alert-danger mb-3"></div>
+
+            <div class="ak-form-grid g-3">
+                <div class="ak-field">
+                    <label asp-for="ContractId" class="ak-label fw-semibold">قرارداد</label>
+                    <select asp-for="ContractId" class="ak-input">
+                        <option value="">— انتخاب قرارداد —</option>
+                        @foreach (var opt in contractOptions)
+                        {
+                            <option value="@opt.Value">@opt.Text</option>
+                        }
+                    </select>
+                    <span asp-validation-for="ContractId" class="field-validation-error"></span>
+                    @if (!contractOptions.Any())
+                    {
+                        <div class="alert alert-warning mt-2 py-1 ak-note">
+                            تمام قراردادهای موجود قبلاً به این محموله اضافه شده‌اند.
+                        </div>
+                    }
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="QuantityMt" class="ak-label fw-semibold"></label>
+                    <input asp-for="QuantityMt" type="number" step="0.0001" class="ak-input" placeholder="0.0000" />
+                    <small class="text-muted">مقدار اختصاص‌داده‌شده (MT) — اختیاری</small>
+                </div>
+
+                <div class="ak-field">
+                    <details class="ak-advanced" open="@(showAdvanced ? "open" : null)">
+                        <summary class="ak-advanced-summary">
+                            <span><i class="bi bi-sliders" aria-hidden="true"></i>جزئیات بیشتر</span>
+                        </summary>
+                        <div class="ak-advanced-body">
+                            <label asp-for="Notes" class="ak-label fw-semibold"></label>
+                            <textarea asp-for="Notes" class="ak-input" rows="2" placeholder="یادداشت اختیاری"></textarea>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-summary ak-note mx-3 mb-2">
+            <i class="bi bi-clipboard-check"></i>
+            <div>
+                <strong>قبل از ثبت بررسی کنید:</strong>
+                قرارداد انتخاب‌شده و مقدار تخصیص به محموله درست باشد.
+                <div class="text-muted small mt-1">قدم بعدی: بعد از ثبت، این قرارداد در پروندهٔ کشتی / محموله دیده می‌شود.</div>
+            </div>
+        </div>
+
+        <div class="ak-footer-actions d-flex justify-content-end gap-2">
+            <a asp-action="Index" asp-route-shipmentId="@shipmentId" class="btn btn-light ak-secondary-action">انصراف</a>
+            <button type="submit" class="btn btn-primary ak-primary-action" @(!contractOptions.Any() ? "disabled" : "")>افزودن قرارداد</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

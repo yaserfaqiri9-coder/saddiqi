@@ -1,0 +1,193 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseRuleDetailsViewModel
+@{
+    ViewData["Title"] = "جزئیات Rule مصرف";
+    var isBaseCurrency = string.Equals(Model.Currency, "USD", StringComparison.OrdinalIgnoreCase);
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"]?.ToString() ?? "جزئیات Rule مصرف", false,
+                       "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+    <div>
+        <div>
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("خلاصه Rule", (string?)null))
+                <div>
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>نام</dt><dd>@Model.Name</dd></div>
+                        <div class="ak-list-row"><dt>نوع مصرف</dt><dd>@Model.ExpenseTypeName</dd></div>
+                        <div class="ak-list-row"><dt>نوع محاسبه</dt><dd><code>@Model.CalculationKind</code></dd></div>
+                        <div class="ak-list-row"><dt>مقدار Rule</dt><dd>@Model.Amount.ToString("N4")</dd></div>
+                        <div class="ak-list-row"><dt>ارز</dt><dd>@Model.Currency</dd></div>
+                        <div class="ak-list-row">
+                            <dt>وضعیت</dt>
+                            <dd>
+                                @if (Model.IsActive)
+                                {
+                                    <span class="ak-status is-active">فعال</span>
+                                }
+                                else
+                                {
+                                    <span class="ak-status is-inactive">غیرفعال</span>
+                                }
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div>
+            <section class="ak-form-section">
+                <div>
+                    @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("تولید مصرف از روی Rule", (string?)null))
+
+                    @if (!Model.CanGenerateExpense)
+                    {
+                        <div class="alert alert-warning mb-0">Rule غیرفعال است و تا زمان فعال‌سازی امکان تولید مصرف ندارد.</div>
+                    }
+                    else
+                    {
+                        <form asp-action="GenerateExpense" asp-route-id="@Model.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                            <div class="ak-form-grid">
+                                <div class="ak-field">
+                                    <label asp-for="Generation.ExpenseDate" class="ak-label"></label>
+                                    <input asp-for="Generation.ExpenseDate" type="date" class="ak-input" />
+                                    <span asp-validation-for="Generation.ExpenseDate" class="ak-field-error"></span>
+                                </div>
+                                <div class="ak-field">
+                                    <label asp-for="Generation.ContractId" class="ak-label"></label>
+                                    <select asp-for="Generation.ContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                                        <option value="">بدون قرارداد</option>
+                                    </select>
+                                    <span asp-validation-for="Generation.ContractId" class="ak-field-error"></span>
+                                </div>
+                                <div class="ak-field">
+                                    <label asp-for="Generation.ShipmentId" class="ak-label"></label>
+                                    <select asp-for="Generation.ShipmentId" asp-items="ViewBag.Shipments" class="ak-input">
+                                        <option value="">بدون Shipment</option>
+                                    </select>
+                                    <span asp-validation-for="Generation.ShipmentId" class="ak-field-error"></span>
+                                </div>
+                                <div class="ak-field">
+                                    <label asp-for="Generation.TruckDispatchId" class="ak-label"></label>
+                                    <select asp-for="Generation.TruckDispatchId" asp-items="ViewBag.TruckDispatches" class="ak-input">
+                                        <option value="">بدون دیسپچ</option>
+                                    </select>
+                                    <span asp-validation-for="Generation.TruckDispatchId" class="ak-field-error"></span>
+                                </div>
+                                <div class="ak-field">
+                                    <label asp-for="Generation.QuantityMt" class="ak-label"></label>
+                                    <input asp-for="Generation.QuantityMt" class="ak-input" />
+                                    <span asp-validation-for="Generation.QuantityMt" class="ak-field-error"></span>
+                                </div>
+                                <div class="ak-field">
+                                    <label asp-for="Generation.BaseAmountUsd" class="ak-label"></label>
+                                    <input asp-for="Generation.BaseAmountUsd" class="ak-input" />
+                                    <span asp-validation-for="Generation.BaseAmountUsd" class="ak-field-error"></span>
+                                </div>
+
+                                @if (!isBaseCurrency)
+                                {
+                                    <div class="ak-field">
+                                        <label asp-for="Generation.AppliedFxRateToUsd" class="ak-label"></label>
+                                        <input asp-for="Generation.AppliedFxRateToUsd" class="ak-input" />
+                                        <span asp-validation-for="Generation.AppliedFxRateToUsd" class="ak-field-error"></span>
+                                    </div>
+                                    <div class="ak-field ak-col-full">
+                                        <div class="ak-note">
+                                            این Rule با ارز <strong>@Model.Currency</strong> تولید می‌شود. اگر نرخ را خالی بگذارید، سیستم `Daily FX` را بررسی می‌کند.
+                                        </div>
+                                    </div>
+                                }
+
+                                <div class="ak-field ak-col-full">
+                                    <label asp-for="Generation.Description" class="ak-label"></label>
+                                    <input asp-for="Generation.Description" class="ak-input" />
+                                    <span asp-validation-for="Generation.Description" class="ak-field-error"></span>
+                                </div>
+                            </div>
+
+                            <div class="ak-note">
+                                <div>
+                                    <ul class="ak-list mb-0">
+                                        <li>برای <code>Flat</code> فقط مرجع عملیاتی لازم است.</li>
+                                        <li>برای <code>PerMt</code> باید <code>QuantityMt</code> وارد شود.</li>
+                                        <li>برای <code>Percent</code> باید <code>BaseAmountUsd</code> وارد شود.</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="ak-footer-actions">
+                                <button type="submit" class="ak-save">تولید مصرف</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section class="ak-form-section">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("مصارف تولیدشده از این Rule", (string?)"آخرین 20 مورد"))
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>@UiText.T(Context,"تاریخ","Date")</th>
+                        <th class="text-end">مبلغ منبع</th>
+                        <th>@UiText.T(Context,"ارز","Currency")</th>
+                        <th class="text-end">FX</th>
+                        <th class="text-end">مبلغ USD</th>
+                        <th>@UiText.T(Context,"قرارداد","Contract")</th>
+                        <th>Shipment</th>
+                        <th>دیسپچ</th>
+                        <th>شرح</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.GeneratedExpenses.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="11">
+                                @await Html.PartialAsync("_EmptyState", ("هنوز مصرفی از این Rule تولید نشده است", "پس از ثبت اولین generation، تاریخچه همین‌جا نمایش داده می‌شود.", "bi-receipt"))
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var item in Model.GeneratedExpenses)
+                        {
+                            <tr>
+                                <td>@item.Id</td>
+                                <td>@item.ExpenseDate.ToDisplayDate()</td>
+                                <td class="text-end ak-num">@item.Amount.ToString("N4")</td>
+                                <td>@item.Currency</td>
+                                <td class="text-end ak-num">@(item.AppliedFxRateToUsd?.ToString("N6") ?? "-")</td>
+                                <td class="text-end ak-num">@item.AmountUsd.ToString("N4")</td>
+                                <td>@(item.ContractNumber ?? "-")</td>
+                                <td>@(item.ShipmentCode ?? "-")</td>
+                                <td>@(item.TruckDispatchLabel ?? "-")</td>
+                                <td>@(item.Description ?? "-")</td>
+                                <td class="text-nowrap">
+                                    <a asp-controller="Expenses" asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action">جزئیات</a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

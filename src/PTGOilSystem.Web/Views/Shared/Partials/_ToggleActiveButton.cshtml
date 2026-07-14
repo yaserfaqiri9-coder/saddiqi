@@ -1,0 +1,26 @@
+@*
+    Shared "فعال/غیرفعال" toggle button (soft disable — no hard delete).
+    Model: (Controller, Id, IsActive, ButtonClass, ReturnUrl)
+    Posts to <Controller>/ToggleActive. The wrapping form uses display:contents
+    (.) so the button participates in the host action row/footer.
+*@
+@model (string Controller, int Id, bool IsActive, string ButtonClass, string? ReturnUrl)
+<form asp-controller="@Model.Controller" asp-action="ToggleActive" asp-route-id="@Model.Id" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="ak-form"
+      data-ptg-confirm="@(Model.IsActive ? "true" : "false")"
+      data-ptg-confirm-title="غیرفعال‌سازی"
+      data-ptg-confirm-message="این رکورد غیرفعال شود؟ در فهرست‌ها و انتخاب‌ها پنهان می‌شود ولی حذف نمی‌شود."
+      data-ptg-confirm-ok-label="غیرفعال‌سازی">
+    @Html.AntiForgeryToken()
+    @if (Model.IsActive)
+    {
+        <button type="submit" class="@Model.ButtonClass" title="غیرفعال‌سازی">
+            <i class="bi bi-slash-circle" aria-hidden="true"></i><span>غیرفعال‌سازی</span>
+        </button>
+    }
+    else
+    {
+        <button type="submit" class="@Model.ButtonClass" title="فعال‌سازی">
+            <i class="bi bi-check-circle" aria-hidden="true"></i><span>فعال‌سازی</span>
+        </button>
+    }
+</form>

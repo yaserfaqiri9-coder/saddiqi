@@ -1,0 +1,57 @@
+@*
+    Akaunting page header (phase-2 real markup).
+    36px/300 title on the canvas + optional favourite star, actions opposite.
+    Model: (Title, Star, ActionLabel, ActionIcon, ActionHref, ActionModalTarget,
+            SecondaryLabel, SecondaryIcon, SecondaryHref)
+      - ActionModalTarget set -> primary button opens that Bootstrap modal id.
+      - else ActionHref set    -> primary action is a link.
+      - Secondary* set         -> a quiet ghost link left of the primary action.
+*@
+@model (string Title, bool Star, string? ActionLabel, string? ActionIcon, string? ActionHref, string? ActionModalTarget, string? SecondaryLabel, string? SecondaryIcon, string? SecondaryHref)
+@{
+    var icon = string.IsNullOrWhiteSpace(Model.ActionIcon) ? "bi-plus-lg" : Model.ActionIcon;
+    var hasPrimary = !string.IsNullOrWhiteSpace(Model.ActionLabel)
+        && (!string.IsNullOrWhiteSpace(Model.ActionModalTarget) || !string.IsNullOrWhiteSpace(Model.ActionHref));
+    var hasSecondary = !string.IsNullOrWhiteSpace(Model.SecondaryLabel) && !string.IsNullOrWhiteSpace(Model.SecondaryHref);
+    var secIcon = string.IsNullOrWhiteSpace(Model.SecondaryIcon) ? "bi-arrow-right" : Model.SecondaryIcon;
+}
+<header class="ak-page-header">
+    <div class="ak-page-heading">
+        <h1 class="ak-page-title">@Model.Title</h1>
+        @if (Model.Star)
+        {
+            <i class="bi bi-star ak-star" aria-hidden="true"></i>
+        }
+    </div>
+    @if (hasPrimary || hasSecondary)
+    {
+        <div class="ak-page-actions">
+            @if (hasSecondary)
+            {
+                <a href="@Model.SecondaryHref" class="btn btn-light ak-secondary-action">
+                    <i class="bi @secIcon" aria-hidden="true"></i>
+                    <span>@Model.SecondaryLabel</span>
+                </a>
+            }
+            @if (hasPrimary)
+            {
+                if (!string.IsNullOrWhiteSpace(Model.ActionModalTarget))
+                {
+                    <button type="button" class="btn btn-primary ak-primary-action"
+                            data-bs-toggle="modal" data-bs-target="#@Model.ActionModalTarget"
+                            data-entity-modal-open="@Model.ActionModalTarget">
+                        <i class="bi @icon" aria-hidden="true"></i>
+                        <span>@Model.ActionLabel</span>
+                    </button>
+                }
+                else
+                {
+                    <a href="@Model.ActionHref" class="btn btn-primary ak-primary-action">
+                        <i class="bi @icon" aria-hidden="true"></i>
+                        <span>@Model.ActionLabel</span>
+                    </a>
+                }
+            }
+        </div>
+    }
+</header>

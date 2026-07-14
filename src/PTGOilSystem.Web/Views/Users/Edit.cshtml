@@ -1,0 +1,58 @@
+@model PTGOilSystem.Web.Models.Auth.UserEditViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش کاربر", "Edit User");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ویرایش کاربر", "Edit User"), true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Details", new { id = Model.Id })))" />
+
+    <form asp-action="Edit" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "اطلاعات کاربر", "Personal Information"), (string?)UiText.T(Context, "نام، حساب ورود و نقش دسترسی کاربر را مدیریت کنید.", "Manage the user's name, sign-in account and access role.")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Username" class="ak-label"></label>
+                    <input asp-for="Username" class="ak-input" autocomplete="username" />
+                    <span asp-validation-for="Username" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="FullName" class="ak-label"></label>
+                    <input asp-for="FullName" class="ak-input" />
+                    <span asp-validation-for="FullName" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="RoleId" class="ak-label"></label>
+                    <select asp-for="RoleId" asp-items="ViewBag.Roles" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب نقش", "Select role")</option>
+                    </select>
+                    <span asp-validation-for="RoleId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-toggle-field">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="ak-footer-actions">
+            <a asp-action="ResetPassword" asp-route-id="@Model.Id" class="ak-form-secondary-action">@UiText.T(Context, "بازنشانی رمز", "Reset password")</a>
+            <button type="submit" class="ak-save">@UiText.T(Context, "ذخیره تغییرات", "Save Changes")</button>
+            <a asp-action="Details" asp-route-id="@Model.Id" class="ak-cancel">@UiText.T(Context, "انصراف", "Cancel")</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

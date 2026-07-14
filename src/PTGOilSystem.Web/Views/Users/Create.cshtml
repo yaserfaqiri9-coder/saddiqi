@@ -1,0 +1,22 @@
+@model PTGOilSystem.Web.Models.Auth.UserCreateViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "کاربر جدید", "New User");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "کاربر جدید", "New User"), true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Index")))" />
+
+    <form asp-action="Create" method="post" class="ak-form">
+        <partial name="_CreateForm" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره", "Save"), Url.Action("Index") ?? "#", UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,43 @@
+@model ExpenseType
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات نوع مصرف", (string?)"کد، نام و دسته نوع مصرف را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Category" class="ak-label">دسته</label>
+            <select asp-for="Category" class="ak-input">
+                <option value="Storage">گدام‌داری</option>
+                <option value="Trucking">حمل موتر باربری</option>
+                <option value="Commission">کمیسیون</option>
+                <option value="Customs">گمرک</option>
+                <option value="Bank">بانکی</option>
+                <option value="Other">سایر</option>
+            </select>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت تکمیلی</label>
+            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

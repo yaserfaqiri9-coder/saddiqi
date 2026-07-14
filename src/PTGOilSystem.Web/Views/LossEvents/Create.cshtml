@@ -1,0 +1,263 @@
+@model PTGOilSystem.Web.Models.LossEvents.LossEventCreateViewModel
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.LossEvents
+@{
+    var returnUrl = Model.ReturnUrl;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl);
+    ViewData["Title"] = UiText.T(Context, "ثبت رویداد کسری", "Record Loss Event");
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    var cancelUrl = hasLocalReturnUrl ? returnUrl : Url.Action("Index");
+    var selectedLossSourceType = Model.LoadingRegisterId.HasValue
+        ? nameof(Model.LoadingRegisterId)
+        : Model.LoadingReceiptId.HasValue
+            ? nameof(Model.LoadingReceiptId)
+            : Model.TruckDispatchId.HasValue
+                ? nameof(Model.TruckDispatchId)
+                : Model.SalesTransactionId.HasValue
+                    ? nameof(Model.SalesTransactionId)
+                    : Model.ShipmentId.HasValue
+                        ? nameof(Model.ShipmentId)
+                        : Model.StorageTankId.HasValue
+                            ? nameof(Model.StorageTankId)
+                            : Model.TerminalId.HasValue
+                                ? nameof(Model.TerminalId)
+                                : Model.ContractId.HasValue
+                                    ? nameof(Model.ContractId)
+                                    : string.Empty;
+    var showLossAdvanced =
+        Model.ContractId.HasValue
+        || Model.ShipmentId.HasValue
+        || Model.LoadingRegisterId.HasValue
+        || Model.LoadingReceiptId.HasValue
+        || Model.TruckDispatchId.HasValue
+        || Model.SalesTransactionId.HasValue
+        || Model.TerminalId.HasValue
+        || Model.StorageTankId.HasValue
+        || Model.ToleranceQuantityMt > 0m
+        || !string.IsNullOrWhiteSpace(Model.ResponsiblePartyType)
+        || !string.IsNullOrWhiteSpace(Model.ResponsiblePartyName)
+        || !string.IsNullOrWhiteSpace(Model.FinancialTreatment)
+        || Model.AffectsInventory
+        || !string.IsNullOrWhiteSpace(Model.Reference)
+        || !string.IsNullOrWhiteSpace(Model.Notes);
+}
+
+<div class="page-stack ak-form-page loss-create-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت رویداد کسری", "Record Loss Event"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)cancelUrl))" />
+
+    <form asp-action="Create" method="post" class="ak-form loss-create-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "ردیابی و منبع رویداد", "Event Traceability"), (string?)UiText.T(Context, "منبع رویداد، مقادیر و مسئولیت کسری را وارد کنید.", "Enter the event source, quantities and responsibility.")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Stage" class="ak-label"></label>
+                    <select asp-for="Stage" asp-items="ViewBag.Stages" class="ak-input"></select>
+                    <span asp-validation-for="Stage" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ProductId" class="ak-label"></label>
+                    <select asp-for="ProductId" asp-items="ViewBag.Products" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                    <span asp-validation-for="ProductId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="EventDate" class="ak-label"></label>
+                    <input asp-for="EventDate" type="date" class="ak-input" />
+                    <span asp-validation-for="EventDate" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "مقادیر، اثر مالی و مسئولیت", "Quantities & Responsibility"), (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ExpectedQuantityMt" class="ak-label"></label>
+                    <input asp-for="ExpectedQuantityMt" class="ak-input" />
+                    <span asp-validation-for="ExpectedQuantityMt" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ActualQuantityMt" class="ak-label"></label>
+                    <input asp-for="ActualQuantityMt" class="ak-input" />
+                    <span asp-validation-for="ActualQuantityMt" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <details class="ak-advanced" open="@(showLossAdvanced ? "open" : null)" aria-label="@UiText.T(Context, "جزئیات بیشتر کسری", "Loss advanced details")">
+            <summary class="ak-advanced-summary">
+                <span><i class="bi bi-sliders2" aria-hidden="true"></i>@UiText.T(Context, "جزئیات بیشتر", "More details")</span>
+            </summary>
+            <div class="ak-form-grid">
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label for="lossReferenceType" class="ak-label">@UiText.T(Context, "نوع مرجع", "Reference type")</label>
+                        <select id="lossReferenceType" class="ak-input" data-loss-reference-type>
+                            <option value=""></option>
+                            <option value="ContractId" selected="@(selectedLossSourceType == nameof(Model.ContractId) ? "selected" : null)">@UiText.T(Context, "قرارداد", "Contract")</option>
+                            <option value="LoadingRegisterId" selected="@(selectedLossSourceType == nameof(Model.LoadingRegisterId) ? "selected" : null)">@UiText.T(Context, "بارگیری", "Loading")</option>
+                            <option value="LoadingReceiptId" selected="@(selectedLossSourceType == nameof(Model.LoadingReceiptId) ? "selected" : null)">@UiText.T(Context, "رسید بارگیری", "Loading receipt")</option>
+                            <option value="TruckDispatchId" selected="@(selectedLossSourceType == nameof(Model.TruckDispatchId) ? "selected" : null)">@UiText.T(Context, "ارسال با موتر", "Truck send")</option>
+                            <option value="SalesTransactionId" selected="@(selectedLossSourceType == nameof(Model.SalesTransactionId) ? "selected" : null)">@UiText.T(Context, "فروش", "Sale")</option>
+                            <option value="ShipmentId" selected="@(selectedLossSourceType == nameof(Model.ShipmentId) ? "selected" : null)">@UiText.T(Context, "محموله / کشتی", "Shipment / Vessel")</option>
+                            <option value="TerminalId" selected="@(selectedLossSourceType == nameof(Model.TerminalId) ? "selected" : null)">@UiText.T(Context, "ترمینال", "Terminal")</option>
+                            <option value="StorageTankId" selected="@(selectedLossSourceType == nameof(Model.StorageTankId) ? "selected" : null)">@UiText.T(Context, "مخزن", "Tank")</option>
+                        </select>
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label for="lossReferenceItem" class="ak-label">@UiText.T(Context, "ردیف مرجع", "Reference record")</label>
+                        <select id="lossReferenceItem" class="ak-input" data-loss-reference-item></select>
+                    </div>
+                    <div class="d-none" data-loss-reference-backings>
+                        <select asp-for="ContractId" asp-items="ViewBag.Contracts" data-loss-reference-backing="ContractId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="ContractId" class="field-validation-error"></span>
+                        <select asp-for="LoadingRegisterId" asp-items="ViewBag.Loadings" data-loss-reference-backing="LoadingRegisterId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="LoadingRegisterId" class="field-validation-error"></span>
+                        <select asp-for="LoadingReceiptId" asp-items="ViewBag.Receipts" data-loss-reference-backing="LoadingReceiptId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="LoadingReceiptId" class="field-validation-error"></span>
+                        <select asp-for="TruckDispatchId" asp-items="ViewBag.Dispatches" data-loss-reference-backing="TruckDispatchId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="TruckDispatchId" class="field-validation-error"></span>
+                        <select asp-for="SalesTransactionId" asp-items="ViewBag.Sales" data-loss-reference-backing="SalesTransactionId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="SalesTransactionId" class="field-validation-error"></span>
+                        <select asp-for="ShipmentId" asp-items="ViewBag.Shipments" data-loss-reference-backing="ShipmentId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="ShipmentId" class="field-validation-error"></span>
+                        <select asp-for="TerminalId" asp-items="ViewBag.Terminals" data-loss-reference-backing="TerminalId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="TerminalId" class="field-validation-error"></span>
+                        <select asp-for="StorageTankId" asp-items="ViewBag.StorageTanks" data-loss-reference-backing="StorageTankId">
+                            <option value=""></option>
+                        </select>
+                        <span asp-validation-for="StorageTankId" class="field-validation-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ToleranceQuantityMt" class="ak-label"></label>
+                        <input asp-for="ToleranceQuantityMt" class="ak-input" />
+                        <span asp-validation-for="ToleranceQuantityMt" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ResponsiblePartyType" class="ak-label"></label>
+                        <input asp-for="ResponsiblePartyType" class="ak-input" />
+                        <span asp-validation-for="ResponsiblePartyType" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ResponsiblePartyName" class="ak-label"></label>
+                        <input asp-for="ResponsiblePartyName" class="ak-input" />
+                        <span asp-validation-for="ResponsiblePartyName" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="FinancialTreatment" class="ak-label"></label>
+                        <input asp-for="FinancialTreatment" class="ak-input" />
+                        <span asp-validation-for="FinancialTreatment" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="Reference" class="ak-label"></label>
+                        <input asp-for="Reference" class="ak-input" />
+                        <span asp-validation-for="Reference" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-toggle-field">
+                        <div class="form-check form-switch">
+                            <input asp-for="AffectsInventory" class="form-check-input" role="switch" />
+                            <label asp-for="AffectsInventory" class="form-check-label"></label>
+                        </div>
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="Notes" class="ak-label"></label>
+                        <textarea asp-for="Notes" rows="2" class="ak-input"></textarea>
+                        <span asp-validation-for="Notes" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ثبت رویداد کسری", "Save loss event"), cancelUrl ?? "#", UiText.T(Context, "بازگشت", "Back")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const typeSelect = document.querySelector('[data-loss-reference-type]');
+            const itemSelect = document.querySelector('[data-loss-reference-item]');
+            const backingSelects = Array.from(document.querySelectorAll('[data-loss-reference-backing]'));
+            if (!typeSelect || !itemSelect || backingSelects.length === 0) {
+                return;
+            }
+
+            const emptyText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(UiText.T(Context, "اول نوع مرجع را انتخاب کنید", "Select reference type first")));
+
+            const findBacking = (type) => backingSelects.find((select) => select.dataset.lossReferenceBacking === type);
+            const resetOptions = () => {
+                itemSelect.innerHTML = '';
+                itemSelect.add(new Option(emptyText, ''));
+            };
+            const clearBackings = () => {
+                backingSelects.forEach((select) => {
+                    select.value = '';
+                });
+            };
+            const loadItems = () => {
+                const backing = findBacking(typeSelect.value);
+                itemSelect.innerHTML = '';
+                if (!backing) {
+                    resetOptions();
+                    return;
+                }
+
+                Array.from(backing.options).forEach((option) => {
+                    itemSelect.add(new Option(option.text, option.value));
+                });
+                itemSelect.value = backing.value || '';
+            };
+            const syncBacking = () => {
+                clearBackings();
+                const backing = findBacking(typeSelect.value);
+                if (backing) {
+                    backing.value = itemSelect.value || '';
+                    backing.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            };
+
+            if (!typeSelect.value) {
+                const selectedBacking = backingSelects.find((select) => select.value);
+                if (selectedBacking) {
+                    typeSelect.value = selectedBacking.dataset.lossReferenceBacking || '';
+                }
+            }
+
+            loadItems();
+            typeSelect.addEventListener('change', () => {
+                loadItems();
+                syncBacking();
+            });
+            itemSelect.addEventListener('change', syncBacking);
+        })();
+    </script>
+}

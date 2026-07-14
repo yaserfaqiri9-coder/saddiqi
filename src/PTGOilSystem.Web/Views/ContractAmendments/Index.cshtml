@@ -1,0 +1,65 @@
+@model IEnumerable<ContractAmendment>
+@{
+    ViewData["Title"] = "متمم های قرارداد";
+    var contract = ViewBag.Contract as Contract;
+    var amendments = Model.ToList();
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">متمم های قرارداد <code>@contract?.ContractNumber</code></h1>
+            <p class="ak-note">@contract?.Product?.Name | @contract?.QuantityMt.ToString("N3") MT</p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Create" asp-route-contractId="@contract?.Id" class="btn ak-primary-action"><i class="bi bi-plus-lg"></i> متمم جدید</a>
+            <a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@contract?.Id" asp-route-lockContract="true" class="btn ak-secondary-action"><i class="bi bi-arrow-right"></i> بازگشت به قرارداد</a>
+        </div>
+    </div>
+
+    <div class="ak-table-wrap">
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context,"شماره","No.")</th>
+                        <th>@UiText.T(Context,"تاریخ","Date")</th>
+                        <th class="text-end">مقدار جدید</th>
+                        <th class="text-end">قیمت جدید</th>
+                        <th class="text-end">پرمیوم جدید</th>
+                        <th>خلاصه تغییرات</th>
+                        <th>ثبت در</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (!amendments.Any())
+                {
+                    <tr>
+                        <td colspan="7">@await Html.PartialAsync("_EmptyState", ("متممی ثبت نشده است", "برای اصلاح شرایط قرارداد، یک متمم جدید ثبت کنید.", "bi-file-earmark-diff"))</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var amendment in amendments)
+                    {
+                        <tr>
+                            <td><code>@amendment.AmendmentNumber</code></td>
+                            <td>@amendment.AmendmentDate.ToDisplayDate()</td>
+                            <td class="text-end">@(amendment.NewQuantityMt?.ToString("N3") ?? "-")</td>
+                            <td class="text-end">@(amendment.NewUnitPriceUsd?.ToString("N2") ?? "-")</td>
+                            <td class="text-end">@(amendment.NewPremiumUsd?.ToString("+0.##;-0.##;0") ?? "-")</td>
+                            <td>@amendment.ChangeSummary</td>
+                            <td class="text-muted small">@amendment.CreatedAtUtc.ToDisplayDateTime()</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary small mb-0">
+        <i class="bi bi-info-circle ms-1"></i>
+        متمم ها غیرقابل ویرایش هستند. برای اصلاح، متمم جدید ثبت کنید.
+    </div>
+</div>

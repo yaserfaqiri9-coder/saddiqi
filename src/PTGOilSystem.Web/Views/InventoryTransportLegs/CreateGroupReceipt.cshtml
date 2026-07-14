@@ -1,0 +1,217 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupReceiptCreateViewModel
+@{
+    ViewData["Title"] = "ثبت رسید محموله / کشتی";
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Journey", new { groupKey = Model.GroupKey });
+    var canSubmit = Model.AvailableQuantityMt > 0m;
+    var remainingAfterSave = Math.Max(
+        Model.AvailableQuantityMt - Model.TotalReceivedQuantityMt - Model.TotalShortageQuantityMt,
+        0m);
+    string DecimalInput(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="Components/Ak/_AkPageHeader"
+                 model='((ViewData["Title"]?.ToString() ?? "Receipt", false, (string?)null, (string?)null, (string?)null, (string?)null, T("بازگشت", "Back"), "bi-arrow-right", cancelUrl))' />
+
+    <form asp-action="CreateGroupReceipt"
+          method="post"
+          class="ak-form"
+          data-shipment-receipt-form
+          data-available="@DecimalInput(Model.AvailableQuantityMt)">
+        @Html.AntiForgeryToken()
+        <input asp-for="GroupKey" type="hidden" />
+        <input asp-for="TransportReference" type="hidden" />
+        <input asp-for="TotalLoadedQuantityMt" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="DestinationTerminalId" type="hidden" data-receipt-terminal />
+        <input asp-for="TotalShortageQuantityMt" type="hidden" value="0" />
+        <input asp-for="AllowanceMt" type="hidden" value="0" />
+        <input asp-for="ChargeableShortageMt" type="hidden" value="0" />
+
+
+
+        <div class="ak-section-body">
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+        <section class="ak-summary" aria-label="@T("خلاصه مقدار رسید", "Receipt quantity summary")">
+            <article class="ak-field is-primary">
+                <span>@T("قابل رسید", "Available to receive")</span>
+                <strong><b data-receipt-available>@NumberDisplay.Quantity(Model.AvailableQuantityMt)</b> @T("تن", "MT")</strong>
+            </article>
+            <article class="ak-field">
+                <span>@T("کسرات ثبت‌شده", "Registered shortages")</span>
+                <strong>@NumberDisplay.Quantity(Model.RegisteredShortageQuantityMt) @T("تن", "MT")</strong>
+            </article>
+            <article class="ak-field">
+                <span>@T("بارگیری‌شده", "Loaded")</span>
+                <strong>@NumberDisplay.Quantity(Model.TotalLoadedQuantityMt) @T("تن", "MT")</strong>
+            </article>
+        </section>
+
+        <div class="ak-form-grid">
+            <section class="ak-form-section">
+                <h2>@T("۱. منبع رسید", "1. Receipt source")</h2>
+
+                <div class="ak-field">
+                    <label>@T("محموله / کشتی", "Shipment / vessel")</label>
+                    <div class="ak-note">@(string.IsNullOrWhiteSpace(Model.ShipmentName) ? Model.TransportReference : Model.ShipmentName)</div>
+                </div>
+                <div class="ak-field">
+                    <label>@T("محصول", "Product")</label>
+                    <div class="ak-note">@(string.IsNullOrWhiteSpace(Model.ProductName) ? "-" : Model.ProductName)</div>
+                </div>
+                <div class="ak-field">
+                    <label>@T("مرحله فعلی", "Current stage")</label>
+                    <div class="ak-note">@T("در جریان حمل", "In transport")</div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ReceiptDate">@T("تاریخ رسید", "Receipt date")</label>
+                    <input asp-for="ReceiptDate" type="date" class="ak-input" />
+                    <span asp-validation-for="ReceiptDate" class="field-validation-error"></span>
+                </div>
+
+                <div class="ak-note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>@T("مقدار قابل رسید = بارگیری‌شده − کسرات − فروش‌های قبلی − رسیدهای قبلی", "Available = loaded − shortages − previous sales − previous receipts")</span>
+                </div>
+            </section>
+
+            <section class="ak-form-section">
+                <h2>@T("۲. اطلاعات رسید", "2. Receipt information")</h2>
+
+                <div class="ak-field">
+                    <label>@T("نوع رسید", "Receipt type")</label>
+                    <div class="ak-note">@T("ورود به مخزن", "Transfer to tank")</div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DestinationStorageTankId">@T("مخزن مقصد", "Destination tank")</label>
+                    <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input" data-receipt-tank>
+                        <option value="">@T("انتخاب مخزن", "Select tank")</option>
+                    </select>
+                    <span asp-validation-for="DestinationStorageTankId" class="field-validation-error"></span>
+                    <script type="application/json" data-receipt-tanks>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.DestinationStorageTankTerminalMap ?? new object[0]))</script>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="TotalReceivedQuantityMt">@T("مقدار رسید (تن)", "Received quantity (MT)")</label>
+                    <div class="ak-field">
+                        <input asp-for="TotalReceivedQuantityMt"
+                               type="number"
+                               step="0.0001"
+                               min="0.0001"
+                               max="@DecimalInput(Model.AvailableQuantityMt)"
+                               class="ak-input"
+                               data-receipt-quantity />
+                        <button type="button" class="ak-text-action" data-receipt-fill>@T("ثبت کل مقدار", "Use full amount")</button>
+                    </div>
+                    <span asp-validation-for="TotalReceivedQuantityMt" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DocumentReference">@T("شماره سند / مرجع", "Document / reference")</label>
+                    <input asp-for="DocumentReference" class="ak-input" placeholder="RCV-1403-0021" />
+                    <span asp-validation-for="DocumentReference" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field is-textarea">
+                    <label asp-for="Notes">@T("توضیح", "Notes")</label>
+                    <textarea asp-for="Notes" rows="2" class="ak-input" placeholder="@T("توضیح کوتاه رسید", "Short receipt note")"></textarea>
+                    <span asp-validation-for="Notes" class="field-validation-error"></span>
+                </div>
+            </section>
+        </div>
+
+        <section class="ak-form-section ak-summary">
+            <h2>@T("خلاصه ثبت رسید", "Receipt summary")</h2>
+            <div class="ak-form-grid">
+                <div>
+                    <span>@T("مقدار ثبت", "Quantity to register")</span>
+                    <strong class="is-blue"><b data-summary-received>@NumberDisplay.Quantity(Model.TotalReceivedQuantityMt)</b> @T("تن", "MT")</strong>
+                </div>
+                <div>
+                    <span>@T("باقی‌مانده بعد از ثبت", "Remaining after save")</span>
+                    <strong><b data-summary-remaining>@NumberDisplay.Quantity(remainingAfterSave)</b> @T("تن", "MT")</strong>
+                </div>
+                <div>
+                    <span>@T("نوع انتقال", "Transfer type")</span>
+                    <strong>@T("ورود به مخزن", "Transfer to tank")</strong>
+                </div>
+                <div>
+                    <span>@T("اثر بر موجودی", "Inventory effect")</span>
+                    <strong data-summary-effect>@T("افزایش موجودی مخزن مقصد", "Increase destination tank inventory")</strong>
+                </div>
+            </div>
+        </section>
+
+        <footer class="ak-footer-actions no-print">
+            <button type="submit" class="btn ak-primary-action" data-submit-action @(canSubmit ? null : "disabled")>@T("ثبت رسید", "Register receipt")</button>
+            <button type="button" class="btn ak-secondary-action is-outline" data-receipt-print @(canSubmit ? null : "disabled")>@T("ثبت و چاپ سند", "Save and print document")</button>
+            <a href="@cancelUrl" class="btn ak-secondary-action is-neutral">@T("انصراف", "Cancel")</a>
+        </footer>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const form = document.querySelector('[data-shipment-receipt-form]');
+            if (!form) return;
+
+            const available = Number.parseFloat(form.dataset.available || '0') || 0;
+            const quantity = form.querySelector('[data-receipt-quantity]');
+            const fill = form.querySelector('[data-receipt-fill]');
+            const receivedSummary = form.querySelector('[data-summary-received]');
+            const remainingSummary = form.querySelector('[data-summary-remaining]');
+            const tank = form.querySelector('[data-receipt-tank]');
+            const terminal = form.querySelector('[data-receipt-terminal]');
+            const tankData = form.querySelector('[data-receipt-tanks]');
+            const effect = form.querySelector('[data-summary-effect]');
+            let tanks = [];
+            try { tanks = JSON.parse(tankData?.textContent || '[]'); } catch { tanks = []; }
+
+            const normalizeDigits = value => String(value || '')
+                .replace(/[۰-۹]/g, char => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(char)))
+                .replace(/[٠-٩]/g, char => String('٠١٢٣٤٥٦٧٨٩'.indexOf(char)))
+                .replace(/,/g, '');
+            const number = value => Number.parseFloat(normalizeDigits(value)) || 0;
+            const format = value => value.toLocaleString('fa-AF', { maximumFractionDigits: 4 });
+
+            const updateSummary = () => {
+                const received = Math.min(Math.max(number(quantity?.value), 0), available);
+                if (receivedSummary) receivedSummary.textContent = format(received);
+                if (remainingSummary) remainingSummary.textContent = format(Math.max(available - received, 0));
+            };
+
+            fill?.addEventListener('click', () => {
+                quantity.value = available.toFixed(4).replace(/\.?0+$/, '');
+                quantity.dispatchEvent(new Event('input', { bubbles: true }));
+                quantity.focus();
+            });
+            quantity?.addEventListener('input', updateSummary);
+
+            tank?.addEventListener('change', () => {
+                const selected = tanks.find(item => String(item.id) === String(tank.value));
+                if (selected && terminal) terminal.value = String(selected.terminalId);
+                if (effect) {
+                    const tankName = tank.selectedOptions?.[0]?.textContent?.trim();
+                    effect.textContent = tankName
+                        ? `افزایش موجودی ${tankName}`
+                        : 'افزایش موجودی مخزن مقصد';
+                }
+            });
+
+            form.querySelector('[data-receipt-print]')?.addEventListener('click', () => {
+                if (!form.reportValidity()) return;
+                window.print();
+                form.requestSubmit(form.querySelector('[data-submit-action]'));
+            });
+
+            updateSummary();
+            tank?.dispatchEvent(new Event('change'));
+        })();
+    </script>
+}

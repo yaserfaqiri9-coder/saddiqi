@@ -1,0 +1,117 @@
+@model PTGOilSystem.Web.Models.OperationalAssets.OperationalAssetProfitabilityViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "سود و زیان دارایی‌های عملیاتی", "Operational Asset Profitability");
+}
+
+<div class="ak-form-page">
+
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string)ViewData["Title"]!, true,
+                       UiText.T(Context, "ثبت کرایه/استفاده", "Record Use/Rent"), "bi-plus-lg", (string?)Url.Action("CreateRent"), (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+    <p class="ak-note">@UiText.T(Context, "کرایه داخلی + کرایه بیرونی - مصارف مستقیم - استهلاک محاسباتی.", "Internal rent + external rent - direct expenses - calculated depreciation.")</p>
+
+    <section class="summary-strip" aria-label="@UiText.T(Context, "آمار سود و زیان دارایی‌های عملیاتی", "Operational asset profitability metrics")">
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "کرایه داخلی", "Internal Rent")</span><strong class="summary-tile-value ak-num">@Model.TotalInternalRentUsd.ToString("N2")</strong></div>
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "کرایه بیرونی", "External Rent")</span><strong class="summary-tile-value ak-num">@Model.TotalExternalRentUsd.ToString("N2")</strong></div>
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "درآمد کرایه حمل", "Freight Income")</span><strong class="summary-tile-value ak-num">@Model.TotalFreightIncomeUsd.ToString("N2")</strong></div>
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "مصارف", "Expenses")</span><strong class="summary-tile-value ak-num">@Model.TotalDirectExpensesUsd.ToString("N2")</strong></div>
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "استهلاک", "Depreciation")</span><strong class="summary-tile-value ak-num">@Model.TotalDepreciationUsd.ToString("N2")</strong></div>
+        <div class="summary-tile"><span class="summary-tile-label">@UiText.T(Context, "نتیجه خالص", "Net Result")</span><strong class="summary-tile-value ak-num">@Model.TotalNetResultUsd.ToString("N2")</strong></div>
+    </section>
+
+    <div class="ak-detail-toolbar">
+        <div>
+            <form method="get" class="ak-form-grid">
+                <div class="ak-field"><label asp-for="Filter.FromDate" class="ak-label">@UiText.T(Context, "از تاریخ", "From")</label><input asp-for="Filter.FromDate" type="date" class="ak-input" /></div>
+                <div class="ak-field"><label asp-for="Filter.ToDate" class="ak-label">@UiText.T(Context, "تا تاریخ", "To")</label><input asp-for="Filter.ToDate" type="date" class="ak-input" /></div>
+                <div class="ak-field"><label asp-for="Filter.AssetType" class="ak-label">@UiText.T(Context, "نوع دارایی", "Asset Type")</label><select asp-for="Filter.AssetType" asp-items="ViewBag.AssetTypes" class="ak-input"><option value="">@UiText.T(Context, "همه انواع", "All types")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.OperationalAssetId" class="ak-label">@UiText.T(Context, "دارایی", "Asset")</label><select asp-for="Filter.OperationalAssetId" asp-items="ViewBag.Assets" class="ak-input"><option value="">@UiText.T(Context, "همه دارایی‌ها", "All assets")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.UsageType" class="ak-label">@UiText.T(Context, "نوع استفاده", "Usage Type")</label><select asp-for="Filter.UsageType" asp-items="ViewBag.UsageTypes" class="ak-input"><option value="">@UiText.T(Context, "همه استفاده‌ها", "All usage")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.PartnerId" class="ak-label">@UiText.T(Context, "شریک", "Partner")</label><select asp-for="Filter.PartnerId" asp-items="ViewBag.Partners" class="ak-input"><option value="">@UiText.T(Context, "همه شریک‌ها", "All partners")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.ContractId" class="ak-label">@UiText.T(Context, "قرارداد", "Contract")</label><select asp-for="Filter.ContractId" asp-items="ViewBag.Contracts" class="ak-input"><option value="">@UiText.T(Context, "همه قراردادها", "All contracts")</option></select></div>
+                <div class="ak-field"><label asp-for="Filter.CustomerId" class="ak-label">@UiText.T(Context, "مشتری", "Customer")</label><select asp-for="Filter.CustomerId" asp-items="ViewBag.Customers" class="ak-input"><option value="">@UiText.T(Context, "همه مشتری‌ها", "All customers")</option></select></div>
+                <div class="ak-field ak-col-full">
+                    <div class="ak-detail-toolbar-actions">
+                        <button class="btn btn-light">@UiText.T(Context, "اعمال فیلتر", "Apply Filter")</button>
+                        <a asp-action="Profitability" class="btn ak-secondary-action">@UiText.T(Context, "پاک‌کردن", "Clear")</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="ak-table-wrap">
+        <div class="ak-section-head">@UiText.T(Context, "سود و زیان دارایی", "Asset Profitability")</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context, "دارایی", "Asset")</th>
+                        <th>@UiText.T(Context, "نوع", "Type")</th>
+                        <th class="text-end">@UiText.T(Context, "تعداد استفاده", "Usage Count")</th>
+                        <th class="text-end">MT</th>
+                        <th class="text-end">KM</th>
+                        <th class="text-end">@UiText.T(Context, "روز", "Days")</th>
+                        <th class="text-end">@UiText.T(Context, "کرایه داخلی", "Internal Rent")</th>
+                        <th class="text-end">@UiText.T(Context, "کرایه بیرونی", "External Rent")</th>
+                        <th class="text-end">@UiText.T(Context, "درآمد کرایه حمل", "Freight Income")</th>
+                        <th class="text-end">@UiText.T(Context, "مصارف مستقیم", "Direct Expenses")</th>
+                        <th class="text-end">@UiText.T(Context, "استهلاک", "Depreciation")</th>
+                        <th class="text-end">@UiText.T(Context, "نتیجه خالص", "Net Result")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@row.OperationalAssetId">@row.AssetCode - @row.AssetName</a></td>
+                        <td>@OperationalAssetLabels.AssetType(row.AssetType, Context)</td>
+                        <td class="text-end">@row.UsageCount.ToString("N0")</td>
+                        <td class="text-end">@row.QuantityMt.ToString("N4")</td>
+                        <td class="text-end">@row.DistanceKm.ToString("N2")</td>
+                        <td class="text-end">@row.Days.ToString("N2")</td>
+                        <td class="text-end ak-num">@row.InternalRentUsd.ToString("N2")</td>
+                        <td class="text-end ak-num">@row.ExternalRentUsd.ToString("N2")</td>
+                        <td class="text-end ak-num">@row.FreightIncomeUsd.ToString("N2")</td>
+                        <td class="text-end ak-num">@row.DirectExpensesUsd.ToString("N2")</td>
+                        <td class="text-end ak-num">@row.DepreciationUsd.ToString("N2")</td>
+                        <td class="text-end ak-num @(row.NetResultUsd >= 0 ?"ak-num" : "ak-num")">@row.NetResultUsd.ToString("N2")</td>
+                    </tr>
+                }
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="12">@await Html.PartialAsync("_EmptyState", (UiText.T(Context, "ردیف دارایی وجود ندارد", "No asset rows"), UiText.T(Context, "هیچ دارایی با فیلترهای انتخاب‌شده مطابقت ندارد.", "No assets match the selected filters."), "bi-graph-up-arrow"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ak-table-wrap">
+        <div class="ak-section-head">@UiText.T(Context, "Snapshot سهم مالکین", "Owner Share Snapshot")</div>
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead><tr><th>@UiText.T(Context, "کرایه", "Rent")</th><th>@UiText.T(Context, "تاریخ", "Date")</th><th>@UiText.T(Context, "دارایی", "Asset")</th><th>@UiText.T(Context, "استفاده", "Usage")</th><th>@UiText.T(Context, "مالک", "Owner")</th><th class="text-end">@UiText.T(Context, "سهم %", "Share %")</th><th class="text-end">@UiText.T(Context, "سهم USD", "Share USD")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.OwnerShareRows)
+                {
+                    <tr>
+                        <td>#@row.RentTransactionId</td>
+                        <td>@row.RentDate.ToDisplayDate()</td>
+                        <td>@row.AssetName</td>
+                        <td>@OperationalAssetLabels.UsageType(row.UsageType, Context)</td>
+                        <td>@row.OwnerName</td>
+                        <td class="text-end">@row.SharePercent.ToString("N4")</td>
+                        <td class="text-end ak-num">@row.ShareAmountUsd.ToString("N2")</td>
+                    </tr>
+                }
+                @if (!Model.OwnerShareRows.Any())
+                {
+                    <tr><td colspan="7">@await Html.PartialAsync("_EmptyState", (UiText.T(Context, "ردیف سهم مالک وجود ندارد", "No owner share rows"), UiText.T(Context, "هیچ snapshot سهم کرایه/استفاده با فیلترهای انتخاب‌شده مطابقت ندارد.", "No rent/use share snapshots match the selected filters."), "bi-person-vcard"))</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

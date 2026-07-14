@@ -1,0 +1,15 @@
+@model PTGOilSystem.Web.Models.OperationalAssets.OperationalAssetFormViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "دارایی عملیاتی جدید", "New Operational Asset");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string)ViewData["Title"]!, true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Index")))" />
+    <partial name="_Form" model="Model" />
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

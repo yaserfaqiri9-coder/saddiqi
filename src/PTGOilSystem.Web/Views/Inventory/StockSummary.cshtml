@@ -1,0 +1,70 @@
+@model PTGOilSystem.Web.Models.Inventory.InventoryStockSummaryIndexViewModel
+@{
+    ViewData["Title"] = "خلاصه موجودی";
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">خلاصه موجودی</h1>
+            <p class="ak-note">این مقادیر مستقیماً از منطق <code>StockService</code> گرفته می‌شود و نمای تجمیعی موجودی را نشان می‌دهد.</p>
+        </div>
+    </div>
+
+    <div class="ak-detail-toolbar no-print">
+        <div>
+            <form method="get" class="ak-form-grid">
+                <div class="ak-field ak-col-full">
+                    <div class="ak-detail-toolbar-actions d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="d-flex align-items-center flex-wrap gap-2"></div>
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <a asp-action="Create" class="btn ak-primary-action"><i class="bi bi-plus-lg me-1"></i> ثبت حرکت جدید</a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="ak-table-wrap">
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>کد جنس</th>
+                        <th>@UiText.T(Context,"جنس","Product")</th>
+                        <th>@UiText.T(Context,"ترمینال","Terminal")</th>
+                        <th>قرارداد خرید منبع موجودی</th>
+                        <th class="text-end">موجودی آزاد (MT)</th>
+                        <th class="text-end">تعداد حرکت</th>
+                        <th>آخرین تاریخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td><code>@row.ProductCode</code></td>
+                            <td>@row.ProductName</td>
+                            <td>@row.TerminalName</td>
+                            <td>@(row.ContractNumber ?? "-")</td>
+                            <td class="text-end fw-semibold">@NumberDisplay.Quantity(row.FreeQuantityMt)</td>
+                            <td class="text-end">@row.MovementCount</td>
+                            <td>@row.LastMovementDate.ToDisplayDate()</td>
+                        </tr>
+                    }
+                    @if (!Model.Rows.Any())
+                    {
+                        <tr>
+                            <td colspan="7">
+                                @await Html.PartialAsync("_EmptyState", ("برای این بخش هنوز حرکتی ثبت نشده است", "پس از ثبت movementها، خلاصه موجودی در این صفحه نمایش داده می‌شود.", "bi-bar-chart"))
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+</div>

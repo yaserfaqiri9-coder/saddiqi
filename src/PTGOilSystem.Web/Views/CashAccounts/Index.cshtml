@@ -1,0 +1,152 @@
+@model PTGOilSystem.Web.Models.Payments.CashAccountIndexViewModel
+@using PTGOilSystem.Web.Models.Payments
+@{
+    ViewData["Title"] = "حساب‌های نقد / بانک";
+    var items = Model.Items.ToList();
+    var createModel = new PTGOilSystem.Web.Models.Entities.CashAccount
+    {
+        Currency = PTGOilSystem.Web.Services.SystemCurrency.BaseCurrencyCode,
+        IsActive = true,
+        AccountType = CashAccountType.Bank
+    };
+    var query = Context.Request.Query;
+    bool HasQ(string key) => !string.IsNullOrWhiteSpace(query[key]);
+    var hasAdvancedFilter = HasQ("Filter.AccountType") || HasQ("Filter.Currency") || HasQ("Filter.IsActive");
+    var fm = Model.FinanceMetrics;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("حساب‌های نقد / بانک", false,
+                       "حساب جدید", "bi-plus-lg", (string?)null, "cashAccountsCreateModal",
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-form-section ak-summary" aria-label="@fm.AriaLabel">
+        <dl class="ak-summary-list">
+            <div><dt>جمع دریافتی</dt><dd class="ak-num">@fm.TodayReceiptUsd.ToString("N2") USD</dd></div>
+            <div><dt>جمع پرداختی</dt><dd class="ak-num">@fm.TodayPaymentUsd.ToString("N2") USD</dd></div>
+            <div><dt>مانده نقدی</dt><dd class="ak-num">@fm.CashAccountsBalanceUsd.ToString("N2") USD</dd></div>
+            <div><dt>تعداد تراکنش‌ها</dt><dd class="ak-num">@fm.TransactionCount.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> CaOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? CaQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var caFilter = new AkSearchFilterModel("Filter.Query", Model.Filter.Query,
+                "کد، نام، شماره حساب یا بانک...",
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.AccountType", "نوع حساب", "select", CaOpts(ViewBag.AccountTypes), CaQ("Filter.AccountType")),
+                    new("Filter.Currency", "ارز", "select", CaOpts(ViewBag.Currencies), CaQ("Filter.Currency")),
+                    new("Filter.IsActive", "وضعیت", "select", CaOpts(ViewBag.Statuses), CaQ("Filter.IsActive"))
+                });
+        }
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="caFilter" />
+            <a class="btn btn-light ak-secondary-action" href="@(Url.Action("Csv"))@(Context.Request.QueryString)">
+                <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>CSV</span>
+            </a>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>کد</th>
+                        <th class="ak-col-grow">@UiText.T(Context,"نام","Name")</th>
+                        <th>@UiText.T(Context,"نوع","Type")</th>
+                        <th>@UiText.T(Context,"ارز","Currency")</th>
+                        <th>@UiText.T(Context,"وضعیت","Status")</th>
+                        <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in items)
+                {
+                    <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                        <td>@item.Code</td>
+                        <td class="ak-col-grow"><a asp-action="Details" asp-route-id="@item.Id" class="ak-name">@item.Name</a></td>
+                        <td>@CashAccountTypeLabels.ToPersian(item.AccountType)</td>
+                        <td>@item.Currency</td>
+                        <td><span class="ak-status @(item.IsActive ?"is-active" : "is-inactive")">@(item.IsActive ? "فعال" : "غیرفعال")</span></td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a asp-action="Details" asp-route-id="@item.Id" class="dropdown-item"><i class="bi bi-eye"></i> جزئیات</a></li>
+                                    <li><a asp-action="Edit" asp-route-id="@item.Id" class="dropdown-item"><i class="bi bi-pencil"></i> ویرایش</a></li>
+                                    <li><button type="button" class="dropdown-item" data-ptg-clone-url="@Url.Action("GetCloneData", new { id = item.Id })" data-ptg-clone-modal="cashAccountsCreateModal"><i class="bi bi-copy"></i> کلون</button></li>
+                                    <li><partial name="~/Views/Shared/Partials/_ToggleActiveButton.cshtml" model="@(("CashAccounts", item.Id, item.IsActive, "dropdown-item", (string?)($"{Context.Request.Path}{Context.Request.QueryString}")))" /></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!items.Any())
+                {
+                    <tr>
+                        <td colspan="6">
+                            <div class="ak-empty">
+                                <i class="bi bi-wallet2"></i>
+                                حسابی ثبت نشده است
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>
+
+@{
+    ViewData["CreateModalId"] = "cashAccountsCreateModal";
+    ViewData["CreateFormId"] = "cashAccountsCreateForm";
+    ViewData["CreateModalTitle"] = "حساب نقد / بانک جدید";
+    ViewData["CreateModalSubtitle"] = "حساب واقعی پول را برای دریافت، پرداخت و گزارش‌های مالی ثبت کنید.";
+    ViewData["CreateModalDialogClass"] = "modal-lg";
+    ViewData["CreateModalVariant"] = "cash-account";
+    ViewData["CreateModalSubmitText"] = "ذخیره حساب";
+    ViewData["CreateFormPartialPath"] = "/Views/CashAccounts/_CreateForm.cshtml";
+}
+<partial name="~/Views/Shared/_CreateModalShell.cshtml" model="createModel" />
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('caFilterToggle');
+            var pop = document.getElementById('caFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+        (function () {
+            document.querySelectorAll('.ak-table tbody tr[data-href]').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button, input, label, select, form')) return;
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        })();
+    </script>
+}

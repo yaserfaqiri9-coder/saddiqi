@@ -1,0 +1,768 @@
+/*
+ * 45-akaunting.css — Akaunting 3.1.21 skin (Design Audit PTG FA).
+ *
+ * Loads LAST. Re-shapes the shared shell + primitives onto the Akaunting
+ * visual language: flat near-white canvas (#FCFCFC), two-layer lilac sidebar
+ * (56px icon rail + 224px menu panel), quiet editorial typography, purple
+ * navigation (#55588B), olive-green primary action (#6EA152), 1px dividers
+ * instead of cards/shadows, and depth only on Dropdown/Tooltip/Modal.
+ *
+ * All colors/sizes come from 01-tokens.css. No new hex outside tokens except
+ * direct Akaunting neutrals documented in the audit file.
+ */
+
+/* ============================================================= *
+ * A. Base & typography
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated,
+body.ptg-modal-document {
+    font-family: "Vazirmatn", "Poppins", Tahoma, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    background: var(--ptg-bg) !important;
+    color: var(--ptg-text);
+}
+
+/* Quiet headings — replace the heavy 800 with the Akaunting scale. */
+body.boltz-shell.app-shell-authenticated :where(h1, h2, h3, h4, h5, h6),
+body.ptg-modal-document :where(h1, h2, h3, h4, h5, h6) {
+    font-weight: 500;
+    color: var(--ptg-text);
+}
+
+body.boltz-shell.app-shell-authenticated :where(h1),
+body.ptg-modal-document :where(h1) {
+    font-size: var(--font-h1);
+    line-height: var(--lh-h1);
+    font-weight: var(--fw-h1);
+}
+
+body.boltz-shell.app-shell-authenticated :where(h2),
+body.ptg-modal-document :where(h2) {
+    font-size: var(--font-h2);
+    line-height: var(--lh-h2);
+    font-weight: var(--fw-h2);
+}
+
+body.boltz-shell.app-shell-authenticated :where(h3),
+body.ptg-modal-document :where(h3) {
+    font-size: var(--font-h3);
+    line-height: var(--lh-h3);
+    font-weight: var(--fw-h3);
+}
+
+body.boltz-shell.app-shell-authenticated :where(h4, h5),
+body.ptg-modal-document :where(h4, h5) {
+    font-size: var(--font-h5);
+    line-height: var(--lh-h5);
+    font-weight: var(--fw-h5);
+}
+
+body.boltz-shell.app-shell-authenticated :where(h6),
+body.ptg-modal-document :where(h6) {
+    font-size: var(--font-h6);
+    line-height: var(--lh-h6);
+    font-weight: var(--fw-h6);
+}
+
+/* ============================================================= *
+ * B. Sidebar — owned entirely by ptg/04-sidebar.css.
+ *
+ * The old two-layer fake (linear-gradient rail/panel painted on .ptg-sidebar)
+ * was removed: the sidebar is now two real opaque elements (.sidebar-rail 44px
+ * + .sidebar-panel 176px). Do not re-skin it from this file.
+ * ============================================================= */
+
+/* ============================================================= *
+ * C. Topbar — no separate AppBar: transparent, flat, compact
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar {
+    min-height: var(--ptg-topbar-height);
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar.is-scrolled,
+body.boltz-shell.app-shell-authenticated .boltz-topbar.is-stuck {
+    background: rgba(252, 252, 252, 0.92) !important;
+    border-bottom: 1px solid var(--divider) !important;
+    box-shadow: none !important;
+}
+
+/* ============================================================= *
+ * D. Content container — calm, bounded canvas
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .ptg-page > .boltz-content-body {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 16px;
+}
+
+@media (min-width: 1024px) {
+    body.boltz-shell.app-shell-authenticated .ptg-page > .boltz-content-body {
+        max-width: 1000px;
+    }
+}
+
+@media (min-width: 1280px) {
+    body.boltz-shell.app-shell-authenticated .ptg-page > .boltz-content-body {
+        max-width: 1145px;
+    }
+}
+
+/* Summary strip + section tabs share the same bounded canvas. */
+body.boltz-shell.app-shell-authenticated .ptg-page > .summary-strip{
+    width: 100%;
+    margin-inline: auto;
+}
+
+@media (min-width: 1024px) {
+    body.boltz-shell.app-shell-authenticated .ptg-page > .summary-strip{
+        max-width: 1000px;
+    }
+}
+
+@media (min-width: 1280px) {
+    body.boltz-shell.app-shell-authenticated .ptg-page > .summary-strip{
+        max-width: 1145px;
+    }
+}
+
+/* ============================================================= *
+ * E. Page headers — 36px light title, actions opposite
+ *    (page-header chrome is owned by .ak-page-header in 50-ak-components.css)
+ * ============================================================= */
+
+/* ============================================================= *
+ * F. Flat surfaces — kill decorative cards/shadows everywhere
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated :is(
+    .ptg-card, .ds-card, .ulist-card, .boltz-card, .kpi-card,
+    .contracts-board-card, .ds-form-shell, .ds-table-shell,
+    .mgmt-card, .storage-card, .report-card, .detail-card,
+    .boltz-reference-kpi-card, .summary-tile
+) {
+    background: var(--ptg-bg) !important;
+    border-color: var(--divider) !important;
+    box-shadow: none !important;
+}
+
+/* ============================================================= *
+ * G. Summary / KPI — open numbers, no cards
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px 32px;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated .summary-tile {
+    border: 0 !important;
+    padding: 4px 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated .summary-tile-label {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--ptg-muted);
+}
+
+body.boltz-shell.app-shell-authenticated .summary-tile-value {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 400;
+    color: var(--primary-main);
+}
+
+body.boltz-shell.app-shell-authenticated :is(.kpi-card, .boltz-reference-kpi-card) :is(.kpi-value, .boltz-kpi-value) {
+    font-weight: 400 !important;
+    color: var(--primary-main) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.kpi-card, .boltz-reference-kpi-card) :is(.kpi-label, .boltz-kpi-meta) {
+    font-weight: 400 !important;
+    color: var(--ptg-muted) !important;
+}
+
+/* ============================================================= *
+ * H. Buttons — green action / purple secondary / neutral quiet
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .btn,
+body.ptg-modal-document .btn {
+    border-radius: var(--ptg-radius-button);
+    font-size: var(--font-button);
+    line-height: var(--lh-button);
+    font-weight: var(--fw-button);
+    padding: 6px 12px;
+    box-shadow: none !important;
+    transition: background-color var(--ptg-motion-fast) ease-out, color var(--ptg-motion-fast) ease-out, border-color var(--ptg-motion-fast) ease-out;
+}
+
+/* The primary/add action (.ak-primary-action from _AkPageHeader and the same
+   class reused in lists, tabs and form footers) is the olive green action
+   button — with or without Bootstrap's .btn-primary on it. */
+body.boltz-shell.app-shell-authenticated :is(.ak-primary-action, .ak-secondary-action.is-primary),
+body.ptg-modal-document :is(.ak-primary-action, .ak-secondary-action.is-primary) {
+    background-color: var(--ptg-btn-primary) !important;
+    border-color: var(--ptg-btn-primary) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.ak-primary-action, .ak-secondary-action.is-primary):is(:hover, :focus, :active),
+body.ptg-modal-document :is(.ak-primary-action, .ak-secondary-action.is-primary):is(:hover, :focus, :active) {
+    background-color: var(--ptg-btn-primary-dark) !important;
+    border-color: var(--ptg-btn-primary-dark) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.btn-secondary, .btn-info),
+body.ptg-modal-document :is(.btn-secondary, .btn-info) {
+    background-color: var(--primary-main) !important;
+    border-color: var(--primary-main) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.btn-secondary, .btn-info):is(:hover, :focus, :active),
+body.ptg-modal-document :is(.btn-secondary, .btn-info):is(:hover, :focus, :active) {
+    background-color: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell.app-shell-authenticated .btn-danger,
+body.ptg-modal-document .btn-danger {
+    background-color: var(--ptg-danger) !important;
+    border-color: var(--ptg-danger) !important;
+    color: #FFFFFF !important;
+}
+
+body.boltz-shell.app-shell-authenticated .btn-outline-danger,
+body.ptg-modal-document .btn-outline-danger {
+    background-color: var(--ptg-danger-soft) !important;
+    border-color: var(--ptg-danger-soft) !important;
+    color: var(--ptg-danger-text) !important;
+}
+
+/* ============================================================= *
+ * I. Fields — 8px radius, LightGray border
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated :is(.form-control, .form-select),
+body.ptg-modal-document :is(.form-control, .form-select) {
+    background-color: #FFFFFF;
+    border: 1px solid var(--ptg-input-border);
+    border-radius: var(--ptg-radius-input);
+    color: var(--ptg-text);
+    font-size: 14px;
+    padding: 10px 12px;
+    box-shadow: none;
+    transition: border-color var(--ptg-motion-fast) ease-out, box-shadow var(--ptg-motion-fast) ease-out;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.form-control, .form-select):focus,
+body.ptg-modal-document :is(.form-control, .form-select):focus {
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px rgba(var(--primary-main-rgb), .14);
+    outline: 0;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.form-control, .form-select)::placeholder,
+body.ptg-modal-document :is(.form-control, .form-select)::placeholder {
+    color: var(--ptg-muted);
+    opacity: 1;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.form-control, .form-select):disabled,
+body.ptg-modal-document :is(.form-control, .form-select):disabled {
+    background-color: var(--ptg-field-muted-bg, #F2F2F4);
+    color: var(--ptg-muted);
+}
+
+body.boltz-shell.app-shell-authenticated :is(.form-control, .form-select).input-validation-error,
+body.ptg-modal-document :is(.form-control, .form-select).input-validation-error {
+    border-color: var(--ptg-danger-text);
+}
+
+body.boltz-shell.app-shell-authenticated :is(.form-label, label.control-label),
+body.ptg-modal-document :is(.form-label, label.control-label) {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--ptg-text);
+    margin-bottom: 4px;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.field-validation-error, .text-danger),
+body.ptg-modal-document :is(.field-validation-error, .text-danger) {
+    color: var(--ptg-danger) !important;
+    font-size: 13px;
+}
+
+/* ============================================================= *
+ * J. Tables — flat, no outer frame
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .table,
+body.ptg-modal-document .table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-hover-bg: #F3F4F6;
+    background: transparent !important;
+    border-collapse: collapse;
+}
+
+/* ============================================================= *
+ * K. Tabs
+ *
+ * Tabs are owned entirely by 16-system-tabs.css, which loads after this
+ * file. Re-declaring the tab tokens or the tab-item selector here (previously
+ * with !important) overrode the canonical skin and forced every rail back to
+ * a 500 weight. Do not restyle tabs from this layer.
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated,
+body.ptg-modal-document {
+    --ptg-list-toolbar-bg: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-success, .text-bg-success, .badge-success, .is-success),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-success, .text-bg-success, .badge-success, .is-success) {
+    background: var(--ptg-success-soft) !important;
+    color: var(--ptg-success-text) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-danger, .text-bg-danger, .badge-danger, .is-danger),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-danger, .text-bg-danger, .badge-danger, .is-danger) {
+    background: var(--ptg-danger-soft) !important;
+    color: var(--ptg-danger-text) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-warning, .text-bg-warning, .badge-warning, .is-warning),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-warning, .text-bg-warning, .badge-warning, .is-warning) {
+    background: var(--ptg-warning-soft) !important;
+    color: var(--ptg-warning-text) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-info, .text-bg-info, .badge-info, .is-info),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-info, .text-bg-info, .badge-info, .is-info) {
+    background: var(--ptg-info-soft) !important;
+    color: var(--ptg-info-text) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-secondary, .text-bg-secondary, .bg-light, .text-bg-light),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-secondary, .text-bg-secondary, .bg-light, .text-bg-light) {
+    background: var(--ptg-draft-soft) !important;
+    color: var(--ptg-draft-text) !important;
+}
+
+body.boltz-shell.app-shell-authenticated :is(.badge, .status-badge):is(.bg-primary, .text-bg-primary),
+body.ptg-modal-document :is(.badge, .status-badge):is(.bg-primary, .text-bg-primary) {
+    background: var(--ptg-viewed-soft) !important;
+    color: var(--ptg-viewed-text) !important;
+}
+
+/* ============================================================= *
+ * M. Dropdown / Tooltip / Modal — the only shadowed layers
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated .dropdown-menu,
+body.ptg-modal-document .dropdown-menu {
+    min-width: 160px;
+    padding-block: 8px;
+    border: 1px solid var(--divider);
+    border-radius: var(--ptg-radius-sm);
+    background: var(--background-paper);
+    box-shadow: var(--shadow-dropdown);
+}
+
+body.boltz-shell.app-shell-authenticated .dropdown-item,
+body.ptg-modal-document .dropdown-item {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--ptg-text);
+    border-radius: 0;
+}
+
+body.boltz-shell.app-shell-authenticated .dropdown-item:is(:hover, :focus, .active),
+body.ptg-modal-document .dropdown-item:is(:hover, :focus, .active) {
+    background: var(--background-neutral);
+    color: var(--ptg-text);
+}
+
+body.boltz-shell.app-shell-authenticated .tooltip .tooltip-inner {
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--background-paper);
+    color: var(--ptg-text);
+    border: 1px solid var(--divider);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+body.boltz-shell.app-shell-authenticated .modal-content,
+body.ptg-modal-document .modal-content {
+    border: 0;
+    border-radius: var(--ptg-radius-input);
+    background: var(--background-paper);
+    box-shadow: var(--shadow-dialog);
+}
+
+body.boltz-shell.app-shell-authenticated .modal-header {
+    border-bottom: 1px solid var(--divider);
+}
+
+body.boltz-shell.app-shell-authenticated .modal-footer {
+    border-top: 1px solid var(--divider);
+}
+
+body.boltz-shell.app-shell-authenticated .modal-backdrop.show {
+    opacity: .30;
+}
+
+/* ============================================================= *
+ * N. Search / filter bars — bottom-border only
+ *    (search chrome is owned by .ak-search / .ak-fbar in 50-ak-components.css)
+ * ============================================================= */
+
+/* Pagination quiet */
+body.boltz-shell.app-shell-authenticated .pagination .page-link {
+    color: var(--primary-main);
+    border-color: var(--divider);
+    background: transparent;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated .pagination .page-item.active .page-link {
+    background: var(--primary-main);
+    border-color: var(--primary-main);
+    color: #FFFFFF;
+}
+
+/* Links purple, hover deeper.
+   Tabs are excluded: this selector outweighs .ptg-tab-item, so without the
+   guard every link-based tab renders in the active purple even when idle. */
+body.boltz-shell.app-shell-authenticated a:not(.btn):not(.boltz-nav-link):not(.dropdown-item):not(.ptg-tab-item) {
+    color: var(--primary-main);
+}
+
+body.boltz-shell.app-shell-authenticated a:not(.btn):not(.boltz-nav-link):not(.dropdown-item):not(.ptg-tab-item):hover {
+    color: var(--primary-dark);
+}
+
+/* Footer quiet */
+body.boltz-shell.app-shell-authenticated .boltz-footer {
+    background: transparent !important;
+    border: 0 !important;
+    color: var(--ptg-muted);
+    font-size: 12px;
+}
+
+/* ============================================================= *
+ * P. Late fixes discovered in visual QA
+ * ============================================================= */
+
+/* Generic table header band (15-system-lists paints #ececec) → flat. */
+body.boltz-shell.app-shell-authenticated .boltz-content table thead th,
+body.boltz-shell.app-shell-authenticated .boltz-content table thead tr,
+body.boltz-shell.app-shell-authenticated table thead th,
+body.ptg-modal-document table thead th,
+body.ptg-modal-document table thead tr {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Dashboard KPI tiles: open widgets, not floating cards. */
+body.boltz-shell.app-shell-authenticated .ref-dashboard .ref-kpi {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-bottom: 1px solid var(--divider) !important;
+}
+
+body.boltz-shell.app-shell-authenticated .ref-dashboard .ref-kpi-value {
+    font-weight: 400 !important;
+    color: var(--primary-main) !important;
+}
+
+body.boltz-shell.app-shell-authenticated .ref-dashboard .ref-kpi-label {
+    color: var(--ptg-muted) !important;
+    font-weight: 400 !important;
+}
+
+/* ============================================================= *
+ * Shared Search / Filter component (ak-search-filter.js owner)
+ * Ported from the Akaunting UI Kit — RTL-first, project tokens.
+ * Owns: .ak-filter-host / .ak-filter / chips / input / popover.
+ * ============================================================= */
+.ak-filter-host {
+    position: relative;
+    z-index: 20;
+    min-height: 48px;
+    margin-block: 20px;
+}
+.ak-filter {
+    position: relative;
+    display: flex;
+    min-height: 48px;
+    align-items: stretch;
+    border-bottom: 1px solid var(--divider);
+    transition: border-color 150ms cubic-bezier(.4, 0, .2, 1);
+}
+.ak-filter.is-focused { border-color: var(--primary-main); }
+
+.ak-filter-chips {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.ak-filter-chips::-webkit-scrollbar { display: none; }
+.ak-chip-group { display: inline-flex; height: 36px; margin-top: 12px; align-items: stretch; }
+.ak-chip {
+    display: inline-flex;
+    height: 36px;
+    align-items: center;
+    padding: 0 12px;
+    color: var(--ptg-text);
+    background: var(--ptg-surface-tint);
+    border: 0;
+    font-size: 14px;
+    white-space: nowrap;
+}
+html[dir="rtl"] .ak-chip:first-child { border-radius: 0 6px 6px 0; }
+html[dir="rtl"] .ak-chip:last-child { border-radius: 6px 0 0 6px; }
+.ak-chip:first-child { border-radius: 6px 0 0 6px; }
+.ak-chip:last-child { border-radius: 0 6px 6px 0; }
+.ak-chip + .ak-chip { border-inline-start: 2px solid var(--ptg-body, #fff); }
+.ak-chip-operator { min-width: 40px; justify-content: center; padding-inline: 8px; color: var(--ptg-muted); }
+.ak-chip-remove {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    margin-inline-start: 4px;
+    padding: 0;
+    place-items: center;
+    color: var(--ptg-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.ak-chip-remove:hover { color: #fff; background: var(--primary-main); }
+
+.ak-filter-input-wrap {
+    position: relative;
+    display: flex;
+    flex: 1 1 220px;
+    min-width: 150px;
+}
+.ak-filter-input {
+    width: 100%;
+    height: 48px;
+    padding: 12px 0 0 118px;
+    color: var(--ptg-text);
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font-size: 14px;
+}
+html[dir="rtl"] .ak-filter-input { padding: 12px 118px 0 0; }
+.ak-filter-input::placeholder { color: var(--ptg-muted); opacity: 1; }
+
+.ak-filter-enter {
+    position: absolute;
+    inset-block-start: 10px;
+    inset-inline-end: 2px;
+    z-index: 3;
+    height: 28px;
+    padding: 4px 12px;
+    color: var(--primary-main);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+.ak-filter-enter:hover:not(:disabled) { background: var(--ptg-surface-tint); }
+.ak-filter-enter:disabled { opacity: .6; cursor: default; }
+
+.ak-filter-clear {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 84px;
+    display: grid;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    place-items: center;
+    color: var(--primary-main);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+html[dir="rtl"] .ak-filter-clear { inset-inline-end: auto; inset-inline-start: 84px; }
+.ak-filter-clear:hover { background: var(--ptg-surface-tint); }
+
+.ak-filter-popover {
+    position: absolute;
+    inset-block-start: 50px;
+    inset-inline-start: 0;
+    z-index: 60;
+    min-width: 240px;
+    max-width: min(420px, calc(100vw - 48px));
+    max-height: 320px;
+    margin: 0;
+    padding: 8px;
+    overflow: auto;
+    color: var(--ptg-text);
+    background: #fff;
+    border: 1px solid var(--divider);
+    border-radius: 6px;
+    box-shadow: 0 12px 28px -8px rgba(24, 24, 40, 0.18), 0 4px 10px -4px rgba(24, 24, 40, 0.12);
+    list-style: none;
+}
+.ak-filter-popover[hidden] { display: none; }
+.ak-filter-popover .ak-option {
+    display: flex;
+    width: 100%;
+    height: 36px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    color: var(--ptg-text);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: start;
+    white-space: nowrap;
+    font-size: 14px;
+}
+.ak-filter-popover .ak-option:hover,
+.ak-filter-popover .ak-option.is-highlighted { background: var(--ptg-surface-tint); }
+.ak-filter-popover .ak-option-search-btn { color: var(--primary-main); }
+
+@media (max-width: 760px) {
+    .ak-filter { flex-direction: column; }
+    .ak-filter-popover { inset-inline-start: 0; }
+}
+
+/* Structured-filter popover extras (group B): field list, head/back, date panel */
+.ak-filter-popover .ak-option-list { margin: 0; padding: 0; list-style: none; }
+.ak-filter-popover li { list-style: none; }
+.ak-filter-popover .ak-option-meta {
+    margin-inline-start: auto;
+    color: var(--ptg-muted);
+    font-size: 12px;
+}
+.ak-pop-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px 8px;
+    color: var(--ptg-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+.ak-pop-back {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--primary-main);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+html[dir="rtl"] .ak-pop-back { transform: scaleX(-1); }
+.ak-pop-back:hover { background: var(--ptg-surface-tint); }
+.ak-date-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px;
+}
+.ak-date-panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--ptg-muted);
+    font-size: 12px;
+}
+.ak-date-panel input[type="date"] {
+    height: 34px;
+    padding: 0 8px;
+    color: var(--ptg-text);
+    border: 1px solid var(--divider);
+    border-radius: 6px;
+    outline: 0;
+}
+.ak-date-panel input[type="date"]:focus { border-color: var(--primary-main); }
+.ak-date-apply {
+    grid-column: 1 / -1;
+    height: 36px;
+    color: #fff;
+    background: var(--primary-main);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.ak-date-apply:hover { background: var(--primary-dark); }
+
+/* Toolbar row: shared search bar + page action buttons on complex list pages */
+.ak-list-toolbar { display: flex; align-items: center; gap: 16px; }
+.ak-list-toolbar > .ak-filter-host { flex: 1 1 auto; min-width: 0; }
+.ak-list-toolbar-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+@media (max-width: 760px) {
+    .ak-list-toolbar { flex-direction: column; align-items: stretch; }
+}
+
+/* Text-value filter panel (type="text") */
+.ak-text-panel { display: grid; gap: 8px; padding: 8px; }
+.ak-text-panel .ak-text-input {
+    height: 34px;
+    padding: 0 10px;
+    color: var(--ptg-text);
+    border: 1px solid var(--divider);
+    border-radius: 6px;
+    outline: 0;
+    font-size: 14px;
+}
+.ak-text-panel .ak-text-input:focus { border-color: var(--primary-main); }
+.ak-text-apply {
+    height: 36px;
+    color: #fff;
+    background: var(--primary-main);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.ak-text-apply:hover { background: var(--primary-dark); }

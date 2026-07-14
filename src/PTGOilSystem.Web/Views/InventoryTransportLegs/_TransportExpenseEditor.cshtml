@@ -1,0 +1,148 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupExpenseModalViewModel
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
+@{
+    var isModal = ViewData["IsExpenseModal"] as bool? == true;
+
+    ViewDataDictionary RowData(string token)
+    {
+        var vd = new ViewDataDictionary(ViewData);
+        vd["RowToken"] = token;
+        return vd;
+    }
+
+    var templateToken = "__INDEX__";
+    var lines = Model.Lines is { Count: > 0 } ? Model.Lines : new List<PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupExpenseModalRow> { new() };
+}
+
+<div class="ak-form-page" data-loading-expense-editor data-submit-mode="@(isModal ? "modal" : "page")">
+    @if (Model.ExistingExpenses.Count > 0)
+    {
+        <div class="alert alert-success py-2">
+            <div class="fw-semibold mb-1"><i class="bi bi-check2-circle me-1"></i>این مصارف قبلاً برای این حمل ثبت شده‌اند</div>
+            <ul class="mb-0 ps-3">
+                @foreach (var exp in Model.ExistingExpenses)
+                {
+                    <li>
+                        <a asp-controller="Expenses" asp-action="Details" asp-route-id="@exp.Id">#@exp.Id</a>
+                        — @exp.ExpenseTypeName
+                        — @exp.ExpenseDate.ToString("yyyy-MM-dd")
+                        — @exp.AmountUsd.ToString("N2") USD
+                        @if (!string.IsNullOrWhiteSpace(exp.ServiceProviderName)) { <text> — @exp.ServiceProviderName</text> }
+                        else if (!string.IsNullOrWhiteSpace(exp.OperationalAssetName)) { <text> — @exp.OperationalAssetName</text> }
+                        <form asp-controller="Expenses" asp-action="Cancel" method="post" class="d-inline ms-1"
+                              onsubmit="return confirm('این مصرف لغو شود؟ سند معکوس در لجر ثبت می‌شود.');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@exp.Id" />
+                            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                            <button type="submit" class="btn btn-sm ak-text-action text-danger p-0 align-baseline">
+                                <i class="bi bi-x-circle"></i> لغو
+                            </button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
+    <form asp-action="SaveGroupExpenses" method="post" class="ak-form" data-loading-expense-form>
+        @Html.AntiForgeryToken()
+        <input asp-for="GroupKey" type="hidden" />
+        <input asp-for="TransportLegId" type="hidden" />
+        <input asp-for="TransportReference" type="hidden" />
+        <input asp-for="TotalAllocatedQuantityMt" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input type="hidden" data-loaded-quantity value="@Model.TotalAllocatedQuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+
+        <div asp-validation-summary="All" class="alert alert-danger mb-2 @(ViewData.ModelState.IsValid ?"d-none" : null)"></div>
+
+        <section class="ak-form-section ak-field">
+            <div class="ak-section-head">
+                <h2 class="form-section-title mb-0">مصارف حمل</h2>
+                <button type="button" class="btn btn-sm btn-primary ak-primary-action" data-add-row>
+                    <i class="bi bi-plus-lg"></i> افزودن مصرف
+                </button>
+            </div>
+
+            <div class="ak-form-section">
+                <div class="ak-form-grid">
+                    <span>نوع مصرف</span>
+                    <span>روش محاسبه</span>
+                    <span>مقدار</span>
+                    <span>نرخ فی تن</span>
+                    <span>مبلغ کل (USD)</span>
+                    <span>طرف حساب</span>
+                    <span>انتخاب طرف</span>
+                    <span></span>
+                </div>
+                <div data-expense-rows>
+                    @foreach (var line in lines)
+                    {
+                        var token = "n" + Guid.NewGuid().ToString("N");
+                        <partial name="_TransportExpenseLineRow" model="line" view-data="RowData(token)" />
+                    }
+                </div>
+            </div>
+
+            <div class="ak-empty ak-note @(lines.Count == 0 ? null :"d-none")" data-rows-empty>
+                هنوز مصرفی اضافه نشده است. روی «افزودن مصرف» بزنید و نوع مصرف را انتخاب یا وارد کنید.
+            </div>
+
+            <template data-row-template>
+                <partial name="_TransportExpenseLineRow" model="@(new PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupExpenseModalRow())" view-data="RowData(templateToken)" />
+            </template>
+        </section>
+
+        <div class="summary-strip">
+            <span class="summary-tile"><span class="summary-tile-label">ردیف‌ها:</span> <strong data-summary-count>@lines.Count</strong></span>
+            <span class="summary-tile"><span class="summary-tile-label">بدون طرف:</span> <strong class="ak-num" data-summary-none>0.00 USD</strong></span>
+            <span class="summary-tile"><span class="summary-tile-label">خدماتی:</span> <strong class="ak-num" data-summary-provider>0.00 USD</strong></span>
+            <span class="summary-tile"><span class="summary-tile-label">دارایی:</span> <strong class="ak-num" data-summary-asset>0.00 USD</strong></span>
+            <span class="summary-tile"><span class="summary-tile-label">مجموع کل:</span> <strong class="ak-num" data-summary-total>0.00 USD</strong></span>
+        </div>
+
+        @if (Model.Allocations.Count > 0)
+        {
+            var existingExpenseTotal = Model.ExistingExpenses.Sum(e => e.Amount);
+            <section class="ak-form-section ak-field" data-expense-alloc data-alloc-base="@existingExpenseTotal.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                <h2 class="form-section-title mb-2">تقسیم مصرف نظر به قرارداد</h2>
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>قرارداد</th>
+                                <th class="text-end">مقدار تخصیص</th>
+                                <th class="text-end">سهم</th>
+                                <th class="text-end">مبلغ سهم (USD)</th>
+                                <th class="text-end">ردیف حمل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var a in Model.Allocations)
+                        {
+                            <tr data-alloc-row data-alloc-share="@a.SharePercent.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                <td>@a.ContractNumber</td>
+                                <td class="text-end ak-num">@NumberDisplay.Quantity(a.AllocatedQuantityMt) MT</td>
+                                <td class="text-end">@NumberDisplay.Number(a.SharePercent, 2)%</td>
+                                <td class="text-end ak-num" data-alloc-amount>@a.AllocatedAmount.ToString("N2") USD</td>
+                                <td class="text-end">@a.LegCount.ToString("N0")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="ak-note mt-1">مبلغ سهم هر قرارداد به‌نسبت وزن، از مجموع کل مصارف به‌صورت خودکار محاسبه می‌شود.</p>
+            </section>
+        }
+
+        <div class="ak-footer-actions">
+            <button type="submit" class="btn btn-primary ak-primary-action">
+                <i class="bi bi-check-lg"></i>
+                ذخیره مصارف
+            </button>
+            @if (isModal)
+            {
+                <button type="button" class="btn btn-light ak-secondary-action" data-bs-dismiss="modal">بستن</button>
+            }
+        </div>
+    </form>
+</div>

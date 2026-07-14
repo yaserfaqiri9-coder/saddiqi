@@ -1,0 +1,11 @@
+@model StorageTank
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش مخزن", "Edit Storage Tank");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "مخازن ذخیره", "Storage Tanks");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "مشخصات مخزن و ارتباط آن با ترمینال/جنس را به‌روزرسانی کنید.", "Update tank specs and its link to terminal/product.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/StorageTanks/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,22 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "سیستم مالی-عملیاتی وب برای شرکت تجارت مواد نفتی.",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "playwright:mcp": "playwright-mcp --isolated --output-dir .playwright-mcp --save-session --viewport-size 1440x900"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@playwright/mcp": "^0.0.75"
+  }
+}

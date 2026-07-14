@@ -1,0 +1,11 @@
+@model ExpenseType
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش نوع مصرف", "Edit Expense Type");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "انواع مصارف", "Expense Types");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "کد، نام، دسته و وضعیت این نوع مصرف را به‌روزرسانی کنید.", "Update code, name, category and status of this expense type.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/ExpenseTypes/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

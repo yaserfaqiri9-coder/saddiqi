@@ -1,0 +1,123 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace PTGOilSystem.Web.Models.Entities;
+
+public enum ContractType { Purchase = 1, Sale = 2 }
+public enum PricingMethod { Fixed = 1, FormulaPlatts = 2, ManualFinalPrice = 3 }
+public enum PlattsPeriodType { Daily = 1, Monthly = 2, Manual = 3 }
+public enum ContractStatus { Draft = 0, Active = 1, Closed = 2, Cancelled = 3 }
+public enum ContractOwnershipType { Personal = 1, Partnership = 2 }
+public enum RubSettlementRatePolicy { NotApplicable = 0, FixedContractRate = 1, PerLoadingRate = 2, RateLater = 3 }
+
+public class Contract : BaseEntity
+{
+    [Required, MaxLength(50)] public string ContractNumber { get; set; } = "";
+    public ContractType ContractType { get; set; }
+    public ContractStatus Status { get; set; } = ContractStatus.Draft;
+
+    public int CompanyId { get; set; }
+    public Company? Company { get; set; }
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
+    public int? UnitId { get; set; }
+    public Unit? Unit { get; set; }
+    public int? SupplierId { get; set; }
+    public Supplier? Supplier { get; set; }
+    public int? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public int? DestinationLocationId { get; set; }
+    public Location? DestinationLocation { get; set; }
+    public ContractOwnershipType OwnershipType { get; set; } = ContractOwnershipType.Personal;
+    public ICollection<ContractPartner> ContractPartners { get; set; } = [];
+
+    public DateTime ContractDate { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+
+    public PricingMethod PricingMethod { get; set; }
+    public decimal QuantityMt { get; set; }
+    public decimal? UnitPriceInCurrency { get; set; }
+    public decimal? AppliedFxRateToUsd { get; set; }
+    public decimal? UnitPriceUsd { get; set; }   // for Fixed
+    public decimal? PremiumUsd { get; set; }     // for FormulaPlatts (+/-)
+    [MaxLength(100)] public string? BenchmarkCode { get; set; }
+    public PlattsPeriodType? PlattsPeriodType { get; set; }
+    public decimal? PremiumDiscountUsd { get; set; }
+    public decimal? PlattsManualPriceUsd { get; set; }
+    public DateTime? PlattsBasisDate { get; set; }
+    public DateTime? PlattsBasisMonth { get; set; }
+    [MaxLength(50)] public string Currency { get; set; } = "USD";
+    public decimal? MinimumPriceUsd { get; set; }
+    public decimal? ManualFinalPriceUsd { get; set; }
+    [MaxLength(500)] public string? PricingFormulaNote { get; set; }
+
+    [MaxLength(10)] public string SettlementCurrencyCode { get; set; } = "USD";
+    public RubSettlementRatePolicy RubRatePolicy { get; set; } = RubSettlementRatePolicy.NotApplicable;
+    public decimal? ContractRubPerUsdRate { get; set; }
+    public DateTime? ContractRubRateDate { get; set; }
+    [MaxLength(200)] public string? ContractRubRateSource { get; set; }
+
+    [MaxLength(1000)] public string? Notes { get; set; }
+}
+
+public class ContractPartner : BaseEntity
+{
+    public int ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public int PartnerId { get; set; }
+    public Partner? Partner { get; set; }
+    public decimal SharePercent { get; set; }
+}
+
+public class ContractAmendment : BaseEntity
+{
+    public int ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public DateTime AmendmentDate { get; set; }
+    [Required, MaxLength(50)] public string AmendmentNumber { get; set; } = "";
+    [Required, MaxLength(2000)] public string ChangeSummary { get; set; } = "";
+    public decimal? NewQuantityMt { get; set; }
+    public decimal? NewUnitPriceUsd { get; set; }
+    public decimal? NewPremiumUsd { get; set; }
+}
+
+public class ContractPricingRule : BaseEntity
+{
+    public int ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public PricingMethod Method { get; set; }
+    [MaxLength(100)] public string? PlattsBenchmarkCode { get; set; }
+    public decimal? PremiumUsd { get; set; }
+    [MaxLength(50)] public string? FxBaseCurrency { get; set; }
+    [MaxLength(50)] public string? FxQuoteCurrency { get; set; }
+}
+
+public class DailyPlattsPrice : BaseEntity
+{
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
+    [Required, MaxLength(100)] public string BenchmarkCode { get; set; } = "";
+    public DateTime PriceDate { get; set; }
+    public decimal PriceUsdPerMt { get; set; }
+    [MaxLength(500)] public string? Source { get; set; }
+}
+
+public class DailyFxRate : BaseEntity
+{
+    [Required, MaxLength(10)] public string BaseCurrency { get; set; } = "USD";
+    [Required, MaxLength(10)] public string QuoteCurrency { get; set; } = "AFN";
+    public DateTime RateDate { get; set; }
+    public decimal Rate { get; set; }
+    [MaxLength(500)] public string? Source { get; set; }
+}
+
+public class PlattsMonthlyManual : BaseEntity
+{
+    public int ProductId { get; set; }
+    public Product? Product { get; set; }
+    [Required, MaxLength(100)] public string BenchmarkCode { get; set; } = "";
+    public DateTime Month { get; set; }
+    public decimal PriceUsdPerMt { get; set; }
+    [MaxLength(1000)] public string? Notes { get; set; }
+}

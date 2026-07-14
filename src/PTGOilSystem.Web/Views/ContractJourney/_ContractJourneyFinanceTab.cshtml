@@ -1,0 +1,199 @@
+@using PTGOilSystem.Web.Models.ContractJourney
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Sarrafs
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyFinanceTabViewModel
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string UnitUsd() => T("دالر", "USD");
+    string LocalizeDisplay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "-";
+        }
+
+        var text = value.Trim();
+        var fa = text switch
+        {
+            "Sale" => "فروش",
+            "Expense" => "مصرف",
+            "CustomerReceipt" => "دریافت از مشتری",
+            "SupplierPayment" => "پرداخت به تأمین‌کننده",
+            "SupplierReceipt" => "دریافت از تأمین‌کننده",
+            "CustomerPayment" => "پرداخت به مشتری",
+            "ExpensePayment" => "پرداخت مصرف",
+            "TruckPayment" => "پرداخت موتر",
+            "ManualPayment" => "پرداخت دستی",
+            "ManualReceipt" => "دریافت دستی",
+            "EmployeeReturn" => "برگشت از کارمند",
+            _ => text
+        };
+
+        return T(fa, text);
+    }
+
+    string ReturnUrl(string tab)
+        => Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId, tab, lockContract = Model.LockContract })
+            ?? $"/ContractJourney/Details?contractId={Model.ContractId}&tab={tab}&lockContract={Model.LockContract.ToString().ToLowerInvariant()}";
+}
+
+<div id="journey-tab-lists" class="ak-tab-panel">
+    <section class="ak-form-section">
+        <div class="ak-section-head">
+            <div>
+                <h2 class="ak-section-title">@T("پرداخت‌ها", "Payments")</h2>
+                <p class="ak-section-desc">@T("پرداخت، دریافت و تسویه‌های این قرارداد", "Payments, receipts and settlements of this contract")</p>
+            </div>
+            <div class="ak-page-actions">
+                <a href="@Model.SarrafSettlementCreateUrl" class="btn btn-light ak-secondary-action">
+                    <i class="bi bi-currency-exchange"></i>
+                    <span>@T("تسویه صراف", "Sarraf settlement")</span>
+                </a>
+                <a asp-controller="ContractBalanceTransfers" asp-action="Create" asp-route-fromContractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="btn btn-light ak-secondary-action">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span>@T("انتقال مانده", "Transfer balance")</span>
+                </a>
+                <a asp-controller="Payments" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="btn btn-primary ak-primary-action">
+                    <i class="bi bi-cash-stack"></i>
+                    <span>@T("ثبت پرداخت جدید", "Create payment")</span>
+                </a>
+                <div class="dropdown ak-row-menu">
+                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a href="@Model.AccountStatementUrl" class="dropdown-item"><i class="bi bi-journal-text"></i> @T("دفتر حساب قرارداد", "Contract statement")</a></li>
+                        <li><a asp-controller="ContractBalanceTransfers" asp-action="Index" asp-route-contractId="@Model.ContractId" class="dropdown-item"><i class="bi bi-list-check"></i> @T("انتقالات مانده این قرارداد", "This contract balance transfers")</a></li>
+                        <li><a href="@Model.SarrafSettlementIndexUrl" class="dropdown-item"><i class="bi bi-list-check"></i> @T("همه تسویه‌ها", "All settlements")</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@T("شماره پرداخت", "Payment No.")</th>
+                        <th>@T("تاریخ", "Date")</th>
+                        <th>@T("فاکتور / مرجع", "Invoice / Ref")</th>
+                        <th>@T("نوع / حساب", "Type / Account")</th>
+                        <th class="ak-col-num">@T("مبلغ", "Amount")</th>
+                        <th>@T("دفتر کل", "Ledger")</th>
+                        <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="ak-col-grow">
+                            <a asp-controller="Payments" asp-action="Details" asp-route-id="@item.PaymentTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="ak-name">PMT-@item.PaymentTransactionId</a>
+                        </td>
+                        <td>@item.PaymentDate.ToDisplayDate()</td>
+                        <td>@(!string.IsNullOrWhiteSpace(item.Reference) ? item.Reference : "-")</td>
+                        <td>@LocalizeDisplay(item.PaymentKindName) / @item.CashAccountName</td>
+                        <td class="ak-num">@item.AmountUsd.ToString("N2") @UnitUsd()</td>
+                        <td>@(item.LedgerEntryId?.ToString() ?? "-")</td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a asp-controller="Payments" asp-action="Details" asp-route-id="@item.PaymentTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                    <li><a asp-controller="Payments" asp-action="Edit" asp-route-id="@item.PaymentTransactionId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="dropdown-item"><i class="bi bi-pencil-square"></i> @T("ویرایش", "Edit")</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="7">
+                            <div class="ak-empty">
+                                <i class="bi bi-cash-stack"></i>
+                                @Model.NoRecordsText
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @Model.PagerHtml
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                 model="@((T("خلاصه مالی", "Financial summary"), (string?)T("وضعیت پرداخت، بدهی و حاشیه سود", "Payment, liability, and margin status")))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>@T("قابل پرداخت به تأمین‌کننده", "Total payable to supplier")</dt><dd class="ak-num">@Model.Summary.SupplierPayableTotalText</dd></div>
+            <div class="ak-list-row"><dt>@T("پرداخت/تسویه‌شده", "Paid or settled")</dt><dd class="ak-num">@Model.Summary.SupplierPaidText</dd></div>
+            <div class="ak-list-row"><dt>@T("مانده قابل پرداخت", "Remaining payable")</dt><dd class="ak-num @Model.Summary.SupplierRemainingToneClass">@Model.Summary.SupplierRemainingText</dd></div>
+            <div class="ak-list-row"><dt>@T("خلاصه سود و زیان", "P&L summary")</dt><dd class="ak-num @Model.Summary.GrossMarginToneClass">@Model.Summary.GrossMarginText</dd></div>
+        </dl>
+        <p class="ak-note">@Model.Summary.Note</p>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                 model="@((T("تسویه‌های صراف", "Sarraf settlements"), (string?)T("ردیف‌های تسویه و کاهش بدهی", "Settlement rows and liability reductions")))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@T("صراف", "Sarraf")</th>
+                        <th>@T("تاریخ", "Date")</th>
+                        <th class="ak-col-num">@T("درخواست", "Requested")</th>
+                        <th class="ak-col-num">@T("قبول تأمین‌کننده", "Supplier accepted")</th>
+                        <th class="ak-col-num">@T("کاهش بدهی", "Supplier reduction")</th>
+                        <th>@T("اختلاف", "Difference")</th>
+                        <th>@T("وضعیت", "Status")</th>
+                        <th class="ak-col-num">@T("دفتر کل", "Ledger")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.SarrafSettlements)
+                {
+                    <tr>
+                        <td class="ak-col-grow">
+                            <a asp-controller="SarrafSettlements" asp-action="Details" asp-route-id="@item.SarrafSettlementId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Finance)" class="ak-name">@item.SarrafName</a>
+                        </td>
+                        <td>@item.SettlementDate.ToDisplayDate()</td>
+                        <td class="ak-num">@item.RequestedAmountUsd.ToString("N2") @UnitUsd()</td>
+                        <td class="ak-num">@item.SupplierAcceptedAmountUsd.ToString("N2") @UnitUsd()</td>
+                        <td class="ak-num">
+                            @item.SupplierReductionAmountUsd.ToString("N2") @UnitUsd()
+                            @if (item.SupplierReductionAmountRub.HasValue)
+                            {
+                                <span class="ak-section-desc">@item.SupplierReductionAmountRub.Value.ToString("N2") RUB</span>
+                            }
+                        </td>
+                        <td>
+                            @SarrafSettlementLabels.ToPersian(item.DifferenceType)
+                            <span class="ak-section-desc">@Math.Abs(item.DifferenceAmountUsd).ToString("N2") @UnitUsd()</span>
+                        </td>
+                        <td>
+                            <span class="ak-status @(item.Status == SarrafSettlementStatus.Posted ?"is-active" : "is-inactive")">@SarrafSettlementLabels.ToPersian(item.Status)</span>
+                        </td>
+                        <td class="ak-num">@(item.LedgerEntryId.HasValue ? $"#{item.LedgerEntryId.Value}" : "-")</td>
+                    </tr>
+                }
+                @if (!Model.SarrafSettlements.Any())
+                {
+                    <tr>
+                        <td colspan="8">
+                            <div class="ak-empty">
+                                <i class="bi bi-currency-exchange"></i>
+                                @Model.NoRecordsText
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

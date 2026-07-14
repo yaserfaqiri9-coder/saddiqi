@@ -1,0 +1,541 @@
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.Dispatch.DispatchDetailsViewModel
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "Dispatch") ?? "/Dispatch";
+    var currentPageReturnUrl = Context.Request.Path + Context.Request.QueryString;
+
+    var isDirectFromReceipt = Model.DispatchMode == TruckDispatchMode.DirectFromReceipt;
+    var modeText = isDirectFromReceipt ? T("ارسال از رسید", "From receipt") : T("ارسال مستقیم از مخزن", "From tank");
+
+    var statusText = Model.StatusName switch
+    {
+        "Loaded" => T("بارگیری شده", "Loaded"),
+        "InTransit" => T("در مسیر", "In transit"),
+        "Delivered" => T("تحویل شده", "Delivered"),
+        "Cancelled" => T("لغو شده", "Cancelled"),
+        _ => Model.StatusName
+    };
+    var statusDone = Model.StatusName == "Delivered";
+    var isCancelled = Model.StatusName == "Cancelled";
+
+    var productName = string.IsNullOrWhiteSpace(Model.ProductName) ? "-" : Model.ProductName;
+    var plateNumber = string.IsNullOrWhiteSpace(Model.TruckPlateNumber) ? "-" : Model.TruckPlateNumber;
+    var driverName = string.IsNullOrWhiteSpace(Model.DriverName) ? "-" : Model.DriverName;
+    var destinationLabel = Model.DestinationName ?? T("مقصد تعیین‌نشده", "Destination not set");
+    var documentNumber = $"DSP-{Model.Id:0000}";
+
+    // منبع → موتر → مقصد (نمایش‌محور، بدون تغییر منطق موجودی)
+    var sourceNodeLabel = Model.SourceStorageTankCode ?? Model.SourceTerminalName ?? T("منبع موجودی", "Inventory source");
+    var sourceTypeLabel = Model.SourceStorageTankCode is not null
+        ? T("مخزن", "Tank")
+        : (Model.SourceTerminalName is not null ? T("ترمینال", "Terminal") : T("منبع موجودی", "Inventory source"));
+
+    // فروش مستقیم موتر: تخلیه ثبت نمی‌شود؛ مقدار فروش‌شده معادل تخلیه است
+    var isDirectSale = Model.SalesTransactionId.HasValue && !Model.DeliveryReceipts.Any();
+    var loadedQty = Model.LoadedQuantityMt;
+    var unloadedQty = Model.DischargedQuantityMt ?? Model.SaleQuantityMt ?? 0m;
+    var shortageQty = Model.ShortageMt ?? Math.Max(loadedQty - unloadedQty, 0m);
+    var freightUsd = Model.FreightCostUsd ?? 0m;
+
+    // باقی‌مانده منبع فقط از مسیر امن (تخصیص رسید). حالت مخزن داده کافی ندارد.
+    decimal? sourceTotalMt = isDirectFromReceipt ? Model.AllocationQuantityMt : null;
+    decimal? sourceRemainingMt = isDirectFromReceipt ? Model.AllocationRemainingQuantityMt : null;
+
+    var receiptCount = Model.DeliveryReceipts.Count;
+    var receivedTotal = Model.DeliveryReceipts.Sum(r => r.ReceivedQuantityMt);
+    var payableAmount = Model.DriverShortageChargeUsd ?? Model.PayableUsd;
+
+    var canUnload = !isCancelled && !Model.SalesTransactionId.HasValue;
+    var canDirectSale = !isCancelled && !Model.SalesTransactionId.HasValue && !Model.DeliveryReceipts.Any();
+
+    // مقدار (وزن) تا ۴ رقم اعشار، بدون صفر اضافه و با جداکنندهٔ هزار
+    string Q(decimal v) => v.ToString("#,##0.####");
+    string M(decimal v) => v.ToString("N2");
+
+    ViewData["Title"] = T("جزئیات ارسال با موتر", "Truck dispatch details");
+    ViewData["HideSectionTabs"] = true;
+    ViewData["ContentBodyClass"] = "boltz-content-body-fluid";
+    ViewData["LoadingExpenseEditorAssets"] = true;
+}
+
+<div class="page-stack ak-form-page" dir="rtl" data-transport-details>
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((T("جزئیات ارسال با موتر", "Truck dispatch details"), false, (string?)null, (string?)null, (string?)null, (string?)null, T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
+
+    <section class="ak-form-section">
+        <div class="ak-form-grid">
+            <div class="ak-field">
+                <span class="ak-page-icon"><i class="bi bi-truck-front" aria-hidden="true"></i></span>
+                <span class="ak-label">@T("وضعیت", "Status")</span>
+                <span class="ak-status @(statusDone ?"is-done" : "")">
+                    @if (statusDone)
+                    {
+                        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                    }
+                    @statusText
+                </span>
+            </div>
+            <div class="ak-field">
+                <span class="ak-page-icon"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i></span>
+                <span class="ak-label">@T("نمبر پلیت", "Plate no.")</span>
+                <strong class="ak-num">@plateNumber</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-page-icon"><i class="bi bi-person-badge" aria-hidden="true"></i></span>
+                <span class="ak-label">@T("راننده", "Driver")</span>
+                <strong class="ak-num">@driverName</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-page-icon"><i class="bi bi-droplet" aria-hidden="true"></i></span>
+                <span class="ak-label">@T("محصول", "Product")</span>
+                <strong class="ak-num">@productName</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-page-icon"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                <span class="ak-label">@T("شماره ارسال", "Dispatch no.")</span>
+                <strong class="ak-num ak-note">@documentNumber</strong>
+            </div>
+        </div>
+        <div class="ak-page-icon" aria-hidden="true">
+            <img src="~/images/truck-row-display.png" alt="@T("موتر تانکر", "Tanker truck")" />
+        </div>
+    </section>
+
+    <section class="ak-summary">
+        <article class="ak-field is-loaded">
+            <div class="ak-field">
+                <span class="ak-label">@T("بارگیری‌شده", "Loaded")</span>
+                <span class="ak-page-icon"><i class="bi bi-box-arrow-up" aria-hidden="true"></i></span>
+            </div>
+            <strong class="ak-num">@Q(loadedQty)</strong>
+            <span class="ak-section-desc">@T("تن", "MT")</span>
+        </article>
+        <article class="ak-field is-unloaded">
+            <div class="ak-field">
+                <span class="ak-label">@(isDirectSale ? T("فروخته‌شده", "Sold") : T("تخلیه‌شده", "Unloaded"))</span>
+                <span class="ak-page-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
+            </div>
+            <strong class="ak-num">@Q(unloadedQty)</strong>
+            <span class="ak-section-desc">@T("تن", "MT")</span>
+        </article>
+        <article class="ak-field is-shortage">
+            <div class="ak-field">
+                <span class="ak-label">@T("کسری", "Shortage")</span>
+                <span class="ak-page-icon"><i class="bi bi-exclamation-lg" aria-hidden="true"></i></span>
+            </div>
+            <strong class="ak-num">@Q(shortageQty)</strong>
+            <span class="ak-section-desc">@T("تن", "MT")</span>
+        </article>
+        <article class="ak-field is-result">
+            <div class="ak-field">
+                <span class="ak-label">@T("کرایه", "Freight")</span>
+                <span class="ak-page-icon"><i class="bi bi-currency-dollar" aria-hidden="true"></i></span>
+            </div>
+            <strong class="ak-num">@M(freightUsd)</strong>
+            <span class="ak-section-desc">USD</span>
+        </article>
+    </section>
+
+    @{
+        var customsCount = Model.Customs.Count;
+        var customsTotalUsd = Model.Customs.Sum(c => c.TotalUsd);
+        var expenseCount = Model.Expenses.Count;
+        var expenseTotalUsd = Model.Expenses.Sum(e => e.AmountUsd);
+        var hasCustomsOrShortage = customsCount > 0 || shortageQty > 0.0001m;
+    }
+    <section data-ptcd-tabs>
+        <div class="ptg-tabs-rail" role="tablist" aria-label="@T("بخش‌های مالی ارسال موتر", "Dispatch financial sections")">
+            <button type="button" class="ptg-tab-item is-active" role="tab" aria-selected="true" data-ptcd-tab="sales">
+                <i class="bi bi-cart-check" aria-hidden="true"></i>
+                <span>@T("فروشات", "Sales")</span>
+            </button>
+            <button type="button" class="ptg-tab-item" role="tab" aria-selected="false" data-ptcd-tab="customs">
+                <i class="bi bi-bank" aria-hidden="true"></i>
+                <span>@T("گمرکات و کسورات", "Customs & deductions")</span>
+            </button>
+            <button type="button" class="ptg-tab-item" role="tab" aria-selected="false" data-ptcd-tab="expenses">
+                <i class="bi bi-wallet2" aria-hidden="true"></i>
+                <span>@T("مصارف و کرایه", "Expenses & freight")</span>
+            </button>
+        </div>
+
+        <div class="ak-tab-panel is-active" role="tabpanel" data-ptcd-panel="sales">
+            <div class="ak-list">
+                <div class="ak-list-row">
+                    <span>@T("مجموع فروش", "Total sales")</span>
+                    <b>@M(Model.SaleTotalUsd ?? 0m) <em>USD</em></b>
+                </div>
+                <div class="ak-list-row">
+                    <span>@T("مقدار فروش‌شده", "Sold quantity")</span>
+                    <b>@Q(Model.SaleQuantityMt ?? 0m) <em>@T("تن", "MT")</em></b>
+                </div>
+            </div>
+            <div class="ak-list" data-ptcd-list data-page-size="5">
+                <div class="ak-list">
+                    @if (Model.SalesTransactionId.HasValue)
+                    {
+                        var inv = string.IsNullOrWhiteSpace(Model.SaleInvoiceNumber) ? $"#{Model.SalesTransactionId}" : Model.SaleInvoiceNumber;
+                        <button type="button" class="ak-list-row" data-title="@T("فروش", "Sale") @inv">
+                            <span class="ak-field">
+                                <strong>@inv</strong>
+                                <small>@(isDirectSale ? T("فروش مستقیم", "Direct sale") : T("فروش", "Sale"))</small>
+                            </span>
+                            <span class="ak-num">@M(Model.SaleTotalUsd ?? 0m) USD</span>
+                            <div class="ak-section-desc" hidden>
+                                <dl class="ak-list">
+                                    <div><dt>@T("شماره فاکتور", "Invoice")</dt><dd>@inv</dd></div>
+                                    <div><dt>@T("کد فروش", "Sale id")</dt><dd>#@Model.SalesTransactionId</dd></div>
+                                    <div><dt>@T("مقدار فروش", "Quantity")</dt><dd>@Q(Model.SaleQuantityMt ?? 0m) @T("تن", "MT")</dd></div>
+                                    <div><dt>@T("مبلغ فروش", "Amount")</dt><dd>@M(Model.SaleTotalUsd ?? 0m) USD</dd></div>
+                                </dl>
+                            </div>
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="ak-empty">@T("فروشی به این ارسال وصل نیست.", "No sale linked to this dispatch.")</p>
+                    }
+                </div>
+                <div class="ak-pager" data-ptcd-pager hidden>
+                    <button type="button" data-ptcd-prev><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                    <span data-ptcd-info></span>
+                    <button type="button" data-ptcd-next><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-tab-panel" role="tabpanel" data-ptcd-panel="customs" hidden>
+            <div class="ak-list">
+                <div class="ak-list-row">
+                    <span>@T("گمرکات", "Customs")</span>
+                    <b>@M(customsTotalUsd) <em>USD</em></b>
+                </div>
+                <div class="ak-list-row">
+                    <span>@T("کسورات (مجرا راننده)", "Deductions (driver charge)")</span>
+                    <b>@(payableAmount.HasValue ? M(payableAmount.Value) : "0.00") <em>USD</em></b>
+                </div>
+            </div>
+            <div class="ak-list" data-ptcd-list data-page-size="5">
+                <div class="ak-list">
+                    @if (hasCustomsOrShortage)
+                    {
+                        foreach (var c in Model.Customs)
+                        {
+                            var cref = c.DeclarationReference ?? c.WagonOrTruckNumber ?? $"#{c.Id}";
+                            <button type="button" class="ak-list-row" data-title="@T("گمرک", "Customs") @cref">
+                                <span class="ak-field">
+                                    <strong>@cref</strong>
+                                    <small>@T("گمرک", "Customs") · @c.DeclarationDate.ToDisplayDate()</small>
+                                </span>
+                                <span class="ak-num">@M(c.TotalUsd) USD</span>
+                                <div class="ak-section-desc" hidden>
+                                    <dl class="ak-list">
+                                        <div><dt>@T("کد اعلامیه", "Declaration id")</dt><dd>#@c.Id</dd></div>
+                                        <div><dt>@T("تاریخ", "Date")</dt><dd>@c.DeclarationDate.ToDisplayDate()</dd></div>
+                                        <div><dt>@T("مرجع / ACCD", "Reference")</dt><dd>@(c.DeclarationReference ?? "-")</dd></div>
+                                        <div><dt>@T("شماره موتر", "Truck no.")</dt><dd>@(c.WagonOrTruckNumber ?? "-")</dd></div>
+                                        <div><dt>@T("مجموع (AFN)", "Total AFN")</dt><dd>@M(c.TotalAfn) AFN</dd></div>
+                                        <div><dt>@T("مجموع (USD)", "Total USD")</dt><dd>@M(c.TotalUsd) USD</dd></div>
+                                    </dl>
+                                </div>
+                            </button>
+                        }
+                        @if (shortageQty > 0.0001m)
+                        {
+                            <button type="button" class="ak-list-row" data-title="@T("کسری موتر", "Truck shortage")">
+                                <span class="ak-field">
+                                    <strong>@T("کسری موتر", "Truck shortage")</strong>
+                                    <small>@T("بارگیری منهای تخلیه", "Loaded minus unloaded")</small>
+                                </span>
+                                <span class="ak-num">@Q(shortageQty) @T("تن", "MT")</span>
+                                <div class="ak-section-desc" hidden>
+                                    <dl class="ak-list">
+                                        <div><dt>@T("کسری کل", "Total shortage")</dt><dd>@Q(shortageQty) @T("تن", "MT")</dd></div>
+                                        <div><dt>@T("تلورانس", "Tolerance")</dt><dd>@Q(Model.ToleranceMt ?? 0m) @T("تن", "MT")</dd></div>
+                                        <div><dt>@T("قابل کسر", "Chargeable")</dt><dd>@Q(Model.ChargeableShortageMt ?? 0m) @T("تن", "MT")</dd></div>
+                                        <div><dt>@T("نرخ کسری", "Shortage rate")</dt><dd>@M(Model.ShortageRateUsd ?? 0m) USD/MT</dd></div>
+                                        <div><dt>@T("پول مجرا راننده", "Driver charge")</dt><dd>@(payableAmount.HasValue ? M(payableAmount.Value) : "-") USD</dd></div>
+                                    </dl>
+                                </div>
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        <p class="ak-empty">@T("گمرک یا کسری ثبت نشده است.", "No customs or shortage recorded.")</p>
+                    }
+                </div>
+                <div class="ak-pager" data-ptcd-pager hidden>
+                    <button type="button" data-ptcd-prev><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                    <span data-ptcd-info></span>
+                    <button type="button" data-ptcd-next><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-tab-panel" role="tabpanel" data-ptcd-panel="expenses" hidden>
+            <div class="ak-list">
+                <div class="ak-list-row">
+                    <span>@T("کرایه حمل", "Freight")</span>
+                    <b>@M(freightUsd) <em>USD</em></b>
+                </div>
+                <div class="ak-list-row">
+                    <span>@T("مصارف عملیاتی", "Operational expenses")</span>
+                    <b>@M(expenseTotalUsd) <em>USD</em></b>
+                </div>
+            </div>
+            <div class="ak-list" data-ptcd-list data-page-size="5">
+                <div class="ak-list">
+                    @if (expenseCount > 0)
+                    {
+                        foreach (var e in Model.Expenses)
+                        {
+                            <button type="button" class="ak-list-row" data-title="@(string.IsNullOrWhiteSpace(e.ExpenseTypeName) ? T("مصرف", "Expense") : e.ExpenseTypeName)">
+                                <span class="ak-field">
+                                    <strong>@(string.IsNullOrWhiteSpace(e.ExpenseTypeName) ? T("مصرف", "Expense") : e.ExpenseTypeName)</strong>
+                                    <small>@e.ExpenseDate.ToDisplayDate()</small>
+                                </span>
+                                <span class="ak-num">@M(e.AmountUsd) USD</span>
+                                <div class="ak-section-desc" hidden>
+                                    <dl class="ak-list">
+                                        <div><dt>@T("نوع مصرف", "Expense type")</dt><dd>@(string.IsNullOrWhiteSpace(e.ExpenseTypeName) ? "-" : e.ExpenseTypeName)</dd></div>
+                                        <div><dt>@T("تاریخ", "Date")</dt><dd>@e.ExpenseDate.ToDisplayDate()</dd></div>
+                                        <div><dt>@T("مبلغ", "Amount")</dt><dd>@M(e.Amount) @e.Currency</dd></div>
+                                        <div><dt>@T("معادل (USD)", "USD equivalent")</dt><dd>@M(e.AmountUsd) USD</dd></div>
+                                        <div><dt>@T("شرح", "Description")</dt><dd>@(e.Description ?? "-")</dd></div>
+                                    </dl>
+                                </div>
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        <p class="ak-empty">@T("مصرفی برای این موتر ثبت نشده است.", "No expense recorded for this truck.")</p>
+                    }
+                </div>
+                <div class="ak-pager" data-ptcd-pager hidden>
+                    <button type="button" data-ptcd-prev><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                    <span data-ptcd-info></span>
+                    <button type="button" data-ptcd-next><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (Model.DeliveryReceipts.Any())
+    {
+        <section class="ak-form-section">
+            <article class="ak-form-section is-receipt">
+                <header>
+                    <h2>@T("رسیدهای تحویل / تخلیه", "Delivery receipts")</h2>
+                    <span class="ak-page-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
+                </header>
+                <div class="ak-list">
+                    <div class="ak-list">
+                        @foreach (var r in Model.DeliveryReceipts)
+                        {
+                            var reff = r.DocumentReference ?? r.ReceivedBy ?? $"#{r.Id}";
+                            <button type="button" class="ak-list-row" data-title="@T("رسید", "Receipt") #@r.Id">
+                                <span class="ak-field">
+                                    <strong>@T("رسید", "Receipt") #@r.Id</strong>
+                                    <small>@r.ReceiptDate.ToDisplayDate()</small>
+                                </span>
+                                <span class="ak-num">@Q(r.ReceivedQuantityMt) @T("تن", "MT")</span>
+                                <div class="ak-section-desc" hidden>
+                                    <dl class="ak-list">
+                                        <div><dt>@T("شماره رسید", "Receipt")</dt><dd>#@r.Id</dd></div>
+                                        <div><dt>@T("تاریخ", "Date")</dt><dd>@r.ReceiptDate.ToDisplayDate()</dd></div>
+                                        <div><dt>@T("مقدار تخلیه", "Quantity")</dt><dd>@Q(r.ReceivedQuantityMt) @T("تن", "MT")</dd></div>
+                                        <div><dt>@T("تحویل‌گیرنده", "Received by")</dt><dd>@(r.ReceivedBy ?? "-")</dd></div>
+                                        <div><dt>@T("مرجع سند", "Reference")</dt><dd>@reff</dd></div>
+                                    </dl>
+                                </div>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </article>
+        </section>
+    }
+
+    <section class="ak-form-section">
+        <article class="ak-form-section is-source">
+            <header>
+                <h2>@T("منبع، مسیر و موتر", "Source, route & truck")</h2>
+                <span class="ak-page-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
+            </header>
+            <div class="ak-list-row">
+                <span>@T("نوع ارسال", "Dispatch mode")</span>
+                <b>@modeText</b>
+            </div>
+            <div class="ak-list-row">
+                <span>@sourceTypeLabel</span>
+                <b>@sourceNodeLabel</b>
+            </div>
+            @if (sourceTotalMt.HasValue)
+            {
+                <div class="ak-list-row">
+                    <span>@T("قابل ارسال منبع", "Source available")</span>
+                    <b>@Q(sourceTotalMt.Value) <em>@T("تن", "MT")</em></b>
+                </div>
+            }
+            <div class="ak-list-row">
+                <span>@T("ارسال‌شده به موتر", "Sent to truck")</span>
+                <b>@Q(loadedQty) <em>@T("تن", "MT")</em></b>
+            </div>
+            <div class="ak-list-row">
+                <span>@T("باقی‌مانده منبع", "Source remaining")</span>
+                @if (sourceRemainingMt.HasValue)
+                {
+                    <b>@Q(sourceRemainingMt.Value) <em>@T("تن", "MT")</em></b>
+                }
+                else
+                {
+                    <b class="text-muted">@T("قابل محاسبه نیست", "Not computable")</b>
+                }
+            </div>
+            <div class="ak-list-row">
+                <span>@T("موتر / راننده", "Truck / driver")</span>
+                <b>@plateNumber · @driverName</b>
+            </div>
+            <div class="ak-list-row">
+                <span>@T("مقصد", "Destination")</span>
+                <b>@destinationLabel</b>
+            </div>
+            <div class="ak-list-row">
+                <span>@T("مرجع موجودی", "Inventory ref")</span>
+                <b>@(Model.InventoryReference ?? (isDirectFromReceipt ? T("بدون حرکت موجودی", "No stock movement") : "-"))</b>
+            </div>
+        </article>
+    </section>
+
+    <div class="modal fade loading-expense-modal" id="dispatchExpensesModal" tabindex="-1"
+         aria-labelledby="dispatchExpensesModalLabel" aria-hidden="true" data-loading-expense-remote-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content ak-modal-content">
+                <div class="ak-modal-head">
+                    <h2 class="modal-title" id="dispatchExpensesModalLabel">@T("ثبت مصارف ارسال موتر", "Register dispatch expenses") — @documentNumber</h2>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
+                </div>
+                <div class="ak-modal-body" data-loading-expense-remote-body>
+                    <div class="loading-expense-modal-placeholder">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                        <span>@T("در حال بارگذاری فرم مصارف...", "Loading expense form...")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade ptcd-detail-modal" id="ptcdDetailModal" tabindex="-1" aria-labelledby="ptcdDetailTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content ak-modal-content">
+                <div class="ak-modal-head">
+                    <h2 class="modal-title" id="ptcdDetailTitle"></h2>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
+                </div>
+                <div class="ak-modal-body" id="ptcdDetailBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="ak-page-actions no-print" aria-label="@T("عملیات این ارسال", "Dispatch actions")">
+        @if (canUnload || canDirectSale)
+        {
+            <a asp-action="Unload" asp-route-id="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
+                <i class="bi bi-box-arrow-down" aria-hidden="true"></i>@T("ثبت تخلیه / فروش موتر", "Register unload / sale")
+            </a>
+        }
+        <a asp-controller="CustomsDeclarations" asp-action="Create" asp-route-truckDispatchId="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
+            <i class="bi bi-file-earmark-check" aria-hidden="true"></i>@T("ثبت گمرک", "Register customs")
+        </a>
+        <button type="button"
+                data-bs-toggle="modal"
+                data-bs-target="#dispatchExpensesModal"
+                data-expense-url="@Url.Action("CreateExpenseModal", "Dispatch", new { id = Model.Id, returnUrl = currentPageReturnUrl })">
+            <i class="bi bi-receipt" aria-hidden="true"></i>@T("ثبت مصرف / کرایه", "Register expense")
+        </button>
+        <a asp-action="Create">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>@T("ارسال مستقیم از مخزن", "New dispatch")
+        </a>
+    </nav>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var root = document.querySelector('[data-transport-details]');
+            if (!root) { return; }
+
+            // --- per-card pagination ---
+            root.querySelectorAll('[data-ptcd-list]').forEach(function (list) {
+                var body = list.querySelector('.ak-list');
+                var rows = Array.prototype.slice.call(body.querySelectorAll('.ak-list-row'));
+                var pager = list.querySelector('[data-ptcd-pager]');
+                var size = parseInt(list.getAttribute('data-page-size'), 10) || 3;
+                var pages = Math.ceil(rows.length / size);
+                if (!pager || rows.length === 0 || pages <= 1) { return; }
+
+                var page = 0;
+                var info = pager.querySelector('[data-ptcd-info]');
+                var prev = pager.querySelector('[data-ptcd-prev]');
+                var next = pager.querySelector('[data-ptcd-next]');
+                pager.hidden = false;
+
+                function render() {
+                    rows.forEach(function (r, i) {
+                        r.style.display = (i >= page * size && i < (page + 1) * size) ? '' : 'none';
+                    });
+                    info.textContent = (page + 1) + ' / ' + pages;
+                    prev.disabled = page === 0;
+                    next.disabled = page === pages - 1;
+                }
+                prev.addEventListener('click', function () { if (page > 0) { page--; render(); } });
+                next.addEventListener('click', function () { if (page < pages - 1) { page++; render(); } });
+                render();
+            });
+
+            // --- row click -> detail modal (resolve bootstrap lazily; bundle is deferred) ---
+            var modalEl = document.getElementById('ptcdDetailModal');
+            var titleEl = document.getElementById('ptcdDetailTitle');
+            var bodyEl = document.getElementById('ptcdDetailBody');
+
+            root.querySelectorAll('.ak-list-row').forEach(function (row) {
+                row.addEventListener('click', function () {
+                    var detail = row.querySelector('.ak-section-desc');
+                    if (!detail || !modalEl || !window.bootstrap) { return; }
+                    titleEl.textContent = row.getAttribute('data-title') || '';
+                    bodyEl.innerHTML = detail.innerHTML;
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                });
+            });
+
+            // --- تب‌بندی کارت سرتاسری (فروشات/گمرکات/مصارف) ---
+            var tabsCard = root.querySelector('[data-ptcd-tabs]');
+            if (tabsCard) {
+                var tabs = Array.prototype.slice.call(tabsCard.querySelectorAll('.ptg-tab-item[data-ptcd-tab]'));
+                var panels = Array.prototype.slice.call(tabsCard.querySelectorAll('[data-ptcd-panel]'));
+                tabs.forEach(function (tab) {
+                    tab.addEventListener('click', function () {
+                        var key = tab.getAttribute('data-ptcd-tab');
+                        tabs.forEach(function (t) {
+                            var on = t === tab;
+                            t.classList.toggle('is-active', on);
+                            t.setAttribute('aria-selected', on ? 'true' : 'false');
+                        });
+                        panels.forEach(function (p) {
+                            var on = p.getAttribute('data-ptcd-panel') === key;
+                            p.classList.toggle('is-active', on);
+                            p.hidden = !on;
+                        });
+                    });
+                });
+            }
+        })();
+    </script>
+}

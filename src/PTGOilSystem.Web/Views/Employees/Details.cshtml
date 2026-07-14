@@ -1,0 +1,260 @@
+@model PTGOilSystem.Web.Models.Employees.EmployeeDetailsViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "پروفایل کارمند";
+    ViewData["HideSectionTabs"] = true;
+    var notRecorded = "ثبت نشده";
+    var summary = Model.Summary;
+
+    var bal = summary.BalanceUsd;
+    var balanceLabel = bal > 0 ? "قابل پرداخت به کارمند" : bal < 0 ? "بدهی کارمند به شرکت" : "حساب تسویه است";
+    var balanceClass = bal > 0 ? "ak-num" : bal < 0 ? "ak-num" : "";
+
+    var dates = new List<DateTime>();
+    dates.AddRange(Model.Transactions.Select(t => t.TransactionDate));
+    dates.AddRange(Model.RoznamchaPayments.Select(p => p.PaymentDate));
+    var lastActivity = dates.Count > 0 ? dates.Max() : (DateTime?)null;
+    var recentTx = Model.Transactions.Take(5).ToList();
+
+    var salaryUrl = Url.Action("CreateSalaryTransaction", new { id = Model.Id, returnUrl = Context.Request.Path }) ?? "#";
+    var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
+    var indexUrl = Url.Action("Index") ?? "#";
+
+    var employeeTabs = new[]
+    {
+        "#employee-overview|خلاصه حساب|bi-grid-1x2|active",
+        "#employee-finance|معاش و پرداخت‌ها|bi-cash-stack|",
+        "#employee-activity|فعالیت و یادداشت|bi-clock-history|"
+    };
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((Model.FullName, false,
+                       "ثبت تراکنش معاش", "bi-plus-lg", salaryUrl, (string?)null,
+                       "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@editUrl"><i class="bi bi-pencil"></i> ویرایش</a></li>
+                <li><a class="dropdown-item" href="@salaryUrl"><i class="bi bi-plus-lg"></i> ثبت تراکنش معاش</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>کد کارمند</dt><dd>@Model.EmployeeCode</dd></div>
+                <div class="ak-list-row"><dt>سمت</dt><dd>@(string.IsNullOrWhiteSpace(Model.JobTitle) ? notRecorded : Model.JobTitle)</dd></div>
+                <div class="ak-list-row"><dt>نوع</dt><dd>@Model.EmployeeTypeName</dd></div>
+                <div class="ak-list-row"><dt>نام پدر</dt><dd>@(string.IsNullOrWhiteSpace(Model.FatherName) ? notRecorded : Model.FatherName)</dd></div>
+                <div class="ak-list-row"><dt>تلفن</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? notRecorded : Model.Phone)</dd></div>
+                <div class="ak-list-row"><dt>ایمیل</dt><dd>@(string.IsNullOrWhiteSpace(Model.Email) ? notRecorded : Model.Email)</dd></div>
+                <div class="ak-list-row"><dt>تذکره / نمبر ملی</dt><dd>@(string.IsNullOrWhiteSpace(Model.NationalId) ? notRecorded : Model.NationalId)</dd></div>
+                <div class="ak-list-row"><dt>آدرس</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? notRecorded : Model.Address)</dd></div>
+                <div class="ak-list-row"><dt>دپارتمان</dt><dd>@(string.IsNullOrWhiteSpace(Model.Department) ? notRecorded : Model.Department)</dd></div>
+                <div class="ak-list-row"><dt>شروع کار</dt><dd>@Model.HireDate.ToDisplayDate()</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", balanceLabel))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>معاش پایه</dt><dd class="ak-num">@Model.BaseSalaryAmount.ToString("N2") @Model.SalaryCurrency</dd></div>
+                <div class="ak-list-row"><dt>نوع معاش</dt><dd>@Model.SalaryTypeName</dd></div>
+                <div class="ak-list-row"><dt>معاش ثبت‌شده</dt><dd class="ak-num">@summary.AccruedSalaryUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>کل پرداخت‌شده</dt><dd class="ak-num">@summary.PaidSalaryUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>مانده فعلی</dt><dd class="ak-num @balanceClass">@Math.Abs(bal).ToString("N2") USD</dd></div>
+                @if (lastActivity.HasValue)
+                {
+                    <div class="ak-list-row"><dt>آخرین حرکت</dt><dd>@lastActivity.Value.ToDisplayDate()</dd></div>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل کارمند", employeeTabs)" />
+
+    @* ===== تب ۱: خلاصه — آخرین تراکنش‌ها ===== *@
+    <section id="employee-overview" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("آخرین تراکنش‌های معاش", "پنج تراکنش آخر."))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع</th>
+                        <th>دوره</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">معادل USD</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in recentTx)
+                {
+                    <tr class="@(row.IsCancelled ?"ak-row-muted" : "")">
+                        <td>@row.TransactionDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.TransactionTypeName</td>
+                        <td>@row.PeriodText</td>
+                        <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
+                        <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                        <td><span class="ak-status @(row.IsCancelled ?"is-inactive" : "is-active")">@(row.IsCancelled ? "لغو شده" : "فعال")</span></td>
+                    </tr>
+                }
+                @if (recentTx.Count == 0)
+                {
+                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۲: معاش و پرداخت‌ها ===== *@
+    <section id="employee-finance" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تراکنش‌های معاش", $"{Model.Transactions.Count:N0}"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع</th>
+                        <th>دوره</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">معادل USD</th>
+                        <th>حساب</th>
+                        <th>مرجع</th>
+                        <th>وضعیت</th>
+                        <th class="ak-col-actions">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Transactions)
+                {
+                    <tr class="@(row.IsCancelled ?"ak-row-muted" : "")">
+                        <td>@row.TransactionDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.TransactionTypeName</td>
+                        <td>@row.PeriodText</td>
+                        <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
+                        <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                        <td>@(row.CashAccountName ?? "-")</td>
+                        <td>
+                            @(row.Reference ?? "-")
+                            @if (!string.IsNullOrWhiteSpace(row.Description)) { <div class="ak-note">@row.Description</div> }
+                        </td>
+                        <td>
+                            @if (row.IsCancelled)
+                            {
+                                <span class="ak-status is-inactive">لغو شده</span>
+                                @if (!string.IsNullOrWhiteSpace(row.CancellationReason)) { <div class="ak-note">@row.CancellationReason</div> }
+                            }
+                            else
+                            {
+                                <span class="ak-status is-active">فعال</span>
+                            }
+                        </td>
+                        <td class="ak-col-actions">
+                            @if (row.PaymentTransactionId.HasValue)
+                            {
+                                <a asp-controller="Payments" asp-action="Details" asp-route-id="@row.PaymentTransactionId.Value" class="btn btn-sm btn-light">پرداخت</a>
+                            }
+                            @if (!row.IsCancelled)
+                            {
+                                <form asp-action="CancelSalaryTransaction" method="post" class="d-inline-flex gap-1 align-items-center">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="TransactionId" value="@row.Id" />
+                                    <input type="hidden" name="EmployeeId" value="@Model.Id" />
+                                            <input name="CancellationReason" class="ak-input" placeholder="دلیل لغو" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">لغو</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Transactions.Any())
+                {
+                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت، کسر یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت‌ها و برگشت‌های نقدی", $"{Model.RoznamchaPayments.Count:N0}"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th class="ak-col-grow">نوع</th>
+                        <th>حساب</th>
+                        <th>مربوط به</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">معادل USD</th>
+                        <th>مرجع</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.RoznamchaPayments)
+                {
+                    <tr>
+                        <td>@row.PaymentDate.ToDisplayDate()</td>
+                        <td class="ak-col-grow">@row.PaymentKindName</td>
+                        <td>@row.CashAccountName</td>
+                        <td>@row.RelatedTo</td>
+                        <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
+                        <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                        <td><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.Id">@(row.Reference ?? $"#{row.Id}")</a></td>
+                    </tr>
+                }
+                @if (!Model.RoznamchaPayments.Any())
+                {
+                    <tr><td colspan="7"><div class="ak-empty"><i class="bi bi-wallet2"></i> پرداخت معاش یا برگشت پول کارمند از حساب نقد/بانک اینجا دیده می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ===== تب ۳: فعالیت و یادداشت ===== *@
+    <section id="employee-activity" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("فعالیت‌های ثبت‌شده", $"{Model.AuditItems.Count:N0}"))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>زمان</th><th class="ak-col-grow">عمل</th><th>کاربر</th><th>جزئیات</th></tr></thead>
+                <tbody>
+                @foreach (var audit in Model.AuditItems)
+                {
+                    <tr>
+                        <td>@audit.ActionAtUtc.ToDisplayDateTime()</td>
+                        <td class="ak-col-grow">@audit.Action</td>
+                        <td>@(audit.ActorUsername ?? "-")</td>
+                        <td>@((audit.Description ?? audit.Diff) ?? "-")</td>
+                    </tr>
+                }
+                @if (!Model.AuditItems.Any())
+                {
+                    <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-clock-history"></i> پس از ثبت یا ویرایش، ردپای فعالیت اینجا دیده می‌شود.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("یادداشت", (string?)null))" />
+        @if (string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <p class="ak-note">یادداشت عمومی کارمند از صفحهٔ ویرایش قابل ثبت است.</p>
+        }
+        else
+        {
+            <p>@Model.Notes</p>
+        }
+    </section>
+</div>

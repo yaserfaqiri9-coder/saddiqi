@@ -1,0 +1,10 @@
+@model Currency
+@{
+    ViewData["Title"] = UiText.T(Context,"ارز جدید","New Currency");
+    ViewData["CreatePageIndexLabel"] = "ارزها";
+    ViewData["CreatePageSubtitle"] = "کد و نام ارز را مشخص کنید. غیرفعال‌کردن ارز فقط مانع انتخاب جدید می‌شود و داده‌های قبلی را حذف نمی‌کند.";
+    ViewData["CreateFormPartialPath"] = "/Views/Currencies/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

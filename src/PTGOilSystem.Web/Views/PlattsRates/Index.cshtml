@@ -1,0 +1,313 @@
+@model PTGOilSystem.Web.Models.PlattsRates.PlattsRatesPageViewModel
+@using PTGOilSystem.Web.Models.PlattsRates
+@{
+    ViewData["Title"] = "نرخ‌های مرجع Platt's - اختیاری";
+    var products = ViewBag.Products as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var dailyActive = Model.ActiveTab == PlattsRatesTabs.Daily;
+    var monthlyActive = Model.ActiveTab == PlattsRatesTabs.Monthly;
+    var manualActive = Model.ActiveTab == PlattsRatesTabs.Manual;
+    var pageTitle = "نرخ‌های مرجع Platt's - اختیاری";
+    var pageSubtitle = Model.ActiveTab switch { PlattsRatesTabs.Monthly => "میانگین ماهانه نرخ‌های مرجع بر اساس داده‌های روزانه.", PlattsRatesTabs.Manual => "فهرست نرخ‌های ماهانه دستی به عنوان مرجع اختیاری.", _ => "فهرست نرخ‌های روزانه مرجع Platt's." };
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">@pageTitle</h1>
+            <p class="ak-note">@pageSubtitle</p>
+        </div>
+    </div>
+
+    <div class="alert alert-info d-flex gap-2 align-items-start" role="alert" style="font-size:.88rem">
+        <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+        <div>
+            <strong>راهنما:</strong> تکمیل نرخ قرارداد از مرکز عملیات قرارداد یا صفحه تکمیل نرخ انجام می‌شود.
+            ورود نرخ‌های مرجع Platt's برای ثبت قیمت نهایی قرارداد اجباری نیست و این صفحه فقط نقش مرجع اختیاری دارد.
+        </div>
+    </div>
+
+    <div hidden="@(!dailyActive)">
+    @if (dailyActive)
+    {
+        <div class="ak-detail-toolbar">
+            <div>
+                <form method="get" class="ak-form-grid">
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Daily" />
+                    <div class="ak-field">
+                        <label class="ak-label">جستجو</label>
+                        <input name="q" value="@ViewData["q"]" class="ak-input" placeholder="کد Benchmark یا نام جنس..." />
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <div class="ak-detail-toolbar-actions">
+                            <button class="btn btn-light">اعمال</button>
+                            <button class="btn ak-secondary-action" type="button" data-bs-toggle="collapse" data-bs-target="#dailyFilterCollapse" aria-expanded="false" aria-controls="dailyFilterCollapse">
+                                <i class="bi bi-funnel"></i> فیلترها
+                            </button>
+                            <button type="button" class="btn ak-primary-action" data-bs-toggle="modal" data-bs-target="#dailyCreateModal">
+                                <i class="bi bi-plus-lg"></i> نرخ روزانه جدید
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="collapse @(Model.DailyFilter.ProductId.HasValue || !string.IsNullOrEmpty(Model.DailyFilter.BenchmarkCode) || Model.DailyFilter.From.HasValue || Model.DailyFilter.To.HasValue ? "show" : "")" id="dailyFilterCollapse">
+            <form method="get" class="ak-form ak-detail-toolbar mb-3">
+                <div>
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Daily" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field"><label asp-for="DailyFilter.ProductId" class="ak-label">جنس</label><select asp-for="DailyFilter.ProductId" asp-items="products" class="ak-input"><option value="">همه...</option></select></div>
+                        <div class="ak-field"><label asp-for="DailyFilter.BenchmarkCode" class="ak-label">کد Benchmark</label><input asp-for="DailyFilter.BenchmarkCode" class="ak-input" placeholder="مثلاً ULSD" /></div>
+                        <div class="ak-field"><label asp-for="DailyFilter.From" class="ak-label">از تاریخ</label><input asp-for="DailyFilter.From" type="date" class="ak-input" /></div>
+                        <div class="ak-field"><label asp-for="DailyFilter.To" class="ak-label">تا تاریخ</label><input asp-for="DailyFilter.To" type="date" class="ak-input" /></div>
+                        <div class="ak-field d-flex align-items-end">
+                            <div class="ak-detail-toolbar-actions w-100 d-flex gap-2">
+                                <button class="btn btn-light flex-grow-1">فیلتر</button>
+                                <a asp-action="Index" asp-route-activeTab="@PlattsRatesTabs.Daily" class="btn ak-secondary-action px-2" title="پاک‌کردن"><i class="bi bi-x-lg"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="ak-table-wrap">
+            <div class="ak-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>@UiText.T(Context,"تاریخ","Date")</th>
+                            <th>Benchmark</th>
+                            <th>@UiText.T(Context,"جنس","Product")</th>
+                            <th class="text-end">قیمت USD/MT</th>
+                            <th>منبع</th>
+                            <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.DailyRates)
+                        {
+                            <tr>
+                                <td>@row.PriceDate.ToDisplayDate()</td>
+                                <td><code>@row.BenchmarkCode</code></td>
+                                <td>@row.ProductName</td>
+                                <td class="text-end">@row.PriceUsdPerMt.ToString("N2")</td>
+                                <td class="small text-muted">@row.Source</td>
+                                <td class="ak-col-actions">
+                                    <div class="ak-row-menu">
+                                    <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#dailyCreateModal" data-edit-id="@row.Id" title="ویرایش" aria-label="ویرایش"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+                                    <form asp-action="DeleteDaily" asp-route-id="@row.Id" method="post" class="ak-form d-inline" data-ptg-confirm="true" data-ptg-confirm-title="حذف نرخ" data-ptg-confirm-message="این نرخ حذف شود؟">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-light ak-secondary-action" title="حذف" aria-label="حذف"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                                    </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.DailyRates.Any())
+                        {
+                            <tr><td colspan="6">@await Html.PartialAsync("_EmptyState", ("نرخ روزانه‌ای یافت نشد", "فیلترها را تغییر دهید یا از دکمه نرخ روزانه جدید استفاده کنید.", "bi-calendar3"))</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    </div>
+
+    <div hidden="@(!monthlyActive)">
+    @if (monthlyActive)
+    {
+        <div class="ak-detail-toolbar">
+            <div>
+                <form method="get" class="ak-form-grid">
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Monthly" />
+                    <div class="ak-field">
+                        <label class="ak-label">جستجو</label>
+                        <input name="q" value="@ViewData["q"]" class="ak-input" placeholder="کد Benchmark یا نام جنس..." />
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <div class="ak-detail-toolbar-actions">
+                            <button class="btn btn-light">اعمال</button>
+                            <button class="btn ak-secondary-action" type="button" data-bs-toggle="collapse" data-bs-target="#monthlyFilterCollapse" aria-expanded="false" aria-controls="monthlyFilterCollapse">
+                                <i class="bi bi-funnel"></i> فیلترها
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="collapse @(Model.MonthlyFilter.ProductId.HasValue || !string.IsNullOrEmpty(Model.MonthlyFilter.BenchmarkCode) || Model.MonthlyFilter.Year.HasValue ? "show" : "")" id="monthlyFilterCollapse">
+            <form method="get" class="ak-form ak-detail-toolbar mb-3">
+                <div>
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Monthly" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field"><label asp-for="MonthlyFilter.ProductId" class="ak-label">جنس</label><select asp-for="MonthlyFilter.ProductId" asp-items="products" class="ak-input"><option value="">همه...</option></select></div>
+                        <div class="ak-field"><label asp-for="MonthlyFilter.BenchmarkCode" class="ak-label">کد Benchmark</label><input asp-for="MonthlyFilter.BenchmarkCode" class="ak-input" placeholder="مثلاً GO" /></div>
+                        <div class="ak-field"><label asp-for="MonthlyFilter.Year" class="ak-label">سال</label><input asp-for="MonthlyFilter.Year" type="number" min="2000" max="2100" class="ak-input" placeholder="مثلا 1403 یا 2024" /></div>
+                        <div class="ak-field d-flex align-items-end">
+                            <div class="ak-detail-toolbar-actions w-100 d-flex gap-2">
+                                <button class="btn btn-light flex-grow-1">فیلتر</button>
+                                <a asp-action="Index" asp-route-activeTab="@PlattsRatesTabs.Monthly" class="btn ak-secondary-action px-2" title="پاک‌کردن"><i class="bi bi-x-lg"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="ak-table-wrap">
+            <div class="ak-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ماه</th>
+                            <th>Benchmark</th>
+                            <th>@UiText.T(Context,"جنس","Product")</th>
+                            <th class="text-end">میانگین</th>
+                            <th class="text-end">تعداد روز</th>
+                            <th class="text-end">حداقل</th>
+                            <th class="text-end">حداکثر</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.MonthlySummaries)
+                        {
+                            <tr>
+                                <td>@row.Month.ToDisplayMonth()</td>
+                                <td><code>@row.BenchmarkCode</code></td>
+                                <td>@row.ProductName</td>
+                                <td class="text-end">@row.AveragePriceUsdPerMt.ToString("N2")</td>
+                                <td class="text-end">@row.DayCount</td>
+                                <td class="text-end">@row.MinPriceUsdPerMt.ToString("N2")</td>
+                                <td class="text-end">@row.MaxPriceUsdPerMt.ToString("N2")</td>
+                            </tr>
+                        }
+                        @if (!Model.MonthlySummaries.Any())
+                        {
+                            <tr>
+                                <td colspan="7">@await Html.PartialAsync("_EmptyState", ("میانگین ماهانه‌ای محاسبه نشد", "برای سال و فیلتر انتخابی، داده روزانه کافی وجود ندارد.", "bi-graph-up"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    </div>
+
+    <div hidden="@(!manualActive)">
+    @if (manualActive)
+    {
+        <div class="ak-detail-toolbar">
+            <div>
+                <form method="get" class="ak-form-grid">
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Manual" />
+                    <div class="ak-field">
+                        <label class="ak-label">جستجو</label>
+                        <input name="q" value="@ViewData["q"]" class="ak-input" placeholder="کد Benchmark یا نام جنس..." />
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <div class="ak-detail-toolbar-actions">
+                            <button class="btn btn-light">اعمال</button>
+                            <button class="btn ak-secondary-action" type="button" data-bs-toggle="collapse" data-bs-target="#manualFilterCollapse" aria-expanded="false" aria-controls="manualFilterCollapse">
+                                <i class="bi bi-funnel"></i> فیلترها
+                            </button>
+                            <button type="button" class="btn ak-primary-action" data-bs-toggle="modal" data-bs-target="#manualCreateModal">
+                                <i class="bi bi-plus-lg"></i> نرخ دستی جدید
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="collapse @(Model.ManualFilter.ProductId.HasValue || !string.IsNullOrEmpty(Model.ManualFilter.BenchmarkCode) ?"show" : "")" id="manualFilterCollapse">
+            <form method="get" class="ak-form ak-detail-toolbar mb-3">
+                <div>
+                    <input type="hidden" name="ActiveTab" value="@PlattsRatesTabs.Manual" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field"><label asp-for="ManualFilter.ProductId" class="ak-label">جنس</label><select asp-for="ManualFilter.ProductId" asp-items="products" class="ak-input"><option value="">همه...</option></select></div>
+                        <div class="ak-field"><label asp-for="ManualFilter.BenchmarkCode" class="ak-label">کد Benchmark</label><input asp-for="ManualFilter.BenchmarkCode" class="ak-input" placeholder="مثلاً JET" /></div>
+                        <div class="ak-field d-flex align-items-end">
+                            <div class="ak-detail-toolbar-actions w-100 d-flex gap-2">
+                                <button class="btn btn-light flex-grow-1">فیلتر</button>
+                                <a asp-action="Index" asp-route-activeTab="@PlattsRatesTabs.Manual" class="btn ak-secondary-action px-2" title="پاک‌کردن"><i class="bi bi-x-lg"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="ak-table-wrap">
+             <div class="ak-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ماه</th>
+                            <th>Benchmark</th>
+                            <th>@UiText.T(Context,"جنس","Product")</th>
+                            <th class="text-end">قیمت ثبت شده</th>
+                            <th>@UiText.T(Context,"توضیحات","Notes")</th>
+                            <th class="ak-col-actions">@UiText.T(Context,"عملیات","Operations")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.MonthlyManualRates != null)
+                        {
+                            @foreach (var row in Model.MonthlyManualRates)
+                            {
+                                <tr>
+                                    <td>@row.Month.ToDisplayMonth()</td>
+                                    <td><code>@row.BenchmarkCode</code></td>
+                                    <td>@row.ProductName</td>
+                                    <td class="text-end">@row.PriceUsdPerMt.ToString("N2")</td>
+                                    <td class="small text-muted">@row.Notes</td>
+                                    <td class="ak-col-actions">
+                                        <div class="ak-row-menu">
+                                        <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#manualCreateModal" data-edit-id="@row.Id" title="ویرایش" aria-label="ویرایش"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+                                        <form asp-action="DeleteMonthlyManual" asp-route-id="@row.Id" method="post" class="ak-form d-inline" data-ptg-confirm="true" data-ptg-confirm-title="حذف نرخ" data-ptg-confirm-message="این نرخ حذف شود؟">
+                                            @Html.AntiForgeryToken()
+                                            <button class="btn btn-light ak-secondary-action" title="حذف" aria-label="حذف"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.MonthlyManualRates.Any())
+                            {
+                                <tr><td colspan="6">@await Html.PartialAsync("_EmptyState", ("نرخ دستی یافت نشد", "فیلترها را تغییر دهید یا از دکمه نرخ دستی جدید استفاده کنید.", "bi-pencil-square"))</td></tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    </div>
+</div>
+
+@{
+    ViewData["CreateModalId"] = "dailyCreateModal";
+    ViewData["CreateFormId"] = "dailyCreateForm";
+    ViewData["CreateModalTitle"] = "ثبت نرخ روزانه پلتس";
+    ViewData["CreateModalSubtitle"] = "مقادیر جدید نرخ بنچمارک را وارد کنید";
+    ViewData["CreateModalDialogClass"] = "modal-dialog-centered";
+    ViewData["CreateFormAction"] = "SaveDaily";
+    ViewData["CreateFormPartialPath"] = "~/Views/PlattsRates/_CreateDailyForm.cshtml";
+}
+<partial name="~/Views/Shared/_CreateModalShell.cshtml" model="Model" view-data="ViewData" />
+
+@{
+    ViewData["CreateModalId"] = "manualCreateModal";
+    ViewData["CreateFormId"] = "manualCreateForm";
+    ViewData["CreateModalTitle"] = "ثبت نرخ دستی ماهانه";
+    ViewData["CreateModalSubtitle"] = "نرخ ماهانه توافقی را وارد کنید";
+    ViewData["CreateModalDialogClass"] = "modal-dialog-centered";
+    ViewData["CreateFormAction"] = "SaveMonthlyManual";
+    ViewData["CreateFormPartialPath"] = "~/Views/PlattsRates/_CreateManualForm.cshtml";
+}
+<partial name="~/Views/Shared/_CreateModalShell.cshtml" model="Model" view-data="ViewData" />

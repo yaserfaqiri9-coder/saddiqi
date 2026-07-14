@@ -1,0 +1,11 @@
+@model Product
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش جنس", "Edit Product");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "جنس‌ها", "Products");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "کد، نام، واحد و تنظیمات جنس را به‌روز کنید.", "Update code, name, unit and product settings.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Products/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

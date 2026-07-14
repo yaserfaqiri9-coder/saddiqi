@@ -1,0 +1,255 @@
+@model PTGOilSystem.Web.Models.Dispatch.DispatchCreateViewModel
+@{
+    var isEdit = ViewData["IsEdit"] as bool? ?? false;
+    ViewData["Title"] = isEdit ? "ویرایش ارسال با موتر" : "ارسال مستقیم از مخزن با موتر";
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    var editId = ViewData["EditId"] as int?;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index");
+    var showDispatchAdvanced =
+        !string.IsNullOrWhiteSpace(Model.TruckPlateNumberInput)
+        || !string.IsNullOrWhiteSpace(Model.DriverNameInput)
+        || Model.AllowanceMt.HasValue
+        || Model.ToleranceMt.HasValue
+        || Model.ChargeableShortageMt.HasValue
+        || Model.ShortageRateUsd.HasValue
+        || Model.FreightPayableUsd.HasValue
+        || Model.ServiceProviderId.HasValue
+        || Model.OperationalAssetId.HasValue
+        || !string.IsNullOrWhiteSpace(Model.TicketSerialNumber)
+        || !string.IsNullOrWhiteSpace(Model.Notes);
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, isEdit ? "ویرایش ارسال با موتر" : "ارسال مستقیم از مخزن با موتر", isEdit ? "Edit truck send" : "Direct truck send from tank"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+    <form asp-action="@(isEdit ? "Edit" : "Create")" asp-route-id="@(isEdit ? editId : null)" method="post" class="ak-form">
+        @{ ViewData["OpHeaderBackUrl"] = cancelUrl; }
+        <input asp-for="ReturnUrl" type="hidden" />
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="ak-form-alert"></div>
+
+        <section class="ak-form-section" aria-label="مشخصات اصلی">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "مشخصات اصلی و مقصد", "Identity & Destination"), (string?)null))" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="ContractId" class="ak-label"></label>
+                            <select asp-for="ContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ProductId" class="ak-label"></label>
+                            <select asp-for="ProductId" asp-items="ViewBag.Products" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="ProductId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DispatchDate" class="ak-label"></label>
+                            <input asp-for="DispatchDate" type="date" class="ak-input" />
+                            <span asp-validation-for="DispatchDate" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DestinationLocationId" class="ak-label"></label>
+                            <select asp-for="DestinationLocationId" asp-items="ViewBag.Destinations" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="DestinationLocationId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="TruckId" class="ak-label"></label>
+                            <select asp-for="TruckId" asp-items="ViewBag.Trucks" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="TruckId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DriverId" class="ak-label"></label>
+                            <select asp-for="DriverId" asp-items="ViewBag.Drivers" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" aria-label="منبع موجودی">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "منبع موجودی و بارگیری", "Inventory Source & Loading"), (string?)null))" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="SourceTerminalId" class="ak-label"></label>
+                            <select asp-for="SourceTerminalId" asp-items="ViewBag.SourceTerminals" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="SourceTerminalId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="SourceStorageTankId" class="ak-label"></label>
+                            <select asp-for="SourceStorageTankId" asp-items="ViewBag.SourceStorageTanks" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="SourceStorageTankId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="LoadedQuantityMt" class="ak-label"></label>
+                            <input asp-for="LoadedQuantityMt" class="ak-input" />
+                            <span asp-validation-for="LoadedQuantityMt" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ReferenceDocument" class="ak-label"></label>
+                            <input asp-for="ReferenceDocument" class="ak-input" />
+                            <span asp-validation-for="ReferenceDocument" class="ak-field-error"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" aria-label="تخلیه و کسری">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "تخلیه، کسری و کرایه", "Unload, Shortage & Freight"), (string?)null))" />
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="DischargedQuantityMt" class="ak-label"></label>
+                            <input asp-for="DischargedQuantityMt" id="DischargedQuantityMt" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageMt" class="ak-label"></label>
+                            <input asp-for="ShortageMt" id="ShortageMt" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="FreightCostUsd" class="ak-label">@UiText.T(Context, "کرایه ناخالص (USD)", "Gross freight (USD)")</label>
+                            <input asp-for="FreightCostUsd" id="FreightCostUsd" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <div class="ak-note" data-freight-rate-preview>
+                                <span class="ak-label">@UiText.T(Context, "کرایه هر تن", "Freight per MT")</span>
+                                <span class="ak-num"><span data-freight-rate-value>-</span> USD/MT</span>
+                            </div>
+                        </div>
+                        <div class="ak-field">
+                            <div class="ak-note" data-shortage-deduction-preview>
+                                <span class="ak-label">Shortage Deduction / @UiText.T(Context, "مجرایی کمبودی", "Shortage deduction")</span>
+                                <span class="ak-num"><span data-shortage-deduction-value>-</span> USD</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <details class="ak-form-section ak-advanced" open="@(showDispatchAdvanced ? "open" : null)" aria-label="@UiText.T(Context, "جزئیات بیشتر ارسال با موتر", "Truck send advanced details")">
+                    <summary class="ak-advanced-summary">
+                        <span><i class="bi bi-sliders2" aria-hidden="true"></i>@UiText.T(Context, "جزئیات بیشتر", "More details")</span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="TruckPlateNumberInput" class="ak-label">@UiText.T(Context, "پلیت جدید", "New plate")</label>
+                            <input asp-for="TruckPlateNumberInput" class="ak-input" />
+                            <span asp-validation-for="TruckPlateNumberInput" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DriverNameInput" class="ak-label">@UiText.T(Context, "راننده جدید", "New driver")</label>
+                            <input asp-for="DriverNameInput" class="ak-input" />
+                            <span asp-validation-for="DriverNameInput" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="AllowanceMt" class="ak-label">@UiText.T(Context, "حواکت مجاز", "Allowance MT")</label>
+                            <input asp-for="AllowanceMt" id="AllowanceMt" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ToleranceMt" class="ak-label">@UiText.T(Context, "تلورانس", "Tolerance MT")</label>
+                            <input asp-for="ToleranceMt" id="ToleranceMt" type="number" step="0.0001" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ChargeableShortageMt" class="ak-label">@UiText.T(Context, "کمبودی قابل مجرا", "Chargeable shortage")</label>
+                            <input asp-for="ChargeableShortageMt" id="ChargeableShortageMt" type="number" step="0.0001" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageRateUsd" class="ak-label">@UiText.T(Context, "نرخ مجرا (USD/MT)", "Shortage rate")</label>
+                            <input asp-for="ShortageRateUsd" id="ShortageRateUsd" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="FreightPayableUsd" class="ak-label">@UiText.T(Context, "کرایه پرداختی (USD)", "Freight payable")</label>
+                            <input asp-for="FreightPayableUsd" id="FreightPayableUsd" class="ak-input" readonly />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ServiceProviderId" class="ak-label">@UiText.T(Context, "شرکت خدماتی بیرونی", "External Service Provider")</label>
+                            <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="ServiceProviderId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="OperationalAssetId" class="ak-label">@UiText.T(Context, "دارایی عملیاتی شرکت", "Operational Asset")</label>
+                            <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input">
+                                <option value=""></option>
+                            </select>
+                            <span asp-validation-for="OperationalAssetId" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="TicketSerialNumber" class="ak-label"></label>
+                            <input asp-for="TicketSerialNumber" class="ak-input" />
+                            <span asp-validation-for="TicketSerialNumber" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="Notes" class="ak-label"></label>
+                            <textarea asp-for="Notes" rows="2" class="ak-input"></textarea>
+                            <span asp-validation-for="Notes" class="ak-field-error"></span>
+                        </div>
+                    </div>
+                </details>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((isEdit ? UiText.T(Context, "ذخیره تغییرات", "Save changes") : UiText.T(Context, "ثبت ارسال مستقیم از مخزن", "Save direct truck send"),
+                           cancelUrl, UiText.T(Context, "بازگشت", "Back")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            function calcFreightPayable() {
+                var freight  = parseFloat(document.getElementById('FreightCostUsd')?.value) || 0;
+                var rate     = parseFloat(document.getElementById('ShortageRateUsd')?.value) || 0;
+                var shortage = parseFloat(document.getElementById('ShortageMt')?.value) || 0;
+                var quantity = parseFloat(document.getElementById('LoadedQuantityMt')?.value) || 0;
+                var fld      = document.getElementById('FreightPayableUsd');
+                var freightRatePreview = document.querySelector('[data-freight-rate-value]');
+                var shortageDeductionPreview = document.querySelector('[data-shortage-deduction-value]');
+                if (!fld) return;
+                if (freightRatePreview) {
+                    freightRatePreview.textContent = freight > 0 && quantity > 0 ? (freight / quantity).toFixed(4) : '-';
+                }
+                if (freight <= 0 || rate <= 0) {
+                    fld.value = freight > 0 ? freight.toFixed(4) : '';
+                    if (shortageDeductionPreview) shortageDeductionPreview.textContent = '-';
+                    return;
+                }
+
+                var chargeableOverride = document.getElementById('ChargeableShortageMt')?.value.trim();
+                var chargeableShortage;
+                if (chargeableOverride !== '' && !isNaN(parseFloat(chargeableOverride))) {
+                    chargeableShortage = Math.max(0, parseFloat(chargeableOverride));
+                } else {
+                    var toleranceVal = document.getElementById('ToleranceMt')?.value.trim();
+                    var tolerance = (toleranceVal !== '' && !isNaN(parseFloat(toleranceVal)))
+                        ? parseFloat(toleranceVal)
+                        : (parseFloat(document.getElementById('AllowanceMt')?.value) || 0);
+                    chargeableShortage = Math.max(0, shortage - tolerance);
+                }
+                var deduction = chargeableShortage * rate;
+                fld.value = (freight - deduction).toFixed(4);
+                if (shortageDeductionPreview) shortageDeductionPreview.textContent = deduction.toFixed(4);
+            }
+            ['FreightCostUsd', 'ShortageRateUsd', 'ShortageMt', 'AllowanceMt', 'ToleranceMt', 'ChargeableShortageMt', 'LoadedQuantityMt'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('input', calcFreightPayable);
+            });
+            calcFreightPayable();
+        })();
+    </script>
+}

@@ -1,0 +1,57 @@
+@model PTGOilSystem.Web.Models.LossEvents.LossEventCreateViewModel
+@using PTGOilSystem.Web.Models.LossEvents
+@{
+    var lossEventId = (int?)ViewBag.LossEventId ?? 0;
+    var returnUrl = Model.ReturnUrl;
+    var cancelUrl = returnUrl ?? Url.Action("Details", new { id = lossEventId }) ?? "#";
+    ViewData["Title"] = "Edit Loss Event";
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="page-stack ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ویرایش رویداد ضایعات", "Edit Loss Event"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+    <form asp-action="Edit" asp-route-id="@lossEventId" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="Stage" type="hidden" />
+        <input asp-for="ProductId" type="hidden" />
+        <input asp-for="ContractId" type="hidden" />
+        <input asp-for="ShipmentId" type="hidden" />
+        <input asp-for="LoadingRegisterId" type="hidden" />
+        <input asp-for="LoadingReceiptId" type="hidden" />
+        <input asp-for="TruckDispatchId" type="hidden" />
+        <input asp-for="SalesTransactionId" type="hidden" />
+        <input asp-for="TerminalId" type="hidden" />
+        <input asp-for="StorageTankId" type="hidden" />
+        <input asp-for="AffectsInventory" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "اطلاعات قابل ویرایش", "Editable Information"), (string?)UiText.T(Context, "ارتباط این رویداد با بارگیری و موجودی تغییر نمی‌کند.", "The loading and inventory links remain unchanged.")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field"><label asp-for="EventDate" class="ak-label"></label><input asp-for="EventDate" type="date" class="ak-input" /><span asp-validation-for="EventDate" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="ExpectedQuantityMt" class="ak-label"></label><input asp-for="ExpectedQuantityMt" class="ak-input" /><span asp-validation-for="ExpectedQuantityMt" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="ActualQuantityMt" class="ak-label"></label><input asp-for="ActualQuantityMt" class="ak-input" /><span asp-validation-for="ActualQuantityMt" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="ToleranceQuantityMt" class="ak-label"></label><input asp-for="ToleranceQuantityMt" class="ak-input" /><span asp-validation-for="ToleranceQuantityMt" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="ResponsiblePartyType" class="ak-label"></label><input asp-for="ResponsiblePartyType" class="ak-input" /><span asp-validation-for="ResponsiblePartyType" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="ResponsiblePartyName" class="ak-label"></label><input asp-for="ResponsiblePartyName" class="ak-input" /><span asp-validation-for="ResponsiblePartyName" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="FinancialTreatment" class="ak-label"></label><input asp-for="FinancialTreatment" class="ak-input" /><span asp-validation-for="FinancialTreatment" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="Reference" class="ak-label"></label><input asp-for="Reference" class="ak-input" /><span asp-validation-for="Reference" class="ak-field-error"></span></div>
+                <div class="ak-field ak-col-full"><label asp-for="Notes" class="ak-label"></label><textarea asp-for="Notes" rows="4" class="ak-input"></textarea><span asp-validation-for="Notes" class="ak-field-error"></span></div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره تغییرات", "Save Changes"), cancelUrl, UiText.T(Context, "بازگشت", "Back")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

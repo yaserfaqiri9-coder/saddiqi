@@ -1,0 +1,112 @@
+@model PTGOilSystem.Web.Models.Employees.EmployeeIndexViewModel
+@{
+    ViewData["Title"] = "کارمندان";
+    var items = Model.Items.ToList();
+    var hasFilters = Model.Filter.EmployeeType.HasValue
+        || Model.Filter.SalaryType.HasValue
+        || !string.IsNullOrWhiteSpace(Model.Filter.Department)
+        || !string.IsNullOrWhiteSpace(Model.Filter.Currency)
+        || Model.Filter.IsActive.HasValue;
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="ak-list-page">
+
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "کارمندان", "Employees"), true,
+                       UiText.T(Context, "کارمند جدید", "New employee"), "bi-plus-lg",
+                       (string?)Url.Action("Create", new { returnUrl }), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @{
+        List<AkFilterOption> EmpOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+            ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+            .Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+        string? EmpQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+        var employeesFilter = new AkSearchFilterModel("Filter.Query", Model.Filter.Query,
+            UiText.T(Context, "جستجو یا فیلتر نتایج...", "Search or filter results..."),
+            new List<AkFilterDefinition>
+            {
+                new("Filter.EmployeeType", UiText.T(Context, "نوع کارمند", "Employee type"), "select", EmpOpts(ViewBag.EmployeeTypes), EmpQ("Filter.EmployeeType")),
+                new("Filter.SalaryType", UiText.T(Context, "نوع معاش", "Salary type"), "select", EmpOpts(ViewBag.SalaryTypes), EmpQ("Filter.SalaryType")),
+                new("Filter.Currency", UiText.T(Context, "ارز", "Currency"), "select", EmpOpts(ViewBag.Currencies), EmpQ("Filter.Currency")),
+                new("Filter.IsActive", UiText.T(Context, "وضعیت", "Status"), "select", EmpOpts(ViewBag.Statuses), EmpQ("Filter.IsActive"))
+            });
+    }
+    <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="employeesFilter" />
+
+    <div class="ak-list">
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="@UiText.T(Context, "انتخاب همه", "Select all")" /></th>
+                        <th class="ak-col-grow">@UiText.T(Context, "نام", "Name")</th>
+                        <th>@UiText.T(Context, "نوع کارمند", "Type")</th>
+                        <th class="ak-col-num">@UiText.T(Context, "معاش پایه", "Base salary")</th>
+                        <th class="ak-col-spacer"></th>
+                        <th class="ak-col-num">@UiText.T(Context, "مانده USD", "Balance USD")</th>
+                        <th>@UiText.T(Context, "وضعیت", "Status")</th>
+                        <th class="ak-col-actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr data-href="@Url.Action("Details", new { id = item.Id })">
+                            <td class="ak-col-check"><input type="checkbox" class="ak-check" aria-label="@UiText.T(Context, "انتخاب", "Select")" /></td>
+                            <td class="ak-col-grow"><partial name="~/Views/Shared/Partials/_PersonCell.cshtml" model="@((item.FullName, (string?)Url.Action("Details", new { id = item.Id }), (string?)null))" /></td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(item.EmployeeTypeName))
+                                {
+                                    <partial name="~/Views/Shared/Partials/_Capsule.cshtml" model="@((item.EmployeeTypeName, (string?)null))" />
+                                }
+                                else
+                                {
+                                    <text>-</text>
+                                }
+                            </td>
+                            <td class="ak-num ak-col-num">@item.BaseSalaryAmount.ToString("N2") @item.SalaryCurrency</td>
+                            <td class="ak-col-spacer"></td>
+                            <td class="ak-num ak-col-num">@item.BalanceUsd.ToString("N2")</td>
+                            <td>
+                                <span class="ak-status @(item.IsActive ?"is-active" : "is-inactive")">
+                                    @(item.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive"))
+                                </span>
+                            </td>
+                            <td class="ak-col-actions">
+                                <div class="dropdown ak-row-menu">
+                                    <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@UiText.T(Context, "عملیات", "Actions")">
+                                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-action="Details" asp-route-id="@item.Id"><i class="bi bi-eye" aria-hidden="true"></i>@UiText.T(Context, "جزئیات", "Details")</a></li>
+                                        <li><a class="dropdown-item" asp-action="CreateSalaryTransaction" asp-route-id="@item.Id"><i class="bi bi-cash-coin" aria-hidden="true"></i>@UiText.T(Context, "برداشت/پرداخت", "Withdraw/Pay")</a></li>
+                                        <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil" aria-hidden="true"></i>@UiText.T(Context, "ویرایش", "Edit")</a></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><partial name="~/Views/Shared/Partials/_ToggleActiveButton.cshtml" model="@(("Employees", item.Id, item.IsActive, "dropdown-item ak-danger", (string?)returnUrl))" /></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!items.Any())
+                    {
+                        <tr>
+                            <td colspan="8">
+                                <div class="ak-empty">
+                                    <i class="bi bi-people" aria-hidden="true"></i>
+                                    @UiText.T(Context, "کارمندی برای نمایش پیدا نشد", "No employees found")
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-pager">
+            @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+        </div>
+    </div>
+</div>

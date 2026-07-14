@@ -1,0 +1,127 @@
+@model PTGOilSystem.Web.Models.AccountStatements.ContractAccountStatementViewModel
+@{
+    ViewData["Title"] = $"دفتر حساب قرارداد {Model.ContractNumber}";
+    ViewData["HideSectionTabs"] = true;
+
+    string Money(decimal? value, string? currency = null)
+        => value.HasValue ? $"{value.Value:N2}{(string.IsNullOrWhiteSpace(currency) ? string.Empty : " " + currency)}" : "-";
+    string Quantity(decimal? value) => value.HasValue ? $"{value.Value:N4}" : "-";
+    string Rate(decimal? value) => value.HasValue ? value.Value.ToString("N6") : "-";
+    string BadgeState(string? badge) => badge switch
+    {
+        "Operational only" => "",
+        _ => "is-inactive"
+    };
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"دفتر حساب قرارداد {Model.ContractNumber}", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت به قرارداد", "bi-arrow-right", Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId })))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()"><i class="bi bi-printer"></i> چاپ</button>
+    </div>
+
+    <p class="ak-note">این صفحه فقط گزارش خواندنی از اطلاعات موجود سیستم است و هیچ سند مالی جدید ایجاد نمی‌کند. انتقال مانده بین قراردادها، تهاتر و حساب رسمی کرایه واگون در این گزارش محاسبهٔ ساختگی نمی‌شود.</p>
+
+    <dl class="ak-summary-list ak-summary">
+        <div><dt>قرارداد</dt><dd>@Model.ContractNumber</dd></div>
+        <div><dt>جنس</dt><dd>@Model.ProductName</dd></div>
+        <div><dt>طرف حساب</dt><dd>@Model.CounterpartyName</dd></div>
+        <div><dt>ارز / مقدار</dt><dd class="ak-num">@Model.ContractCurrency / @Model.QuantityMt.ToString("N4") MT</dd></div>
+    </dl>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه USD", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>Debit</dt><dd class="ak-num">@Model.Totals.TotalDebitUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>Credit</dt><dd class="ak-num">@Model.Totals.TotalCreditUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>مانده</dt><dd class="ak-num @(Model.Totals.BalanceUsd >= 0 ?"ak-num" : "ak-num")">@Model.Totals.BalanceUsd.ToString("N2") USD</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مانده به تفکیک ارز اصلی", (string?)null))" />
+            @if (Model.Totals.BalancesByCurrency.Any())
+            {
+                <dl class="ak-list">
+                    @foreach (var balance in Model.Totals.BalancesByCurrency)
+                    {
+                        <div class="ak-list-row"><dt>@balance.Currency</dt><dd class="ak-num @(balance.BalanceOriginal >= 0 ?"ak-num" : "ak-num")">@balance.BalanceOriginal.ToString("N2")</dd></div>
+                    }
+                </dl>
+            }
+            else
+            {
+                <p class="ak-note">برای این قرارداد ردیف مالی چندارزی ثبت نشده است.</p>
+            }
+        </section>
+    </div>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیف‌های دفتر حساب قرارداد", "ردیف‌های مالی از Ledger می‌آیند؛ ردیف‌های عملیاتی فقط برای trace هستند."))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th>نوع</th>
+                        <th class="ak-col-grow">شرح</th>
+                        <th class="ak-col-num">Qty MT</th>
+                        <th class="ak-col-num">Unit Price</th>
+                        <th class="ak-col-num">Debit Original</th>
+                        <th class="ak-col-num">Credit Original</th>
+                        <th>Currency</th>
+                        <th class="ak-col-num">FX</th>
+                        <th class="ak-col-num">Debit USD</th>
+                        <th class="ak-col-num">Credit USD</th>
+                        <th class="ak-col-num">Balance USD</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr class="@(row.IsOperationalOnly ?"ak-row-muted" : string.Empty)">
+                        <td>@row.Date.ToDisplayDate()</td>
+                        <td>
+                            <div>@row.SourceType / #@row.SourceId</div>
+                            @if (!string.IsNullOrWhiteSpace(row.Reference)) { <div class="ak-note">@row.Reference</div> }
+                        </td>
+                        <td class="ak-col-grow">
+                            <div>@row.Description</div>
+                            @if (!string.IsNullOrWhiteSpace(row.RelatedContractNumber)) { <div class="ak-note">قرارداد مرتبط: @row.RelatedContractNumber</div> }
+                        </td>
+                        <td class="ak-col-num ak-num">@Quantity(row.QuantityMt)</td>
+                        <td class="ak-col-num ak-num">@Money(row.UnitPrice, row.UnitPrice.HasValue ? "USD" : null)</td>
+                        <td class="ak-col-num ak-num">@Money(row.DebitOriginal)</td>
+                        <td class="ak-col-num ak-num">@Money(row.CreditOriginal)</td>
+                        <td>@(row.SourceCurrency ?? "-")</td>
+                        <td class="ak-col-num ak-num">@Rate(row.FxRateToUsd)</td>
+                        <td class="ak-col-num ak-num">@Money(row.DebitUsd, row.DebitUsd.HasValue ? "USD" : null)</td>
+                        <td class="ak-col-num ak-num">@Money(row.CreditUsd, row.CreditUsd.HasValue ? "USD" : null)</td>
+                        <td class="ak-col-num ak-num @(row.BalanceUsd >= 0 ?"ak-num" : "ak-num")">@row.BalanceUsd.ToString("N2") USD</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(row.WarningBadge))
+                            {
+                                <span class="ak-status @BadgeState(row.WarningBadge)">@row.WarningBadge</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(row.BalanceOriginalByCurrency)) { <div class="ak-note">Balance: @row.BalanceOriginalByCurrency</div> }
+                            @if (!string.IsNullOrWhiteSpace(row.Notes)) { <div class="ak-note">@row.Notes</div> }
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Rows.Any())
+                {
+                    <tr>
+                        <td colspan="13"><div class="ak-empty"><i class="bi bi-journal-text"></i> Ledger، payment، expense یا loading مرتبط با این قرارداد هنوز ثبت نشده است.</div></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

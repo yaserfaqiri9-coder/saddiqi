@@ -1,0 +1,42 @@
+@model (int CurrentPage, int PageCount, int TotalCount, int PageSize)
+
+@await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+
+<script>
+    (function () {
+        var page = document.currentScript?.closest('[data-operations-list]');
+        if (!page || page.dataset.selectionReady === 'true') return;
+        page.dataset.selectionReady = 'true';
+
+        var selectAll = page.querySelector('[data-ops-select-all]');
+        var rowChecks = Array.from(page.querySelectorAll('[data-ops-row-select]'));
+
+        function syncRow(check) {
+            check.closest('tr')?.classList.toggle('is-selected', check.checked);
+        }
+
+        function syncHeader() {
+            if (!selectAll) return;
+            var selected = rowChecks.filter(function (check) { return check.checked; }).length;
+            selectAll.checked = rowChecks.length > 0 && selected === rowChecks.length;
+            selectAll.indeterminate = selected > 0 && selected < rowChecks.length;
+        }
+
+        rowChecks.forEach(function (check) {
+            check.addEventListener('click', function (event) { event.stopPropagation(); });
+            check.addEventListener('change', function () { syncRow(check); syncHeader(); });
+            syncRow(check);
+        });
+
+        if (selectAll) {
+            selectAll.addEventListener('click', function (event) { event.stopPropagation(); });
+            selectAll.addEventListener('change', function () {
+                rowChecks.forEach(function (check) {
+                    check.checked = selectAll.checked;
+                    syncRow(check);
+                });
+                syncHeader();
+            });
+        }
+    })();
+</script>

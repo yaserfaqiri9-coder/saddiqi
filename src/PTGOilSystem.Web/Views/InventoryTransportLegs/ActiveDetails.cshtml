@@ -1,0 +1,252 @@
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportFlowTransportViewModel
+@{
+    ViewData["Title"] = "جزئیات حمل در جریان";
+    // asset‌های مودال مصارف (همان CSS/JS مودال مصارف بارگیری).
+    ViewData["LoadingExpenseEditorAssets"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    var progress = Model.TotalAllocatedQuantityMt <= 0m
+        ? 0m
+        : decimal.Round(Model.LoadedQuantityMt / Model.TotalAllocatedQuantityMt * 100m, 0);
+    var hasDraftAllocations = Model.Legs.Any(l => l.Status == InventoryTransportLegStatus.Draft && !l.OutboundInventoryMovementId.HasValue);
+    var hasReceivableAllocations = Model.Legs.Any(l => l.Status is InventoryTransportLegStatus.Loaded or InventoryTransportLegStatus.InTransit);
+    var currentReturnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var expenseStart = Model.ExpenseCount == 0 ? 0 : ((Model.ExpenseCurrentPage - 1) * Model.ExpensePageSize) + 1;
+    var expenseEnd = Math.Min(Model.ExpenseCurrentPage * Model.ExpensePageSize, Model.ExpenseCount);
+    var firstExpensePage = Math.Max(1, Model.ExpenseCurrentPage - 2);
+    var lastExpensePage = Math.Min(Model.ExpensePageCount, Model.ExpenseCurrentPage + 2);
+}
+
+<div class="ak-form-page">
+    <header class="ak-page-header">
+        <div class="ak-page-header-main">
+<h1>@Model.PrimaryReference</h1>
+        </div>
+        <div class="ak-page-actions">
+            @if (hasDraftAllocations)
+            {
+                <form asp-action="MarkGroupLoaded" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="groupKey" value="@Model.GroupKey" />
+                    <button type="submit" class="btn btn-primary ak-primary-action">
+                        <i class="bi bi-box-arrow-up-left"></i>
+                        <span>بارگیری همه تخصیص‌های آماده</span>
+                    </button>
+                </form>
+            }
+            @if (hasReceivableAllocations)
+            {
+                <a asp-action="Journey" asp-route-groupKey="@Model.GroupKey"
+                   class="btn btn-light ak-secondary-action">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    <span>ثبت رسید (جریان حمل)</span>
+                </a>
+            }
+            <button type="button" class="btn btn-light ak-secondary-action"
+                    data-bs-toggle="modal" data-bs-target="#transportExpensesModal"
+                    data-expense-url="@Url.Action("CreateGroupExpenseModal", new { groupKey = Model.GroupKey, returnUrl = currentReturnUrl })">
+                <i class="bi bi-cash-coin"></i>
+                <span>ثبت مصارف حمل</span>
+            </button>
+            <a asp-action="Active" class="btn btn-light ak-secondary-action">بازگشت</a>
+        </div>
+    </header>
+
+    <section class="ak-form-section">
+        <div class="ak-page-icon">
+            <img src="~/img/contract-dashboard/tank-truck.png" asp-append-version="true" alt="" loading="lazy" decoding="async" />
+        </div>
+        <div class="ak-section-body">
+            <span>@Model.TransportTypeName</span>
+            <h2>@Model.SourceLabel <i class="bi bi-arrow-left"></i> @Model.DestinationLabel</h2>
+            @if (!string.IsNullOrWhiteSpace(Model.RouteDescription))
+            {
+                <p>@Model.RouteDescription</p>
+            }
+        </div>
+        <div class="ak-form-section">
+            <span>پیشرفت بارگیری</span>
+            <strong>@progress.ToString("N0")%</strong>
+            <div class="ak-note"><span class="ak-status @Model.ProgressCssClass"></span></div>
+        </div>
+    </section>
+
+    @* نوار خلاصه — فقط ۵ شاخص اصلی؛ شمارش‌ها (قراردادها/ردیف‌ها/ردیف مصرف) در جدول‌های پایین دیده می‌شوند. *@
+    <section class="ak-summary ak-form-grid" aria-label="شاخص‌های حمل">
+        <article><span>تخصیص کل</span><strong>@Model.TotalAllocatedQuantityMt.ToString("N2") MT</strong></article>
+        <article><span>بارگیری‌شده</span><strong>@Model.LoadedQuantityMt.ToString("N2") MT</strong></article>
+        <article><span>رسید مقصد</span><strong>@Model.ReceivedQuantityMt.ToString("N2") MT</strong></article>
+        <article><span>ضایعات ثبت‌شده</span><strong>@Model.ShortageQuantityMt.ToString("N2") MT</strong></article>
+        <article><span>کل مصرف ثبت‌شده</span><strong>@Model.TotalExpenseUsd.ToString("N2") USD</strong></article>
+    </section>
+
+    @if (Model.ExpenseCount > 0)
+    {
+        <section class="ak-form-section">
+            <div class="ak-section-head">
+                <div>
+                    <h2>مصارف ثبت‌شده</h2>
+                    <p>@Model.TotalExpenseUsd.ToString("N2") USD - نمایش @expenseStart.ToString("N0") تا @expenseEnd.ToString("N0") از @Model.ExpenseCount.ToString("N0") ردیف</p>
+                </div>
+            </div>
+            <div class="ak-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>قرارداد</th>
+                            <th>نوع مصرف</th>
+                            <th>شرکت خدماتی</th>
+                            <th>@UiText.T(Context, "دارایی", "Asset")</th>
+                            <th>تاریخ</th>
+                            <th class="text-end">مبلغ سند</th>
+                            <th class="text-end">USD</th>
+                            <th>ردیف حمل</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var expense in Model.Expenses)
+                    {
+                        <tr>
+                            <td><a asp-controller="Expenses" asp-action="Details" asp-route-id="@expense.Id">#@expense.Id</a></td>
+                            <td>@(string.IsNullOrWhiteSpace(expense.ContractNumber) ? "-" : expense.ContractNumber)</td>
+                            <td>@expense.ExpenseTypeName</td>
+                            <td>@(string.IsNullOrWhiteSpace(expense.ServiceProviderName) ? "-" : expense.ServiceProviderName)</td>
+                            <td>@(string.IsNullOrWhiteSpace(expense.OperationalAssetName) ? "-" : expense.OperationalAssetName)</td>
+                            <td>@expense.ExpenseDate.ToDisplayDate()</td>
+                            <td class="text-end">@NumberDisplay.Money(expense.Amount, expense.Currency)</td>
+                            <td class="text-end">@NumberDisplay.Money(expense.AmountUsd)</td>
+                            <td>@(expense.TransportLegId.HasValue ? $"#{expense.TransportLegId.Value}" : "-")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            @if (Model.ExpensePageCount > 1)
+            {
+                <nav class="mt-3" aria-label="صفحه‌بندی مصارف">
+                    <ul class="pagination pagination-sm justify-content-end mb-0">
+                        <li class="page-item @(Model.ExpenseCurrentPage <= 1 ?"disabled" : "")">
+                            <a class="page-link"
+                               asp-action="ActiveDetails"
+                               asp-route-groupKey="@Model.GroupKey"
+                               asp-route-expensePage="@(Model.ExpenseCurrentPage - 1)">قبلی</a>
+                        </li>
+                        @for (var pageNumber = firstExpensePage; pageNumber <= lastExpensePage; pageNumber++)
+                        {
+                            <li class="page-item @(pageNumber == Model.ExpenseCurrentPage ?"active" : "")">
+                                <a class="page-link"
+                                   asp-action="ActiveDetails"
+                                   asp-route-groupKey="@Model.GroupKey"
+                                   asp-route-expensePage="@pageNumber">@pageNumber.ToString("N0")</a>
+                            </li>
+                        }
+                        <li class="page-item @(Model.ExpenseCurrentPage >= Model.ExpensePageCount ?"disabled" : "")">
+                            <a class="page-link"
+                               asp-action="ActiveDetails"
+                               asp-route-groupKey="@Model.GroupKey"
+                               asp-route-expensePage="@(Model.ExpenseCurrentPage + 1)">بعدی</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </section>
+    }
+
+    <section class="ak-form-section">
+        <div class="ak-section-head">
+            <div>
+                <h2>تخصیص قراردادها</h2>
+            </div>
+        </div>
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>قرارداد</th>
+                        <th class="text-end">تخصیص</th>
+                        <th class="text-end">بارگیری</th>
+                        <th class="text-end">رسید</th>
+                        <th class="text-end">ضایعات</th>
+                        <th class="text-end">سهم از حمل</th>
+                        <th class="text-end">مصرف تخصیص‌یافته</th>
+                        <th class="text-end">ردیف مصرف</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var allocation in Model.ContractAllocations)
+                {
+                    <tr>
+                        <td>@allocation.ContractNumber</td>
+                        <td class="text-end">@allocation.AllocatedQuantityMt.ToString("N2") MT</td>
+                        <td class="text-end">@allocation.LoadedQuantityMt.ToString("N2") MT</td>
+                        <td class="text-end">@allocation.ReceivedQuantityMt.ToString("N2") MT</td>
+                        <td class="text-end">@allocation.ShortageQuantityMt.ToString("N2") MT</td>
+                        <td class="text-end">@NumberDisplay.Number(allocation.SharePercent, 2)%</td>
+                        <td class="text-end">@allocation.ExpenseAmountUsd.ToString("N2") USD</td>
+                        <td class="text-end">@allocation.ExpenseCount.ToString("N0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <div class="ak-section-head">
+            <div>
+                <h2>ردیف‌های عملیاتی</h2>
+            </div>
+        </div>
+        <div class="ak-table-wrap">
+            <table class="ak-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>قرارداد</th>
+                        <th>وسیله / مرجع</th>
+                        <th class="text-end">تخصیص</th>
+                        <th class="text-end">بارگیری‌شده</th>
+                        <th>تاریخ</th>
+                        <th>وضعیت</th>
+                        <th>Movement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var leg in Model.Legs)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@leg.Id">#@leg.Id</a></td>
+                        <td>@leg.ContractNumber</td>
+                        <td>@(leg.WagonNumber ?? leg.RwbNo ?? leg.BillOfLadingNumber ?? "-")</td>
+                        <td class="text-end">@leg.QuantityMt.ToString("N2")</td>
+                        <td class="text-end">@leg.LoadedQuantityMt.ToString("N2")</td>
+                        <td>@leg.LoadedDate.ToDisplayDate()</td>
+                        <td><span class="ak-status is-pending">@leg.Status</span></td>
+                        <td>@(leg.OutboundInventoryMovementId.HasValue ? $"#{leg.OutboundInventoryMovementId.Value}" : "-")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* مودال «ثبت مصارف حمل» — هم‌شکلِ مودال مصارف بارگیری. *@
+    <div class="modal fade" id="transportExpensesModal" tabindex="-1"
+         aria-labelledby="transportExpensesModalLabel" aria-hidden="true" data-loading-expense-remote-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content ak-modal-content">
+                <div class="ak-modal-head">
+                    <h2 class="modal-title" id="transportExpensesModalLabel">ثبت مصارف حمل — @Model.PrimaryReference</h2>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="بستن"></button>
+                </div>
+                <div class="ak-modal-body" data-loading-expense-remote-body>
+                    <div class="ak-empty">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                        <span>در حال بارگذاری فرم مصارف...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,64 @@
+@model PTGOilSystem.Web.Models.Auth.RoleCreateViewModel
+@using PTGOilSystem.Web.Security
+@{
+    var navigationItems = ViewData["RoleNavigationItems"] as IEnumerable<RoleNavigationItem> ?? RoleAccessRules.NavigationItems;
+    var selectedNavigation = (Model.AllowedNavigationItems ?? Array.Empty<string>())
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+}
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@((UiText.T(Context, "اطلاعات نقش", "Role details"), (string?)UiText.T(Context, "نام و هدف این نقش را روشن تعریف کنید.", "Define the role name and purpose clearly.")))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label"></label>
+            <input asp-for="Name" class="ak-input" autocomplete="off" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Description" class="ak-label"></label>
+            <textarea asp-for="Description" class="ak-input"></textarea>
+            <span asp-validation-for="Description" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@((UiText.T(Context, "دسترسی نقش", "Role access"), (string?)UiText.T(Context, "فقط بخش‌های لازم برای این نقش را فعال کنید.", "Enable only the sections required by this role.")))" />
+
+    <div class="ak-role-permission-grid">
+        <label class="ak-role-permission">
+            <span><strong>@UiText.T(Context, "ثبت و ویرایش اطلاعات", "Create & edit data")</strong></span>
+            <span class="form-check form-switch">
+                <input asp-for="CanManageData" class="form-check-input" role="switch" />
+            </span>
+        </label>
+        <label class="ak-role-permission">
+            <span><strong>@UiText.T(Context, "مدیریت کاربران و نقش‌ها", "Manage users & roles")</strong></span>
+            <span class="form-check form-switch">
+                <input asp-for="CanManageUsers" class="form-check-input" role="switch" />
+            </span>
+        </label>
+    </div>
+
+    <div class="ak-role-nav-grid" aria-label="@UiText.T(Context, "بخش‌های قابل نمایش", "Visible sections")">
+        @foreach (var item in navigationItems)
+        {
+            var isChecked = selectedNavigation.Count == 0
+                ? item.Key == RoleNavigationKeys.Dashboard
+                : selectedNavigation.Contains(item.Key);
+            <label class="ak-role-nav-option @(item.IsSensitive ?"is-sensitive" : null)">
+                <input type="checkbox"
+                       name="AllowedNavigationItems"
+                       value="@item.Key"
+                       checked="@(isChecked ? "checked" : null)" />
+                <span class="ak-role-nav-icon"><i class="bi @item.Icon"></i></span>
+                <span class="ak-role-nav-copy">@item.Label</span>
+            </label>
+        }
+    </div>
+</section>

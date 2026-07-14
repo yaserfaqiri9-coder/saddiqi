@@ -1,0 +1,188 @@
+@using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Sarrafs
+@using PTGOilSystem.Web.Models.ThreeWaySettlement
+@model PTGOilSystem.Web.Models.Entities.ThreeWaySettlement
+@{
+    ViewData["Title"] = "جزئیات تسویه سه‌طرفه";
+    ViewData["HideSectionTabs"] = true;
+    var cancellationLedgerEntries = ViewBag.CancellationLedgerEntries as IReadOnlyList<LedgerEntry> ?? Array.Empty<LedgerEntry>();
+    var statusText = Model.Status == ThreeWaySettlementStatus.Cancelled ? "لغو شده" : "ثبت شده";
+    var statusState = Model.Status == ThreeWaySettlementStatus.Cancelled ? "is-inactive" : "is-active";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("جزئیات تسویه سه‌طرفه / حواله", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "برگشت", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @statusState">@statusText</span>
+        <span class="ak-note">@(Model.PayeeType == ThreeWayPayeeType.Sarraf ? "حالت صراف (واسطه حواله)" : "حالت تأمین‌کننده")</span>
+    </div>
+
+    <p class="ak-note">این ثبت فقط اثر حساب مشتری و تأمین‌کننده را نشان می‌دهد. پول وارد صندوق شرکت نشده و PaymentTransaction ساخته نشده است.</p>
+
+    <div asp-validation-summary="All" class="ak-form-alert"></div>
+
+    <dl class="ak-summary-list ak-summary">
+        <div><dt>مشتری</dt><dd>@Model.Customer?.Name</dd></div>
+        <div><dt>تأمین‌کننده</dt><dd>@Model.Supplier?.Name</dd></div>
+        <div><dt>صندوق / بانک شرکت</dt><dd class="ak-num">0.00 USD</dd></div>
+        <div><dt>وضعیت</dt><dd><span class="ak-status @statusState">@statusText</span></dd></div>
+    </dl>
+
+    @if (Model.PayeeType == ThreeWayPayeeType.Sarraf && Model.Sarraf is not null)
+    {
+        <p class="ak-note"><strong>واسطه حواله: @Model.Sarraf.Name</strong> — صراف فقط حامل حواله است و طرف حساب مستقل در دفتر کل نیست.</p>
+    }
+    @if (Model.Status == ThreeWaySettlementStatus.Cancelled)
+    {
+        <p class="ak-note"><strong>این تسویه لغو شده است.</strong> Ledger اصلی حذف یا ویرایش نشده؛ ردیف‌های معکوس با SourceType جدا ساخته شده‌اند. زمان لغو: @(Model.CancelledAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-") | کاربر: @(Model.CancelledByUserName ?? "-") | دلیل: @(Model.CancellationReason ?? "-")</p>
+    }
+    @if (Model.DifferenceUsd != 0m)
+    {
+        <p class="ak-note"><strong>تفاوت مبلغ: @DifferenceReasonPolicy.Label(Model.DifferenceReason).</strong> @DifferenceReasonPolicy.PolicyText(Model.DifferenceReason) — @DifferenceReasonPolicy.TraceOnlyNote در مصرف ثبت نشده است.</p>
+    }
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات حواله", (string?)null))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.SettlementDate.ToString("yyyy-MM-dd")</dd></div>
+            <div class="ak-list-row"><dt>شماره حواله / مرجع</dt><dd>@(Model.HawalaReference ?? "-")</dd></div>
+            @if (Model.PayeeType == ThreeWayPayeeType.Sarraf)
+            {
+                <div class="ak-list-row"><dt>واسطه حواله (صراف)</dt><dd>@(Model.Sarraf?.Name ?? "-")</dd></div>
+            }
+            <div class="ak-list-row"><dt>قرارداد فروش مشتری</dt><dd>@(Model.CustomerSaleContract?.ContractNumber ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>قرارداد خرید تأمین‌کننده</dt><dd>@(Model.SupplierPurchaseContract?.ContractNumber ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>توضیحات</dt><dd>@(Model.Notes ?? "-")</dd></div>
+        </dl>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اثر روی حساب‌ها و Ledgerهای اصلی", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">حساب</th>
+                        <th>اثر</th>
+                        <th>LedgerEntry</th>
+                        <th class="ak-col-num">مبلغ اصلی</th>
+                        <th class="ak-col-num">مبلغ USD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="ak-col-grow">مشتری: @Model.Customer?.Name</td>
+                        <td><span class="ak-status">Debit - طلب مشتری کم شد</span></td>
+                        <td>
+                            @if (Model.CustomerLedgerEntryId.HasValue)
+                            {
+                                <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.CustomerLedgerEntryId.Value">#@Model.CustomerLedgerEntryId.Value</a>
+                            }
+                            else { <span>-</span> }
+                        </td>
+                        <td class="ak-col-num ak-num">
+                            @Model.CustomerPaidAmount.ToString("N2") @Model.EffectiveCustomerPaidCurrency
+                            <div class="ak-note">نرخ: @Model.EffectiveCustomerPaidFxRateToUsd.ToString("0.######")</div>
+                        </td>
+                        <td class="ak-col-num ak-num">@Model.CustomerPaidUsd.ToString("N2") USD</td>
+                    </tr>
+                    <tr>
+                        <td class="ak-col-grow">تأمین‌کننده: @Model.Supplier?.Name</td>
+                        <td><span class="ak-status">Debit - بدهی تأمین‌کننده کم شد</span></td>
+                        <td>
+                            @if (Model.SupplierLedgerEntryId.HasValue)
+                            {
+                                <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.SupplierLedgerEntryId.Value">#@Model.SupplierLedgerEntryId.Value</a>
+                            }
+                            else { <span>-</span> }
+                        </td>
+                        <td class="ak-col-num ak-num">
+                            @Model.SupplierAcceptedAmount.ToString("N2") @Model.EffectiveSupplierAcceptedCurrency
+                            <div class="ak-note">نرخ: @Model.EffectiveSupplierAcceptedFxRateToUsd.ToString("0.######")</div>
+                        </td>
+                        <td class="ak-col-num ak-num">@Model.SupplierAcceptedUsd.ToString("N2") USD</td>
+                    </tr>
+                    <tr>
+                        <td class="ak-col-grow">صندوق / بانک شرکت</td>
+                        <td><span class="ak-status">بدون تغییر</span></td>
+                        <td>-</td>
+                        <td class="ak-col-num ak-num">0.00</td>
+                        <td class="ak-col-num ak-num">0.00 USD</td>
+                    </tr>
+                    @if (Model.DifferenceUsd != 0m)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">تفاوت مبلغ</td>
+                            <td>
+                                <span class="ak-status">@DifferenceReasonPolicy.Label(Model.DifferenceReason)</span>
+                                <div class="ak-note">@DifferenceReasonPolicy.PolicyText(Model.DifferenceReason)</div>
+                            </td>
+                            <td>-</td>
+                            <td class="ak-col-num">فقط در trace</td>
+                            <td class="ak-col-num ak-num">@Model.DifferenceUsd.ToString("N2") USD</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if (cancellationLedgerEntries.Count > 0)
+    {
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Ledgerهای برگشت لغو", (string?)null))" />
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th>LedgerEntry</th>
+                            <th class="ak-col-grow">حساب</th>
+                            <th>Side</th>
+                            <th>SourceType</th>
+                            <th class="ak-col-num">مبلغ USD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ledger in cancellationLedgerEntries)
+                        {
+                            <tr>
+                                <td><a asp-controller="Ledger" asp-action="Details" asp-route-id="@ledger.Id">#@ledger.Id</a></td>
+                                <td class="ak-col-grow">
+                                    @if (ledger.CustomerId.HasValue) { <span>مشتری</span> }
+                                    else if (ledger.SupplierId.HasValue) { <span>تأمین‌کننده</span> }
+                                    else { <span>-</span> }
+                                </td>
+                                <td>@ledger.Side</td>
+                                <td>برگشت تسویه سه‌طرفه — @ledger.SourceType</td>
+                                <td class="ak-col-num ak-num">@ledger.AmountUsd.ToString("N2") USD</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (Model.Status == ThreeWaySettlementStatus.Posted)
+    {
+        <form asp-action="Cancel" method="post" class="ak-form" onsubmit="return confirm('آیا از لغو این تسویه مطمئن هستید؟ Ledger اصلی حذف نمی‌شود و فقط سند معکوس ساخته می‌شود.');">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("لغو تسویه", (string?)null))" />
+                <div class="ak-form-grid">
+                    <div class="ak-field ak-col-full">
+                        <label for="cancellationReason" class="ak-label">دلیل لغو</label>
+                        <textarea id="cancellationReason" name="cancellationReason" class="ak-input" rows="3" required maxlength="1000"></textarea>
+                    </div>
+                </div>
+                <div class="ak-footer-actions">
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle"></i> لغو تسویه و ساخت Ledger معکوس</button>
+                </div>
+            </section>
+        </form>
+    }
+</div>

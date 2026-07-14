@@ -1,0 +1,108 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupExpenseCreateViewModel
+@{
+    ViewData["Title"] = "ثبت مصرف حمل";
+    ViewData["LoadingCreateAssets"] = true;
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Journey", new { groupKey = Model.GroupKey });
+    var expenseTypeNames = ViewBag.ExpenseTypeNames as IEnumerable<string> ?? Array.Empty<string>();
+    var expensePartyType = Model.OperationalAssetId.HasValue ? "operational-asset" : Model.ServiceProviderId.HasValue ? "service-provider" : "";
+}
+
+<div class="page-stack ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت مصرف کلی برای حمل", "Register Transport Expense"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+    <form asp-action="CreateGroupExpense" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="GroupKey" type="hidden" />
+        <input asp-for="TransportReference" type="hidden" />
+        <input asp-for="TotalAllocatedQuantityMt" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "معلومات مصرف", "Expense Information"), (string?)($"{Model.TransportReference} - {NumberDisplay.Quantity(Model.TotalAllocatedQuantityMt)} MT")))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ExpenseTypeId" class="ak-label"></label>
+                    <select asp-for="ExpenseTypeId" asp-items="ViewBag.ExpenseTypes" class="ak-input"><option value="">انتخاب نوع مصرف</option></select>
+                    <span asp-validation-for="ExpenseTypeId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ManualExpenseTypeName" class="ak-label"></label>
+                    <input asp-for="ManualExpenseTypeName" list="groupExpenseTypeSuggestions" class="ak-input" autocomplete="off" placeholder="کرایه حمل، مصرف بندری، تخلیه، گمرک..." />
+                    <datalist id="groupExpenseTypeSuggestions">@foreach (var expenseTypeName in expenseTypeNames) { <option value="@expenseTypeName"></option> }</datalist>
+                    <span asp-validation-for="ManualExpenseTypeName" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field"><label asp-for="ExpenseDate" class="ak-label"></label><input asp-for="ExpenseDate" type="date" class="ak-input" /><span asp-validation-for="ExpenseDate" class="ak-field-error"></span></div>
+                <div class="ak-field">
+                    <label class="ak-label">نوع مسئول مصرف</label>
+                    <select class="ak-input" data-expense-party-type>
+                        <option value="" selected="@(expensePartyType == "" ? "selected" : null)">بدون شرکت خدماتی / دارایی</option>
+                        <option value="service-provider" selected="@(expensePartyType == "service-provider" ? "selected" : null)">شرکت خدماتی بیرونی</option>
+                        <option value="operational-asset" selected="@(expensePartyType == "operational-asset" ? "selected" : null)">دارایی عملیاتی شرکت</option>
+                    </select>
+                </div>
+                <div class="ak-field @(expensePartyType =="service-provider" ? null : "d-none")" data-expense-party-field="service-provider">
+                    <label asp-for="ServiceProviderId" class="ak-label"></label>
+                    <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input" disabled="@(expensePartyType == "service-provider" ? null : "disabled")"><option value="">انتخاب شرکت خدماتی</option></select>
+                    <span asp-validation-for="ServiceProviderId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field @(expensePartyType =="operational-asset" ? null : "d-none")" data-expense-party-field="operational-asset">
+                    <label asp-for="OperationalAssetId" class="ak-label">@UiText.T(Context, "دارایی عملیاتی", "Operational Asset")</label>
+                    <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input" disabled="@(expensePartyType == "operational-asset" ? null : "disabled")"><option value="">@UiText.T(Context, "انتخاب دارایی عملیاتی", "Select operational asset")</option></select>
+                    <span asp-validation-for="OperationalAssetId" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "مبلغ و ارز", "Amount and Currency"), (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field"><label asp-for="Currency" class="ak-label"></label><select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input"></select><span asp-validation-for="Currency" class="ak-field-error"></span></div>
+                <div class="ak-field"><label asp-for="Amount" class="ak-label"></label><input asp-for="Amount" class="ak-input" /><span asp-validation-for="Amount" class="ak-field-error"></span></div>
+                <div class="ak-field" data-fx-rate-group data-fx-currency-source="#Currency">
+                    <div data-fx-rate-field><label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label><input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input id="legExpenseFxDisplay" placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" /><input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical /><span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span></div>
+                    <div data-fx-usd-note class="d-none"><small class="ak-section-desc text-muted">پرداخت دالری است؛ نرخ تبدیل لازم نیست.</small></div>
+                </div>
+                <div class="ak-field ak-col-full"><label asp-for="Description" class="ak-label"></label><textarea asp-for="Description" rows="3" class="ak-input"></textarea><span asp-validation-for="Description" class="ak-field-error"></span></div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "تقسیم مصرف", "Expense Allocation"), (string?)null))" />
+            <div class="ak-table-wrap"><table class="ak-table"><thead><tr><th>قرارداد</th><th class="ak-col-num">مقدار تخصیص</th><th class="ak-col-num">سهم</th><th class="ak-col-num">مبلغ سهم</th><th class="ak-col-num">ردیف حمل</th></tr></thead><tbody>
+            @foreach (var allocation in Model.Allocations) { <tr><td>@allocation.ContractNumber</td><td class="ak-col-num">@NumberDisplay.Quantity(allocation.AllocatedQuantityMt) MT</td><td class="ak-col-num">@NumberDisplay.Number(allocation.SharePercent, 2)%</td><td class="ak-col-num">@NumberDisplay.Money(allocation.AllocatedAmount, Model.Currency)</td><td class="ak-col-num">@allocation.LegCount.ToString("N0")</td></tr> }
+            </tbody></table></div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@((UiText.T(Context, "ثبت و تقسیم مصرف", "Save and Allocate Expense"), cancelUrl ?? "#", UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+        (() => {
+            const typeSel = document.querySelector("[data-expense-party-type]");
+            if (!typeSel) return;
+            const fields = document.querySelectorAll("[data-expense-party-field]");
+            const apply = () => {
+                const value = typeSel.value;
+                fields.forEach(field => {
+                    const match = field.dataset.expensePartyField === value;
+                    field.classList.toggle("d-none", !match);
+                    field.querySelectorAll("select, input").forEach(el => { el.disabled = !match; if (!match) el.value = ""; });
+                });
+            };
+            typeSel.addEventListener("change", apply);
+            apply();
+        })();
+    </script>
+}

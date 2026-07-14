@@ -1,0 +1,117 @@
+@model PTGOilSystem.Web.Models.ContractBalanceTransfers.ContractBalanceTransferCreateViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "ثبت انتقال مانده قرارداد";
+    ViewData["HideSectionTabs"] = true;
+    var currencies = ViewBag.Currencies as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var originalPayments = ViewBag.OriginalPayments as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index") ?? "/ContractBalanceTransfers";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("انتقال مانده بین قراردادها", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)cancelUrl))" />
+
+    <p class="ak-note"><strong>این انتقال چه می‌کند؟</strong> از قرارداد مبدأ به اندازهٔ این مبلغ کم و به قرارداد مقصد اضافه می‌شود. صندوق و بانک شرکت دست‌نخورده می‌ماند؛ هیچ پرداخت یا دریافت نقدی ساخته نمی‌شود.</p>
+
+    <form asp-action="Create" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قراردادها و مبلغ", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="TransferDate" class="ak-label">تاریخ انتقال</label>
+                    <input asp-for="TransferDate" class="ak-input" />
+                    <span asp-validation-for="TransferDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field"></div>
+                <div class="ak-field">
+                    <label asp-for="FromContractId" class="ak-label">از کدام قرارداد کم شود؟</label>
+                    <select asp-for="FromContractId" asp-items="ViewBag.FromContracts" class="ak-input">
+                        <option value="">انتخاب قرارداد مبدأ</option>
+                    </select>
+                    <span asp-validation-for="FromContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ToContractId" class="ak-label">به کدام قرارداد اضافه شود؟</label>
+                    <select asp-for="ToContractId" asp-items="ViewBag.ToContracts" class="ak-input">
+                        <option value="">انتخاب قرارداد مقصد</option>
+                    </select>
+                    <span asp-validation-for="ToContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="AmountOriginal" class="ak-label">مبلغ</label>
+                    <input asp-for="AmountOriginal" class="ak-input" />
+                    <span asp-validation-for="AmountOriginal" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CurrencyCode" class="ak-label">ارز</label>
+                    <select asp-for="CurrencyCode" asp-items="currencies" class="ak-input">
+                        <option value="">انتخاب ارز</option>
+                    </select>
+                    <span asp-validation-for="CurrencyCode" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field" data-fx-rate-group data-fx-currency-source="#CurrencyCode">
+                    <div data-fx-rate-field>
+                        <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                        <input asp-for="DocumentCurrencyPerUsdRate" class="ak-input" data-fx-rate-input
+                               placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                        <span class="ak-note">۱ دالر برابر چند واحد این ارز است؟ معادل دالری خودکار محاسبه می‌شود.</span>
+                        <span asp-validation-for="DocumentCurrencyPerUsdRate" class="ak-field-error"></span>
+                    </div>
+                    <div data-fx-usd-note class="d-none">
+                        <span class="ak-note"><i class="bi bi-info-circle"></i> مبلغ دالری است؛ نرخ تبدیل لازم نیست.</span>
+                    </div>
+                </div>
+                <input asp-for="FxRateToUsd" type="hidden" />
+                <input asp-for="OriginalPaymentFxRateToUsd" type="hidden" />
+            </div>
+        </section>
+
+        <details class="ak-advanced">
+            <summary class="ak-advanced-summary fw-bold">گزینه‌های بیشتر (اختیاری)</summary>
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="FxRateDate" class="ak-label">تاریخ نرخ</label>
+                    <input asp-for="FxRateDate" class="ak-input" />
+                    <span asp-validation-for="FxRateDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="FxRateSource" class="ak-label">منبع نرخ</label>
+                    <input asp-for="FxRateSource" class="ak-input" />
+                    <span asp-validation-for="FxRateSource" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="OriginalPaymentTransactionId" class="ak-label">پرداخت مرتبط (برای ردیابی)</label>
+                    <select asp-for="OriginalPaymentTransactionId" asp-items="originalPayments" class="ak-input">
+                        <option value="">بدون پرداخت مرتبط</option>
+                    </select>
+                    <span asp-validation-for="OriginalPaymentTransactionId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Reference" class="ak-label">شماره مرجع</label>
+                    <input asp-for="Reference" class="ak-input" />
+                    <span asp-validation-for="Reference" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Notes" class="ak-label">یادداشت</label>
+                    <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+                    <span asp-validation-for="Notes" class="ak-field-error"></span>
+                </div>
+            </div>
+        </details>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ثبت انتقال مانده", cancelUrl, "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+}

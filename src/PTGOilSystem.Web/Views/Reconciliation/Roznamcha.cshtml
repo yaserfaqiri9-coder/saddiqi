@@ -1,0 +1,53 @@
+@model PTGOilSystem.Web.Models.Reconciliation.RoznamchaReconciliationViewModel
+@{
+    ViewData["Title"] = "مغایرت رزنامچه";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("مغایرت رزنامچه", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "مغایرت‌گیری", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+    </div>
+
+    <p class="ak-note">این گزارش فقط خواندنی است و هیچ سند مالی را اصلاح نمی‌کند.</p>
+
+    <section class="ak-form-section ak-summary">
+        <dl class="ak-summary-list">
+            <div><dt>بدون طرف حساب</dt><dd class="ak-num">@Model.PaymentsWithoutCounterparty.Count</dd></div>
+            <div><dt>بدون حساب</dt><dd class="ak-num">@Model.PaymentsWithoutCashAccount.Count</dd></div>
+            <div><dt>اختلاف Ledger</dt><dd class="ak-num">@Model.LedgerAmountMismatches.Count</dd></div>
+            <div><dt>ریسک مصرف</dt><dd class="ak-num">@Model.ExpenseDoubleCountingRisks.Count</dd></div>
+            <div><dt>کارمند</dt><dd class="ak-num">@Model.EmployeePaymentsWithoutEmployeeLink.Count</dd></div>
+            <div><dt>مشتری/تأمین‌کننده</dt><dd class="ak-num">@Model.SupplierCustomerPaymentsWithoutProfileLink.Count</dd></div>
+        </dl>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت بدون طرف حساب", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.PaymentsWithoutCounterparty)
+    </section>
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت بدون حساب نقد", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.PaymentsWithoutCashAccount)
+    </section>
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اختلاف مبلغ با Ledger", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.LedgerAmountMismatches)
+    </section>
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ریسک دوباره‌شماری مصرف", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.ExpenseDoubleCountingRisks)
+    </section>
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت کارمند بدون لینک کارمند", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.EmployeePaymentsWithoutEmployeeLink)
+    </section>
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت مشتری/تأمین‌کننده بدون لینک پروفایل", (string?)null))" />
+        @await Html.PartialAsync("_RoznamchaIssueTable", Model.SupplierCustomerPaymentsWithoutProfileLink)
+    </section>
+</div>

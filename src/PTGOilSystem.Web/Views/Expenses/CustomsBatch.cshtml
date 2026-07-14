@@ -1,0 +1,162 @@
+@model PTGOilSystem.Web.Models.Expenses.CustomsBatchViewModel
+@{
+    ViewData["Title"] = "ثبت مصارف گمرکی (دسته‌جمعی)";
+    ViewData["HideSectionTabs"] = true;
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Index");
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">ثبت مصارف گمرکی</h1>
+            <p class="ak-note">همه انواع مصارف گمرکی را در یک فرم یکجا ثبت کنید. ردیف‌هایی که مبلغ آن‌ها صفر است نادیده گرفته می‌شوند.</p>
+        </div>
+        <div class="ak-page-actions">
+            <a href="@cancelUrl" class="btn ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
+        </div>
+    </div>
+
+    <div class="ak-note">
+        <i class="bi bi-info-circle-fill"></i>
+        <div>برای هر ردیف با مبلغ بزرگ‌تر از صفر، یک <strong>ExpenseTransaction</strong> و سند حسابداری جداگانه ثبت می‌شود.</div>
+    </div>
+
+    <form asp-action="CustomsBatch" method="post" class="ak-form">
+        <input asp-for="ReturnUrl" type="hidden" />
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="ak-form-alert text-danger"></div>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">اطلاعات مشترک</h2>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="ContractId" class="ak-label"></label>
+                        <select asp-for="ContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                            <option value="">انتخاب قرارداد</option>
+                        </select>
+                        <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="TruckDispatchId" class="ak-label"></label>
+                        <select asp-for="TruckDispatchId" asp-items="ViewBag.TruckDispatches" class="ak-input">
+                            <option value="">بدون دیسپچ</option>
+                        </select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ExpenseDate" class="ak-label"></label>
+                        <input asp-for="ExpenseDate" type="date" class="ak-input" />
+                        <span asp-validation-for="ExpenseDate" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="Currency" class="ak-label"></label>
+                        <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input" id="currencySelect">
+                            <option value="">انتخاب ارز</option>
+                        </select>
+                        <span asp-validation-for="Currency" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field" data-fx-rate-group data-fx-currency-source="#currencySelect">
+                        <div data-fx-rate-field>
+                            <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                            <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input
+                                   id="customsFxDisplay" placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                            <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                            <small class="form-text text-muted">۱ دالر = چند واحد ارز سند؟</small>
+                            <span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span>
+                        </div>
+                        <div data-fx-usd-note class="d-none">
+                            <small class="form-text text-muted"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <details class="ak-advanced mt-3">
+                    <summary class="ak-advanced-summary">
+                        <span><i class="bi bi-sliders2" aria-hidden="true"></i>جزئیات بیشتر</span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div class="ak-form-grid mt-1">
+                        <div class="ak-field ak-col-full">
+                            <label asp-for="Description" class="ak-label"></label>
+                            <input asp-for="Description" class="ak-input" placeholder="شرح مشترک برای همه ردیف‌ها (اختیاری)" />
+                            <span asp-validation-for="Description" class="ak-field-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="CostResponsibility" class="ak-label"></label>
+                            <select asp-for="CostResponsibility" class="ak-input">
+                                <option value="">— نامشخص —</option>
+                                <option value="1">بدوش خریدار</option>
+                                <option value="2">بدوش فروشنده</option>
+                                <option value="3">مشترک</option>
+                                <option value="4">نامشخص</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <section class="ak-form-section">
+                <h2 class="ak-section-title">ردیف‌های مصارف</h2>
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:50px">#</th>
+                                <th>@UiText.T(Context,"نوع مصرف","Expense Type")</th>
+                                <th style="width:220px">مبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Model.Rows.Count; i++)
+                            {
+                                <tr>
+                                    <td class="text-muted" data-label="ردیف">
+                                        <span>@(i + 1)</span>
+                                    </td>
+                                    <td data-label="نوع مصرف">
+                                        <input type="hidden" name="Rows[@i].ExpenseTypeId" value="@Model.Rows[i].ExpenseTypeId" />
+                                        <input type="hidden" name="Rows[@i].ExpenseTypeName" value="@Model.Rows[i].ExpenseTypeName" />
+                                        <span>@Model.Rows[i].ExpenseTypeName</span>
+                                    </td>
+                                    <td data-label="مبلغ">
+                                        <input type="number" step="0.01" min="0"
+                                               id="Rows_@(i)__Amount"
+                                               name="Rows[@i].Amount"
+                                               value="@(Model.Rows[i].Amount?.ToString("F2"))"
+                                               class="ak-input"
+                                               placeholder="0.00" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!Model.Rows.Any())
+                {
+                    <div class="alert alert-warning">هیچ نوع مصرف فعالی تعریف نشده است. ابتدا انواع مصرف را اضافه کنید.</div>
+                }
+            </section>
+
+            <div class="ak-note mb-3">
+                <i class="bi bi-clipboard-check"></i>
+                <div>
+                    <strong>قبل از ثبت بررسی کنید:</strong>
+                    هر ردیف با مبلغ بزرگ‌تر از صفر یک سند مصرف جداگانه می‌سازد.
+                    <div class="text-muted small mt-1">قدم بعدی: بعد از ثبت، مصارف گمرکی در مصارف قرارداد و گزارش P&amp;L دیده می‌شود.</div>
+                </div>
+            </div>
+
+            <div class="ak-footer-actions">
+                <button type="submit" class="btn ak-primary-action px-5">
+                    <i class="bi bi-check2-circle me-2"></i> ثبت مصارف
+                </button>
+                <a href="@cancelUrl" class="btn ak-secondary-action">انصراف</a>
+            </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+}

@@ -1,0 +1,110 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingExpenseEditViewModel
+@using Microsoft.AspNetCore.Mvc.ViewFeatures
+@{
+    var isModal = ViewData["IsExpenseModal"] as bool? == true;
+    var cancelUrl = ViewData["CancelUrl"] as string;
+    var resolvedCancelUrl = !string.IsNullOrWhiteSpace(cancelUrl) && Url.IsLocalUrl(cancelUrl)
+        ? cancelUrl
+        : Url.Action("Details", "Loading", new { id = Model.Id }) ?? $"/Loading/Details/{Model.Id}";
+
+    ViewDataDictionary RowData(string token)
+    {
+        var vd = new ViewDataDictionary(ViewData);
+        vd["RowToken"] = token;
+        return vd;
+    }
+
+    var templateToken = "__INDEX__";
+}
+
+<div class="ak-form-page" data-loading-expense-editor data-submit-mode="@(isModal ? "modal" : "page")">
+    @if (!string.IsNullOrWhiteSpace(Model.DestinationName) || !string.IsNullOrWhiteSpace(Model.RouteDescription))
+    {
+        <div class="ak-note">
+            <span class="ak-label">مقصد / مسیر</span>
+            <strong>@(Model.DestinationName ?? Model.RouteDescription)</strong>
+        </div>
+    }
+
+    <form asp-action="EditExpenses" asp-route-id="@Model.Id" method="post" class="ak-form" data-loading-expense-form>
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input type="hidden" name="modal" value="@(isModal ? "true" : "false")" />
+        <input type="hidden" data-loaded-quantity value="@Model.LoadedQuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@(("مصارف بارگیری", (string?)"هر مصرف را در یک ردیف ثبت کنید."))" />
+
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead><tr>
+                        <th>نوع مصرف</th><th>روش محاسبه</th><th class="ak-col-num">مقدار</th>
+                        <th class="ak-col-num">نرخ فی تن</th><th class="ak-col-num">مبلغ کل</th>
+                        <th>طرف حساب</th><th>انتخاب طرف</th><th>توضیح</th><th class="ak-col-actions"></th>
+                    </tr></thead>
+                    <tbody data-expense-rows>
+                    @foreach (var line in Model.Lines)
+                    {
+                        var token = line.Id > 0 ? "r" + line.Id : "n" + Guid.NewGuid().ToString("N");
+                        <partial name="_LoadingExpenseLineRow" model="line" view-data="RowData(token)" />
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ak-empty @(Model.Lines.Count == 0 ? null :"d-none")" data-rows-empty>
+                هنوز مصرفی ثبت نشده است. روی «افزودن مصرف» بزنید و نوع مصرف را انتخاب کنید.
+            </div>
+
+            <button type="button" class="ak-form-secondary-action" data-add-row>
+                <i class="bi bi-plus-lg"></i> افزودن مصرف
+            </button>
+
+            <template data-row-template>
+                <partial name="_LoadingExpenseLineRow" model="@(new PTGOilSystem.Web.Models.Loading.LoadingExpenseLineInputModel())" view-data="RowData(templateToken)" />
+            </template>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه مصارف", (string?)null))" />
+            <div class="ak-form-grid">
+            <div class="ak-field">
+                <span class="ak-label">تعداد ردیف‌ها</span>
+                <strong data-summary-count>@Model.Lines.Count</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-label">بدون طرف حساب</span>
+                <strong class="ak-num" data-summary-none>0.00 USD</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-label">شرکت خدماتی</span>
+                <strong class="ak-num" data-summary-provider>0.00 USD</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-label">دارایی ملکی</span>
+                <strong class="ak-num" data-summary-asset>0.00 USD</strong>
+            </div>
+            <div class="ak-field">
+                <span class="ak-label">مجموع کل مصارف</span>
+                <strong class="ak-num" data-summary-total>0.00 USD</strong>
+            </div></div>
+        </section>
+
+
+        <div class="ak-footer-actions">
+            @if (isModal)
+            {
+                <button type="button" class="ak-cancel" data-bs-dismiss="modal">بستن</button>
+            }
+            else
+            {
+                <a href="@resolvedCancelUrl" class="ak-cancel">انصراف</a>
+            }
+            <button type="submit" class="ak-save">ذخیره مصارف</button>
+        </div>
+    </form>
+</div>

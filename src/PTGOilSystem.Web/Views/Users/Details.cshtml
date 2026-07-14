@@ -1,0 +1,36 @@
+@model PTGOilSystem.Web.Models.Entities.User
+@{
+    ViewData["Title"] = "جزئیات کاربر";
+    var isLastActiveAdmin = ViewBag.IsLastActiveAdmin as bool? == true;
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جزئیات کاربر", "User details"), false,
+                       UiText.T(Context, "ویرایش", "Edit"), "bi-pencil",
+                       (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "اطلاعات کاربر", "User information"), (string?)Model.FullName))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>نام کامل</dt><dd>@Model.FullName</dd></div>
+            <div class="ak-list-row"><dt>نام کاربری</dt><dd class="ak-num">@Model.Username</dd></div>
+            <div class="ak-list-row"><dt>نقش</dt><dd>@(Model.Role?.Name ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span></dd></div>
+            <div class="ak-list-row"><dt>تاریخ ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+            <div class="ak-list-row"><dt>آخرین به‌روزرسانی</dt><dd>@Model.UpdatedAtUtc?.ToDisplayDateTime()</dd></div>
+        </dl>
+        <div class="ak-footer-actions">
+            <a asp-action="ResetPassword" asp-route-id="@Model.Id" class="ak-form-secondary-action">بازنشانی رمز</a>
+        </div>
+    </section>
+
+    @if (isLastActiveAdmin)
+    {
+        <div class="ak-note">
+            <i class="bi bi-shield-exclamation"></i>
+            <div>این کاربر آخرین مدیر فعال سیستم است و تغییر نقش یا غیرفعال‌سازی او در منطق سیستم محدود می‌شود.</div>
+        </div>
+    }
+</div>

@@ -1,0 +1,44 @@
+@model DailyFxRate
+@{
+    var baseCurrencies = ViewBag.BaseCurrencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var quoteCurrencies = ViewBag.QuoteCurrencies as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+}
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+<input asp-for="Id" type="hidden" />
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@((UiText.T(Context, "اطلاعات نرخ", "Rate Information"), (string?)UiText.T(Context, "جفت ارز، تاریخ و نرخ روز را دقیق ثبت کنید.", "Record the currency pair, date and daily rate.")))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="BaseCurrency" class="ak-label"></label>
+            <select asp-for="BaseCurrency" asp-items="baseCurrencies" class="ak-input">
+                <option value="">@UiText.T(Context, "انتخاب کنید", "Select")</option>
+            </select>
+            <span asp-validation-for="BaseCurrency" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="QuoteCurrency" class="ak-label"></label>
+            <select asp-for="QuoteCurrency" asp-items="quoteCurrencies" class="ak-input">
+                <option value="">@UiText.T(Context, "انتخاب کنید", "Select")</option>
+            </select>
+            <span asp-validation-for="QuoteCurrency" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="RateDate" class="ak-label"></label>
+            <input asp-for="RateDate" type="date" class="ak-input" />
+            <span asp-validation-for="RateDate" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Rate" class="ak-label"></label>
+            <input asp-for="Rate" class="ak-input ak-num" />
+            <span asp-validation-for="Rate" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Source" class="ak-label"></label>
+            <input asp-for="Source" class="ak-input" placeholder="@UiText.T(Context, "منبع یا توضیح کوتاه", "Source or short note")" />
+            <span asp-validation-for="Source" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

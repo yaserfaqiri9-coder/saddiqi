@@ -1,0 +1,131 @@
+@model PTGOilSystem.Web.Models.Reconciliation.IncompleteAfterReceiptViewModel
+@{
+    ViewData["Title"] = "بارهای در مسیر / ناتمام بعد از رسید بارگیری";
+
+    string FormatTruckDriver(PTGOilSystem.Web.Models.Reconciliation.IncompleteAfterReceiptItemViewModel item)
+    {
+        var parts = new[] { item.TruckPlateNumber, item.DriverName }.Where(v => !string.IsNullOrWhiteSpace(v));
+        return parts.Any() ? string.Join(" / ", parts) : "-";
+    }
+
+    string FormatLoadingReceiptText(PTGOilSystem.Web.Models.Reconciliation.IncompleteAfterReceiptItemViewModel item)
+    {
+        var parts = new List<string>();
+        if (item.LoadingRegisterId.HasValue) { parts.Add("Loading #" + item.LoadingRegisterId); }
+        if (item.LoadingReceiptId.HasValue) { parts.Add("Receipt #" + item.LoadingReceiptId); }
+        return parts.Count > 0 ? string.Join(" / ", parts) : "-";
+    }
+
+    string TranslateStatus(string raw) => raw switch
+    {
+        "Loaded" => "بارگیری‌شده",
+        "InTransit" => "در مسیر",
+        "Delivered" => "تحویل‌شده",
+        "Cancelled" => "لغوشده",
+        "TraceOnly" => "فقط Trace",
+        "Completed" => "تکمیل‌شده",
+        _ => raw
+    };
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("بارهای در مسیر / ناتمام بعد از رسید بارگیری", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "بازگشت", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+    </div>
+
+    <p class="ak-note">این گزارش فقط خواندنی است. هیچ موجودی، فاکتور یا ثبت مالی با باز کردن این صفحه ساخته یا تغییر داده نمی‌شود.</p>
+
+    <section class="ak-form-section ak-summary">
+        <dl class="ak-summary-list">
+            <div><dt>بارگیری مستقیم بدون پایان</dt><dd class="ak-num">@Model.DirectDispatchesWithoutFinish.Count.ToString("N0")</dd></div>
+            <div><dt>انتقال در مسیر</dt><dd class="ak-num">@Model.TransfersInTransit.Count.ToString("N0")</dd></div>
+            <div><dt>تضاد فروش/تخلیه</dt><dd class="ak-num @(Model.DispatchSaleAndDeliveryConflicts.Count > 0 ?"ak-num" : "")">@Model.DispatchSaleAndDeliveryConflicts.Count.ToString("N0")</dd></div>
+            <div><dt>بارگیری ناتمام موتر</dt><dd class="ak-num">@Model.DirectDispatchPartialRemaining.Count.ToString("N0")</dd></div>
+            <div><dt>در انتظار تسویه مخزن</dt><dd class="ak-num">@Model.PendingTankSettlements.Count.ToString("N0")</dd></div>
+            <div><dt>جمع کل</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    @{
+        var sections = new[]
+        {
+            ("dispatch-without-finish", "۱. موتر بار گرفته اما هنوز فروش یا تخلیه ثبت نشده", "موتر از واگن یا رسید بار گرفته و وضعیتش هنوز Loaded یا InTransit است؛ نه فروش (Sale) و نه تخلیه در مخزن (Unload) ثبت شده.", Model.DirectDispatchesWithoutFinish),
+            ("transfers-in-transit", "۲. انتقال هنوز در مسیر است", "این مقدار به ترمینال یا شهر دیگر انتقال شده، اما هنوز رسید مقصد ثبت نشده است.", Model.TransfersInTransit),
+            ("dispatch-conflict", "۳. تضاد بین فروش و تخلیه", "این موتر هم فروش (Sale) خورده و هم تخلیه (Unload/InventoryMovement) شده؛ یکی از دو رویداد نباید رخ داده باشد.", Model.DispatchSaleAndDeliveryConflicts),
+            ("dispatch-partial", "۴. بارگیری مستقیم با مقدار ناتمام", "از مقدار تخصیص، بخشی به موتر داده شده و بخشی هنوز باقی است.", Model.DirectDispatchPartialRemaining),
+            ("pending-tank-settlement", "۵. در انتظار تسویه نهایی مخزن", "این رسیدها با حالت «ضایعات بعداً از تسویه مخزن» ثبت شده‌اند و موجودی‌شان هنوز در مخزن است.", Model.PendingTankSettlements)
+        };
+    }
+
+    @foreach (var section in sections)
+    {
+        var sectionId = section.Item1;
+        var sectionRows = section.Item4;
+        <section class="ak-form-section" id="@sectionId">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((section.Item2 + $" — {sectionRows.Count} مورد", section.Item3))" />
+            @if (sectionRows.Count == 0)
+            {
+                <p class="ak-note"><i class="bi bi-check-circle"></i> موردی برای نمایش وجود ندارد.</p>
+            }
+            else
+            {
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th>نوع مسیر</th>
+                                <th class="ak-col-grow">قرارداد خرید</th>
+                                <th>Loading / Receipt</th>
+                                <th class="ak-col-num">مقدار MT</th>
+                                <th>موتر / راننده</th>
+                                <th>مقصد</th>
+                                <th>وضعیت فعلی</th>
+                                <th>مشکل</th>
+                                <th class="ak-col-actions no-print">جزئیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in sectionRows)
+                            {
+                                <tr>
+                                    <td>@item.PathTypeText</td>
+                                    <td class="ak-col-grow">@(string.IsNullOrWhiteSpace(item.ContractNumber) ? "-" : item.ContractNumber)</td>
+                                    <td>@FormatLoadingReceiptText(item)</td>
+                                    <td class="ak-col-num ak-num">
+                                        @item.QuantityMt.ToString("N3")
+                                        @if (item.RemainingQuantityMt.HasValue && item.RemainingQuantityMt.Value > 0m)
+                                        {
+                                            <div class="ak-note">دیسپچ‌شده: @item.DispatchedQuantityMt?.ToString("N3") MT</div>
+                                            <div class="ak-note">باقی‌مانده: @item.RemainingQuantityMt.Value.ToString("N3") MT</div>
+                                        }
+                                    </td>
+                                    <td>@FormatTruckDriver(item)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.DestinationName) ? "-" : item.DestinationName)</td>
+                                    <td>@TranslateStatus(item.CurrentStatus)</td>
+                                    <td>@item.Issue</td>
+                                    <td class="ak-col-actions no-print">
+                                        @if (!string.IsNullOrWhiteSpace(item.DetailsControllerName)
+                                            && !string.IsNullOrWhiteSpace(item.DetailsActionName)
+                                            && item.DetailsRouteId.HasValue && item.DetailsRouteId.Value > 0)
+                                        {
+                                            <a asp-controller="@item.DetailsControllerName" asp-action="@item.DetailsActionName" asp-route-id="@item.DetailsRouteId.Value">مشاهده</a>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

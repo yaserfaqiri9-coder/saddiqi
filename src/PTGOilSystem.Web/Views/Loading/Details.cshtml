@@ -1,0 +1,317 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingDetailsViewModel
+@{
+    var returnUrl = ViewBag.ReturnUrl as string;
+    ViewData["Title"] = "جزئیات بارگیری";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["LoadingExpenseEditorAssets"] = true;
+    var loadingListReturnUrl = Url.Action("Index", "Loading", new { contractId = Model.ContractId }) ?? "/Loading";
+    var effectiveReturnUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingListReturnUrl;
+    var currentPageReturnUrl = Context.Request.Path + Context.Request.QueryString;
+    var expenseEditor = Model.ExpenseEditor;
+    expenseEditor.ReturnUrl = currentPageReturnUrl;
+    var receiptEditor = Model.ReceiptEditor;
+    var expenseModalViewData = new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData)
+    {
+        ["IsExpenseModal"] = true,
+        ["CancelUrl"] = currentPageReturnUrl
+    };
+    var receiptModalViewData = new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData)
+    {
+        ["IsReceiptModal"] = true,
+        ["CancelUrl"] = currentPageReturnUrl
+    };
+
+    var expenseLines = Model.ExpenseEditor?.Lines ?? new List<PTGOilSystem.Web.Models.Loading.LoadingExpenseLineInputModel>();
+    var loadingExpenseTotal = expenseLines.Count > 0
+        ? expenseLines.Sum(l => l.AmountUsd)
+        : (Model.TransportExpenseUsd ?? 0m)
+            + (Model.WarehouseExpenseUsd ?? 0m)
+            + (Model.OtherExpenseUsd ?? 0m)
+            + (Model.RailwayExpenseUsd ?? 0m);
+    var customsTotal = Model.CustomsItems.Sum(c => c.TotalUsd);
+    var lossChargeableTotal = Model.LossItems.Sum(l => l.ChargeableLossMt);
+    var loadingCostsGrandTotal = loadingExpenseTotal + customsTotal;
+    var loadingJourneyUrl = Url.Action("Index", "ContractJourney", new { contractId = Model.ContractId }) ?? "#";
+
+    var isRubSettlement = string.Equals(Model.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase);
+    var rubRateEditor = Model.RubleRateEditor;
+    var rubStatusLabel = Model.RubRateStatus == PTGOilSystem.Web.Models.Entities.RubSettlementRateStatus.Locked
+        ? "قفل‌شده"
+        : Model.RubRateStatus == PTGOilSystem.Web.Models.Entities.RubSettlementRateStatus.Pending ? "در انتظار نرخ" : "نیاز نیست";
+    var hasFileRub = Model.HasFileRub;
+    var fileRubAmountText = Model.SettlementValueRub.HasValue ? $"₽ {Model.SettlementValueRub.Value:N2}" : "-";
+    var fileRubUnitText = Model.SettlementUnitPriceRub.HasValue ? $"₽ {Model.SettlementUnitPriceRub.Value:N2}" : "-";
+    var rubAmountText = Model.AmountRubAtRubLock.HasValue
+        ? $"₽ {Model.AmountRubAtRubLock.Value:N2}"
+        : hasFileRub ? fileRubAmountText : isRubSettlement ? "در انتظار نرخ" : "-";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"جزئیات بارگیری #{Model.Id}", false, "ویرایش", "bi-pencil-square",
+                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentPageReturnUrl }), (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)effectiveReturnUrl))" />
+    <p class="ak-section-desc">@Model.ContractNumber · @Model.ProductName</p>
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#loadingExpensesModal">
+            <i class="bi bi-receipt-cutoff"></i><span>مصارف</span>
+        </button>
+        @if (Model.RemainingToReceiveMt > 0 && receiptEditor is not null)
+        {
+            <button type="button" class="btn btn-primary ak-primary-action" data-bs-toggle="modal" data-bs-target="#loadingReceiptModal">
+                <i class="bi bi-box-arrow-in-down"></i><span>رسید</span>
+            </button>
+        }
+        <a class="btn btn-light ak-secondary-action" asp-controller="CustomsDeclarations" asp-action="Create" asp-route-loadingRegisterId="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
+            <i class="bi bi-shield-check"></i><span>ثبت گمرکات</span>
+        </a>
+        <a class="btn btn-light ak-secondary-action" asp-controller="LossEvents" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-loadingRegisterId="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
+            <i class="bi bi-exclamation-diamond"></i><span>کسری</span>
+        </a>
+        <a class="btn btn-light ak-secondary-action" href="@loadingJourneyUrl"><i class="bi bi-diagram-3"></i><span>نمای قرارداد</span></a>
+    </div>
+
+    <section class="ak-form-section ak-form-grid">
+        <div class="ak-field">
+            <span class="ak-label">تاریخ</span>
+            <strong>@Model.LoadingDate.ToDisplayDate()</strong>
+            <span class="ak-section-desc">وسیله: @Model.VehicleSummary</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">وزن بارگیری</span>
+            <strong class="ak-num">@NumberDisplay.Quantity(Model.LoadedQuantityMt) MT</strong>
+            <span class="ak-section-desc">رسید شده: @NumberDisplay.Quantity(Model.TotalReceivedQuantityMt) MT</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">باقی‌مانده</span>
+            @if (Model.RemainingToReceiveMt > 0)
+            {
+                <span class="ak-status is-inactive"><i class="bi bi-hourglass-split"></i> @NumberDisplay.Quantity(Model.RemainingToReceiveMt) MT</span>
+            }
+            else
+            {
+                <span class="ak-status is-active"><i class="bi bi-check-circle"></i> تکمیل رسید</span>
+            }
+            <span class="ak-section-desc">مقصد: @(Model.DestinationName ?? "-")</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">جمع مصرف</span>
+            <strong class="ak-num">@loadingCostsGrandTotal.ToString("N2") USD</strong>
+            <span class="ak-section-desc">گمرکات: @customsTotal.ToString("N2") USD</span>
+        </div>
+    </section>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>شماره</dt><dd class="ak-num">#@Model.Id</dd></div>
+                <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.LoadingDate.ToDisplayDate()</dd></div>
+                <div class="ak-list-row"><dt>قرارداد</dt><dd>@Model.ContractNumber</dd></div>
+                <div class="ak-list-row"><dt>جنس</dt><dd>@Model.ProductName</dd></div>
+                <div class="ak-list-row"><dt>قیمت فی تن</dt><dd class="ak-num">@(Model.LoadingPriceUsd?.ToString("N2") ?? "-") USD/MT</dd></div>
+                <div class="ak-list-row"><dt>ارزش بارگیری</dt><dd class="ak-num">@(Model.LoadingValueUsd?.ToString("N2") ?? "-") USD</dd></div>
+                <div class="ak-list-row"><dt>مصارف عملیاتی</dt><dd class="ak-num">@loadingExpenseTotal.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>گمرکات</dt><dd class="ak-num">@customsTotal.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>جمع مصرف</dt><dd class="ak-num">@loadingCostsGrandTotal.ToString("N2") USD</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حمل و مسیر", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>نوع حمل</dt><dd>@Model.TransportTypeLabel</dd></div>
+                <div class="ak-list-row"><dt>وسیله</dt><dd><bdi>@Model.VehicleSummary</bdi></dd></div>
+                <div class="ak-list-row"><dt>سند حمل</dt><dd><bdi>@(Model.BillOfLadingNumber ?? "-")</bdi></dd></div>
+                <div class="ak-list-row"><dt>مبدأ</dt><dd>@(Model.OriginLocationName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>مقصد</dt><dd>@(Model.DestinationName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>گیرنده</dt><dd>@(Model.ConsigneeName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>کرایه فی تن</dt><dd class="ak-num">@NumberDisplay.UnitPrice(Model.FreightRateUsdPerMt, "USD/MT")</dd></div>
+                <div class="ak-list-row"><dt>مسیر</dt><dd>@(Model.RouteDescription ?? "-")</dd></div>
+                <div class="ak-list-row">
+                    <dt>شرکت خدماتی</dt>
+                    <dd>
+                        @if (Model.LogisticsServiceProviderId.HasValue)
+                        {
+                            <a asp-controller="ServiceProviders" asp-action="Details" asp-route-id="@Model.LogisticsServiceProviderId.Value">@(Model.LogisticsCompanyName ?? "-")</a>
+                        }
+                        else { @(Model.LogisticsCompanyName ?? "-") }
+                    </dd>
+                </div>
+            </dl>
+        </section>
+    </div>
+
+    @if (hasFileRub || isRubSettlement)
+    {
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قیمت روبلی بارگیری", (string?)null))" />
+            <div class="ak-form-grid">
+                @if (hasFileRub)
+                {
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>قیمت روبلی فی تن (فایل)</dt><dd class="ak-num">@fileRubUnitText / MT</dd></div>
+                        <div class="ak-list-row"><dt>ارزش روبلی</dt><dd class="ak-num">@fileRubAmountText</dd></div>
+                    </dl>
+                }
+                @if (isRubSettlement)
+                {
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>وضعیت</dt><dd>@rubStatusLabel</dd></div>
+                        <div class="ak-list-row"><dt>هر ۱ دالر چند روبل؟</dt><dd class="ak-num">@NumberDisplay.FxRate(Model.RubPerUsdRate)</dd></div>
+                        <div class="ak-list-row"><dt>ارزش دالری بارگیری</dt><dd class="ak-num">@(Model.AmountUsdAtRubLock?.ToString("N2") ?? Model.LoadingValueUsd?.ToString("N2") ?? "-") USD</dd></div>
+                        @if (!hasFileRub)
+                        {
+                            <div class="ak-list-row"><dt>معادل روبلی</dt><dd class="ak-num">@rubAmountText</dd></div>
+                        }
+                        <div class="ak-list-row"><dt>تاریخ نرخ</dt><dd>@(Model.RubRateDate?.ToDisplayDate() ?? "-")</dd></div>
+                        <div class="ak-list-row"><dt>مرجع نرخ</dt><dd>@(Model.RubRateSource ?? "-")</dd></div>
+                    </dl>
+                }
+            </div>
+
+            @if (isRubSettlement && Model.RubRateStatus == PTGOilSystem.Web.Models.Entities.RubSettlementRateStatus.Pending)
+            {
+                <form asp-action="SetRubleRate" asp-route-id="@Model.Id" method="post" class="ak-form">
+                    @Html.AntiForgeryToken()
+                    <input name="Id" value="@rubRateEditor.Id" type="hidden" />
+                    <input name="ReturnUrl" value="@currentPageReturnUrl" type="hidden" />
+                    <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label class="ak-label" for="RubPerUsdRate">هر ۱ دالر چند روبل؟</label>
+                        <input class="ak-input" id="RubPerUsdRate" name="RubPerUsdRate" value="@(rubRateEditor.RubPerUsdRate?.ToString("0.######"))" type="number" min="0.000001" step="0.000001" placeholder="مثلاً 80" />
+                    </div>
+                    <div class="ak-field">
+                        <label class="ak-label" for="RubRateDate">تاریخ نرخ</label>
+                        <input class="ak-input" id="RubRateDate" name="RubRateDate" value="@(rubRateEditor.RubRateDate?.ToHtmlDateInput())" type="date" />
+                    </div>
+                    <div class="ak-field">
+                        <label class="ak-label" for="RubRateSource">مرجع نرخ</label>
+                        <input class="ak-input" id="RubRateSource" name="RubRateSource" value="@rubRateEditor.RubRateSource" type="text" maxlength="200" />
+                    </div>
+                    </div>
+                    <div class="ak-footer-actions"><button type="submit" class="ak-save">تعیین نرخ روبل</button></div>
+                </form>
+            }
+        </section>
+    }
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <header class="ak-section-head"><h2 class="ak-section-title">رسیدها</h2><span class="ak-status">@Model.ReceiptItems.Count</span>
+            </header>
+            <div class="ak-list">
+                @foreach (var item in Model.ReceiptItems.Take(5))
+                {
+                    <div class="ak-list-row">
+                        <div class="ak-col-grow">
+                            <span>@item.ReceiptDate.ToDisplayDate()</span>
+                            <strong>@item.TerminalName / @(item.StorageTankCode ?? "-")</strong>
+                        </div>
+                        <div class="ak-num">
+                            <strong>@NumberDisplay.Quantity(item.ReceivedQuantityMt) MT</strong>
+                            <span>@(item.ReferenceDocument ?? "-")</span>
+                        </div>
+                    </div>
+                }
+                @if (Model.ReceiptItems.Count == 0)
+                {
+                    <div class="ak-empty">هنوز رسید ثبت نشده است.</div>
+                }
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <header class="ak-section-head"><h2 class="ak-section-title">گمرکات</h2><span class="ak-status">@customsTotal.ToString("N2") USD</span>
+            </header>
+            <div class="ak-list">
+                @foreach (var cd in Model.CustomsItems.Take(5))
+                {
+                    <div class="ak-list-row">
+                        <div class="ak-col-grow">
+                            <span>@cd.DeclarationDate.ToDisplayDate()</span>
+                            <strong>@(cd.DeclarationReference ?? "-")</strong>
+                        </div>
+                        <div class="ak-num">
+                            <strong>@cd.TotalUsd.ToString("N2") USD</strong>
+                            <span>@(cd.WagonOrTruckNumber ?? "-") / @cd.TotalAfnEquivalent.ToString("N0") AFN</span>
+                        </div>
+                    </div>
+                }
+                @if (Model.CustomsItems.Count == 0)
+                {
+                    <div class="ak-empty">هنوز سند گمرکی ثبت نشده است.</div>
+                }
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <header class="ak-section-head"><h2 class="ak-section-title">کسری</h2><span class="ak-status">@NumberDisplay.Quantity(lossChargeableTotal) MT</span>
+            </header>
+            <div class="ak-list">
+                @foreach (var loss in Model.LossItems.Take(5))
+                {
+                    <div class="ak-list-row">
+                        <div class="ak-col-grow">
+                            <span>@loss.EventDate.ToDisplayDate()</span>
+                            <strong>@loss.Stage</strong>
+                        </div>
+                        <div class="ak-num">
+                            <strong>@NumberDisplay.Quantity(loss.DifferenceQuantityMt) MT</strong>
+                            <span>@(loss.ResponsiblePartyName ?? "-")</span>
+                        </div>
+                        <a class="ak-row-menu-btn" asp-controller="LossEvents" asp-action="Edit" asp-route-id="@loss.Id" asp-route-returnUrl="@currentPageReturnUrl" aria-label="ویرایش"><i class="bi bi-pencil"></i></a>
+                    </div>
+                }
+                @if (Model.LossItems.Count == 0)
+                {
+                    <div class="ak-empty">کسری ثبت نشده است.</div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("یادداشت", (string?)null))" />
+        <p class="ak-note">@(string.IsNullOrWhiteSpace(Model.Notes) ? "یادداشتی برای این بارگیری ثبت نشده است." : Model.Notes)</p>
+    </section>
+
+    <div class="modal fade" id="loadingExpensesModal" tabindex="-1" aria-labelledby="loadingExpensesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="loadingExpensesModalLabel">مصارف بارگیری #@Model.Id</h2>
+                    <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="بستن"></button>
+                </div>
+                <div class="modal-body">
+                    <partial name="_LoadingExpenseEditor" model="expenseEditor" view-data="expenseModalViewData" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (receiptEditor is not null)
+    {
+        <div class="modal fade" id="loadingReceiptModal" tabindex="-1" aria-labelledby="loadingReceiptModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title" id="loadingReceiptModalLabel">ثبت رسید بارگیری #@Model.Id</h2>
+                            <p class="ak-section-desc">@Model.ContractNumber · @Model.ProductName · باقی‌مانده @NumberDisplay.Quantity(Model.RemainingToReceiveMt) MT</p>
+                        </div>
+                        <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="بستن"></button>
+                    </div>
+                    <div class="modal-body">
+                        <partial name="~/Views/LoadingReceipts/_ReceiptCreateForm.cshtml" model="receiptEditor" view-data="receiptModalViewData" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

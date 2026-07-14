@@ -1,0 +1,56 @@
+/*
+ * PTG global density pass — compacts shared components across every page.
+ * Loaded after the component layers so equal-specificity rules win by order.
+ * Spacing only: no colors, no typography scale, no structural changes.
+ */
+
+/* ---- Tables: tighter row rhythm ---- */
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) thead th,
+body.ptg-modal-document :where(.table, .ds-table) thead th {
+    padding: .45rem .65rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.table, .ds-table) tbody :where(td, th),
+body.ptg-modal-document :where(.table, .ds-table) tbody :where(td, th) {
+    padding: .4rem .65rem;
+    line-height: 1.35;
+}
+
+/* ---- Buttons: slimmer padding{
+    padding-block: .32rem;
+    padding-inline: .7rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.form-label, .col-form-label),
+body.ptg-modal-document :where(.form-label, .col-form-label) {
+    margin-bottom: .25rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.mb-3, .form-group),
+body.ptg-modal-document :where(.mb-3, .form-group) {
+    margin-bottom: .6rem !important;
+}
+
+/* ---- Cards: tighter shared card bodies ---- */
+body.boltz-shell.app-shell-authenticated :where(.ptg-card, .ds-card, .kpi-card, .card) > :where(.card-body),
+body.ptg-modal-document :where(.ptg-card, .ds-card, .kpi-card, .card) > :where(.card-body) {
+    padding: .75rem .85rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.card) > :where(.card-header, .card-footer),
+body.ptg-modal-document :where(.card) > :where(.card-header, .card-footer) {
+    padding-block: .5rem;
+}
+
+/* ---- Modals: tighter chrome ---- */
+body.boltz-shell.app-shell-authenticated :where(.modal-header, .modal-footer) {
+    padding-block: .55rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(.modal-body) {
+    padding-block: .75rem;
+}
+
+body.boltz-shell.app-shell-authenticated :where(h1, h2, h3, h4, h5, h6):where(.mb-4, .mb-3) {
+    margin-bottom: .75rem !important;
+}

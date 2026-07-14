@@ -1,0 +1,6 @@
+@{
+    var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+    var pageCount = (int)(ViewData["PageCount"] ?? 1);
+}
+
+@await Html.PartialAsync("_Pagination", (currentPage, pageCount))

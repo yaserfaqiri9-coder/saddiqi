@@ -1,0 +1,91 @@
+@model PTGOilSystem.Web.Models.Inventory.InventoryMovementCreateViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "ثبت حرکت موجودی";
+}
+
+<div class="ak-form-page">
+    <partial name="Components/Ak/_AkPageHeader"
+             model='(("ثبت حرکت موجودی", false, (string?)null, (string?)null, (string?)null, (string?)null, "بازگشت", "bi-arrow-right", Url.Action("Index")))' />
+
+    <form asp-action="Create" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="ak-form-alert text-danger"></div>
+
+        <section class="ak-form-section">
+            <partial name="Components/Ak/_AkSectionHead"
+                     model='(("جنس و محل نگهداری", "جنس، قرارداد منبع و محل ثبت حرکت را مشخص کنید."))' />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="ProductId" class="ak-label"></label>
+                    <select asp-for="ProductId" asp-items="ViewBag.Products" class="ak-input">
+                        <option value="">انتخاب جنس</option>
+                    </select>
+                    <span asp-validation-for="ProductId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ContractId" class="ak-label"></label>
+                    <select asp-for="ContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                        <option value="">بدون قرارداد منبع</option>
+                    </select>
+                    <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="TerminalId" class="ak-label"></label>
+                    <select asp-for="TerminalId" asp-items="ViewBag.Terminals" class="ak-input">
+                        <option value="">انتخاب ترمینال</option>
+                    </select>
+                    <span asp-validation-for="TerminalId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="StorageTankId" class="ak-label"></label>
+                    <select asp-for="StorageTankId" asp-items="ViewBag.StorageTanks" class="ak-input">
+                        <option value="">بدون مخزن</option>
+                    </select>
+                    <span asp-validation-for="StorageTankId" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="Components/Ak/_AkSectionHead"
+                     model='(("مشخصات حرکت", "نوع حرکت، مقدار و تاریخ سند را وارد کنید."))' />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Direction" class="ak-label"></label>
+                    <select asp-for="Direction" class="ak-input">
+                        <option value="@((int)MovementDirection.In)">ورود (+)</option>
+                        <option value="@((int)MovementDirection.Out)">خروج (-)</option>
+                        <option value="@((int)MovementDirection.Adjustment)">تعدیل</option>
+                        <option value="@((int)MovementDirection.Transfer)">انتقال</option>
+                    </select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="QuantityMt" class="ak-label"></label>
+                    <input asp-for="QuantityMt" class="ak-input" placeholder="0.0000" />
+                    <span asp-validation-for="QuantityMt" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="MovementDate" class="ak-label"></label>
+                    <input asp-for="MovementDate" class="ak-input" type="date" />
+                    <span asp-validation-for="MovementDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ReferenceDocument" class="ak-label"></label>
+                    <input asp-for="ReferenceDocument" class="ak-input" placeholder="شماره سند، بارنامه یا حواله" />
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Notes" class="ak-label"></label>
+                    <textarea asp-for="Notes" rows="4" class="ak-input" placeholder="یادداشت اختیاری"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <partial name="Components/Ak/_AkFooterActions"
+                 model='(("ثبت حرکت موجودی", Url.Action("Index")!, "انصراف"))' />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

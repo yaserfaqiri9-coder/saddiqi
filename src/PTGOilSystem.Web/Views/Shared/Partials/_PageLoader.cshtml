@@ -1,0 +1,28 @@
+@{
+    var loaderLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var loaderIsEnglish = string.Equals(loaderLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    var loaderSrText = loaderIsEnglish ? "Preparing page" : "در حال آماده‌سازی صفحه";
+}
+<div id="ptg-page-loader" class="ptg-loader" role="status" aria-live="polite" aria-busy="false" aria-hidden="true">
+    <div class="ptg-loader__box">
+        <div class="ptg-loader__stage">
+            <div class="ptg-loader__halo"></div>
+            <svg class="ptg-loader__ring" viewBox="0 0 148 148" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <circle class="ptg-loader__track" cx="74" cy="74" r="61"></circle>
+                <circle class="ptg-loader__arc ptg-loader__arc--red" cx="74" cy="74" r="61"></circle>
+                <circle class="ptg-loader__arc ptg-loader__arc--red-soft" cx="74" cy="74" r="61"></circle>
+                <circle class="ptg-loader__track" cx="74" cy="74" r="49"></circle>
+                <circle class="ptg-loader__arc ptg-loader__arc--green" cx="74" cy="74" r="49"></circle>
+                <circle class="ptg-loader__arc ptg-loader__arc--green-soft" cx="74" cy="74" r="49"></circle>
+            </svg>
+            <img class="ptg-loader__brand"
+                 src="~/images/saddiqi-loader-symbol.png"
+                 asp-append-version="true"
+                 alt=""
+                 width="78"
+                 height="78"
+                 decoding="async" />
+        </div>
+        <span class="ptg-loader__sr">@loaderSrText</span>
+    </div>
+</div>

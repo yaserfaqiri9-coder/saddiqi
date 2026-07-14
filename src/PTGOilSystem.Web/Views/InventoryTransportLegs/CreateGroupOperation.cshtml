@@ -1,0 +1,552 @@
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupOperationViewModel
+@{
+    ViewData["Title"] = "عملیات حمل";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Journey", new { groupKey = Model.GroupKey });
+
+    string ModeName(InventoryTransportReceiptDestination d) => d switch
+    {
+        InventoryTransportReceiptDestination.ToInventory => T("تخلیه کل حمل به مخزن/گدام", "Unload whole transport to tank"),
+        InventoryTransportReceiptDestination.DirectSale => T("فروش مستقیم و تسویهٔ کل حمل", "Direct sale & settle whole transport"),
+        InventoryTransportReceiptDestination.DirectDispatch => T("ارسال کل حمل با موتر", "Send whole transport by truck"),
+        _ => d.ToString()
+    };
+    var modes = new[]
+    {
+        InventoryTransportReceiptDestination.ToInventory,
+        InventoryTransportReceiptDestination.DirectSale,
+        InventoryTransportReceiptDestination.DirectDispatch
+    };
+}
+
+<div class="ak-form-page">
+    <form asp-action="CreateGroupOperation"
+          method="post"
+          class="ak-form-section ak-form fara-document-form"
+          id="group-operation-form">
+        <div class="ak-page-header">
+            <div class="ak-page-actions">
+                <a href="@cancelUrl" class="ak-secondary-action" aria-label="@T("بازگشت", "Back")" title="@T("بازگشت", "Back")">
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    <span>@T("بازگشت", "Back")</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="ak-section-body p-4 p-md-5">
+            @Html.AntiForgeryToken()
+            <input asp-for="GroupKey" type="hidden" />
+            <input asp-for="TransportReference" type="hidden" />
+            <input asp-for="TotalLoadedQuantityMt" type="hidden" />
+            <input asp-for="ReturnUrl" type="hidden" />
+
+            <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+            <div class="ak-form">
+                <section class="ak-form-section" data-fara-title="@T("مشخصات عملیات", "Operation details")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="Mode" class="ak-label"></label>
+                            <select asp-for="Mode" class="ak-input" id="op-mode">
+                                @foreach (var m in modes)
+                                {
+                                    <option value="@((int)m)" selected="@(Model.Mode == m)">@ModeName(m)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="OperationDate" class="ak-label"></label>
+                            <input asp-for="OperationDate" type="date" class="ak-input" />
+                            <span asp-validation-for="OperationDate" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── بخش مشترک: تخلیه به مخزن ── *@
+                <section class="ak-form-section op-mode-block" data-mode="0" data-fara-title="@T("مقصد تخلیه", "Unload destination")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="DestinationTerminalId" class="ak-label"></label>
+                            <select asp-for="DestinationTerminalId" asp-items="ViewBag.DestinationTerminals" class="ak-input">
+                                <option value="">@T("انتخاب ترمینال", "Select terminal")</option>
+                            </select>
+                            <span asp-validation-for="DestinationTerminalId" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="DestinationStorageTankId" class="ak-label"></label>
+                            <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input">
+                                <option value="">@T("بدون مخزن", "No tank")</option>
+                            </select>
+                            <span asp-validation-for="DestinationStorageTankId" class="field-validation-error"></span>
+                            <script type="application/json" data-destination-tanks>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.DestinationStorageTankTerminalMap ?? new object[0]))</script>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── بخش مشترک: فروش مستقیم ── *@
+                <section class="ak-form-section op-mode-block" data-mode="1" data-fara-title="@T("مشخصات فروش", "Sale details")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="SaleCustomerId" class="ak-label"></label>
+                            <select asp-for="SaleCustomerId" asp-items="ViewBag.Customers" class="ak-input">
+                                <option value="">@T("انتخاب مشتری", "Select customer")</option>
+                            </select>
+                            <span asp-validation-for="SaleCustomerId" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="SaleCurrency" class="ak-label"></label>
+                            <select asp-for="SaleCurrency" asp-items="ViewBag.Currencies" class="ak-input" data-group-sale-currency></select>
+                            <span asp-validation-for="SaleCurrency" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="SaleUnitPriceInCurrency" class="ak-label"></label>
+                            <input asp-for="SaleUnitPriceInCurrency" class="ak-input" data-group-sale-unit-price />
+                            <span asp-validation-for="SaleUnitPriceInCurrency" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="SaleAppliedFxRateToUsd" class="ak-label"></label>
+                            <input asp-for="SaleAppliedFxRateToUsd" class="ak-input" data-group-sale-fx-rate />
+                            <span asp-validation-for="SaleAppliedFxRateToUsd" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <div class="ak-note" data-group-sale-total-preview>
+                                <span class="ak-label">@T("خلاصه فروش", "Sale summary")</span>
+                                <span class="ak-num" data-group-sale-total-value>@T("0.0000 MT | 0.00 USD", "0.0000 MT | 0.00 USD")</span>
+                                <small class="text-muted d-block mt-1" data-group-sale-total-usd></small>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── بخش مشترک: ارسال با موتر ── *@
+                <section class="ak-form-section op-mode-block" data-mode="2" data-fara-title="@T("مشخصات حمل", "Dispatch details")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="DirectDispatchDestinationLocationId" class="ak-label"></label>
+                            <select asp-for="DirectDispatchDestinationLocationId" asp-items="ViewBag.Locations" class="ak-input">
+                                <option value="">@T("مقصد پیش‌فرض حمل", "Default transport destination")</option>
+                            </select>
+                            <span asp-validation-for="DirectDispatchDestinationLocationId" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── شرکت خدماتی/دارایی برای کرایه (در حالت تخلیه به مخزن مخفی می‌شود) ── *@
+                @{
+                    var groupOpPartyType = Model.OperationalAssetId.HasValue ? "asset" : "service";
+                }
+                <section class="ak-form-section" data-group-op-freight data-fara-title="@T("کرایه و طرف حساب", "Freight")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="FreightRateUsdPerMt" class="ak-label"></label>
+                            <input asp-for="FreightRateUsdPerMt" type="number" step="0.0001" min="0" class="ak-input" />
+                            <span class="ak-note">@T("فی تن کرایه برای محاسبه کرایه کل استفاده می‌شود.", "Per-ton freight is used to calculate total freight.")</span>
+                            <span class="ak-note text-success d-none" data-freight-registered-note>
+                                <i class="bi bi-check2-circle"></i>
+                                @T("کرایه این حمل قبلاً ثبت شده و در ستون کرایه نهایی نمایش داده می‌شود.",
+                                   "Freight is already recorded and shown in the final freight column.")
+                            </span>
+                            <span asp-validation-for="FreightRateUsdPerMt" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageRateUsd" class="ak-label"></label>
+                            <input asp-for="ShortageRateUsd" type="number" step="0.0001" min="0" class="ak-input" />
+                            <span asp-validation-for="ShortageRateUsd" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field" data-group-op-party-type-wrap>
+                            <label class="ak-label">@T("نوع مسئول کرایه", "Freight party type")</label>
+                            <select class="ak-input" data-group-op-party-type>
+                                <option value="service" selected="@(groupOpPartyType == "service" ? "selected" : null)">@T("شرکت خدماتی بیرونی", "External service provider")</option>
+                                <option value="asset" selected="@(groupOpPartyType == "asset" ? "selected" : null)">@T("دارایی عملیاتی شرکت", "Company operational asset")</option>
+                            </select>
+                        </div>
+                        <div class="ak-field" data-group-op-party="service">
+                            <label asp-for="ServiceProviderId" class="ak-label"></label>
+                            <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input">
+                                <option value="">@T("بدون شرکت خدماتی", "No service provider")</option>
+                            </select>
+                            <span asp-validation-for="ServiceProviderId" class="field-validation-error"></span>
+                        </div>
+                        <div class="ak-field" data-group-op-party="asset">
+                            <label asp-for="OperationalAssetId" class="ak-label"></label>
+                            <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input">
+                                <option value="">@T("بدون دارایی عملیاتی", "No operational asset")</option>
+                            </select>
+                            <span asp-validation-for="OperationalAssetId" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── ردیف تخصیص‌ها ── *@
+                <section class="ak-form-section" data-fara-title="@T("ردیف‌های تخصیص", "Allocation rows")">
+                    <div class="ak-table-wrap">
+                        <table class="ak-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>№</th>
+                                    <th>@T("قرارداد", "Contract")</th>
+                                    <th>@T("جنس", "Product")</th>
+                                    <th class="text-end">@T("وزن سیمیر", "Waybill weight")</th>
+                                    <th class="text-end">@T("وزن رسید", "Received weight")</th>
+                                    <th class="text-end">@T("کمبودی", "Shortage")</th>
+                                    <th class="text-end">@T("تلورانس", "Allowance")</th>
+                                    <th class="op-col-freight">@T("نحوهٔ خسارت", "Shortage handling")</th>
+                                    <th class="text-end op-col-freight">@T("کرایه نهایی (USD)", "Final freight (USD)")</th>
+                                    <th class="op-col-sale">@T("شماره فاکتور", "Invoice #")</th>
+                                    <th class="op-col-dispatch">@T("موتر", "Truck")</th>
+                                    <th class="op-col-dispatch">@T("راننده", "Driver")</th>
+                                    <th class="op-col-dispatch">@T("سریال تکت", "Ticket")</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < Model.Legs.Count; i++)
+                                {
+                                    <tr data-op-row
+                                        data-op-loaded="@Model.Legs[i].QuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                        data-op-transport="@((int)Model.Legs[i].TransportType)"
+                                        data-op-registered-freight="@Model.Legs[i].RegisteredFreightUsd.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                        <td class="text-muted">@(i + 1)</td>
+                                        <td>
+                                            <input asp-for="Legs[i].LegId" type="hidden" />
+                                            <input asp-for="Legs[i].QuantityMt" type="hidden" />
+                                            <span>@Model.Legs[i].ContractNumber</span>
+                                        </td>
+                                        <td>
+                                            <span>@Model.Legs[i].ProductName</span>
+                                        </td>
+                                        <td class="text-end" dir="ltr">@NumberDisplay.Quantity(Model.Legs[i].QuantityMt)</td>
+                                        <td class="text-end">
+                                            <input asp-for="Legs[i].ReceivedQuantityMt" class="ak-input text-end" dir="ltr" data-op-received />
+                                            <span asp-validation-for="Legs[i].ReceivedQuantityMt" class="field-validation-error"></span>
+                                        </td>
+                                        <td class="text-end">
+                                            <input asp-for="Legs[i].ShortageQuantityMt" class="ak-input text-end" dir="ltr" data-op-shortage />
+                                            <span asp-validation-for="Legs[i].ShortageQuantityMt" class="field-validation-error"></span>
+                                        </td>
+                                        <td class="text-end">
+                                            <input asp-for="Legs[i].AllowanceMt" class="ak-input text-end" dir="ltr" data-op-allowance />
+                                            <span asp-validation-for="Legs[i].AllowanceMt" class="field-validation-error"></span>
+                                        </td>
+                                        <td class="op-col-freight" data-op-shortage-cell>
+                                            <select class="ak-input" data-op-shortage-mode aria-label="@T("نحوهٔ محاسبهٔ خسارت", "Shortage handling")">
+                                                <option value="deduct">@T("کسر از کرایه", "Deduct from freight")</option>
+                                                <option value="debt">@T("ثبت بدهی جداگانه", "Post as separate debt")</option>
+                                            </select>
+                                            <input type="hidden" name="Legs[@i].DeductShortageFromFreight" value="@(Model.Legs[i].DeductShortageFromFreight ? "true" : "false")" data-op-deduct />
+                                            <input type="hidden" name="Legs[@i].ShortageAsSeparateDebt" value="@(Model.Legs[i].ShortageAsSeparateDebt ? "true" : "false")" data-op-debt />
+                                            <span class="op-shortage-none text-muted small" data-op-shortage-none>@T("بدون خسارت", "No shortage")</span>
+                                        </td>
+                                        <td class="text-end op-col-freight" dir="ltr">
+                                            <div data-op-final-freight>@(Model.Legs[i].HasRegisteredFreight ? Model.Legs[i].RegisteredFreightUsd.ToString("N2") : "—")</div>
+                                            <small class="text-muted d-block" data-op-shortage-charge-line hidden>@T("خسارت", "Shortage"): <span data-op-shortage-charge>0.00</span></small>
+                                            <small class="text-danger d-block" data-op-separate-debt-line hidden>@T("بدهی جدا", "Separate debt"): <span data-op-separate-debt>0.00</span></small>
+                                        </td>
+                                        <td class="op-col-sale">
+                                            <input asp-for="Legs[i].SaleInvoiceNumber" class="ak-input" />
+                                            <span asp-validation-for="Legs[i].SaleInvoiceNumber" class="field-validation-error"></span>
+                                        </td>
+                                        <td class="op-col-dispatch">
+                                            <select asp-for="Legs[i].DirectDispatchTruckId" asp-items="ViewBag.Trucks" class="ak-input">
+                                                <option value="">—</option>
+                                            </select>
+                                            <span asp-validation-for="Legs[i].DirectDispatchTruckId" class="field-validation-error"></span>
+                                        </td>
+                                        <td class="op-col-dispatch">
+                                            <select asp-for="Legs[i].DirectDispatchDriverId" asp-items="ViewBag.Drivers" class="ak-input">
+                                                <option value="">—</option>
+                                            </select>
+                                        </td>
+                                        <td class="op-col-dispatch">
+                                            <input asp-for="Legs[i].DirectDispatchTicketSerialNumber" class="ak-input" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-fara-title="@T("توضیحات", "Notes")">
+                    <div class="ak-form-grid g-4">
+                        <div class="ak-field">
+                            <label asp-for="Notes" class="ak-label"></label>
+                            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <div class="ak-footer-actions">
+            <a href="@cancelUrl" class="btn btn-light ak-secondary-action loading-action-back">@T("انصراف", "Cancel")</a>
+            <button type="submit" class="btn btn-primary ak-primary-action loading-action-primary">@T("ثبت کلی", "Register all")</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var saleUsdRecordedText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T("مبلغ فروش به دالر ثبت می‌شود.", "Sale amount is recorded in USD.")));
+            var saleUsdEquivalentText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T("معادل USD:", "USD equivalent:")));
+            var saleFxHintText = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T("برای محاسبه معادل USD نرخ تبدیل را وارد کنید.", "Enter the FX rate to calculate the USD equivalent.")));
+            var modeSelect = document.getElementById('op-mode');
+            var freight = document.querySelector('[data-group-op-freight]');
+            var partyType = document.querySelector('[data-group-op-party-type]');
+            var partyTypeWrap = document.querySelector('[data-group-op-party-type-wrap]');
+            var partyWraps = Array.prototype.slice.call(document.querySelectorAll('[data-group-op-party]'));
+
+            function setWrapActive(wrap, active, clearOnHide) {
+                if (!wrap) return;
+                wrap.style.display = active ? '' : 'none';
+                wrap.querySelectorAll('select, input, textarea').forEach(function (el) {
+                    el.disabled = !active;
+                    if (!active && clearOnHide !== false) { el.value = ''; }
+                });
+            }
+
+            // بخش کرایه و طرف حساب در همهٔ حالت‌ها (ازجمله «فروش مستقیم») نمایش داده می‌شود
+            // تا فروش و تسویهٔ کرایه با هم انجام شوند. انتخاب شرکت خدماتی/دارایی در applyParty کنترل می‌شود.
+            function applyFreightSection() {
+                setWrapActive(freight, true, false);
+            }
+
+            // در تخلیه به مخزن (mode 0) فقط «شرکت خدماتی/دارایی عملیاتی» مخفی می‌شود
+            // و در حالت‌های مجاز فقط یکی از آن‌ها دیده می‌شود.
+            function applyParty() {
+                var partyActive = modeSelect && modeSelect.value !== '0';
+                setWrapActive(partyTypeWrap, partyActive);
+                if (!partyActive) {
+                    partyWraps.forEach(function (w) { setWrapActive(w, false); });
+                    return;
+                }
+                var chosen = partyType ? partyType.value : 'service';
+                partyWraps.forEach(function (w) {
+                    setWrapActive(w, w.getAttribute('data-group-op-party') === chosen);
+                });
+            }
+
+            function applyMode() {
+                var mode = modeSelect.value;
+                document.querySelectorAll('.op-mode-block').forEach(function (el) {
+                    el.style.display = (el.getAttribute('data-mode') === mode) ? '' : 'none';
+                });
+                document.querySelectorAll('.op-col-sale').forEach(function (el) {
+                    el.style.display = (mode === '1') ? '' : 'none';
+                });
+                document.querySelectorAll('.op-col-dispatch').forEach(function (el) {
+                    el.style.display = (mode === '2') ? '' : 'none';
+                });
+                applyFreightSection();
+                applyParty();
+                applyFreightRegisteredState();
+            }
+
+            // فیلتر مخزن مقصد بر اساس ترمینال انتخاب‌شده: فقط مخزن‌های همان ترمینال
+            var terminalSelect = document.getElementById('DestinationTerminalId');
+            var tankSelect = document.getElementById('DestinationStorageTankId');
+            var tankDataEl = document.querySelector('[data-destination-tanks]');
+            var tanks = [];
+            if (tankDataEl) { try { tanks = JSON.parse(tankDataEl.textContent || '[]'); } catch (e) { tanks = []; } }
+            var phOption = tankSelect ? tankSelect.querySelector('option[value=""]') : null;
+            var tankPlaceholder = phOption ? phOption.textContent : '';
+            function rebuildTanks() {
+                if (!terminalSelect || !tankSelect) { return; }
+                var terminalId = terminalSelect.value;
+                var current = tankSelect.value;
+                var list = terminalId
+                    ? tanks.filter(function (t) { return String(t.terminalId) === String(terminalId); })
+                    : tanks;
+                tankSelect.innerHTML = '';
+                var ph = document.createElement('option');
+                ph.value = '';
+                ph.textContent = tankPlaceholder;
+                tankSelect.appendChild(ph);
+                var keep = false;
+                list.forEach(function (t) {
+                    var o = document.createElement('option');
+                    o.value = String(t.id);
+                    o.textContent = t.code;
+                    if (String(t.id) === String(current)) { o.selected = true; keep = true; }
+                    tankSelect.appendChild(o);
+                });
+                if (!keep) { tankSelect.value = ''; }
+            }
+
+            // محاسبهٔ نمایشیِ «کرایه نهایی» هر ردیف موتر/واگن (فقط نمایش؛ سرور همان منطق سرویس را اعمال می‌کند).
+            // Wagon=2, Truck=3 در enum LoadingTransportType.
+            var freightRateEl = document.getElementById('FreightRateUsdPerMt');
+            var shortageRateEl = document.getElementById('ShortageRateUsd');
+            var registeredNoteEl = document.querySelector('[data-freight-registered-note]');
+            var saleCurrencyEl = document.querySelector('[data-group-sale-currency]');
+            var saleUnitPriceEl = document.querySelector('[data-group-sale-unit-price]');
+            var saleFxRateEl = document.querySelector('[data-group-sale-fx-rate]');
+            var saleTotalValueEl = document.querySelector('[data-group-sale-total-value]');
+            var saleTotalUsdEl = document.querySelector('[data-group-sale-total-usd]');
+            function num(el) { var v = el && el.value ? parseFloat(el.value) : 0; return isFinite(v) ? v : 0; }
+            function normalizeDigits(value) {
+                return String(value || '')
+                    .replace(/[۰-۹]/g, function (char) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(char)); })
+                    .replace(/[٠-٩]/g, function (char) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(char)); });
+            }
+            function decimalValue(el) {
+                var raw = el ? normalizeDigits(el.value).replace(/,/g, '').trim() : '';
+                var parsed = raw ? parseFloat(raw) : 0;
+                return isFinite(parsed) ? parsed : 0;
+            }
+            function formatAmount(value, fractionDigits) {
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: fractionDigits,
+                    maximumFractionDigits: fractionDigits
+                }).format(value || 0);
+            }
+            function registeredFreight(row) {
+                var v = parseFloat(row.getAttribute('data-op-registered-freight'));
+                return isFinite(v) && v > 0 ? v : 0;
+            }
+            function recalcSaleTotal() {
+                if (!saleTotalValueEl) { return; }
+                var totalQuantity = 0;
+                Array.prototype.slice.call(document.querySelectorAll('[data-op-received]')).forEach(function (input) {
+                    totalQuantity += decimalValue(input);
+                });
+                var unitPrice = decimalValue(saleUnitPriceEl);
+                var totalAmount = totalQuantity * unitPrice;
+                var currency = saleCurrencyEl && saleCurrencyEl.value ? saleCurrencyEl.value : 'USD';
+                saleTotalValueEl.textContent = formatAmount(totalQuantity, 4) + ' MT | ' + formatAmount(totalAmount, 2) + ' ' + currency;
+
+                if (!saleTotalUsdEl) { return; }
+                var isUsd = String(currency).toUpperCase() === 'USD';
+                var fxRate = decimalValue(saleFxRateEl);
+                if (isUsd) {
+                    saleTotalUsdEl.textContent = saleUsdRecordedText;
+                    return;
+                }
+                if (fxRate > 0) {
+                    saleTotalUsdEl.textContent = saleUsdEquivalentText + ' ' + formatAmount(totalAmount * fxRate, 2) + ' USD';
+                    return;
+                }
+                saleTotalUsdEl.textContent = saleFxHintText;
+            }
+            // گرد کردن به ۴ رقم مثل سرور (AwayFromZero برای مقادیر مثبت = round نیم‌به‌بالا).
+            function r4(x) { return Math.round((Number.isFinite(x) ? x : 0) * 1e4) / 1e4; }
+            function rowShortageMode(row) {
+                var sel = row.querySelector('[data-op-shortage-mode]');
+                return sel ? sel.value : 'deduct';
+            }
+            // مقادیر hidden را با انتخاب کاربر هماهنگ کن؛ همیشه فقط یکی true.
+            function syncRowHiddenMode(row) {
+                var mode = rowShortageMode(row);
+                var deductEl = row.querySelector('[data-op-deduct]');
+                var debtEl = row.querySelector('[data-op-debt]');
+                if (deductEl) { deductEl.value = (mode === 'debt') ? 'false' : 'true'; }
+                if (debtEl) { debtEl.value = (mode === 'debt') ? 'true' : 'false'; }
+            }
+            // محاسبهٔ کرایهٔ نهایی و خسارت دقیقاً با همان منطق سرور (NormalizeTruckReceiptFields):
+            //   base = received + shortage ، gross = base×fr ، chargeable = max(0, shortage − allowance)
+            //   shortageCharge = chargeable×sr ، کسر از کرایه: final = gross − shortageCharge ، بدهی جدا: final = gross.
+            function recalcFreight() {
+                var fr = num(freightRateEl), sr = num(shortageRateEl);
+                Array.prototype.slice.call(document.querySelectorAll('[data-op-row]')).forEach(function (row) {
+                    var finalEl = row.querySelector('[data-op-final-freight]');
+                    if (!finalEl) { return; }
+                    var chargeLine = row.querySelector('[data-op-shortage-charge-line]');
+                    var chargeVal = row.querySelector('[data-op-shortage-charge]');
+                    var debtLine = row.querySelector('[data-op-separate-debt-line]');
+                    var debtVal = row.querySelector('[data-op-separate-debt]');
+                    var modeSel = row.querySelector('[data-op-shortage-mode]');
+                    var noneEl = row.querySelector('[data-op-shortage-none]');
+
+                    var received = num(row.querySelector('[data-op-received]'));
+                    var shortage = num(row.querySelector('[data-op-shortage]'));
+                    var allowance = num(row.querySelector('[data-op-allowance]'));
+                    var chargeable = Math.max(0, shortage - allowance);
+                    var hasChargeable = chargeable > 0 && sr > 0;
+
+                    syncRowHiddenMode(row);
+                    var isDebt = rowShortageMode(row) === 'debt';
+                    var shortageCharge = hasChargeable ? r4(chargeable * sr) : 0;
+
+                    // انتخاب نحوهٔ خسارت فقط وقتی کسری قابل مطالبه هست دیده می‌شود؛ در غیر این صورت «بدون خسارت».
+                    if (modeSel) { modeSel.style.display = hasChargeable ? '' : 'none'; modeSel.disabled = !hasChargeable; }
+                    if (noneEl) { noneEl.style.display = hasChargeable ? 'none' : ''; }
+
+                    var reg = registeredFreight(row);
+                    var transport = row.getAttribute('data-op-transport');
+                    var isTruckWagon = (transport === '2' || transport === '3');
+                    var gross, finalFreight;
+                    if (reg > 0) {
+                        gross = reg;
+                        finalFreight = isDebt ? gross : r4(gross - shortageCharge);
+                    } else if (!isTruckWagon || fr <= 0) {
+                        finalEl.textContent = '—';
+                        if (chargeLine) { chargeLine.hidden = true; }
+                        if (debtLine) { debtLine.hidden = true; }
+                        return;
+                    } else {
+                        gross = r4((received + shortage) * fr);
+                        finalFreight = isDebt ? gross : r4(gross - shortageCharge);
+                    }
+
+                    finalEl.textContent = finalFreight.toFixed(2);
+                    if (chargeVal) { chargeVal.textContent = shortageCharge.toFixed(2); }
+                    if (debtVal) { debtVal.textContent = shortageCharge.toFixed(2); }
+                    if (chargeLine) { chargeLine.hidden = !hasChargeable; }
+                    if (debtLine) { debtLine.hidden = !(hasChargeable && isDebt); }
+                });
+            }
+            // اگر همهٔ ردیف‌های موتر/واگن کرایهٔ ثبت‌شده دارند، فیلد «فی تن کرایه» غیرفعال و یادداشت نمایش داده می‌شود.
+            function applyFreightRegisteredState() {
+                if (freight && freight.style.display === 'none') {
+                    if (registeredNoteEl) { registeredNoteEl.classList.add('d-none'); }
+                    return;
+                }
+                var rows = Array.prototype.slice.call(document.querySelectorAll('[data-op-row]'));
+                var eligible = rows.filter(function (row) {
+                    var t = row.getAttribute('data-op-transport');
+                    return t === '2' || t === '3';
+                });
+                var allRegistered = eligible.length > 0 && eligible.every(function (row) { return registeredFreight(row) > 0; });
+                if (freightRateEl) {
+                    freightRateEl.disabled = allRegistered;
+                    if (allRegistered) { freightRateEl.value = ''; }
+                }
+                if (registeredNoteEl) { registeredNoteEl.classList.toggle('d-none', !allRegistered); }
+            }
+
+            if (modeSelect) { modeSelect.addEventListener('change', applyMode); }
+            if (partyType) { partyType.addEventListener('change', applyParty); }
+            if (terminalSelect) { terminalSelect.addEventListener('change', rebuildTanks); }
+            if (freightRateEl) { freightRateEl.addEventListener('input', recalcFreight); }
+            if (shortageRateEl) { shortageRateEl.addEventListener('input', recalcFreight); }
+            Array.prototype.slice.call(document.querySelectorAll('[data-op-received], [data-op-allowance], [data-op-shortage]')).forEach(function (el) {
+                el.addEventListener('input', recalcFreight);
+                el.addEventListener('input', recalcSaleTotal);
+            });
+            Array.prototype.slice.call(document.querySelectorAll('[data-op-shortage-mode]')).forEach(function (sel) {
+                sel.addEventListener('change', recalcFreight);
+            });
+            if (saleUnitPriceEl) { saleUnitPriceEl.addEventListener('input', recalcSaleTotal); }
+            if (saleFxRateEl) { saleFxRateEl.addEventListener('input', recalcSaleTotal); }
+            if (saleCurrencyEl) { saleCurrencyEl.addEventListener('change', recalcSaleTotal); }
+
+            // مقداردهی اولیهٔ selectها از hidden سرور (برای redisplay بعد از خطای اعتبارسنجی).
+            Array.prototype.slice.call(document.querySelectorAll('[data-op-row]')).forEach(function (row) {
+                var debtEl = row.querySelector('[data-op-debt]');
+                var sel = row.querySelector('[data-op-shortage-mode]');
+                if (sel && debtEl && String(debtEl.value).toLowerCase() === 'true') { sel.value = 'debt'; }
+            });
+
+            rebuildTanks();
+            if (modeSelect) { applyMode(); }
+            applyFreightRegisteredState();
+            recalcFreight();
+            recalcSaleTotal();
+        })();
+    </script>
+}

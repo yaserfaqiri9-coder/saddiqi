@@ -1,0 +1,114 @@
+@model PTGOilSystem.Web.Models.LossEvents.LossEventDetailsViewModel
+@using PTGOilSystem.Web.Models.LossEvents
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "LossEvents") ?? "/LossEvents";
+    var currentReturnUrl = Context.Request.Path + Context.Request.QueryString;
+    var inventoryStatus = Model.AffectsInventory ? T("اثر دارد", "Affects inventory") : T("اثر ندارد", "No impact");
+    var hasChargeable = Model.ChargeableLossMt > 0m;
+
+    ViewData["Title"] = T("جزئیات کسری", "Loss Event Details");
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((T("جزئیات کسری", "Loss details") + $" #{Model.Id}", false,
+                       T("ویرایش", "Edit"), "bi-pencil-square",
+                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), (string?)null,
+                       T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(hasChargeable ?"is-inactive" : "is-active")">
+            @T("کسری قابل محاسبه", "Chargeable loss"): @Model.ChargeableLossMt.ToString("N4") MT
+        </span>
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="@(Url.Action("Create", new { returnUrl = backUrl }) ?? "#")"><i class="bi bi-plus-lg"></i> @T("کسری جدید", "New loss")</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <section class="ak-form-section ak-form-grid">
+        <div class="ak-field">
+            <span class="ak-label">@T("مرحله", "Stage")</span>
+            <strong>@LossEventStageLabels.ToPersian(Model.Stage)</strong>
+            <span class="ak-section-desc">@T("تاریخ", "Date"): @Model.EventDate.ToDisplayDate()</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("اختلاف", "Difference") (MT)</span>
+            <strong class="ak-num">@Model.DifferenceQuantityMt.ToString("N4")</strong>
+            <span class="ak-section-desc">@T("جنس", "Product"): @Model.ProductName</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("کسری قابل محاسبه", "Chargeable loss") (MT)</span>
+            <strong class="ak-num">@Model.ChargeableLossMt.ToString("N4")</strong>
+            <span class="ak-section-desc">@T("مجاز", "Allowable"): @Model.AllowableLossMt.ToString("N4") MT</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("مسئولیت", "Responsibility")</span>
+            <strong>@(Model.ResponsiblePartyName ?? "-")</strong>
+            <span class="ak-section-desc">@T("اثر بر موجودی", "Inventory impact"): @inventoryStatus</span>
+        </div>
+    </section>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("نمای کسری", "Loss overview"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("شماره داخلی", "Internal id")</dt><dd class="ak-num">#@Model.Id</dd></div>
+                <div class="ak-list-row"><dt>@T("تاریخ", "Date")</dt><dd>@Model.EventDate.ToDisplayDate()</dd></div>
+                <div class="ak-list-row"><dt>@T("مرحله", "Stage")</dt><dd>@LossEventStageLabels.ToPersian(Model.Stage)</dd></div>
+                <div class="ak-list-row"><dt>@T("جنس", "Product")</dt><dd>@Model.ProductName</dd></div>
+                <div class="ak-list-row"><dt>@T("قرارداد", "Contract")</dt><dd>@(Model.ContractNumber ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("مرجع", "Reference")</dt><dd>@(Model.Reference ?? "-")</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("محاسبه مقدار", "Quantity calculation"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("مورد انتظار", "Expected")</dt><dd class="ak-num">@Model.ExpectedQuantityMt.ToString("N4") MT</dd></div>
+                <div class="ak-list-row"><dt>@T("واقعی", "Actual")</dt><dd class="ak-num">@Model.ActualQuantityMt.ToString("N4") MT</dd></div>
+                <div class="ak-list-row"><dt>@T("تفاوت", "Difference")</dt><dd class="ak-num">@Model.DifferenceQuantityMt.ToString("N4") MT</dd></div>
+                <div class="ak-list-row"><dt>@T("حد تحمل", "Tolerance")</dt><dd class="ak-num">@Model.ToleranceQuantityMt.ToString("N4") MT</dd></div>
+                <div class="ak-list-row"><dt>@T("کسری مجاز", "Allowable")</dt><dd class="ak-num">@Model.AllowableLossMt.ToString("N4") MT</dd></div>
+                <div class="ak-list-row"><dt>@T("قابل محاسبه", "Chargeable")</dt><dd class="ak-num">@Model.ChargeableLossMt.ToString("N4") MT</dd></div>
+            </dl>
+        </section>
+    </div>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("ارتباط عملیاتی", "Operational relationship"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("بارگیری", "Loading")</dt><dd>@(Model.LoadingRegisterLabel ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("رسید بارگیری", "Loading receipt")</dt><dd>@(Model.LoadingReceiptLabel ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("ارسال با موتر", "Truck send")</dt><dd>@(Model.TruckDispatchLabel ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("فروش", "Sale")</dt><dd>@(Model.SalesLabel ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("ترمینال", "Terminal")</dt><dd>@(Model.TerminalName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("مخزن", "Tank")</dt><dd>@(Model.StorageTankCode ?? "-")</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("مسئولیت و برخورد مالی", "Responsibility & treatment"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("نوع مسئول", "Responsible type")</dt><dd>@(Model.ResponsiblePartyType ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("نام", "Name")</dt><dd>@(Model.ResponsiblePartyName ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("برخورد مالی", "Financial treatment")</dt><dd>@(Model.FinancialTreatment ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("اثر بر موجودی", "Inventory impact")</dt><dd>@inventoryStatus</dd></div>
+                <div class="ak-list-row"><dt>InventoryMovement</dt><dd>@(Model.InventoryMovementId.HasValue ? $"#{Model.InventoryMovementId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("یادداشت", "Notes")</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? T("یادداشتی ثبت نشده است.", "No notes recorded.") : Model.Notes)</dd></div>
+            </dl>
+        </section>
+    </div>
+</div>

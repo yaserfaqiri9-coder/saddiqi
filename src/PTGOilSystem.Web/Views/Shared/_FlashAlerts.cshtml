@@ -1,0 +1,39 @@
+@{
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEnglishUi = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEnglishUi ? en : fa;
+
+    var okMessage = TempData["ok"] as string;
+    var errMessage = TempData["err"] as string;
+    var errorMessage = TempData["error"] as string;
+    var dangerMessage = !string.IsNullOrWhiteSpace(errMessage) ? errMessage : errorMessage;
+}
+
+@if (!string.IsNullOrWhiteSpace(okMessage) || !string.IsNullOrWhiteSpace(dangerMessage))
+{
+    <div class="boltz-alert-stack" aria-live="polite" aria-relevant="additions">
+        @if (!string.IsNullOrWhiteSpace(okMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show boltz-alert" role="status" data-boltz-auto-dismiss="3600">
+                <i class="bi bi-check-circle-fill boltz-alert-icon" aria-hidden="true"></i>
+                <div class="boltz-alert-body">
+                    <strong class="boltz-alert-title">@T("انجام شد", "Done")</strong>
+                    <div class="boltz-alert-message">@okMessage</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="@T("بستن", "Close")"></button>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(dangerMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show boltz-alert" role="alert" data-boltz-auto-dismiss="6200">
+                <i class="bi bi-exclamation-triangle-fill boltz-alert-icon" aria-hidden="true"></i>
+                <div class="boltz-alert-body">
+                    <strong class="boltz-alert-title">@T("نیاز به بررسی", "Needs attention")</strong>
+                    <div class="boltz-alert-message">@dangerMessage</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="@T("بستن", "Close")"></button>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,488 @@
+@using PTGOilSystem.Web.Helpers
+@using PTGOilSystem.Web.Models.TruckSettlements
+@model PTGOilSystem.Web.Models.TruckSettlements.TruckSettlementIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "تسویهٔ کرایه موترها", "Truck Freight Settlement");
+    var serviceProviders = (IEnumerable<TruckSettlementPartyOption>)ViewBag.ServiceProviders;
+    var operationalAssets = (IEnumerable<TruckSettlementPartyOption>)ViewBag.OperationalAssets;
+    var drivers = (IEnumerable<TruckSettlementPartyOption>)ViewBag.Drivers;
+    string DecimalRequired(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+    string DecimalOptional(decimal? value) => value.HasValue ? value.Value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "";
+    string DateValue(DateTime value) => value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="ak-form-page ak-list-page">
+    @* هدر مثل بقیهٔ تب‌های عملیات؛ دکمهٔ ثبت با form="tsForm" بیرون از فرم می‌ماند اما همان فرم را submit می‌کند. *@
+    <header class="ak-page-header">
+        <div class="ak-page-heading">
+            <h1 class="ak-page-title">@UiText.T(Context, "تسویهٔ کرایه موترها", "Truck Freight Settlement")</h1>
+        </div>
+        <div class="ak-page-actions">
+            <button type="button" class="btn btn-light ak-secondary-action" id="tsToolsToggle" aria-expanded="false" aria-controls="tsToolsPanel">
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "ابزارها", "Tools")</span>
+            </button>
+            <button type="submit" form="tsForm" class="btn btn-primary ak-primary-action" id="tsSubmitBtn" disabled>
+                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "ثبت تسویه", "Settle")</span>
+            </button>
+        </div>
+    </header>
+    <div class="ak-list">
+        @* ابزارها و آپلود اکسل: دکمهٔ باز/بسته «ابزارها» در هدر صفحه است (tsToolsToggle).
+           پنل زیر بیرون از فرمِ تسویه می‌ماند چون خودش فرمِ آپلود دارد و فرم‌ها تودرتو نمی‌شوند. *@
+        <div class="ak-form-section" id="tsToolsPanel" hidden>
+            @* آپلود اکسل: نمبر موتر/واگن + وزن تخلیه + حواکت را روی ردیف‌های همین لیست پیش‌پر می‌کند.
+               فرم جدا از فرم تسویه است (فرم‌ها تودرتو نمی‌شوند) و هیچ ثبتی انجام نمی‌دهد. *@
+            <form method="post" asp-controller="TruckSettlements" asp-action="ImportExcel"
+                  enctype="multipart/form-data" class="ak-form-grid" data-no-spa data-no-submit-guard>
+                @Html.AntiForgeryToken()
+                <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
+                <span class="ak-label">@UiText.T(Context, "آپلود اکسل تخلیه:", "Discharge Excel:")</span>
+                <input type="file" name="file" accept=".xlsx" class="ak-input" required />
+                <button type="submit" class="btn ak-secondary-action">
+                    <i class="bi bi-upload" aria-hidden="true"></i>
+                    <span>@UiText.T(Context, "آپلود و پیش‌پر", "Upload & prefill")</span>
+                </button>
+                <span class="ak-section-desc">@UiText.T(Context, "ستون‌ها: نمبر موتر/واگن • وزن تخلیه • حواکت", "Columns: Vehicle No • Discharge weight • Allowance")</span>
+            </form>
+
+            @* اعمال گروهی نرخ‌ها: مقادیرِ واردشده روی همهٔ ردیف‌های انتخاب‌شده اعمال می‌شود (فقط سمت مرورگر). *@
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label for="tsBulkFreightRate">@UiText.T(Context, "نرخ کرایه (دالر فی تن)", "Freight rate (USD/MT)")</label>
+                    <input type="number" step="0.01" min="0" id="tsBulkFreightRate" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label for="tsBulkShortageRate">@UiText.T(Context, "نرخ کسری (دالر فی تن)", "Shortage rate (USD/MT)")</label>
+                    <input type="number" step="0.01" min="0" id="tsBulkShortageRate" class="ak-input" />
+                </div>
+                <button type="button" class="btn ak-secondary-action ak-primary-action" id="tsBulkApply">
+                    <i class="bi bi-lightning-charge" aria-hidden="true"></i>
+                    <span>@UiText.T(Context, "اعمال روی ردیف‌های انتخاب‌شده", "Apply to selected rows")</span>
+                </button>
+                <span class="ak-section-desc" id="tsBulkHint"></span>
+            </div>
+        </div>
+        @{
+            var tsFilter = new AkSearchFilterModel("q", Model.Query,
+                UiText.T(Context, "جستجو: نمبر موتر، راننده، جنس، قرارداد، تاریخ…", "Search: plate, driver, product, contract, date…"),
+                new List<AkFilterDefinition>
+                {
+                    new("kind", UiText.T(Context, "نوع منبع", "Source type"), "select",
+                        new List<AkFilterOption>
+                        {
+                            new(((int)TruckSettlementSourceKind.Leg).ToString(), UiText.T(Context, "حمل از موجودی", "Inventory transfer")),
+                            new(((int)TruckSettlementSourceKind.Dispatch).ToString(), UiText.T(Context, "ارسال موتر", "Truck send"))
+                        },
+                        Model.Kind.HasValue ? ((int)Model.Kind.Value).ToString() : null)
+                });
+        }
+        @* نوار جست‌وجو/فیلتر مشترک — بیرون از فرمِ تسویه (فرم GET است و فرم‌ها تودرتو نمی‌شوند). *@
+        <div class="ak-list-toolbar">
+            <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="tsFilter" />
+        </div>
+
+        @* data-no-spa: این فرم batch مالی است؛ spa-nav فرم را با fetch می‌فرستد و هر خطای POST را با
+           fallback به GET روی endpoint فقط-POST تبدیل به 405 گمراه‌کننده می‌کند. *@
+        <form method="post" asp-controller="TruckSettlements" asp-action="Settle" id="tsForm" data-no-spa data-no-submit-guard>
+            @Html.AntiForgeryToken()
+            <template id="tsPartyOptionsTemplate">
+                <option value="">@UiText.T(Context, "— پیش‌فرض همین حمل —", "— Record default —")</option>
+                <optgroup label="@UiText.T(Context, "راننده‌ها", "Drivers")">
+                    @foreach (var d in drivers)
+                    {
+                        <option value="driver:@d.Id">@d.Name</option>
+                    }
+                    <option value="driver:new">@UiText.T(Context, "+ راننده جدید (ساخت خودکار پروفایل)", "+ New driver (auto profile)")</option>
+                </optgroup>
+                <optgroup label="@UiText.T(Context, "شرکت‌های خدماتی", "Service providers")">
+                    @foreach (var p in serviceProviders)
+                    {
+                        <option value="sp:@p.Id">@p.Name</option>
+                    }
+                </optgroup>
+                <optgroup label="@UiText.T(Context, "موتر / واگن خودی شرکت", "Company assets")">
+                    @foreach (var a in operationalAssets)
+                    {
+                        <option value="asset:@a.Id">@a.Name</option>
+                    }
+                </optgroup>
+            </template>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger ak-form-alert" role="alert">
+                    <div asp-validation-summary="All"></div>
+                </div>
+            }
+
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead>
+                        <tr>
+                            <th class="ak-col-check">
+                                <input type="checkbox" id="tsCheckAll" class="ak-check" title="@UiText.T(Context, "انتخاب همه", "Select all")" />
+                            </th>
+                            <th class="col-name">@UiText.T(Context, "نمبر موتر / واگن", "Vehicle No")</th>
+                            <th>@UiText.T(Context, "جنس / قرارداد", "Product / Contract")</th>
+                            <th>@UiText.T(Context, "راننده", "Driver")</th>
+                            <th>@UiText.T(Context, "مسیر", "Route")</th>
+                            <th class="col-status">@UiText.T(Context, "نوع", "Type")</th>
+                            <th>@UiText.T(Context, "بار باقیمانده (تن)", "Remaining (MT)")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Rows.Count; i++)
+                        {
+                            var row = Model.Rows[i];
+                            var input = Model.Inputs[i];
+                            <tr class="ak-list-row"
+                                data-ts-row="@row.RowKey"
+                                data-ts-row-index="@i"
+                                data-ts-row-kind="@((int)row.Kind)"
+                                data-ts-remaining="@DecimalRequired(row.RemainingQuantityMt)"
+                                data-ts-operation-date="@DateValue(input.OperationDate)"
+                                data-ts-quantity="@DecimalRequired(input.QuantityMt)"
+                                data-ts-freight-rate="@DecimalOptional(input.FreightRateUsdPerMt)"
+                                data-ts-freight="@DecimalOptional(input.FreightUsd)"
+                                data-ts-shortage="@DecimalRequired(input.ShortageMt)"
+                                data-ts-allowance="@DecimalOptional(input.AllowanceMt)"
+                                data-ts-shortage-rate="@DecimalOptional(input.ShortageRateUsd)"
+                                data-ts-deductions="@DecimalOptional(input.OtherDeductionsUsd)"
+                                data-ts-party="@input.FreightParty"
+                                data-ts-new-driver="@input.NewDriverName"
+                                data-ts-notes="@input.Notes">
+                                <td class="ak-col-check">
+                                    <input type="checkbox" class="ak-check" data-ts-select asp-for="Inputs[i].Selected" data-ts-target="@row.RowKey" />
+                                    <input type="hidden" asp-for="Inputs[i].Kind" />
+                                    <input type="hidden" asp-for="Inputs[i].SourceId" />
+                                </td>
+                                <td class="col-name">
+                                    @await Html.PartialAsync("_OperationsListIdentity", ("bi-truck", row.VehicleNumber, row.Date.ToDisplayDate(), true))
+                                </td>
+                                <td>
+                                    <span class="ak-label">@row.ProductName</span>
+                                    <span class="ak-section-desc col-ltr">@row.ContractNumber</span>
+                                </td>
+                                <td>@(row.DriverName ?? "-")</td>
+                                <td>
+                                    <span class="ak-label">@(row.SourceName ?? "-")</span>
+                                    <span class="ak-section-desc">@(row.DestinationName ?? "-")</span>
+                                </td>
+                                <td class="col-status"><span class="ak-status is-info">@row.TypeLabel</span></td>
+                                <td class="col-ltr fw-bold">@NumberDisplay.Quantity(row.RemainingQuantityMt)</td>
+                            </tr>
+                            <tr data-ts-panel="@row.RowKey" hidden>
+                                <td colspan="7">
+                                    <div class="ak-section-body" data-ts-panel-host></div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Rows.Any())
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="ak-empty">
+                                        <i class="bi bi-check2-all"></i>
+                                        @UiText.T(Context, "هیچ موتر/واگنی با کرایهٔ تسویه‌نشده وجود ندارد — همه تسویه شده‌اند.", "No vehicles with unsettled freight — everything is settled.")
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('tsForm');
+            if (!form) return;
+            var submitBtn = document.getElementById('tsSubmitBtn');
+
+            function panelFor(key) { return form.querySelector('[data-ts-panel="' + key + '"]'); }
+            function mainRowFor(key) { return form.querySelector('[data-ts-row="' + key + '"]'); }
+
+            function updateSubmitState() {
+                var any = form.querySelectorAll('[data-ts-select]:checked').length > 0;
+                if (submitBtn) submitBtn.disabled = !any;
+            }
+
+            // کسری خودکار = باقیماندهٔ بار منهای وزن تخلیه (فقط تسویه؛ همیشه محاسبه‌شده و فقط‌خواندنی).
+            function syncAutoShortage(panel) {
+                var remaining = parseFloat(panel.getAttribute('data-ts-remaining')) || 0;
+                var qty = parseFloat(panel.querySelector('[data-ts-qty]')?.value) || 0;
+                var shortageInput = panel.querySelector('[data-ts-shortage]');
+                if (shortageInput) shortageInput.value = Math.max(remaining - qty, 0).toFixed(4);
+            }
+
+            function recalc(panel) {
+                var qty = parseFloat(panel.querySelector('[data-ts-qty]')?.value) || 0;
+                var shortage = parseFloat(panel.querySelector('[data-ts-shortage]')?.value) || 0;
+
+                // نرخ فی تن → کرایه کلی خودکار = نرخ × (وزن تخلیه + کسری = بار حمل)
+                var freightRate = parseFloat(panel.querySelector('[data-ts-freight-rate-input]')?.value) || 0;
+                var freightInput = panel.querySelector('[data-ts-freight-input]');
+                if (freightRate > 0 && freightInput) {
+                    freightInput.value = (freightRate * (qty + shortage)).toFixed(2);
+                }
+                var freight = parseFloat(freightInput?.value) || 0;
+
+                // کسری قابل مجرا = کسری − حواکت
+                var allowance = parseFloat(panel.querySelector('[data-ts-allowance-input]')?.value) || 0;
+                var chargeable = Math.max(shortage - allowance, 0);
+                var chargeableBox = panel.querySelector('[data-ts-chargeable]');
+                if (chargeableBox) chargeableBox.textContent = chargeable.toFixed(4);
+
+                // کرایه نهایی = کرایه کلی − کسورات − (کسری قابل مجرا × نرخ کسری)
+                var shortageRate = parseFloat(panel.querySelector('[data-ts-shortage-rate-input]')?.value) || 0;
+                var deductions = parseFloat(panel.querySelector('[data-ts-deductions-input]')?.value) || 0;
+                var payable = Math.max(freight - deductions - (chargeable * shortageRate), 0);
+                var target = panel.querySelector('[data-ts-payable]');
+                if (target) target.textContent = payable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>"']/g, function (ch) {
+                    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+                });
+            }
+
+            function rowData(mainRow, name) {
+                return mainRow ? (mainRow.getAttribute('data-ts-' + name) || '') : '';
+            }
+
+            function optionsFromTemplate(templateId, selectedValue) {
+                var template = document.getElementById(templateId);
+                var select = document.createElement('select');
+                select.innerHTML = template ? template.innerHTML : '';
+                if (selectedValue !== undefined && selectedValue !== null && selectedValue !== '') {
+                    Array.prototype.forEach.call(select.options, function (option) {
+                        option.selected = option.value === String(selectedValue);
+                    });
+                }
+                return select.innerHTML;
+            }
+
+            function inputName(index, field) {
+                return 'Inputs[' + index + '].' + field;
+            }
+
+            function buildPanelHtml(mainRow) {
+                var index = rowData(mainRow, 'row-index');
+                var prefix = 'Inputs[' + index + ']';
+                var remaining = rowData(mainRow, 'remaining');
+                var kind = rowData(mainRow, 'row-kind');
+                var dateName = inputName(index, 'OperationDate');
+                var quantityName = inputName(index, 'QuantityMt');
+                var freightRateName = inputName(index, 'FreightRateUsdPerMt');
+                var freightName = inputName(index, 'FreightUsd');
+                var shortageName = inputName(index, 'ShortageMt');
+                var allowanceName = inputName(index, 'AllowanceMt');
+                var shortageRateName = inputName(index, 'ShortageRateUsd');
+                var deductionsName = inputName(index, 'OtherDeductionsUsd');
+
+                return `
+                    <div class="ak-form-section" data-ts-settlement-panel data-ts-remaining="${escapeHtml(remaining)}" data-ts-kind="${escapeHtml(kind)}">
+                        <div class="ak-form-grid">
+                            <div class="ak-field">
+                                <label>تاریخ</label>
+                                <input name="${dateName}" value="${escapeHtml(rowData(mainRow, 'operation-date'))}" type="date" class="ak-input" />
+                            </div>
+                            <div class="ak-field">
+                                <label>وزن تخلیه (تن)</label>
+                                <input name="${quantityName}" value="${escapeHtml(rowData(mainRow, 'quantity'))}" type="number" step="0.0001" min="0" class="ak-input" data-ts-qty />
+                            </div>
+                        </div>
+                        <div class="ak-section-title">تسویه کرایه و کسورات</div>
+                        <div class="ak-form-grid">
+                            <div class="ak-field">
+                                <label>نرخ کرایه (دالر فی تن)</label>
+                                <input name="${freightRateName}" value="${escapeHtml(rowData(mainRow, 'freight-rate'))}" type="number" step="0.01" min="0" class="ak-input" data-ts-freight-rate-input />
+                                <span class="ak-note">خودکار: نرخ × بار حمل = کرایه کلی</span>
+                            </div>
+                            <div class="ak-field">
+                                <label>کرایه کلی (دالر)</label>
+                                <input name="${freightName}" value="${escapeHtml(rowData(mainRow, 'freight'))}" type="number" step="0.01" min="0" class="ak-input" data-ts-freight-input />
+                            </div>
+                            <div class="ak-field">
+                                <label>کسری (تن)</label>
+                                <input name="${shortageName}" value="${escapeHtml(rowData(mainRow, 'shortage'))}" type="number" step="0.0001" min="0" class="ak-input" data-ts-shortage readonly />
+                                <span class="ak-note">خودکار: باقی‌مانده منهای وزن تخلیه</span>
+                            </div>
+                            <div class="ak-field">
+                                <label>حواکت / مجاز (تن)</label>
+                                <input name="${allowanceName}" value="${escapeHtml(rowData(mainRow, 'allowance'))}" type="number" step="0.0001" min="0" class="ak-input" data-ts-allowance-input />
+                            </div>
+                            <div class="ak-field">
+                                <label>کسری قابل مجرا (تن)</label>
+                                <div class="ak-note" data-ts-chargeable>0.0000</div>
+                                <span class="ak-note">خودکار: کسری − حواکت</span>
+                            </div>
+                            <div class="ak-field">
+                                <label>نرخ کسری (دالر فی تن)</label>
+                                <input name="${shortageRateName}" value="${escapeHtml(rowData(mainRow, 'shortage-rate'))}" type="number" step="0.01" min="0" class="ak-input" data-ts-shortage-rate-input />
+                            </div>
+                            <div class="ak-field">
+                                <label>کسورات دیگر (دالر)</label>
+                                <input name="${deductionsName}" value="${escapeHtml(rowData(mainRow, 'deductions'))}" type="number" step="0.01" min="0" class="ak-input" data-ts-deductions-input />
+                            </div>
+                            <div class="ak-field">
+                                <label>قابل پرداخت نهایی (دالر)</label>
+                                <div class="ak-num" data-ts-payable>0.00</div>
+                            </div>
+                            <div class="ak-field">
+                                <label>طرف کرایه</label>
+                                <select name="${prefix}.FreightParty" class="ak-input" data-ts-party-input>${optionsFromTemplate('tsPartyOptionsTemplate', rowData(mainRow, 'party'))}</select>
+                                <span class="ak-note">شرکت خدماتی/راننده: طلب در حسابش ثبت می‌شود. موتر خودی: کرایه عوایدش ثبت می‌شود.</span>
+                            </div>
+                            <div class="ak-field" data-ts-new-driver hidden>
+                                <label>نام راننده جدید</label>
+                                <input name="${prefix}.NewDriverName" value="${escapeHtml(rowData(mainRow, 'new-driver'))}" class="ak-input" placeholder="خالی = نام خودکار از نمبر موتر" />
+                            </div>
+                            <div class="ak-field">
+                                <label>یادداشت</label>
+                                <input name="${prefix}.Notes" value="${escapeHtml(rowData(mainRow, 'notes'))}" class="ak-input" />
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            function ensurePanelMaterialized(panelRow) {
+                var panel = panelRow.querySelector('[data-ts-settlement-panel]');
+                if (!panel) {
+                    var host = panelRow.querySelector('[data-ts-panel-host]');
+                    if (host) {
+                        host.innerHTML = buildPanelHtml(panelRow.previousElementSibling);
+                        panel = host.querySelector('[data-ts-settlement-panel]');
+                    }
+                }
+                initializePanel(panel);
+                return panel;
+            }
+
+            function syncPanelVisibility(checkbox) {
+                var key = checkbox.getAttribute('data-ts-target');
+                var panelRow = panelFor(key);
+                var mainRow = mainRowFor(key);
+                var mainVisible = mainRow && !mainRow.hidden;
+                if (panelRow) {
+                    var isSelected = checkbox.checked;
+                    var panel = isSelected ? ensurePanelMaterialized(panelRow) : panelRow.querySelector('[data-ts-settlement-panel]');
+                    panelRow.hidden = !(isSelected && mainVisible);
+                    if (panel) {
+                        syncPanelPostFields(panelRow, isSelected);
+                    }
+                }
+            }
+
+            function syncPanelPostFields(panelRow, enabled) {
+                panelRow.querySelectorAll('input, select, textarea').forEach(function (control) {
+                    if (control.dataset.tsOriginalDisabled === undefined) {
+                        control.dataset.tsOriginalDisabled = control.disabled ? '1' : '0';
+                    }
+                    control.disabled = enabled ? control.dataset.tsOriginalDisabled === '1' : true;
+                });
+            }
+
+            form.querySelectorAll('[data-ts-select]').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    syncPanelVisibility(checkbox);
+                    updateSubmitState();
+                });
+                syncPanelVisibility(checkbox);
+            });
+
+            // جست‌وجو/فیلترِ نوع سمت سرور است (نوار مشترک ak-filter) — اینجا فقط انتخاب ردیف‌ها مدیریت می‌شود.
+            var checkAll = document.getElementById('tsCheckAll');
+            if (checkAll) {
+                checkAll.addEventListener('change', function () {
+                    form.querySelectorAll('[data-ts-row]').forEach(function (mainRow) {
+                        if (mainRow.hidden) return; // فقط ردیف‌های قابل مشاهده
+                        var checkbox = mainRow.querySelector('[data-ts-select]');
+                        if (!checkbox) return;
+                        checkbox.checked = checkAll.checked;
+                        checkbox.dispatchEvent(new Event('change'));
+                    });
+                });
+            }
+
+            function initializePanel(panel) {
+                if (!panel || panel.dataset.tsReady === 'true') return;
+                panel.dataset.tsReady = 'true';
+                ['[data-ts-freight-rate-input]', '[data-ts-freight-input]', '[data-ts-allowance-input]', '[data-ts-shortage-rate-input]', '[data-ts-deductions-input]'].forEach(function (selector) {
+                    var el = panel.querySelector(selector);
+                    if (el) el.addEventListener('input', function () { recalc(panel); });
+                });
+                var qty = panel.querySelector('[data-ts-qty]');
+                if (qty) qty.addEventListener('input', function () { syncAutoShortage(panel); recalc(panel); });
+                var party = panel.querySelector('[data-ts-party-input]');
+                var newDriver = panel.querySelector('[data-ts-new-driver]');
+                function syncParty() {
+                    if (newDriver) newDriver.hidden = !(party && party.value === 'driver:new');
+                }
+                if (party) party.addEventListener('change', syncParty);
+                syncParty();
+                syncAutoShortage(panel);
+                recalc(panel);
+            }
+
+            form.addEventListener('submit', function () {
+                form.querySelectorAll('[data-ts-select]').forEach(syncPanelVisibility);
+            });
+
+            // ── باز/بسته کردن نوار ابزار (پیش‌فرض مخفی تا لیست شلوغ نشود) ──
+            var toolsToggle = document.getElementById('tsToolsToggle');
+            var toolsPanel = document.getElementById('tsToolsPanel');
+            if (toolsToggle && toolsPanel) {
+                toolsToggle.addEventListener('click', function () {
+                    var show = toolsPanel.hidden;
+                    toolsPanel.hidden = !show;
+                    toolsToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+                });
+            }
+
+            // ── اعمال گروهی نرخ کرایه/کسری روی همهٔ ردیف‌های انتخاب‌شده (فقط سمت مرورگر) ──
+            var bulkApply = document.getElementById('tsBulkApply');
+            if (bulkApply) {
+                bulkApply.addEventListener('click', function () {
+                    var freightRate = document.getElementById('tsBulkFreightRate')?.value ?? '';
+                    var shortageRate = document.getElementById('tsBulkShortageRate')?.value ?? '';
+                    var hint = document.getElementById('tsBulkHint');
+                    if (freightRate === '' && shortageRate === '') {
+                        if (hint) hint.textContent = 'حداقل یکی از فیلدها را وارد کنید.';
+                        return;
+                    }
+                    var applied = 0;
+                    form.querySelectorAll('[data-ts-select]:checked').forEach(function (checkbox) {
+                        var key = checkbox.getAttribute('data-ts-target');
+                        var panelRow = panelFor(key);
+                        if (!panelRow) return;
+                        var panel = ensurePanelMaterialized(panelRow);
+                        if (!panel) return;
+                        if (freightRate !== '') {
+                            var fr = panel.querySelector('[data-ts-freight-rate-input]');
+                            if (fr) { fr.value = freightRate; fr.dispatchEvent(new Event('input')); }
+                        }
+                        if (shortageRate !== '') {
+                            var sr = panel.querySelector('[data-ts-shortage-rate-input]');
+                            if (sr) { sr.value = shortageRate; sr.dispatchEvent(new Event('input')); }
+                        }
+                        applied++;
+                    });
+                    if (hint) {
+                        hint.textContent = applied > 0
+                            ? (applied + ' ردیف به‌روزرسانی شد.')
+                            : 'هیچ ردیفی انتخاب نشده است.';
+                    }
+                });
+            }
+
+            updateSubmitState();
+        })();
+    </script>
+}

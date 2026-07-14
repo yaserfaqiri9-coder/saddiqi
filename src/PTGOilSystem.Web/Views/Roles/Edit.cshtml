@@ -1,0 +1,25 @@
+@model PTGOilSystem.Web.Models.Auth.RoleEditViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش نقش", "Edit Role");
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((string)ViewData["Title"]!, true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Details", new { id = Model.Id })))" />
+    @if (Model.IsBuiltInAdmin)
+    {
+        <p class="ak-note">@UiText.T(Context, "نقش Admin نقش اصلی سیستم است و همیشه دسترسی کامل دارد.", "Admin is the built-in role and always has full access.")</p>
+    }
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="IsBuiltInAdmin" type="hidden" />
+        <partial name="_CreateForm" model="Model" />
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((UiText.T(Context, "ذخیره تغییرات", "Save Changes"), Url.Action("Details", new { id = Model.Id }) ?? "#", UiText.T(Context, "انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

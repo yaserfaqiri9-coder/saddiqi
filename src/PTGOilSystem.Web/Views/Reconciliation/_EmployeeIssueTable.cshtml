@@ -1,0 +1,42 @@
+@model (string Title, IReadOnlyList<PTGOilSystem.Web.Models.Reconciliation.EmployeeSalaryReconciliationItemViewModel> Rows)
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((Model.Title, (string?)null))" />
+    <div class="ak-table-wrap">
+        <table class="ak-table">
+            <thead>
+                <tr>
+                    <th>تراکنش</th>
+                    <th class="ak-col-grow">کارمند</th>
+                    <th>تاریخ</th>
+                    <th>نوع</th>
+                    <th class="ak-col-num">USD</th>
+                    <th>حساب</th>
+                    <th>Payment</th>
+                    <th>Ledger</th>
+                    <th>Issue</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr>
+                    <td>#@row.TransactionId</td>
+                    <td class="ak-col-grow"><a asp-controller="Employees" asp-action="Details" asp-route-id="@row.EmployeeId">@row.EmployeeCode - @row.EmployeeName</a></td>
+                    <td>@row.TransactionDate.ToDisplayDate()</td>
+                    <td>@row.TransactionTypeName</td>
+                    <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                    <td>@(row.CashAccountName ?? (row.CashAccountId.HasValue ? "#" + row.CashAccountId : "—"))</td>
+                    <td>@(row.PaymentTransactionId.HasValue ? "#" + row.PaymentTransactionId : "—")</td>
+                    <td>@(row.LedgerEntryId.HasValue ? "#" + row.LedgerEntryId : "—")</td>
+                    <td><span class="ak-status @(row.Status =="Warning" ? "" : "is-inactive")">@row.Issue</span></td>
+                </tr>
+            }
+            @if (!Model.Rows.Any())
+            {
+                <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-check2-circle"></i> در این بخش موردی برای بررسی پیدا نشد.</div></td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

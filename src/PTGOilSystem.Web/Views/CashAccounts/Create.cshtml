@@ -1,0 +1,10 @@
+@model PTGOilSystem.Web.Models.Entities.CashAccount
+@{
+    ViewData["Title"] = "حساب جدید";
+    ViewData["CreatePageIndexLabel"] = "حساب‌های نقد / بانک";
+    ViewData["CreatePageSubtitle"] = "فقط حساب‌های واقعی و فعال را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/CashAccounts/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

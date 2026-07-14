@@ -1,0 +1,65 @@
+@model Product
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات جنس", (string?)"کد، نام و واحد اندازه‌گیری جنس را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+            <input asp-for="Code" class="ak-input" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="UnitId" class="ak-label">واحد اندازه‌گیری <span class="ak-req">*</span></label>
+            <select asp-for="UnitId" asp-items="ViewBag.Units" class="ak-input">
+                <option value="">@UiText.T(Context,"انتخاب کنید","Select")</option>
+            </select>
+            <span asp-validation-for="UnitId" class="ak-field-error"></span>
+            <p class="ak-note">اگر واحد موردنظر در فهرست نیست، ابتدا آن را از بخش «واحدها» ثبت کنید.</p>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("تنظیمات بیشتر", (string?)"واحد ثانویه، دسته‌بندی و یادداشت‌ها."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="SecondaryUnitId" class="ak-label">واحد ثانویه</label>
+            <select asp-for="SecondaryUnitId" asp-items="ViewBag.SecondaryUnits" class="ak-input">
+                <option value="">@UiText.T(Context,"انتخاب نشده","Not selected")</option>
+            </select>
+            <span asp-validation-for="SecondaryUnitId" class="ak-field-error"></span>
+            <p class="ak-note">واحد ثانویه فعلاً برای نمایش و آماده‌سازی تبدیل واحد است؛ محاسبات موجودی هنوز با واحد عملیاتی فعلی سیستم انجام می‌شود.</p>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Category" class="ak-label">دسته / گرید</label>
+            <input asp-for="Category" class="ak-input" />
+            <span asp-validation-for="Category" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="SecondaryUnitConversionNote" class="ak-label">یادداشت تبدیل واحد ثانویه</label>
+            <textarea asp-for="SecondaryUnitConversionNote" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="SecondaryUnitConversionNote" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت تکمیلی</label>
+            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

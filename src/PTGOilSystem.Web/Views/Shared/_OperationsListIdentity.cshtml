@@ -1,0 +1,6 @@
+@model (string Icon, string Primary, string Secondary, bool IsLtr)
+
+<div>
+    <span class="ak-name @(Model.IsLtr ?"col-ltr" : null)">@Model.Primary</span>
+    <span class="ak-section-desc">@Model.Secondary</span>
+</div>

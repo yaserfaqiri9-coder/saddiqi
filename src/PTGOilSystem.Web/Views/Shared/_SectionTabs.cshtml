@@ -1,0 +1,310 @@
+@using PTGOilSystem.Web.Security
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var currentActiveTab = ViewContext.HttpContext.Request.Query["activeTab"].ToString();
+
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEn = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEn ? en : fa;
+
+    // ترتیب تب‌های تعاریف پایه: ارزها ← واحدها ← محصولات ← بنادر ← ترمینال‌ها ← مخازن ← انواع مصرف ← قواعد مصرف.
+    var foundationTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Currencies",   "Index", T("ارزها",           "Currencies"),      "bi-cash-stack",        null),
+        ("DailyFxRates", "Index", T("نرخ ارز روزانه",  "Daily FX Rates"),  "bi-currency-exchange", null),
+        ("Units",        "Index", T("واحدها",          "Units"),           "bi-grid-3x3-gap-fill", null),
+        ("Products",     "Index", T("محصولات",         "Products"),        "bi-box-seam-fill",     null),
+        ("Locations",    "Index", T("بنادر",           "Ports"),           "bi-geo-alt-fill",      null),
+        ("Terminals",    "Index", T("ترمینال‌ها",      "Terminals"),       "bi-building-fill",     null),
+        ("StorageTanks", "Index", T("مخازن",           "Storage Tanks"),   "bi-database-fill",     null),
+        ("ExpenseTypes", "Index", T("انواع مصرف",      "Expense Types"),   "bi-tags-fill",         null),
+        ("ExpenseRules", "Index", T("قواعد مصرف",      "Expense Rules"),   "bi-sliders",           null)
+    };
+
+    // حمل و نقل: گروه تب مستقل (از تعاریف پایه جدا شد).
+    var transportTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Trucks",       "Index", T("موترها",         "Trucks"),       "bi-truck-front-fill",  null),
+        ("Wagons",       "Index", T("واگون‌ها",       "Wagons"),       "bi-train-front-fill",  null),
+        ("Drivers",      "Index", T("راننده‌ها",     "Drivers"),      "bi-person-vcard-fill", null),
+        ("Vessels",      "Index", T("کشتی‌ها",        "Vessels"),      "bi-droplet-fill",      null)
+    };
+
+    var partnerTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Suppliers", "Index", T("تأمین‌کنندگان", "Suppliers"), "bi-briefcase-fill", null),
+        ("Partners",  "Index", T("شرکا",          "Partners"),  "bi-diagram-3-fill", null),
+        ("Companies", "Index", T("جواز ها",        "Companies"), "bi-buildings-fill", null),
+        ("Customers", "Index", T("مشتریان",        "Customers"), "bi-people-fill",   null),
+        ("ServiceProviders", "Index", T("شرکت‌های خدماتی", "Service Providers"), "bi-building-fill-gear", null),
+        ("Sarrafs", "Index", T("صراف‌ها", "Sarrafs"), "bi-currency-exchange", null),
+        ("Employees", "Index", T("کارمندان",       "Employees"), "bi-person-vcard-fill", null)
+    };
+
+    var operationTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Loading",                "Index", T("بارگیری",       "Loading"),             "nav-operations", null),
+        ("InventoryTransportLegs", "Index", T("حمل موجودی", "Inventory Transfer"), "nav-assets",       null),
+        ("ShipmentPnl",            "Index", T("محموله‌ها", "Shipment files"), "nav-contracts", null),
+        ("Dispatch",               "Index", T("موترها", "Truck Sends"),            "nav-truck",             null),
+        ("TruckSettlements",       "Index", T("تسویه", "Truck Settlement"), "nav-finance",   null),
+        ("Expenses",               "Index", T("مصارف",      "Expenses"),            "nav-bill",    null),
+        ("LossEvents",             "Index", T("کسری",       "Loss Events"),         "nav-warning", null)
+    };
+
+    operationTabs = operationTabs
+        .Concat(new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+        {
+            ("LoadingReceipts", "Index", T("رسید", "Loading Receipts"), "nav-parties", null),
+            ("CustomsDeclarations", "Index", T("کمرک", "Customs"), "nav-shield", null),
+            ("Sales", "Index", T("فروش", "Sales"), "nav-sales", null)
+        })
+        .ToArray();
+
+    var inventoryProfitTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Inventory",  "Index",        T("حرکت‌های موجودی", "Inventory Movements"), "bi-box-seam-fill",             null)
+    };
+
+    var operationalAssetTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("OperationalAssets", "Index",         T("دارایی‌ها", "Assets"),              "bi-truck-front-fill",     null),
+        ("OperationalAssets", "CreateRent",    T("ثبت کرایه/استفاده", "Use/Rent"),    "bi-receipt",         null)
+    };
+
+    var salesTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Sales", "Index", T("فروش", "Sales"), "bi-cart-check-fill", null)
+    };
+
+    var contractRateTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Contracts", "Index", T("قراردادها", "Contracts"), "bi-file-earmark-text-fill", null),
+    };
+
+    var ratesPlattsTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("PlattsRates",  "Index", T("مرجع روزانه Platt's",       "Daily Platt's Reference"),    "bi-calendar3-fill",        "daily"),
+        ("PlattsRates",  "Index", T("مرجع دستی ماهانه", "Manual Monthly Reference"),  "bi-pencil-fill",   "manual")
+    };
+
+    // تب‌های «تسویه صراف» و «استیتمنت‌های ارزی» عمداً از UI عادی برداشته شدند:
+    // پرداخت از طریق صراف اکنون داخل همان فرم روزنامچه (Payments/Create) با «روش پرداخت» ثبت می‌شود.
+    // کنترلر/سرویس SarrafSettlements و AccountStatements حذف نشده‌اند؛ فقط از تب‌ها کنار رفتند.
+    // «رزنامچه» (Payments) دیگر گروه خزانه‌داری جدا ندارد و اکنون تبی داخل گروه تب‌های مالی است.
+    var financeTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Payments",     "Index",     T("رزنامچه",                "Roznamcha"),            "bi-journal-bookmark-fill",   null),
+        ("CashAccounts", "Index",     T("حساب‌های نقد / بانک",   "Cash / Bank Accounts"), "bi-bank2",           null),
+        ("Ledger",       "Index",     T("دفتر کل",                "General Ledger"),       "bi-journal-bookmark-fill",   null)
+    };
+
+    var reportTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Reports", "Index",               T("همه گزارش‌ها",        "All Reports"),             "bi-grid-fill",                  null),
+        ("Reports", "CompanyOverview",     T("نمای مالی",           "Financial Overview"),      "bi-speedometer2",          null),
+        ("Reports", "ContractPnl",         T("سود و زیان",          "Contract P&L"),            "bi-graph-up-arrow",        null),
+        ("Reports", "CashFlow",            T("جریان نقدی",          "Cash Flow"),              "bi-cash-stack",            null),
+        ("Reports", "ReceivablesPayables", T("بدهی و طلب",          "Receivables & Payables"),  "bi-people-fill",                null),
+        ("Reports", "InventoryOperations", T("موجودی",              "Inventory"),               "bi-box-seam-fill",              null),
+        ("Reports", "Warnings",            T("کنترل",               "Control"),                 "bi-exclamation-triangle-fill",  null),
+        ("CustomsPermitTurnover", "Index", T("گزارش جواز",          "Permit Report"),           "bi-file-earmark-ruled-fill",    null)
+    };
+
+    var managementTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    {
+        ("Users", "Index", T("کاربران", "Users"), "bi-people-fill",      null),
+        ("Roles", "Index", T("نقش‌ها",  "Roles"), "bi-shield-lock-fill", null),
+        ("AuditLogs", "Index", T("لاگ‌ها", "Logs"), "bi-journal-bookmark-fill", null)
+    };
+
+    reportTabs = reportTabs
+        .Concat(new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+        {
+            ("InventoryTransportLegs", "Active", T("حمل‌های در جریان", "Active transports"), "bi-signpost-split", null)
+        })
+        .ToArray();
+
+    var tabs = Array.Empty<(string Controller, string Action, string Label, string Icon, string? RouteKey)>();
+    var navLabel = string.Empty;
+    var isSelectedReportGroup = false;
+    var isSelectedOperationsGroup = false;
+    var isSelectedFinanceGroup = false;
+
+    bool IsCurrentGroup((string Controller, string Action, string Label, string Icon, string? RouteKey)[] groupTabs)
+        => groupTabs.Any(tab => string.Equals(tab.Controller, currentController, StringComparison.OrdinalIgnoreCase));
+
+    bool IsTabActive((string Controller, string Action, string Label, string Icon, string? RouteKey) tab)
+    {
+        if (!string.Equals(tab.Controller, currentController, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.Equals(tab.Action, currentAction, StringComparison.OrdinalIgnoreCase))
+        {
+            var allowIndexFallback = string.Equals(tab.Action, "Index", StringComparison.OrdinalIgnoreCase)
+                && new[] { "Create", "Edit", "Details" }.Contains(currentAction, StringComparer.OrdinalIgnoreCase);
+            // تب «رزنامچه» به Payments/Index اشاره می‌کند؛ روی صفحهٔ Hub هم باید فعال بماند.
+            var allowPaymentsIndexFallback = string.Equals(tab.Controller, "Payments", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(tab.Action, "Index", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(currentAction, "Hub", StringComparison.OrdinalIgnoreCase);
+
+            if (!allowIndexFallback && !allowPaymentsIndexFallback)
+            {
+                return false;
+            }
+        }
+
+        if (tab.RouteKey != null)
+        {
+            if (string.Equals(tab.Controller, "PlattsRates", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(tab.RouteKey, "daily", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(currentActiveTab))
+            {
+                return true;
+            }
+
+            return string.Equals(tab.RouteKey, currentActiveTab, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return true;
+    }
+
+    if (IsCurrentGroup(foundationTabs))
+    {
+        tabs = foundationTabs;
+        navLabel = T("تب‌های داده‌های پایه", "Core Data Tabs");
+    }
+    else if (IsCurrentGroup(partnerTabs))
+    {
+        tabs = partnerTabs;
+        navLabel = T("تب‌های طرف‌ها", "Partner Tabs");
+    }
+    else if (IsCurrentGroup(transportTabs))
+    {
+        tabs = transportTabs;
+        navLabel = T("تب‌های حمل و نقل", "Transport Tabs");
+    }
+    else if (string.Equals(currentController, "InventoryTransportLegs", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(currentAction, "Active", StringComparison.OrdinalIgnoreCase))
+    {
+        tabs = reportTabs;
+        navLabel = T("تب‌های گزارش‌ها", "Reports Tabs");
+        isSelectedReportGroup = true;
+    }
+    else if (IsCurrentGroup(operationTabs))
+    {
+        tabs = operationTabs;
+        navLabel = T("تب‌های عملیات", "Operations Tabs");
+        isSelectedOperationsGroup = true;
+    }
+    else if (IsCurrentGroup(inventoryProfitTabs))
+    {
+        tabs = inventoryProfitTabs;
+        navLabel = T("تب‌های موجودی و سود", "Inventory & P&L Tabs");
+    }
+    else if (IsCurrentGroup(operationalAssetTabs))
+    {
+        tabs = operationalAssetTabs;
+        navLabel = T("تب‌های دارایی‌های عملیاتی", "Operational Asset Tabs");
+    }
+    else if (IsCurrentGroup(salesTabs))
+    {
+        tabs = salesTabs;
+        navLabel = T("تب‌های فروش", "Sales Tabs");
+    }
+    else if (IsCurrentGroup(contractRateTabs))
+    {
+        tabs = contractRateTabs;
+        navLabel = T("تب‌های قراردادها", "Contracts Tabs");
+    }
+    else if (IsCurrentGroup(ratesPlattsTabs))
+    {
+        tabs = ratesPlattsTabs;
+        navLabel = T("تب‌های نرخ‌ها و قواعد", "Rates & Rules Tabs");
+    }
+    else if (IsCurrentGroup(financeTabs))
+    {
+        tabs = financeTabs;
+        navLabel = T("تب‌های مالی", "Finance Tabs");
+        isSelectedFinanceGroup = true;
+    }
+    else if (IsCurrentGroup(reportTabs))
+    {
+        tabs = reportTabs;
+        navLabel = T("تب‌های گزارش‌ها", "Reports Tabs");
+        isSelectedReportGroup = true;
+    }
+    else if (IsCurrentGroup(managementTabs))
+    {
+        tabs = managementTabs;
+        navLabel = T("تب‌های مدیریت", "Management Tabs");
+    }
+    var suppressRecordDetailTabs = currentAction.EndsWith("Details", StringComparison.OrdinalIgnoreCase);
+    if (suppressRecordDetailTabs)
+    {
+        tabs = Array.Empty<(string Controller, string Action, string Label, string Icon, string? RouteKey)>();
+    }
+    else
+    {
+        tabs = tabs
+            .Where(tab => RoleAccessRules.CanAccessController(User, tab.Controller))
+            .ToArray();
+    }
+
+    var isReportGroup = isSelectedReportGroup;
+    var isOperationsGroup = isSelectedOperationsGroup;
+    var isFinanceGroup = isSelectedFinanceGroup;
+
+    var sectionTabsActionUrl = ViewData["SectionTabsActionUrl"] as string;
+    var sectionTabsActionLabel = ViewData["SectionTabsActionLabel"] as string;
+    var sectionTabsActionIcon = ViewData["SectionTabsActionIcon"] as string ?? "bi-arrow-right";
+    var hasSectionTabsAction = !string.IsNullOrWhiteSpace(sectionTabsActionUrl) && !string.IsNullOrWhiteSpace(sectionTabsActionLabel);
+    var isManagementGroup = IsCurrentGroup(managementTabs);
+    var isPartnerGroup = IsCurrentGroup(partnerTabs);
+    var sectionTabsGroup = isReportGroup ? "reports"
+        : isOperationsGroup ? "operations"
+        : isManagementGroup ? "management"
+        : isPartnerGroup ? "parties"
+        : isFinanceGroup ? "finance"
+        : "default";
+}
+
+@if (tabs.Length > 0)
+{
+    <section data-section-tabs-strip="true" data-section-tabs-group="@sectionTabsGroup" aria-label="@navLabel">
+        <div data-section-tabs="true">
+            <div data-section-tabs-scroll="true">
+                @* Text-only rail, per the canonical tab skin in 16-system-tabs.css.
+                   The Icon field is kept on the tab tuples but is no longer rendered. *@
+                <nav class="ptg-tabs-rail" role="tablist" aria-label="@navLabel">
+                    @foreach (var tab in tabs)
+                    {
+                        var isActive = IsTabActive(tab);
+                        <a class="ptg-tab-item @(isActive ?"is-active" : null)"
+                           asp-controller="@tab.Controller"
+                           asp-action="@tab.Action"
+                           asp-route-activeTab="@tab.RouteKey"
+                           role="tab"
+                           data-section-tab-active="@(isActive ? "true" : "false")"
+                           aria-selected="@(isActive ? "true" : "false")"
+                           aria-current="@(isActive ? "page" : null)">
+                            <span data-tab-label="@tab.Label">@tab.Label</span>
+                        </a>
+                    }
+                </nav>
+            </div>
+            @if (hasSectionTabsAction)
+            {
+                <div class="ak-page-actions">
+                    <a href="@sectionTabsActionUrl" class="btn ak-primary-action">
+                        <i class="bi @sectionTabsActionIcon" aria-hidden="true"></i>
+                        <span>@sectionTabsActionLabel</span>
+                    </a>
+                </div>
+            }
+        </div>
+    </section>
+}

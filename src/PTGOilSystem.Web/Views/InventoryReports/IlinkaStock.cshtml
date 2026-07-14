@@ -1,0 +1,122 @@
+@model PTGOilSystem.Web.Models.InventoryReports.IlinkaStockReportViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = UiText.T(Context, "گزارش بازسازی موجودی ILINKA", "ILINKA Stock Reconstruction");
+    var hasAdvancedFilters = Model.Filter.ContractId.HasValue || Model.Filter.TerminalId.HasValue || Model.Filter.StorageTankId.HasValue;
+    var netChangeMt = Model.ClosingBalanceMt - Model.OpeningBalanceMt;
+    var distinctTerminals = Model.Rows.Select(r => r.TerminalCode).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct().Count();
+}
+
+<div class="ak-list-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "گزارش بازسازی موجودی ILINKA", "ILINKA Stock Reconstruction"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context,"گزارش‌ها","Reports"), "bi-arrow-right", Url.Action("Index", "Reports")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">@UiText.T(Context, "چاپ", "Print")</button>
+        <a asp-controller="Inventory" asp-action="StockCard" class="btn btn-light">@UiText.T(Context, "کارت موجودی عمومی", "General Stock Card")</a>
+    </div>
+
+    <p class="ak-note">فرمول مقایسه با Excel: <strong>Balance = Previous Balance + In - Out + Adjustment + Transfer</strong>. مقدار Adjustment و Transfer همان اثر امضادار محاسبه‌شده توسط StockService است.</p>
+
+    <section class="ak-form-section ak-summary">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context, "ردیف‌ها", "Rows")</dt><dd class="ak-num">@Model.Rows.Count.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context, "موجودی ابتدایی", "Opening Balance")</dt><dd class="ak-num">@Model.OpeningBalanceMt.ToString("N4")</dd></div>
+            <div><dt>@UiText.T(Context, "موجودی نهایی", "Closing Balance")</dt><dd class="ak-num">@Model.ClosingBalanceMt.ToString("N4")</dd></div>
+            <div><dt>@UiText.T(Context, "خالص تغییر / ترمینال", "Net Change / Terminals")</dt><dd class="ak-num @(netChangeMt < 0 ?"ak-num" : "")">@netChangeMt.ToString("N4") / @distinctTerminals.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        @{
+            List<AkFilterOption> IlkOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())
+                .Where(i => !string.IsNullOrEmpty(i.Value)).Select(i => new AkFilterOption(i.Value, i.Text)).ToList();
+            string? IlkQ(string k) { var v = Context.Request.Query[k].ToString(); return string.IsNullOrEmpty(v) ? null : v; }
+            var ilinkaFilter = new AkSearchFilterModel("", null,
+                UiText.T(Context, "فیلتر گزارش موجودی...", "Filter stock report..."),
+                new List<AkFilterDefinition>
+                {
+                    new("Filter.FromDate", UiText.T(Context, "بازه تاریخ", "Date range"), "daterange", null,
+                        Model.Filter.FromDate?.ToString("yyyy-MM-dd"), "Filter.ToDate", Model.Filter.ToDate?.ToString("yyyy-MM-dd")),
+                    new("Filter.ProductId", UiText.T(Context, "جنس", "Product"), "select", IlkOpts(ViewBag.Products), IlkQ("Filter.ProductId")),
+                    new("Filter.ContractId", UiText.T(Context, "قرارداد منبع", "Source Contract"), "select", IlkOpts(ViewBag.Contracts), IlkQ("Filter.ContractId")),
+                    new("Filter.TerminalId", UiText.T(Context, "ترمینال", "Terminal"), "select", IlkOpts(ViewBag.Terminals), IlkQ("Filter.TerminalId")),
+                    new("Filter.StorageTankId", UiText.T(Context, "مخزن", "Tank"), "select", IlkOpts(ViewBag.StorageTanks), IlkQ("Filter.StorageTankId"))
+                });
+        }
+        <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="ilinkaFilter" />
+
+        <div class="ak-table-wrap">
+            <table class="ak-table ilinka-stock-table">
+                <thead>
+                    <tr>
+                        <th>@UiText.T(Context,"تاریخ","Date")</th>
+                        <th>Reference</th>
+                        <th class="ak-col-grow">@UiText.T(Context,"جنس","Product")</th>
+                        <th>قرارداد منبع موجودی</th>
+                        <th>@UiText.T(Context,"ترمینال","Terminal")</th>
+                        <th>مخزن</th>
+                        <th class="ak-col-num">In</th>
+                        <th class="ak-col-num">Out</th>
+                        <th class="ak-col-num">Adjustment</th>
+                        <th class="ak-col-num">Transfer</th>
+                        <th class="ak-col-num">Running Balance</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td dir="ltr">@row.Date.ToDisplayDate()</td>
+                            <td dir="auto">@(row.Reference ?? "-")</td>
+                            <td class="ak-col-grow" dir="auto">@row.ProductName <span class="ak-note">(@row.ProductCode)</span></td>
+                            <td dir="ltr">@(row.ContractNumber ?? "-")</td>
+                            <td dir="auto">@row.TerminalName <span class="ak-note">(@row.TerminalCode)</span></td>
+                            <td dir="auto">@(row.StorageTankCode ?? "-")</td>
+                            <td class="ak-col-num ak-num" dir="ltr">@DisplayQuantity(row.InQuantityMt)</td>
+                            <td class="ak-col-num ak-num" dir="ltr">@DisplayQuantity(row.OutQuantityMt)</td>
+                            <td class="ak-col-num ak-num" dir="ltr">@DisplayQuantity(row.AdjustmentQuantityMt)</td>
+                            <td class="ak-col-num ak-num" dir="ltr">@DisplayQuantity(row.TransferQuantityMt)</td>
+                            <td class="ak-col-num ak-num" dir="ltr">@row.RunningBalanceMt.ToString("N4")</td>
+                            <td dir="ltr">@row.SourceType<div class="ak-note">#@row.MovementId @(row.SourceReference ?? "")</div></td>
+                        </tr>
+                    }
+                    @if (!Model.Rows.Any())
+                    {
+                        <tr><td colspan="12"><div class="ak-empty"><i class="bi bi-database"></i> فیلترها را تغییر دهید تا حرکت موجودی نمایش داده شود.</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('ilinkaFilterToggle');
+            var pop = document.getElementById('ilinkaFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}
+
+@functions {
+    private static string DisplayQuantity(decimal value)
+        => value == 0m ? "-" : value.ToString("N4");
+}

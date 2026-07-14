@@ -1,0 +1,566 @@
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportReceiptCreateViewModel
+
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت تخلیه مقصد", "Register Destination Unload");
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var backUrl = Url.Action("Details", "InventoryTransportLegs", new { id = Model.InventoryTransportLegId }) ?? "/InventoryTransportLegs";
+    var listUrl = Url.Action("Index", "InventoryTransportLegs") ?? "/InventoryTransportLegs";
+    var toInventoryValue = ((int)InventoryTransportReceiptDestination.ToInventory).ToString();
+    var directSaleValue = ((int)InventoryTransportReceiptDestination.DirectSale).ToString();
+    var directDispatchValue = ((int)InventoryTransportReceiptDestination.DirectDispatch).ToString();
+    var isDirectSale = Model.ReceiptDestination == InventoryTransportReceiptDestination.DirectSale;
+    // حالت متمرکز «فروش مستقیم و تسویه»: فرم ساده بدون گزینه‌های مخزن/تخلیه/دیسپچ.
+    var focusedSale = (ViewData["FocusedSale"] as bool?) ?? false;
+    var remainingMt = ViewData["RemainingMt"] as decimal?;
+    var freightOpen = (Model.FreightRateUsdPerMt ?? 0m) > 0m
+        || (Model.FreightCostUsd ?? 0m) > 0m
+        || Model.ServiceProviderId.HasValue
+        || Model.OperationalAssetId.HasValue;
+    var shortageOpen = (Model.AllowanceMt ?? 0m) > 0m
+        || (Model.ShortageRateUsd ?? 0m) > 0m
+        || Model.DeductShortageFromFreight;
+    var documentOpen = !string.IsNullOrWhiteSpace(Model.Notes);
+    var transportTypeText = Model.TransportType switch
+    {
+        LoadingTransportType.Truck => T("موتر", "Truck"),
+        LoadingTransportType.Wagon => T("واگن", "Wagon"),
+        LoadingTransportType.Vessel => T("کشتی", "Vessel"),
+        _ => T("وسیله حمل", "Transport")
+    };
+    var receiptTitle = T("ثبت تخلیه مقصد", "Register Destination Unload");
+    var saleTitle = focusedSale
+        ? T("فروش مستقیم و تسویه", "Direct sale & settle")
+        : T("ثبت فروش از حمل موجودی", "Register Sale from Inventory Transport");
+    var saleSubmit = focusedSale ? T("ثبت فروش و تسویه", "Save sale & settle") : T("ثبت فروش", "Save Sale");
+    var receiptDesc = T("ثبت مقدار تخلیه، کسری و کرایه برای این سفر حمل از موجودی", "Record unloading, shortage and freight for this inventory transport trip");
+    var saleDesc = focusedSale
+        ? T("موتر بعد از رسیدن، بار را مستقیم به مشتری می‌فروشد؛ کرایه هم همین‌جا تسویه می‌شود. بار وارد مخزن نمی‌شود.", "The truck sells its load directly to the customer on arrival; freight is settled here too. No inventory is added.")
+        : T("فروش مستقیم بار این حمل، بدون ورود به مخزن", "Sell this transport load directly without entering inventory");
+    var vehicleNo = string.IsNullOrWhiteSpace(Model.VehicleNumber) ? "—" : Model.VehicleNumber;
+    var productName = string.IsNullOrWhiteSpace(Model.ProductName) ? "—" : Model.ProductName;
+    var loadingTank = string.IsNullOrWhiteSpace(Model.SourceStorageTankName) ? "—" : Model.SourceStorageTankName;
+    string DecimalInput(decimal? value) => (value ?? 0m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<div class="ak-form-page"
+     dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")"
+     data-receipt-title="@receiptTitle"
+     data-sale-title="@saleTitle"
+     data-receipt-description="@receiptDesc"
+     data-sale-description="@saleDesc"
+     data-receipt-submit="@receiptTitle"
+     data-sale-submit="@saleSubmit">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(((isDirectSale ? saleTitle : receiptTitle), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
+
+    <form asp-action="Create"
+          method="post"
+          class="ak-form"
+          data-inventory-receipt-form
+          data-loaded-quantity="@Model.LoadedQuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+          data-is-truck="@Model.IsTruckOrWagonTransport.ToString().ToLowerInvariant()">
+        @Html.AntiForgeryToken()
+        <input asp-for="InventoryTransportLegId" type="hidden" />
+        <span class="d-none">@T("ثبت رسید / تخلیه", "Register receipt / unload")</span>
+
+        <div class="d-none" aria-hidden="true">
+            <i data-operation-icon></i>
+            <span data-operation-breadcrumb></span>
+            <span data-operation-title></span>
+            <span data-operation-description></span>
+            <button type="button" data-operation-submit><span data-operation-submit-label></span></button>
+        </div>
+
+            <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+            <section class="ak-form-section" aria-label="@T("خلاصه سفر", "Trip summary")">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("خلاصه سفر", "Trip Summary"), (string?)(isDirectSale ? saleDesc : receiptDesc)))" />
+                <div class="ak-form-grid">
+                <article class="ak-field">
+                    <span class="ak-label">@T("بارگیری‌شده از مخزن", "Loaded from tank")</span>
+                    <strong>@NumberDisplay.Quantity(Model.LoadedQuantityMt) @T("تن", "MT")</strong>
+                </article>
+                <article class="ak-field">
+                    <span class="ak-label">@T("محصول", "Product")</span>
+                    <strong>@productName</strong>
+                </article>
+                <article class="ak-field">
+                    <span class="ak-label">@T("وسیله حمل", "Transport")</span>
+                    <strong>@transportTypeText</strong>
+                </article>
+                @if (focusedSale && remainingMt.HasValue)
+                {
+                    <article class="ak-field">
+                        <span class="ak-label">@T("قابل فروش (باقیمانده در وسیله)", "Sellable (remaining in vehicle)")</span>
+                        <strong>@NumberDisplay.Quantity(remainingMt.Value) @T("تن", "MT")</strong>
+                    </article>
+                }
+                </div>
+            </section>
+
+            <div>
+                <section class="ak-form-section">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("مشخصات سفر", "Trip Details"), (string?)null))" />
+                    <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label>@T("شماره سفر", "Trip number")</label>
+                        <strong>#@Model.InventoryTransportLegId</strong>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("نمبر موتر", "Vehicle number")</label>
+                        <strong>@vehicleNo</strong>
+                    </div>
+                    <div class="ak-field">
+                        <label>@T("مخزن بارگیری", "Loading tank")</label>
+                        <strong>@loadingTank</strong>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ReceiptDate">@T("تاریخ", "Date") <b>*</b></label>
+                        <input asp-for="ReceiptDate" type="date" class="ak-input" />
+                        <span asp-validation-for="ReceiptDate" class="ak-field-error"></span>
+                    </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section">
+                    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(((focusedSale ? T("مقدار فروش", "Sale Quantity") : T("اطلاعات تخلیه", "Unload Information")), (string?)null))" />
+                    <div class="ak-form-grid">
+                    <div class="ak-field" @(focusedSale ? "hidden" : null)>
+                        <label asp-for="ReceiptDestination">@T("مقصد", "Destination") <b>*</b></label>
+                        <select asp-for="ReceiptDestination" asp-items="ViewBag.ReceiptDestinations" class="ak-input" data-receipt-destination></select>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ReceivedQuantityMt">@(focusedSale ? T("مقدار فروخته‌شده", "Sold quantity") : T("وزن تخلیه", "Unload weight")) <b>*</b></label>
+                        <div>
+                            <input asp-for="ReceivedQuantityMt" type="number" step="0.0001" min="0" class="ak-input" />
+                            <span>MT</span>
+                        </div>
+                        <span asp-validation-for="ReceivedQuantityMt" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ShortageQuantityMt">@T("کسری (اختیاری)", "Shortage (optional)")</label>
+                        <div>
+                            <input asp-for="ShortageQuantityMt" type="number" step="0.0001" min="0" class="ak-input" data-shortage-input />
+                            <span>MT</span>
+                        </div>
+                        <small>@T("باقیمانده پس از تخلیه و کسری در وسیله می‌ماند و قابل تخلیه مجدد است.", "Remaining after unload and shortage stays in the vehicle for re-unload.")</small>
+                        <span asp-validation-for="ShortageQuantityMt" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field" data-to-inventory-field>
+                        <label asp-for="DestinationTerminalId">@T("ترمینال مقصد", "Destination terminal")</label>
+                        <select asp-for="DestinationTerminalId" asp-items="ViewBag.DestinationTerminals" class="ak-input">
+                            <option value="">@T("انتخاب ترمینال", "Select terminal")</option>
+                        </select>
+                    </div>
+                    <div class="ak-field" data-to-inventory-field>
+                        <label asp-for="DestinationStorageTankId">@T("مخزن مقصد", "Destination tank")</label>
+                        <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input">
+                            <option value="">@T("انتخاب مخزن", "Select tank")</option>
+                        </select>
+                        <script type="application/json" data-destination-tanks>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.DestinationStorageTankTerminalMap ?? new object[0]))</script>
+                    </div>
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-optional-section data-truck-receipt-fields>
+                    <label class="ak-toggle-field">
+                        <span>
+                            <input type="checkbox" data-optional-toggle="freight" @(freightOpen ? "checked" : null) />
+                            <strong>@T("ثبت کرایه", "Register freight")</strong>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </label>
+                    <div class="ak-form-grid" data-optional-body="freight" @(freightOpen ? null : "hidden")>
+                        <div class="ak-field">
+                            <label asp-for="FreightRateUsdPerMt">@T("فی تن کرایه", "Freight per MT")</label>
+                            <div><input asp-for="FreightRateUsdPerMt" type="number" step="0.0001" min="0" class="ak-input" /><span>USD/MT</span></div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="FreightCostUsd">@T("مجموع کرایه", "Gross freight")</label>
+                            <div><input asp-for="FreightCostUsd" type="number" step="0.0001" min="0" class="ak-input" /><span>USD</span></div>
+                        </div>
+                        <div class="ak-field" data-receipt-party-type-wrap>
+                            <label>@T("نوع مسئول کرایه", "Freight party type")</label>
+                            <select class="ak-input" data-receipt-party-type>
+                                <option value="service" selected="@(Model.OperationalAssetId.HasValue ? null : "selected")">@T("شرکت خدماتی", "Service provider")</option>
+                                <option value="asset" selected="@(Model.OperationalAssetId.HasValue ? "selected" : null)">@T("دارایی عملیاتی", "Operational asset")</option>
+                            </select>
+                        </div>
+                        <div class="ak-field" data-inventory-receipt-party="service">
+                            <label asp-for="ServiceProviderId">@T("شرکت خدماتی", "Service provider")</label>
+                            <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input"><option value=""></option></select>
+                        </div>
+                        <div class="ak-field" data-inventory-receipt-party="asset">
+                            <label asp-for="OperationalAssetId">@T("دارایی عملیاتی", "Operational asset")</label>
+                            <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input"><option value=""></option></select>
+                        </div>
+                        @if (Model.HasExistingFreightExpense)
+                        {
+                            <div class="ak-field ak-col-full">@T("کرایه این سفر قبلاً ثبت شده است.", "Freight for this trip is already recorded.")</div>
+                        }
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-optional-section data-truck-receipt-fields>
+                    <label class="ak-toggle-field">
+                        <span>
+                            <input type="checkbox" data-optional-toggle="shortage" @(shortageOpen ? "checked" : null) />
+                            <strong>@T("ثبت کمبودی قابل مجرا", "Register chargeable shortage")</strong>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </label>
+                    <div class="ak-form-grid" data-optional-body="shortage" @(shortageOpen ? null : "hidden")>
+                        <div class="ak-field">
+                            <label asp-for="AllowanceMt">@T("تلورانس مجاز", "Allowed tolerance")</label>
+                            <div><input asp-for="AllowanceMt" type="number" step="0.0001" min="0" class="ak-input" /><span>MT</span></div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ChargeableShortageMt">@T("کمبود قابل مجرا", "Chargeable shortage")</label>
+                            <div><input asp-for="ChargeableShortageMt" type="number" step="0.0001" min="0" class="ak-input" readonly /><span>MT</span></div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageRateUsd">@T("فی تن", "Rate per MT")</label>
+                            <div><input asp-for="ShortageRateUsd" type="number" step="0.0001" min="0" class="ak-input" /><span>USD/MT</span></div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="ShortageChargeUsd">@T("مجرای کمبودی", "Shortage deduction")</label>
+                            <div><input asp-for="ShortageChargeUsd" type="number" step="0.0001" min="0" class="ak-input" readonly /><span>USD</span></div>
+                        </div>
+                        <div class="ak-toggle-field">
+                            <input asp-for="DeductShortageFromFreight" type="checkbox" />
+                            <label asp-for="DeductShortageFromFreight">@T("کم‌کردن کسری از کرایه پرداختی", "Deduct shortage from payable freight")</label>
+                        </div>
+                        <input asp-for="FreightPayableUsd" type="hidden" />
+                    </div>
+                </section>
+
+                <section class="ak-form-section" data-optional-section data-direct-sale-fields>
+                    <label class="ak-toggle-field">
+                        <span>
+                            <input type="checkbox" data-optional-toggle="directSale" @(focusedSale ? "checked" : null) />
+                            <strong>@(focusedSale ? T("اطلاعات فروش", "Sale information") : T("اطلاعات فروش مستقیم", "Direct sale information"))</strong>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </label>
+                    <div class="ak-form-grid" data-optional-body="directSale" @(focusedSale ? null : "hidden")>
+                        <div class="ak-field"><label asp-for="SaleCustomerId" class="ak-label">@T("مشتری", "Customer")</label><select asp-for="SaleCustomerId" asp-items="ViewBag.Customers" class="ak-input"><option value=""></option></select></div>
+                        <div class="ak-field"><label asp-for="SaleInvoiceNumber" class="ak-label">@T("شماره فاکتور", "Invoice number")</label><input asp-for="SaleInvoiceNumber" class="ak-input" /></div>
+                        <div class="ak-field"><label asp-for="SaleDate" class="ak-label">@T("تاریخ فروش", "Sale date")</label><input asp-for="SaleDate" type="date" class="ak-input" /></div>
+                        <div class="ak-field"><label asp-for="SaleCurrency" class="ak-label">@T("ارز", "Currency")</label><select asp-for="SaleCurrency" asp-items="ViewBag.Currencies" class="ak-input"></select></div>
+                        <div class="ak-field"><label asp-for="SaleUnitPriceInCurrency" class="ak-label">@T("قیمت فی", "Unit price")</label><input asp-for="SaleUnitPriceInCurrency" type="number" step="0.0001" min="0" class="ak-input" /></div>
+                        <div class="ak-field" data-fx-rate-group data-fx-currency-source="#SaleCurrency">
+                            <label>@T("نرخ دالر به ارز", "Currency units per USD")</label>
+                            <div>
+                                <div data-fx-rate-field><input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input id="receiptSaleFxDisplay" autocomplete="off" /><input asp-for="SaleAppliedFxRateToUsd" type="hidden" data-fx-rate-technical /></div>
+                                <div data-fx-usd-note class="d-none"><small>@T("پرداخت دالری؛ نرخ تبدیل لازم نیست.", "USD payment; no FX rate required.")</small></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @if (!focusedSale)
+                {
+                    <section class="ak-form-section" data-optional-section data-direct-dispatch-fields>
+                        <label class="ak-toggle-field">
+                            <span>
+                                <input type="checkbox" data-optional-toggle="directDispatch" />
+                                <strong>@T("اطلاعات ارسال مستقیم", "Direct dispatch information")</strong>
+                            </span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </label>
+                        <div class="ak-form-grid" data-optional-body="directDispatch" hidden>
+                            <div class="ak-field"><label asp-for="DirectDispatchTruckId" class="ak-label">@T("موتر", "Truck")</label><select asp-for="DirectDispatchTruckId" asp-items="ViewBag.Trucks" class="ak-input"><option value=""></option></select></div>
+                            <div class="ak-field"><label asp-for="DirectDispatchDriverId" class="ak-label">@T("دریور", "Driver")</label><select asp-for="DirectDispatchDriverId" asp-items="ViewBag.Drivers" class="ak-input"><option value=""></option></select></div>
+                            <div class="ak-field"><label asp-for="DirectDispatchDate" class="ak-label">@T("تاریخ ارسال", "Dispatch date")</label><input asp-for="DirectDispatchDate" type="date" class="ak-input" /></div>
+                            <div class="ak-field"><label asp-for="DirectDispatchLoadedQuantityMt" class="ak-label">@T("مقدار بار موتر", "Truck load")</label><input asp-for="DirectDispatchLoadedQuantityMt" type="number" step="0.0001" min="0" class="ak-input" /></div>
+                            <div class="ak-field"><label asp-for="DirectDispatchDestinationLocationId" class="ak-label">@T("مقصد موتر", "Truck destination")</label><select asp-for="DirectDispatchDestinationLocationId" asp-items="ViewBag.Locations" class="ak-input"><option value=""></option></select></div>
+                            <div class="ak-field"><label asp-for="DirectDispatchTicketSerialNumber" class="ak-label">@T("سریال تکت", "Ticket serial")</label><input asp-for="DirectDispatchTicketSerialNumber" class="ak-input" /></div>
+                        </div>
+                    </section>
+                }
+            </div>
+
+            <section class="ak-form-section">
+                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(((focusedSale ? T("نتیجهٔ فروش و کرایه", "Sale & freight result") : T("نتیجه تخلیه", "Unload result")), (string?)null))" />
+                <div class="ak-form-grid">
+                    @if (focusedSale)
+                    {
+                        <div class="ak-field">
+                            <span class="ak-label">@T("مبلغ کل فروش", "Total sale")</span>
+                            <strong><b data-preview-sale-total>@DecimalInput((Model.ReceivedQuantityMt) * (Model.SaleUnitPriceInCurrency ?? 0m))</b> <span data-preview-sale-currency>@Model.SaleCurrency</span></strong>
+                        </div>
+                    }
+                    <div class="ak-field">
+                        <span class="ak-label">@T("مجموع کرایه", "Gross freight")</span>
+                        <strong><b data-preview-freight>@DecimalInput(Model.FreightCostUsd)</b> USD</strong>
+                    </div>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("کمبودی", "Shortage")</span>
+                        <strong><b data-preview-shortage>@NumberDisplay.Quantity(Model.ShortageQuantityMt)</b> MT</strong>
+                    </div>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("مجرای کمبودی", "Shortage deduction")</span>
+                        <strong><b data-preview-deduction>@DecimalInput(Model.ShortageChargeUsd)</b> USD</strong>
+                    </div>
+                    <div class="ak-field">
+                        <span class="ak-label">@T("کرایه پرداختی", "Payable freight")</span>
+                        <strong><b data-preview-payable>@DecimalInput(Model.FreightPayableUsd)</b> USD</strong>
+                    </div>
+                </div>
+            </section>
+
+            <a href="@listUrl" class="ak-form-secondary-action">@T("برگشت به لیست", "Back to list")</a>
+            <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(((isDirectSale ? saleSubmit : receiptTitle), backUrl, T("انصراف", "Cancel")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+        (() => {
+            const select = document.querySelector("[data-receipt-destination]");
+            const toInventoryFields = [...document.querySelectorAll("[data-to-inventory-field]")];
+            const directSaleFields = [...document.querySelectorAll("[data-direct-sale-fields]")];
+            const directDispatchFields = [...document.querySelectorAll("[data-direct-dispatch-fields]")];
+            const toInventoryValue = "@toInventoryValue";
+            const directSaleValue = "@directSaleValue";
+            const directDispatchValue = "@directDispatchValue";
+            const form = document.querySelector("[data-inventory-receipt-form]");
+            const loadedQuantity = parseFloat(form?.dataset.loadedQuantity || "0") || 0;
+            const isTruck = form?.dataset.isTruck === "true";
+            const page = document.querySelector(".itr-unload-page");
+            const previewFreight = document.querySelector("[data-preview-freight]");
+            const previewShortage = document.querySelector("[data-preview-shortage]");
+            const previewDeduction = document.querySelector("[data-preview-deduction]");
+            const previewPayable = document.querySelector("[data-preview-payable]");
+            const previewSaleTotal = document.querySelector("[data-preview-sale-total]");
+            const previewSaleCurrency = document.querySelector("[data-preview-sale-currency]");
+
+            const field = (id) => document.getElementById(id);
+            const value = (id) => {
+                const raw = field(id)?.value;
+                return raw === undefined || raw === null || raw === "" ? 0 : (parseFloat(raw) || 0);
+            };
+            let lastSyncedReceivedQuantity = value("ReceivedQuantityMt");
+            const syncDirectDispatchLoadedQuantity = () => {
+                if (!select || select.value !== directDispatchValue) return;
+                const received = value("ReceivedQuantityMt");
+                const loadedEl = field("DirectDispatchLoadedQuantityMt");
+                if (!loadedEl) return;
+                const currentLoaded = parseFloat(loadedEl.value) || 0;
+                if (currentLoaded === 0 || currentLoaded === lastSyncedReceivedQuantity || currentLoaded === received) {
+                    setValue("DirectDispatchLoadedQuantityMt", received);
+                }
+                lastSyncedReceivedQuantity = received;
+            };
+
+            const setFieldsVisible = (fields, visible) => {
+                fields.forEach(node => {
+                    node.classList.toggle("d-none", !visible);
+                    node.hidden = !visible;
+                    node.querySelectorAll("input, select, textarea").forEach(input => {
+                        if (input.type !== "hidden") input.disabled = !visible;
+                    });
+                });
+            };
+            const setValue = (id, number) => {
+                const el = field(id);
+                if (el) el.value = Number.isFinite(number) ? number : 0;
+            };
+            // کسری دیگر خودکار = «بارگیری منهای تخلیه» نیست؛ کاربر آن را دستی وارد می‌کند و باقیمانده در وسیله می‌ماند.
+            const calculateTruckReceipt = () => {
+                const received = value("ReceivedQuantityMt");
+                const shortage = value("ShortageQuantityMt");
+                syncDirectDispatchLoadedQuantity();
+                if (!isTruck) {
+                    refreshOperationSummary();
+                    return;
+                }
+                const allowance = value("AllowanceMt");
+                const freightRate = value("FreightRateUsdPerMt");
+                let freightCost = value("FreightCostUsd");
+                const shortageRate = value("ShortageRateUsd");
+                const deduct = field("DeductShortageFromFreight")?.checked === true;
+                const chargeable = Math.max(0, shortage - allowance);
+                // کسری فقط وقتی از کرایه کم می‌شود که تیک «کم‌کردن کسری از کرایه» فعال باشد.
+                const shortageCharge = deduct ? chargeable * shortageRate : 0;
+
+                // مبنای کرایه = تخلیه + کسری همین رسید (نه کل حمل).
+                if (freightCost <= 0 && freightRate > 0) {
+                    freightCost = (received + shortage) * freightRate;
+                    setValue("FreightCostUsd", freightCost);
+                }
+
+                setValue("ChargeableShortageMt", chargeable);
+                setValue("ShortageChargeUsd", shortageCharge);
+                setValue("FreightPayableUsd", freightCost - shortageCharge);
+                refreshOperationSummary();
+            };
+
+            const formatNumber = number => new Intl.NumberFormat("fa-AF", { maximumFractionDigits: 4 }).format(Number.isFinite(number) ? number : 0);
+            const refreshOperationSummary = () => {
+                const shortage = value("ShortageQuantityMt");
+                if (previewFreight) previewFreight.textContent = formatNumber(value("FreightCostUsd"));
+                if (previewShortage) previewShortage.textContent = formatNumber(shortage);
+                if (previewDeduction) previewDeduction.textContent = formatNumber(value("ShortageChargeUsd"));
+                if (previewPayable) previewPayable.textContent = formatNumber(value("FreightPayableUsd"));
+                if (previewSaleTotal) previewSaleTotal.textContent = formatNumber(value("ReceivedQuantityMt") * value("SaleUnitPriceInCurrency"));
+                if (previewSaleCurrency) previewSaleCurrency.textContent = String(field("SaleCurrency")?.value || "USD").trim().toUpperCase();
+            };
+
+            const refreshModePresentation = () => {
+                if (!page) return;
+                const isSale = select?.value === directSaleValue;
+                page.classList.toggle("is-direct-sale", isSale);
+                page.classList.toggle("is-to-inventory", !isSale);
+                const title = isSale ? page.dataset.saleTitle : page.dataset.receiptTitle;
+                const description = isSale ? page.dataset.saleDescription : page.dataset.receiptDescription;
+                const submitText = isSale ? page.dataset.saleSubmit : page.dataset.receiptSubmit;
+                const titleNode = page.querySelector("[data-operation-title]");
+                const descriptionNode = page.querySelector("[data-operation-description]");
+                const breadcrumb = page.querySelector("[data-operation-breadcrumb]");
+                const submitLabel = page.querySelector("[data-operation-submit-label]");
+                const icon = page.querySelector("[data-operation-icon]");
+                if (titleNode) titleNode.textContent = title;
+                if (descriptionNode) descriptionNode.textContent = description;
+                if (breadcrumb) breadcrumb.textContent = submitText;
+                if (submitLabel) submitLabel.textContent = submitText;
+                icon?.classList.toggle("bi-cart-check", isSale);
+                icon?.classList.toggle("bi-box-arrow-in-down", !isSale);
+            };
+
+            const optionalSections = [...document.querySelectorAll("[data-optional-section]")];
+            const refreshOptionalSections = () => {
+                optionalSections.forEach(section => {
+                    const checkbox = section.querySelector("[data-optional-toggle]");
+                    const body = section.querySelector("[data-optional-body]");
+                    const modeVisible = !section.hidden;
+                    const open = Boolean(checkbox?.checked && modeVisible);
+                    section.classList.toggle("is-open", open);
+                    if (body) body.hidden = !open;
+                    body?.querySelectorAll("input, select, textarea").forEach(input => {
+                        if (input.type !== "hidden") input.disabled = !open;
+                    });
+                });
+            };
+
+            const truckReceiptFields = [...document.querySelectorAll("[data-truck-receipt-fields]")];
+
+            const toggle = () => {
+                const value = select?.value;
+                const isToInventory = value === toInventoryValue;
+                const isDirectSale = value === directSaleValue;
+                const isDirectDispatch = value === directDispatchValue;
+                setFieldsVisible(toInventoryFields, isToInventory);
+                setFieldsVisible(directSaleFields, isDirectSale);
+                setFieldsVisible(directDispatchFields, isDirectDispatch);
+                // برای موتر/واگن، بخش تخلیه و کرایه در همهٔ مقصدها نمایش داده می‌شود
+                // (فقط فیلد شرکت خدماتی/دارایی هنگام رسید به مخزن مخفی می‌شود — در refreshPartyFields)
+                setFieldsVisible(truckReceiptFields, isTruck);
+                refreshDirectSaleFx();
+                refreshPartyFields();
+                refreshModePresentation();
+                refreshOperationSummary();
+                refreshOptionalSections();
+            };
+
+            const refreshDirectSaleFx = () => {
+                const saleCurrency = String(field("SaleCurrency")?.value || "USD").trim().toUpperCase();
+                setFieldsVisible([...document.querySelectorAll("[data-direct-sale-fx-field]")], saleCurrency !== "USD");
+            };
+
+            const refreshPartyFields = () => {
+                const typeSelect = document.querySelector("[data-receipt-party-type]");
+                const typeWrap = document.querySelector("[data-receipt-party-type-wrap]");
+                const partyWrappers = [...document.querySelectorAll("[data-inventory-receipt-party]")];
+                // بخش مسئول کرایه فقط برای موتر و وقتی مقصد «به موجودی» نیست فعال است
+                const freightActive = isTruck && select?.value !== toInventoryValue;
+                setFieldsVisible(typeWrap ? [typeWrap] : [], freightActive);
+                if (!freightActive) {
+                    setFieldsVisible(partyWrappers, false);
+                    return;
+                }
+                // فقط یکی از «شرکت خدماتی» یا «دارایی عملیاتی» بر اساس نوع انتخاب‌شده نمایش داده شود
+                const chosen = typeSelect?.value || "service";
+                partyWrappers.forEach(wrapper => {
+                    setFieldsVisible([wrapper], wrapper.getAttribute("data-inventory-receipt-party") === chosen);
+                });
+            };
+
+            // فیلتر مخزن مقصد بر اساس ترمینال انتخاب‌شده: فقط مخزن‌های همان ترمینال
+            const terminalSelect = field("DestinationTerminalId");
+            const tankSelect = field("DestinationStorageTankId");
+            const tankDataEl = document.querySelector("[data-destination-tanks]");
+            let destinationTanks = [];
+            if (tankDataEl) {
+                try { destinationTanks = JSON.parse(tankDataEl.textContent || "[]"); } catch (e) { destinationTanks = []; }
+            }
+            const tankPlaceholder = tankSelect?.querySelector('option[value=""]')?.textContent ?? "";
+            const rebuildTanks = () => {
+                if (!terminalSelect || !tankSelect) return;
+                const terminalId = terminalSelect.value;
+                const current = tankSelect.value;
+                const list = terminalId
+                    ? destinationTanks.filter(t => String(t.terminalId) === String(terminalId))
+                    : destinationTanks;
+                tankSelect.innerHTML = "";
+                const ph = document.createElement("option");
+                ph.value = "";
+                ph.textContent = tankPlaceholder;
+                tankSelect.appendChild(ph);
+                let keep = false;
+                list.forEach(t => {
+                    const o = document.createElement("option");
+                    o.value = String(t.id);
+                    o.textContent = t.code;
+                    if (String(t.id) === String(current)) { o.selected = true; keep = true; }
+                    tankSelect.appendChild(o);
+                });
+                if (!keep) tankSelect.value = "";
+            };
+
+            select?.addEventListener("change", toggle);
+            document.querySelectorAll("[data-optional-toggle]").forEach(checkbox => {
+                checkbox.addEventListener("change", refreshOptionalSections);
+            });
+            field("SaleCurrency")?.addEventListener("change", refreshDirectSaleFx);
+            field("SaleCurrency")?.addEventListener("change", refreshOperationSummary);
+            field("SaleUnitPriceInCurrency")?.addEventListener("input", refreshOperationSummary);
+            document.querySelector("[data-receipt-party-type]")?.addEventListener("change", refreshPartyFields);
+            terminalSelect?.addEventListener("change", rebuildTanks);
+            ["ReceivedQuantityMt", "AllowanceMt", "FreightCostUsd", "ShortageRateUsd"].forEach(id => {
+                field(id)?.addEventListener("input", calculateTruckReceipt);
+            });
+            field("FreightRateUsdPerMt")?.addEventListener("input", () => {
+                setValue("FreightCostUsd", loadedQuantity * value("FreightRateUsdPerMt"));
+                calculateTruckReceipt();
+            });
+            field("DeductShortageFromFreight")?.addEventListener("change", calculateTruckReceipt);
+            field("ReceivedQuantityMt")?.addEventListener("input", refreshOperationSummary);
+            field("ShortageQuantityMt")?.addEventListener("input", refreshOperationSummary);
+            // اگر بخش فروش/ارسال مستقیم از قبل مقدار دارد (مثلاً بعد از خطای اعتبارسنجی)، خودکار باز شود تا داده گم نشود
+            optionalSections.forEach(section => {
+                const checkbox = section.querySelector("[data-optional-toggle]");
+                if (!checkbox || checkbox.checked) return;
+                const body = section.querySelector("[data-optional-body]");
+                const hasValue = [...(body?.querySelectorAll("input, select, textarea") || [])].some(input => {
+                    if (input.type === "hidden" || input.type === "checkbox") return false;
+                    return String(input.value || "").trim() !== "";
+                });
+                if (hasValue) checkbox.checked = true;
+            });
+
+            rebuildTanks();
+            toggle();
+            refreshDirectSaleFx();
+            refreshPartyFields();
+            calculateTruckReceipt();
+            refreshOperationSummary();
+            refreshOptionalSections();
+        })();
+    </script>
+}

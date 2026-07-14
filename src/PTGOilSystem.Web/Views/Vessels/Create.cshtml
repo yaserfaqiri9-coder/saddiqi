@@ -1,0 +1,10 @@
+@model Vessel
+@{
+    ViewData["Title"] = "کشتی جدید";
+    ViewData["CreatePageIndexLabel"] = "کشتی‌ها";
+    ViewData["CreatePageSubtitle"] = "نام، IMO و پرچم کشتی را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/Vessels/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

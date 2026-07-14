@@ -1,0 +1,112 @@
+@model PTGOilSystem.Web.Models.AccountStatements.AccountStatementCreateViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "ثبت استیتمنت";
+    ViewData["HideSectionTabs"] = true;
+    var currencies = ViewBag.Currencies as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("ثبت Opening / Manual Adjustment", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <form asp-action="Create" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات ثبت", "نوع ثبت، تاریخ، سمت و مرجع را وارد کنید."))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="EntryKind" class="ak-label"></label>
+                    <select asp-for="EntryKind" class="ak-input">
+                        <option value="1">Opening Balance</option>
+                        <option value="2">Manual Adjustment</option>
+                    </select>
+                    <span asp-validation-for="EntryKind" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="EntryDate" class="ak-label"></label>
+                    <input asp-for="EntryDate" type="date" class="ak-input" />
+                    <span asp-validation-for="EntryDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Side" class="ak-label"></label>
+                    <select asp-for="Side" class="ak-input">
+                        <option value="2">بستانکار</option>
+                        <option value="1">بدهکار</option>
+                    </select>
+                    <span asp-validation-for="Side" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Reference" class="ak-label"></label>
+                    <input asp-for="Reference" class="ak-input" placeholder="OB-2026 / ADJ-001" />
+                    <span asp-validation-for="Reference" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مبالغ و ارتباط‌ها", "مبلغ منبع، ارز و در صورت نیاز نرخ تبدیل دستی را ثبت کنید."))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="SourceAmount" class="ak-label"></label>
+                    <input asp-for="SourceAmount" class="ak-input" />
+                    <span asp-validation-for="SourceAmount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SourceCurrencyCode" class="ak-label"></label>
+                    <select asp-for="SourceCurrencyCode" asp-items="currencies" id="sourceCurrencyCode" class="ak-input">
+                        <option value="">انتخاب ارز</option>
+                    </select>
+                    <span asp-validation-for="SourceCurrencyCode" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field" data-fx-rate-group data-fx-currency-source="#sourceCurrencyCode">
+                    <div data-fx-rate-field>
+                        <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                        <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input
+                               id="statementFxDisplay" placeholder="مثال: ۷۷ یعنی ۱ دالر = ۷۷ روبل" autocomplete="off" />
+                        <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                        <span class="ak-note">۱ دالر = چند واحد ارز سند؟</span>
+                        <span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span>
+                    </div>
+                    <div data-fx-usd-note class="d-none">
+                        <span class="ak-note"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</span>
+                    </div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ContractId" class="ak-label"></label>
+                    <select asp-for="ContractId" asp-items="ViewBag.Contracts" class="ak-input"><option value="">بدون قرارداد</option></select>
+                    <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="CustomerId" class="ak-label"></label>
+                    <select asp-for="CustomerId" asp-items="ViewBag.Customers" class="ak-input"><option value="">بدون مشتری</option></select>
+                    <span asp-validation-for="CustomerId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SupplierId" class="ak-label"></label>
+                    <select asp-for="SupplierId" asp-items="ViewBag.Suppliers" class="ak-input"><option value="">بدون تأمین‌کننده</option></select>
+                    <span asp-validation-for="SupplierId" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field ak-col-full" id="statementFxHint">
+                    <span class="ak-note">اگر نرخ تبدیل را خالی بگذارید، سیستم نرخ را از Daily FX می‌گیرد. برای USD نرخ لازم نیست.</span>
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Description" class="ak-label"></label>
+                    <textarea asp-for="Description" rows="3" class="ak-input"></textarea>
+                    <span asp-validation-for="Description" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ثبت", Url.Action("Index") ?? "/AccountStatements", "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+}

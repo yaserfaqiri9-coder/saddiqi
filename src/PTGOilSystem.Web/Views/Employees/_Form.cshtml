@@ -1,0 +1,126 @@
+@model PTGOilSystem.Web.Models.Employees.EmployeeFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+<input asp-for="Id" type="hidden" />
+<input asp-for="PhotoPath" type="hidden" />
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("مشخصات کارمند", (string?)"اطلاعات هویتی و کاری کارمند را روشن و کوتاه ثبت کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="PhotoFile" class="ak-label"></label>
+            <label class="ak-upload">
+                @if (!string.IsNullOrWhiteSpace(Model.PhotoPath))
+                {
+                    <img class="ak-upload-preview" src="@Model.PhotoPath" alt="@Model.FullName" decoding="async" />
+                }
+                <span>@UiText.T(Context, "فایل عکس را اینجا انتخاب کنید", "Choose a photo to upload")</span>
+                <input asp-for="PhotoFile" type="file" accept="image/jpeg,image/png,image/webp" />
+            </label>
+            <span asp-validation-for="PhotoFile" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="EmployeeCode" class="ak-label"></label>
+            <input asp-for="EmployeeCode" class="ak-input" />
+            <span asp-validation-for="EmployeeCode" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="FullName" class="ak-label"></label>
+            <input asp-for="FullName" class="ak-input" />
+            <span asp-validation-for="FullName" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="FatherName" class="ak-label"></label>
+            <input asp-for="FatherName" class="ak-input" />
+            <span asp-validation-for="FatherName" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Phone" class="ak-label"></label>
+            <input asp-for="Phone" class="ak-input" />
+            <span asp-validation-for="Phone" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Email" class="ak-label"></label>
+            <input asp-for="Email" class="ak-input" />
+            <span asp-validation-for="Email" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="NationalId" class="ak-label"></label>
+            <input asp-for="NationalId" class="ak-input" />
+            <span asp-validation-for="NationalId" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label"></label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Address" class="ak-label"></label>
+            <input asp-for="Address" class="ak-input" />
+            <span asp-validation-for="Address" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("وظیفه و معاش", (string?)"نوع کارمند، نوع معاش و ارز پایه را دقیق تنظیم کنید تا گزارش‌ها قابل اعتماد باشند."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="JobTitle" class="ak-label"></label>
+            <input asp-for="JobTitle" class="ak-input" />
+            <span asp-validation-for="JobTitle" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Department" class="ak-label"></label>
+            <input asp-for="Department" class="ak-input" />
+            <span asp-validation-for="Department" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="EmployeeType" class="ak-label"></label>
+            <select asp-for="EmployeeType" asp-items="ViewBag.EmployeeTypes" class="ak-input"></select>
+            <span asp-validation-for="EmployeeType" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="SalaryType" class="ak-label"></label>
+            <select asp-for="SalaryType" asp-items="ViewBag.SalaryTypes" class="ak-input"></select>
+            <span asp-validation-for="SalaryType" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="BaseSalaryAmount" class="ak-label"></label>
+            <input asp-for="BaseSalaryAmount" class="ak-input" />
+            <span asp-validation-for="BaseSalaryAmount" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="SalaryCurrency" class="ak-label"></label>
+            <select asp-for="SalaryCurrency" asp-items="ViewBag.Currencies" class="ak-input">
+                <option value="">انتخاب ارز</option>
+            </select>
+            <span asp-validation-for="SalaryCurrency" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="HireDate" class="ak-label"></label>
+            <input asp-for="HireDate" class="ak-input" />
+            <span asp-validation-for="HireDate" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="EndDate" class="ak-label"></label>
+            <input asp-for="EndDate" class="ak-input" />
+            <span asp-validation-for="EndDate" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("یادداشت", (string?)null))" />
+    <div class="ak-form-grid">
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label"></label>
+            <textarea asp-for="Notes" class="ak-input" rows="4"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

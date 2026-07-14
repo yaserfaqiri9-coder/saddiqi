@@ -1,0 +1,75 @@
+@model PTGOilSystem.Web.Models.Reconciliation.OpenShipmentsViewModel
+@{
+    ViewData["Title"] = "Open Shipments";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("Shipment / Dispatch موارد باز", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+        <a asp-action="OpenShipmentsCsv" class="btn btn-light">Export CSV</a>
+    </div>
+
+    <p class="ak-note">shipment بدون فروش یا مصرف و dispatch بدون receipt در این صفحه با دسته‌بندی روشن نمایش داده می‌شوند.</p>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Shipmentهای بدون فروش", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">Shipment</th><th>@UiText.T(Context,"قرارداد","Contract")</th><th>واحد قرارداد</th><th class="ak-col-num">MT</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.ShipmentsWithoutSales)
+                {
+                    <tr><td class="ak-col-grow">@row.ShipmentCode</td><td>@row.ContractNumber</td><td>@row.ContractUnitText</td><td class="ak-col-num ak-num">@row.QuantityMt.ToString("N4")</td><td><span class="ak-status">@row.Status</span></td></tr>
+                }
+                @if (!Model.ShipmentsWithoutSales.Any())
+                {
+                    <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-check2-circle"></i> همه shipmentهای قابل‌ردیابی فروش متناظر دارند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Shipmentهای بدون مصرف", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">Shipment</th><th>@UiText.T(Context,"قرارداد","Contract")</th><th>واحد قرارداد</th><th class="ak-col-num">MT</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.ShipmentsWithoutExpenses)
+                {
+                    <tr><td class="ak-col-grow">@row.ShipmentCode</td><td>@row.ContractNumber</td><td>@row.ContractUnitText</td><td class="ak-col-num ak-num">@row.QuantityMt.ToString("N4")</td><td><span class="ak-status">@row.Status</span></td></tr>
+                }
+                @if (!Model.ShipmentsWithoutExpenses.Any())
+                {
+                    <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-check2-circle"></i> همه shipmentهای قابل‌ردیابی مصرف متناظر دارند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Dispatchهای بدون Receipt", (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th>#</th><th>@UiText.T(Context,"تاریخ","Date")</th><th>موتور</th><th class="ak-col-grow">@UiText.T(Context,"قرارداد","Contract")</th><th>واحد قرارداد</th><th class="ak-col-num">Loaded MT</th><th>@UiText.T(Context,"وضعیت","Status")</th><th>دلیل</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.DispatchesWithoutReceipt)
+                {
+                    <tr><td>@row.DispatchId</td><td>@row.DispatchDate.ToDisplayDate()</td><td>@row.TruckPlateNumber</td><td class="ak-col-grow">@row.ContractNumber</td><td>@row.ContractUnitText</td><td class="ak-col-num ak-num">@row.LoadedQuantityMt.ToString("N4")</td><td><span class="ak-status">@row.Status</span></td><td>@row.Reason</td></tr>
+                }
+                @if (!Model.DispatchesWithoutReceipt.Any())
+                {
+                    <tr><td colspan="8"><div class="ak-empty"><i class="bi bi-check2-circle"></i> همه dispatchهای قابل‌ردیابی receipt متناظر دارند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

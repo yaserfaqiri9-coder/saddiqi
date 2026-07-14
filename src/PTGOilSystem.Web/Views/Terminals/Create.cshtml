@@ -1,0 +1,10 @@
+@model Terminal
+@{
+    ViewData["Title"] = "ترمینال جدید";
+    ViewData["CreatePageIndexLabel"] = "ترمینال‌ها";
+    ViewData["CreatePageSubtitle"] = "کد، نام و موقعیت ترمینال را ثبت کنید.";
+    ViewData["CreateFormPartialPath"] = "/Views/Terminals/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_CreatePageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

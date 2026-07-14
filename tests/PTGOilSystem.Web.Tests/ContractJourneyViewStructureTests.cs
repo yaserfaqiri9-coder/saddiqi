@@ -1,0 +1,1410 @@
+using System.IO;
+using Xunit;
+
+namespace PTGOilSystem.Web.Tests;
+
+public class ContractJourneyViewStructureTests
+{
+    [Fact]
+    public void ContractJourney_Views_Hide_Global_SectionTabs()
+    {
+        var details = ReadContractJourneyDetailsMarkup();
+        var index = ReadRepoFile("src/PTGOilSystem.Web/Views/ContractJourney/Index.cshtml");
+
+        Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", details);
+        Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", index);
+    }
+
+    [Fact]
+    public void Contract_Details_View_File_Is_Removed()
+    {
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Views/Contracts/Details.cshtml"));
+    }
+
+    [Fact]
+    public void Legacy_Contract_Details_ViewModel_File_Is_Removed_After_Journey_Migration()
+    {
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Models/Contracts/ContractDetailsViewModel.cs"));
+        Assert.True(RepoFileExists("src/PTGOilSystem.Web/Models/Contracts/ContractDetailsTabs.cs"));
+    }
+
+    [Fact]
+    public void Shared_SectionTabs_Removes_Unreachable_Legacy_Contract_Details_Strip()
+    {
+        var sectionTabs = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_SectionTabs.cshtml");
+
+        Assert.DoesNotContain("contract-detail-top-strip", sectionTabs);
+        Assert.DoesNotContain("contract-detail-top-action", sectionTabs);
+        Assert.DoesNotContain("asp-controller=\"Contracts\"\r\n                               asp-action=\"Details\"", sectionTabs);
+    }
+
+    [Fact]
+    public void Contract_Create_And_Edit_Disable_Inactive_Pricing_Sections()
+    {
+        foreach (var relativePath in new[]
+        {
+            "src/PTGOilSystem.Web/Views/Contracts/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/Contracts/Edit.cshtml"
+        })
+        {
+            var contents = ReadRepoFile(relativePath);
+
+            Assert.Contains("function setSectionActive(element, active)", contents);
+            Assert.Contains("setFieldsDisabled(element, !active);", contents);
+            Assert.Contains("setSectionActive(fixedPricingSection, isFixed);", contents);
+            Assert.Contains("setSectionActive(plattsPricingSection, isPlatts);", contents);
+            Assert.Contains("setSectionActive(manualFinalPricingSection, isManualFinal);", contents);
+            Assert.Contains("setSectionActive(manualPriceGroup, isPlatts && selectedPeriod === '3');", contents);
+            Assert.Contains("plattsCurrencyHidden.value = isPlatts ? 'USD' : '';", contents);
+            Assert.Contains("selectedPolicy === perLoadingRate || selectedPolicy === rateLater", contents);
+            Assert.Contains("rubOption = document.createElement('option');", contents);
+            Assert.Contains("settlementCurrency.value = rubOption.value;", contents);
+            Assert.DoesNotContain("toggle(manualPriceGroup, false);", contents);
+        }
+    }
+
+    [Fact]
+    public void ContractJourney_Detail_Tabs_Use_Canonical_Shared_Rail()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+
+        Assert.Contains("class=\"ak-form-page\" data-contract-journey-page", view);
+        Assert.Contains("class=\"ptg-tabs-rail\"", view);
+        Assert.Contains("class=\"ptg-tab-item ", view);
+        Assert.Contains("class=\"ak-tab-content\"", view);
+        Assert.Contains("_AkPageHeader.cshtml", view);
+        Assert.Contains("asp-action=\"Details\"", view);
+        Assert.Contains("data-contract-journey-tab=\"@tab.Key\"", view);
+        Assert.Contains("data-contract-journey-tab-nav=\"true\"", view);
+        Assert.Contains("data-contract-journey-tab-link=\"true\"", view);
+        Assert.Contains("data-contract-journey-tab-content=\"true\"", view);
+        Assert.Contains("data-contract-journey-facts", view);
+        Assert.Contains("id=\"journey-tab-lists\"", view);
+
+        // خانواده‌های موازی قدیمی قرارداد نباید باقی مانده باشند
+        foreach (var legacy in new[]
+        {
+            "cj-page", "cj-shell", "cj-identity-card", "cj-metric-card", "cj-table-card", "cj-btn",
+            "cj-back-link", "cj-date-chip", "cj-summary-grid", "cj-facts-grid",
+            "journey-ops-card", "journey-action-btn", "journey-table-link", "journey-list-pager",
+            "lifecycle-", "app-table-card", "ptg-card", "ds-page", "st-detail-table-card", "st-toolbar-btn",
+            "status-badge", "operation-chip", "_DetailsTabs", "_DetailsHeader"
+        })
+        {
+            Assert.DoesNotContain(legacy, view);
+        }
+    }
+
+    [Fact]
+    public void ContractJourney_Summary_Uses_Shared_Ak_Flat_Summary()
+    {
+        var contents = ReadContractJourneyDetailsMarkup();
+        var summaryBlock = ExtractSummaryBlock(contents);
+
+        // خلاصه قرارداد: تخت، بدون کارت، روی Canvas مشترک
+        Assert.Contains("data-contract-journey-facts", contents);
+        Assert.Contains("class=\"ak-list\"", contents);
+        Assert.Contains("class=\"ak-summary-page\"", summaryBlock);
+        Assert.Contains("ak-form-section", summaryBlock);
+        Assert.Contains("_AkSectionHead.cshtml", summaryBlock);
+        Assert.Contains("class=\"ak-table\"", summaryBlock);
+        Assert.Contains("ak-num", summaryBlock);
+        Assert.Contains("ak-status", contents);
+        Assert.Contains("ak-row-menu", contents);
+        Assert.Contains("contractDisplayValueUsd", contents);
+        Assert.Contains("supplierRemainingUsd", contents);
+
+        foreach (var legacy in new[]
+        {
+            "cj-summary-page", "cj-final-net", "cj-overview-grid", "cj-status-card", "cj-stage-card",
+            "lifecycle-status-card", "lifecycle-blue-panel", "lifecycle-pill", "StripedGauge",
+            "reference-dashboard", "reference-kpi", "octane-", "<style", "<svg"
+        })
+        {
+            Assert.DoesNotContain(legacy, summaryBlock);
+        }
+
+        Assert.DoesNotContain("case ContractJourneyTabs.Details.Dashboard", contents);
+        Assert.DoesNotContain("asp-controller=\"Contracts\" asp-action=\"Details\"", contents);
+    }
+
+    [Fact]
+    public void ContractJourney_Legacy_Page_Styles_Are_Deleted()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/contract-journey.css"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/contract-journey-loadings.css"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/contract-journey-receipts.css"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/contract-journey-reference-vendor.css"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyOperationalHero.cshtml"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneySummaryTitlebar.cshtml"));
+
+        Assert.DoesNotContain("contract-journey.css", layout);
+        Assert.DoesNotContain("contract-journey-receipts.css", layout);
+        Assert.DoesNotContain("contract-journey-loadings.css", layout);
+        Assert.DoesNotContain("contract-journey-shell", layout);
+
+        // اسکریپت تب‌ها باید بماند
+        Assert.Contains("~/js/contract-journey-tabs.js", layout);
+    }
+
+    [Fact]
+    public void ContractJourney_Summary_Avoids_Heavy_Assets()
+    {
+        var contents = ReadContractJourneyDetailsMarkup();
+        var summaryBlock = ExtractSummaryBlock(contents);
+
+        Assert.DoesNotContain("<img", summaryBlock);
+        Assert.DoesNotContain("/img/contract-dashboard/", contents);
+    }
+
+    [Fact]
+    public void ContractJourney_Tab_Partials_Use_Only_Shared_Ak_Components()
+    {
+        var partials = new[]
+        {
+            "_ContractJourneyLoadingsTab",
+            "_ContractJourneyReceiptsTab",
+            "_ContractJourneyInventoryTab",
+            "_ContractJourneyDispatchTab",
+            "_ContractJourneySalesTab",
+            "_ContractJourneyFinanceTab",
+            "_ContractJourneyLedgerTab"
+        };
+
+        foreach (var name in partials)
+        {
+            var partial = ReadRepoFile($"src/PTGOilSystem.Web/Views/ContractJourney/{name}.cshtml");
+
+            Assert.Contains("class=\"ak-table\"", partial);
+            Assert.Contains("ak-form-section", partial);
+            Assert.Contains("ak-empty", partial);
+            Assert.Contains("id=\"journey-tab-lists\"", partial);
+
+            foreach (var legacy in new[]
+            {
+                "cj-", "journey-ops-card", "journey-action-btn", "journey-table-link", "journey-card",
+                "app-table-card", "ptg-card", "card-header", "card-body", "table-responsive",
+                "status-badge", "operation-chip", "btn-outline-primary", "st-detail-table-card"
+            })
+            {
+                Assert.DoesNotContain(legacy, partial);
+            }
+        }
+    }
+
+    [Fact]
+    public void Contract_Backlinks_Target_ContractJourney_Not_Legacy_Details_View()
+    {
+        var files = new[]
+        {
+            ReadRepoFile("src/PTGOilSystem.Web/Views/ContractAmendments/Index.cshtml"),
+            ReadRepoFile("src/PTGOilSystem.Web/Views/ContractAmendments/Create.cshtml"),
+            ReadRepoFile("src/PTGOilSystem.Web/Views/ShipmentContracts/Index.cshtml")
+        };
+
+        foreach (var contents in files)
+        {
+            Assert.DoesNotContain("asp-controller=\"Contracts\" asp-action=\"Details\"", contents);
+        }
+
+        Assert.Contains("asp-controller=\"ContractJourney\"", string.Concat(files));
+    }
+
+    [Fact]
+    public void Create_Views_Preserve_ReturnUrl_When_Opened_From_Contract_Details()
+    {
+        var loading = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Create.cshtml");
+        var dispatch = ReadRepoFile("src/PTGOilSystem.Web/Views/Dispatch/Create.cshtml");
+        var sales = ReadRepoFile("src/PTGOilSystem.Web/Views/Sales/Create.cshtml");
+        var expenses = ReadRepoFile("src/PTGOilSystem.Web/Views/Expenses/Create.cshtml");
+        var customs = ReadRepoFile("src/PTGOilSystem.Web/Views/CustomsDeclarations/Create.cshtml");
+        var loadingReceipts = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/Create.cshtml");
+        var loadingReceiptForm = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml");
+        var payments = ReadRepoFile("src/PTGOilSystem.Web/Views/Payments/Create.cshtml");
+        var losses = ReadRepoFile("src/PTGOilSystem.Web/Views/LossEvents/Create.cshtml");
+
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", loading);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", dispatch);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", sales);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", expenses);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", customs);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", loadingReceiptForm);
+        Assert.Contains("<partial name=\"_ReceiptCreateForm\" model=\"Model\" />", loadingReceipts);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", payments);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", losses);
+    }
+
+    [Fact]
+    public void Loading_Receipt_Form_Uses_Shared_Ak_Layout()
+    {
+        var form = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml");
+        var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+
+        var headerIndex = form.IndexOf("class=\"ak-form", StringComparison.Ordinal);
+        var sourceIndex = form.IndexOf("Source Information", StringComparison.Ordinal);
+        var receivedQuantityIndex = form.IndexOf("name=\"ReceivedQuantityMt\"", StringComparison.Ordinal);
+        var scenarioIndex = form.IndexOf("data-scenario-pick=\"inventory\"", StringComparison.Ordinal);
+        var destinationIndex = form.IndexOf("Destination Terminal", StringComparison.Ordinal);
+
+        Assert.True(headerIndex >= 0);
+        Assert.True(sourceIndex > headerIndex);
+        Assert.True(receivedQuantityIndex > sourceIndex);
+        Assert.True(scenarioIndex > receivedQuantityIndex);
+        Assert.True(destinationIndex > scenarioIndex);
+        Assert.Contains("ak-form-section", form);
+        Assert.Contains("ak-form-grid", form);
+        Assert.Contains("ak-field", form);
+        Assert.Contains("ak-input", form);
+        Assert.Contains("Destination Routing", form);
+        Assert.Contains("مسیر مقصد", form);
+        Assert.Contains("Confirm Receipt", form);
+        Assert.Contains("تأیید رسید", form);
+        Assert.Contains("UiText.IsEn(Context)", form);
+        Assert.Contains("asp-for=\"StorageTankId\"", form);
+        Assert.Contains("asp-for=\"Loss.Enabled\"", form);
+        Assert.Contains("id=\"lossPanelFields\"", form);
+        Assert.Contains("asp-for=\"Loss.QuantityMt\"", form);
+        Assert.DoesNotContain("data-copy-value-to=\"ActualArrivedQuantityMt\"", form);
+        Assert.DoesNotContain("data-copy-value-to=\"DestinationTerminalId\"", form);
+        Assert.Contains(".ak-form-section", css);
+        Assert.Contains(".ak-form-grid", css);
+        Assert.Contains(".ak-field", css);
+        Assert.Contains(".ak-input", css);
+        Assert.DoesNotContain("data-boltz-wizard", form);
+        Assert.DoesNotContain("_BoltzWizardStepper", form);
+        Assert.DoesNotContain("receipt-wizard-card", form);
+    }
+
+    [Fact]
+    public void LoadingReceipt_Create_Uses_Shared_Ak_Contract()
+    {
+        var page = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/Create.cshtml");
+        var form = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml");
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+        var js = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/modal-design-system.js");
+
+        Assert.Contains("ViewData[\"ModalDesignSystemAssets\"] = true;", page);
+        Assert.DoesNotContain("ContentBodyClass", page);
+        Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", page);
+        Assert.Contains("class=\"ak-form-page\"", page);
+        Assert.Contains("UiText.T(Context, \"ثبت رسید بارگیری\", \"Create Loading Receipt\")", page);
+        Assert.Contains("dir=\"@(UiText.IsEn(Context) ? \"ltr\" : \"rtl\")\"", page);
+        Assert.Contains("<partial name=\"_ReceiptCreateForm\" model=\"Model\" />", page);
+        Assert.DoesNotContain("ptg-modal-workbench", page);
+        Assert.DoesNotContain("receipt-reference-workbench", page);
+
+        Assert.Contains("useModalDesignSystemAssets", layout);
+        Assert.Contains("~/js/modal-design-system.js", layout);
+        Assert.Contains("data-ptg-page-asset=\"modal-design-system-script\"", layout);
+
+        Assert.Contains("class=\"ak-form", form);
+        Assert.Contains("ak-form-section", form);
+        Assert.Contains("ak-form-grid", form);
+        Assert.Contains("ak-field", form);
+        Assert.Contains("ak-input", form);
+        Assert.Contains("ak-table", form);
+        Assert.Contains("data-receipt-create-form", form);
+        Assert.Contains("asp-controller=\"LoadingReceipts\"", form);
+        Assert.Contains("asp-action=\"Create\"", form);
+        Assert.Contains("data-scenario-pick=\"inventory\"", form);
+        Assert.Contains("data-scenario-pick=\"sale\"", form);
+        Assert.Contains("data-scenario-pick=\"truck\"", form);
+        Assert.Contains("data-scenario-pick=\"transfer\"", form);
+        Assert.Contains("data-scenario-pick=\"mixed\"", form);
+        Assert.Contains("<input asp-for=\"LoadingRegisterId\" type=\"hidden\" />", form);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", form);
+        Assert.Contains("<input asp-for=\"ReceiptDestination\" type=\"hidden\" id=\"ReceiptDestination\" />", form);
+        Assert.Contains("<input asp-for=\"AllocationDestination\" type=\"hidden\" id=\"AllocationDestination\" />", form);
+        Assert.Contains("asp-for=\"DestinationTerminalId\"", form);
+        Assert.Contains("asp-for=\"DestinationStorageTankId\"", form);
+        Assert.Contains("asp-for=\"DirectTruckTicketSerialNumber\"", form);
+        Assert.Contains("asp-for=\"DirectDriverName\"", form);
+        Assert.Contains("asp-for=\"SaleAppliedFxRateToUsd\"", form);
+        Assert.Contains("asp-for=\"SaleNotes\"", form);
+        Assert.Contains("AllocationLines[i].Destination", form);
+        Assert.Contains("AllocationLines[i].StorageTankId", form);
+        Assert.Contains("AllocationLines[i].DestinationTerminalId", form);
+        Assert.DoesNotContain("<script>", form);
+
+        Assert.Contains(".ak-form-section", css);
+        Assert.Contains(".ak-form-grid", css);
+        Assert.Contains(".ak-input", css);
+        Assert.DoesNotContain("receipt-reference-card", form);
+        Assert.DoesNotContain("loading-receipt-reference-form", form);
+        Assert.Contains("initializeReceiptCreateForm", js);
+        Assert.Contains("data-receipt-create-form", js);
+        Assert.Contains("scenarioPanelMatches", js);
+        Assert.Contains("syncScenarioPanelFields", js);
+    }
+
+    [Fact]
+    public void Shared_Create_Modals_And_Form_Pages_Use_The_Unified_Modal_Design_System()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var modalShell = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_CreateModalShell.cshtml");
+        var pageShell = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_CreatePageShell.cshtml");
+        var akCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+        var js = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/modal-design-system.js");
+
+        // The shared modal-design-system behaviour script stays wired in the layout.
+        Assert.Contains("~/js/modal-design-system.js", layout);
+        Assert.Contains("initializeModalDesignSystem", js);
+        // The preview-card hook was pruned once every shell dropped the preview visual.
+        Assert.DoesNotContain("data-modal-preview-card", js);
+        Assert.DoesNotContain("initializePreviewCard", js);
+
+        foreach (var shell in new[] { modalShell, pageShell })
+        {
+            Assert.Contains("ak-form", shell);
+            Assert.Contains("Html.PartialAsync(formPartialPath, Model)", shell);
+            Assert.DoesNotContain("ptg-modal-workbench", shell);
+            Assert.DoesNotContain("ptg-modal-preview-card", shell);
+            Assert.DoesNotContain("ptg-reference", shell);
+        }
+
+        // Modal shell: one flat ak modal, every Ajax/close hook preserved.
+        Assert.Contains("ak-modal", modalShell);
+        Assert.Contains("ak-modal-head", modalShell);
+        Assert.Contains("ak-modal-title", modalShell);
+        Assert.Contains("ak-modal-close", modalShell);
+        Assert.Contains("ak-modal-foot", modalShell);
+        Assert.Contains("data-entity-modal=\"@modalId\"", modalShell);
+        Assert.Contains("data-ptg-entity-modal-form", modalShell);
+        Assert.Contains("data-entity-modal-close", modalShell);
+        Assert.Contains("asp-action=\"@formAction\"", modalShell);
+        Assert.Contains("enctype=\"@formEnctype\"", modalShell);
+        Assert.Contains("form=\"@formId\"", modalShell);
+        Assert.DoesNotContain("ptg-modal-system", modalShell);
+        Assert.DoesNotContain("ResolveVisualText", modalShell);
+        Assert.DoesNotContain("ptg-modal-variant", modalShell);
+
+        // Page shell: flat ak canvas with the shared header + footer components.
+        Assert.Contains("ak-form-page", pageShell);
+        Assert.Contains("asp-action=\"Create\"", pageShell);
+        Assert.Contains("Context.Request.Query[\"returnUrl\"]", pageShell);
+        Assert.Contains("Url.IsLocalUrl(requestedReturnUrl)", pageShell);
+        Assert.Contains("asp-route-returnUrl=\"@returnUrl\"", pageShell);
+        Assert.Contains("_AkPageHeader", pageShell);
+        Assert.Contains("_AkFooterActions", pageShell);
+        Assert.DoesNotContain("ptg-modal-form-scroll", pageShell);
+
+        // The single shared ak modal-shell CSS lives in the ak component file.
+        Assert.Contains(".ak-modal-content", akCss);
+        Assert.Contains(".ak-modal-head", akCss);
+        Assert.Contains(".ak-modal-foot", akCss);
+    }
+
+    [Fact]
+    public void Core_Transport_And_Party_Create_Actions_Use_Shared_Pages_Not_Modals()
+    {
+        var controllers = new[]
+        {
+            "Products", "Units", "Currencies", "DailyFxRates", "Locations", "ExpenseTypes", "ExpenseRules",
+            "StorageTanks", "Terminals", "Trucks", "Wagons", "Drivers", "Vessels",
+            "Suppliers", "Partners", "Companies", "Customers", "ServiceProviders", "Sarrafs", "Employees"
+        };
+
+        foreach (var controller in controllers)
+        {
+            var index = ReadRepoFile($"src/PTGOilSystem.Web/Views/{controller}/Index.cshtml");
+            var create = ReadRepoFile($"src/PTGOilSystem.Web/Views/{controller}/Create.cshtml");
+            var controllerSource = ReadRepoFile($"src/PTGOilSystem.Web/Controllers/{controller}Controller.cs");
+            Assert.Contains("var returnUrl = $\"{Context.Request.Path}{Context.Request.QueryString}\";", index);
+            Assert.Contains("Url.Action(\"Create\", new { returnUrl })", index);
+            Assert.DoesNotContain("_CreateModalShell", index);
+            Assert.DoesNotContain("data-entity-modal-open", index);
+            Assert.Contains("string? returnUrl = null", controllerSource);
+            Assert.Contains("Url.IsLocalUrl(returnUrl)", controllerSource);
+            Assert.Contains("LocalRedirect(returnUrl)", controllerSource);
+            Assert.True(
+                create.Contains("_CreatePageShell", StringComparison.Ordinal)
+                || create.Contains("ak-form-page", StringComparison.Ordinal),
+                $"{controller}/Create must use the shared ak page form contract.");
+
+            if (!create.Contains("_CreatePageShell", StringComparison.Ordinal))
+            {
+                Assert.Contains("Context.Request.Query[\"returnUrl\"]", create);
+                Assert.Contains("Url.IsLocalUrl(requestedReturnUrl)", create);
+                Assert.Contains("asp-route-returnUrl", create);
+            }
+        }
+    }
+
+    [Fact]
+    public void Entity_Quick_Create_And_Live_Modal_Consumers_Remain_Available()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var modalShell = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_CreateModalShell.cshtml");
+        var cashAccounts = ReadRepoFile("src/PTGOilSystem.Web/Views/CashAccounts/Index.cshtml");
+        var plattsRates = ReadRepoFile("src/PTGOilSystem.Web/Views/PlattsRates/Index.cshtml");
+        var receiptForm = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml");
+        var modalJs = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/modal-design-system.js");
+        var comboboxJs = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/ak-entity-combobox.js");
+        var akPageHeader = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/Components/Ak/_AkPageHeader.cshtml");
+
+        Assert.Contains("\"CashAccounts\", \"PlattsRates\", \"LoadingReceipts\"", layout);
+        Assert.Contains("data-ptg-entity-modal-form", modalShell);
+        // CashAccounts/Index now opens the create modal through the shared _AkPageHeader
+        // (ActionModalTarget), which still emits the live data-entity-modal-open hook.
+        Assert.Contains("cashAccountsCreateModal", cashAccounts);
+        Assert.Contains("data-entity-modal-open=\"@Model.ActionModalTarget\"", akPageHeader);
+        Assert.Contains("_CreateModalShell", cashAccounts);
+        Assert.Contains("_CreateModalShell", plattsRates);
+        Assert.Contains("data-receipt-create-form", receiptForm);
+        Assert.Contains("initializeReceiptCreateForm", modalJs);
+        Assert.Contains("initializeEntityModalFormSubmit", modalJs);
+        Assert.Contains("fetch(action", modalJs);
+        Assert.Contains("select.dataset.akQuickCreateTarget", comboboxJs);
+        Assert.Contains("select.dataset.akQuickCreateUrl", comboboxJs);
+        Assert.Contains("window.PTG.openPageModal", comboboxJs);
+        Assert.Contains("size: \"compact\"", comboboxJs);
+        Assert.Contains("select.dispatchEvent(new Event(\"change\"", comboboxJs);
+    }
+
+    [Fact]
+    public void InventoryTransportLeg_CreateFromInventory_Uses_Only_Scoped_Form_Assets()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/CreateFromInventory.cshtml");
+        var js = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/inventory-transport-form.js");
+        var shipmentDetails = ReadRepoFile("src/PTGOilSystem.Web/Views/ShipmentPnl/Details.cshtml");
+
+        Assert.Contains("ak-form-page", view);
+        Assert.Contains("_AkPageHeader.cshtml", view);
+        Assert.Contains("class=\"ak-form\" data-inv-transport-form", view);
+        Assert.Contains("class=\"ak-table\" data-vehicle-table", view);
+        Assert.Contains("class=\"ak-summary\" data-alloc-bar", view);
+        Assert.Contains("~/js/inventory-transport-form.js", view);
+        Assert.Contains("data-inv-transport-form", view);
+        Assert.Contains("CreateFromInventory", shipmentDetails);
+        Assert.DoesNotContain("CreateBatch", shipmentDetails);
+        Assert.DoesNotContain("inventory-transport-leg-form.js", view);
+        Assert.DoesNotContain("inventory-transport-form.css", view);
+        Assert.DoesNotContain("class=\"inv-transport-form-", view);
+        Assert.Contains("function recalculate()", js);
+        Assert.Contains("data-submit-button", js);
+        Assert.Contains("[data-vehicle-table]", js);
+        Assert.DoesNotContain(".inv-transport-form-", js);
+        Assert.Contains("name=\"ActiveStep\"", view);
+        Assert.Contains("asp-validation-summary=\"All\"", view);
+        Assert.Contains("Allocations[@allocationIndex]", view);
+        Assert.DoesNotContain("Allocations[0].SourceInventoryMovementId", view);
+        Assert.Contains("form.addEventListener(\"submit\"", js);
+        Assert.Contains("setStep(postedActiveStep", js);
+        Assert.Contains("data-capacity=", view);
+    }
+
+    [Fact]
+    public void InventoryTransportLeg_Edit_Keeps_Legacy_Dynamic_Labels_Isolated()
+    {
+        var edit = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/Edit.cshtml");
+
+        Assert.Contains("ViewData[\"InventoryTransportLegFormAssets\"] = true;", edit);
+        Assert.Contains("data-inventory-transport-leg-form", edit);
+        Assert.Contains("data-transport-type-select", edit);
+        Assert.Contains("data-transport-dynamic-label", edit);
+    }
+
+    [Fact]
+    public void InventoryTransportLeg_Details_Uses_Transport_Detail_Reference_Layout()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/Details.cshtml");
+
+        Assert.Contains("ak-form-page", view);
+        Assert.Contains("data-transport-details", view);
+        Assert.Contains("_AkPageHeader.cshtml", view);
+        Assert.Contains("class=\"ak-summary\"", view);
+        Assert.Contains("class=\"ptg-tabs-rail\"", view);
+        Assert.Contains("class=\"ak-tab-panel is-active\"", view);
+        Assert.Contains("class=\"ak-list\" data-ptcd-list", view);
+        Assert.Contains("class=\"ak-pager\" data-ptcd-pager", view);
+        Assert.Contains("جزئیات حمل از موجودی", view);
+        Assert.Contains("ثبت گمرک", view);
+        Assert.Contains("class=\"ak-primary-action\"", view);
+        Assert.DoesNotContain("ptg-transport-clean-details", view);
+        Assert.DoesNotContain("ptcd-summary-card", view);
+    }
+    [Fact]
+    public void Operation_Record_Detail_Pages_Use_Shared_Ak_Detail_Contract()
+    {
+        var pages = new[]
+        {
+            "src/PTGOilSystem.Web/Views/Sales/Details.cshtml",
+            "src/PTGOilSystem.Web/Views/Expenses/Details.cshtml",
+            "src/PTGOilSystem.Web/Views/LossEvents/Details.cshtml",
+            "src/PTGOilSystem.Web/Views/Dispatch/Details.cshtml",
+            "src/PTGOilSystem.Web/Views/CustomsDeclarations/Details.cshtml",
+            "src/PTGOilSystem.Web/Views/LoadingReceipts/Details.cshtml"
+        };
+
+        foreach (var path in pages)
+        {
+            var view = ReadRepoFile(path);
+
+            Assert.Contains("ak-form-page", view);
+            Assert.Contains("_AkPageHeader.cshtml", view);
+            Assert.Contains("ak-form-section", view);
+            Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", view);
+
+            foreach (var legacy in new[]
+            {
+                "sd-card", "sd-btn", "sd-summary", "od-card", "od-btn", "od-summary", "od-facts",
+                "loading-details-simple-page", "loading-detail-simple-card", "loading-journal-page",
+                "ops-details-page", "sales-details-page", "summary-strip", "card detail-card",
+                "ViewData[\"SalesDetailsAssets\"]", "ViewData[\"OpsDetailsAssets\"]"
+            })
+            {
+                Assert.DoesNotContain(legacy, view);
+            }
+        }
+
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        Assert.DoesNotContain("31-sales-details.css", layout);
+        Assert.DoesNotContain("32-ops-details.css", layout);
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/ptg/31-sales-details.css"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/css/ptg/32-ops-details.css"));
+    }
+
+    [Fact]
+    public void InventoryTransport_Active_Flow_Views_Use_Shared_Ak_Components()
+    {
+        var active = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/Active.cshtml");
+        var activeDetails = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/ActiveDetails.cshtml");
+        var index = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportLegs/Index.cshtml");
+
+        Assert.Contains("ak-list-page", active);
+        Assert.Contains("_AkPageHeader.cshtml", active);
+        Assert.Contains("class=\"ak-summary\"", active);
+        Assert.Contains("class=\"ak-form-grid\"", active);
+        Assert.Contains("class=\"ak-table\"", active);
+        Assert.Contains("asp-action=\"Details\"", active);
+        Assert.Contains("ak-form-page", activeDetails);
+        Assert.Contains("class=\"ak-page-header\"", activeDetails);
+        Assert.Contains("class=\"ak-summary", activeDetails);
+        Assert.Contains("class=\"ak-table", activeDetails);
+        Assert.Contains("data-href=\"@Url.Action(\"Details\"", index);
+        Assert.Contains("asp-action=\"GroupTransfer\"", index);
+        Assert.Contains("asp-action=\"CreateFromInventory\"", index);
+        Assert.DoesNotContain("asp-action=\"CreateBatch\"", index);
+        Assert.DoesNotContain("inventory-transport-active.css", active);
+        Assert.DoesNotContain("class=\"inventory-flow-", active);
+        Assert.DoesNotContain("active-detail-", activeDetails);
+    }
+
+    [Fact]
+    public void InventoryTransportReceipt_Create_Form_Uses_Localized_Persian_Copy()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportReceipts/Create.cshtml");
+
+        Assert.Contains("UiText.T(Context", view);
+        Assert.Contains("ReceiptDate", view);
+        Assert.Contains("ReceiptDestination", view);
+        Assert.Contains("ReceivedQuantityMt", view);
+        Assert.Contains("ShortageQuantityMt", view);
+        Assert.Contains("DestinationTerminalId", view);
+        Assert.Contains("DestinationStorageTankId", view);
+        Assert.Contains("toInventoryValue", view);
+        Assert.DoesNotContain("<label asp-for=\"ReceiptDate\" class=\"form-label\"></label>", view);
+        Assert.DoesNotContain("<label asp-for=\"ReceiptDestination\" class=\"form-label\"></label>", view);
+        Assert.DoesNotContain("<label asp-for=\"ReceivedQuantityMt\" class=\"form-label\"></label>", view);
+    }
+
+    [Fact]
+    public void InventoryTransportReceipt_Create_Uses_Compact_Destination_Unload_Layout()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/InventoryTransportReceipts/Create.cshtml");
+
+        Assert.Contains("ثبت رسید / تخلیه", view);
+        Assert.Contains("شماره سفر", view);
+        Assert.Contains("وسیله حمل", view);
+        Assert.Contains("نمبر موتر", view);
+        Assert.Contains("بارگیری‌شده از مخزن", view);
+        Assert.Contains("وزن تخلیه", view);
+        Assert.Contains("مجموع کرایه", view);
+        Assert.Contains("مجرای کمبودی", view);
+        Assert.Contains("ثبت کرایه", view);
+        Assert.Contains("ثبت کمبودی قابل مجرا", view);
+        Assert.Contains("data-optional-toggle=\"freight\"", view);
+        Assert.Contains("data-optional-toggle=\"shortage\"", view);
+        Assert.Contains("data-optional-body=\"freight\" @(freightOpen ? null : \"hidden\")", view);
+        Assert.Contains("data-optional-body=\"shortage\" @(shortageOpen ? null : \"hidden\")", view);
+        Assert.Contains("ak-form-page", view);
+        Assert.Contains("class=\"ak-form\"", view);
+        Assert.Contains("_AkPageHeader", view);
+        Assert.DoesNotContain("shipment-receipt-form", view);
+    }
+    [Fact]
+    public void ContractJourney_Operational_Links_Are_ReturnUrl_Aware()
+    {
+        var contents = ReadContractJourneyDetailsMarkup();
+
+        Assert.Contains("asp-controller=\"Loading\"", contents);
+        Assert.Contains("asp-action=\"Details\"", contents);
+        Assert.Contains("asp-route-id=\"@item.Id\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Loadings)\"", contents);
+        Assert.Contains("asp-controller=\"LoadingReceipts\"", contents);
+        Assert.Contains("asp-route-id=\"@item.Id\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Receipts)\"", contents);
+        Assert.Contains("asp-controller=\"Dispatch\"", contents);
+        Assert.Contains("asp-route-id=\"@item.Id\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Dispatch)\"", contents);
+        Assert.Contains("asp-controller=\"Sales\"", contents);
+        Assert.Contains("asp-route-id=\"@item.SalesTransactionId\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Sales)\"", contents);
+        Assert.Contains("asp-controller=\"Expenses\"", contents);
+        Assert.Contains("asp-route-id=\"@item.ExpenseTransactionId\"", contents);
+        Assert.Contains("asp-controller=\"LossEvents\"", contents);
+        Assert.Contains("asp-route-id=\"@item.LossEventId\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(LossesPresentationTab)\"", contents);
+        Assert.Contains("asp-controller=\"Payments\"", contents);
+        Assert.Contains("asp-route-id=\"@item.PaymentTransactionId\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Finance)\"", contents);
+        Assert.Contains("asp-controller=\"Payments\" asp-action=\"Edit\" asp-route-id=\"@item.PaymentTransactionId\"", contents);
+    }
+
+    [Fact]
+    public void ContractJourney_Losses_Tab_Provides_Edit_Action()
+    {
+        var contents = ReadContractJourneyDetailsMarkup();
+
+        Assert.Contains("const string LossesPresentationTab = \"losses\";", contents);
+        Assert.Contains("asp-route-lossesView=\"@(isLossesPresentationTab ? \"true\" : null)\"", contents);
+        // کسری داخل تب «مصرف و کسری» رندر می‌شود
+        Assert.Contains("case ContractJourneyTabs.Details.Costs:", contents);
+        Assert.Contains("asp-controller=\"LossEvents\"", contents);
+        Assert.Contains("asp-action=\"Edit\"", contents);
+        Assert.Contains("asp-route-id=\"@item.LossEventId\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(LossesPresentationTab)\"", contents);
+    }
+
+    [Fact]
+    public void ContractJourney_Removes_Legacy_Tab_Summary_Strip_Without_Dropping_Current_Summary_Data()
+    {
+        var contents = ReadContractJourneyDetailsMarkup();
+
+        Assert.DoesNotContain("var tabSummaryCards = activeTab switch", contents);
+        Assert.DoesNotContain("journey-tab-summary-strip", contents);
+        Assert.Contains("LocalizeDisplay(string? value)", contents);
+        Assert.DoesNotContain("dashboardTopStats", contents);
+        Assert.DoesNotContain("dashboardFlowSteps", contents);
+        Assert.Contains("data-contract-journey-facts", contents);
+        Assert.Contains("contractDisplayValueUsd", contents);
+        Assert.DoesNotContain("activeTab != ContractJourneyTabs.Details.Summary", contents);
+        Assert.DoesNotContain("activeTab != ContractJourneyTabs.Details.Dispatch", contents);
+        Assert.Contains("asp-action=\"CustomsBatch\"", contents);
+        Assert.Contains("summaryPnlExpenseTotalUsd = Model.MiniPnl.TraceableExpensesUsd", contents);
+        Assert.Contains("summaryExpenseTotalUsd = expenseTotalUsd + Model.LoadingOperationalExpenseUsd + Model.CustomsDeclarationTotalUsd", contents);
+        Assert.Contains("summaryLossCostUsd = Math.Max(summaryPnlExpenseTotalUsd - summaryExpenseTotalUsd, 0m)", contents);
+        Assert.Contains("summaryRegisteredExpenseUsd = expenseTotalUsd", contents);
+        Assert.Contains("summaryLoadingAndCustomsExpenseUsd = Model.LoadingOperationalExpenseUsd + Model.CustomsDeclarationTotalUsd", contents);
+        Assert.DoesNotContain("summaryTransportExpenseUsd = Model.ContractTransportExpenseUsd", contents);
+        Assert.DoesNotContain("summaryStorageRentExpenseUsd = Model.ContractStorageRentExpenseUsd", contents);
+        Assert.DoesNotContain("referenceKpiCards", contents);
+        Assert.DoesNotContain("referenceBarItems", contents);
+        Assert.Contains("CustomsDeclarationTotalUsd", contents);
+        Assert.DoesNotContain("referenceDonutTotal", contents);
+        Assert.Contains("loadingCount", contents);
+        Assert.Contains("dispatchCount", contents);
+        Assert.Contains("salesAverageUsd", contents);
+        Assert.Contains("totalDisplayLossMt", contents);
+        Assert.Contains("Model.ReceiptShortageLossMt", contents);
+        Assert.Contains("Model.DispatchShortageLossMt", contents);
+        Assert.DoesNotContain("Model.SalesLossMt", contents);
+        Assert.Contains("receiptShortageWastageMt", contents);
+        Assert.Contains("dispatchShortageWastageMt", contents);
+        Assert.DoesNotContain("salesWastageMt", contents);
+        Assert.Contains("paymentCount", contents);
+    }
+
+    [Fact]
+    public void ContractJourney_DetailTabs_Split_Loadings_And_Receipts()
+    {
+        var tabs = ReadRepoFile("src/PTGOilSystem.Web/Models/ContractJourney/ContractJourneyViewModels.cs");
+        var view = ReadContractJourneyDetailsMarkup();
+
+        Assert.Contains("public const string InventoryTransport = \"inventorytransport\";", tabs);
+        Assert.Contains("InventoryTransport => InventoryTransport", tabs);
+        var detailTabsIndex = view.IndexOf("var detailTabs = Model.IsPurchaseContract", StringComparison.Ordinal);
+        Assert.True(detailTabsIndex >= 0);
+        var receiptsTabIndex = view.IndexOf("Key = ContractJourneyTabs.Details.Receipts", detailTabsIndex, StringComparison.Ordinal);
+        var inventoryTabIndex = view.IndexOf("Key = ContractJourneyTabs.Details.Inventory,", detailTabsIndex, StringComparison.Ordinal);
+        var inventoryTransportTabIndex = view.IndexOf("Key = ContractJourneyTabs.Details.InventoryTransport", detailTabsIndex, StringComparison.Ordinal);
+        Assert.True(receiptsTabIndex >= 0);
+        Assert.True(inventoryTabIndex > receiptsTabIndex);
+        Assert.True(inventoryTransportTabIndex > inventoryTabIndex);
+
+        Assert.Contains("case ContractJourneyTabs.Details.Loadings:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Receipts:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.InventoryTransport:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Inventory:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Dispatch:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Sales:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Costs:", view);
+        Assert.Contains("case ContractJourneyTabs.Details.Finance:", view);
+        Assert.DoesNotContain("case ContractJourneyTabs.Details.Operations:", view);
+
+        Assert.Contains("Key = ContractJourneyTabs.Details.Dispatch, Label = T(", view);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.Dispatch)\"", view);
+        Assert.Contains("asp-route-returnUrl=\"@ReturnUrl(ContractJourneyTabs.Details.InventoryTransport)\"", view);
+        Assert.Contains("asp-controller=\"Loading\" asp-action=\"Create\"", view);
+        Assert.Contains("asp-controller=\"LoadingReceipts\" asp-action=\"Create\"", view);
+
+        // هر تب فقط جدول/سکشن مشترک ak دارد
+        Assert.Contains("class=\"ak-table\"", view);
+        Assert.Contains("class=\"ak-table-wrap\"", view);
+        Assert.Contains("class=\"ak-form-section\"", view);
+        Assert.Contains("ak-empty", view);
+        Assert.Contains("ak-pager", view);
+        foreach (var legacy in new[] { "journey-wide-table", "journey-compact-table", "journey-tab-grid", "journey-finance-panel", "journey-loading-list", "table-responsive", "<div class=\"row g-3\">" })
+        {
+            Assert.DoesNotContain(legacy, view);
+        }
+    }
+
+    [Fact]
+    public void ContractJourney_InventoryTransport_Tab_Uses_Shared_Ak_Table()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+        var block = ExtractSwitchCaseBlock(
+            view,
+            "case ContractJourneyTabs.Details.InventoryTransport:",
+            "case ContractJourneyTabs.Details.Inventory:");
+
+        Assert.Contains("class=\"ak-table\"", block);
+        Assert.Contains("ak-row-menu", block);
+        Assert.Contains("ak-status", block);
+        Assert.Contains("ak-num", block);
+        Assert.Contains("@ListPager(\"transportLegPage\", transportLegPage, transportLegPageCount", block);
+        Assert.Contains("TransportInTransitQuantity(leg)", block);
+        Assert.Contains("TransportStatusToneClass(leg.StatusName)", block);
+        Assert.Contains("asp-controller=\"InventoryTransportLegs\"", block);
+        foreach (var legacy in new[] { "journey-ops-card", "journey-chain-step", "journey-inventory-chain", "journey-chain-legs", "status-badge", "cj-" })
+        {
+            Assert.DoesNotContain(legacy, block);
+        }
+    }
+
+    [Fact]
+    public void ContractJourney_Receipts_Tab_Exposes_Bulk_Receipt_Checklist_And_Individual_Links()
+    {
+        var block = ReadRepoFile("src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyReceiptsTab.cshtml");
+
+        // قرارداد مشترک ak
+        Assert.Contains("class=\"ak-form\"", block);
+        Assert.Contains("ak-form-section", block);
+        Assert.Contains("ak-form-grid", block);
+        Assert.Contains("class=\"ak-input\"", block);
+        Assert.Contains("class=\"ak-table\"", block);
+        Assert.Contains("ak-footer-actions", block);
+        Assert.Contains("ak-row-menu", block);
+
+        // hookهای زندهٔ رسید گروهی
+        Assert.Contains("asp-action=\"BulkCreate\"", block);
+        Assert.Contains("@Html.AntiForgeryToken()", block);
+        Assert.Contains("data-bulk-receipt-form", block);
+        Assert.Contains("data-bulk-receipt-collapsed=\"true\"", block);
+        Assert.Contains("data-bulk-receipt-toggle", block);
+        Assert.Contains("data-bulk-receipt-toggle-label", block);
+        Assert.Contains("data-bulk-receipt-panel hidden", block);
+        Assert.Contains("data-bulk-receipt-select-all", block);
+        Assert.Contains("data-bulk-receipt-clear", block);
+        Assert.Contains("data-bulk-receipt-row", block);
+        Assert.Contains("data-bulk-receipt-qty", block);
+        Assert.Contains("data-bulk-receipt-total-input", block);
+        Assert.Contains("data-bulk-receipt-terminal-select", block);
+        Assert.Contains("data-bulk-receipt-tank-select", block);
+        Assert.Contains("data-terminal-id=\"@tank.TerminalId\"", block);
+        Assert.Contains("data-bulk-receipt-selected-count", block);
+        Assert.Contains("data-bulk-receipt-selected-qty", block);
+        Assert.Contains("name=\"LoadingRegisterIds\"", block);
+        Assert.Contains("name=\"LossMode\"", block);
+        Assert.Contains("data-loss-mode=\"immediate\"", block);
+        Assert.Contains("BulkReceiptLossMode.None", block);
+        Assert.Contains("BulkReceiptLossMode.ImmediateKnownLoss", block);
+        Assert.Contains("BulkReceiptLossMode.DeferredTankSettlement", block);
+        Assert.Contains("name=\"TotalReceivedQuantityMt\"", block);
+        Assert.Contains("name=\"TotalLossQuantityMt\"", block);
+        Assert.Contains("name=\"TotalLossToleranceQuantityMt\"", block);
+        Assert.Contains("name=\"ReferenceDocument\"", block);
+        Assert.Contains("name=\"LossResponsiblePartyName\"", block);
+        Assert.Contains("name=\"ReturnUrl\"", block);
+        Assert.Contains("asp-action=\"Create\" asp-route-loadingId=\"@item.LoadingRegisterId\"", block);
+        Assert.Contains("data-page-modal=\"true\"", block);
+
+        foreach (var legacy in new[] { "st-detail-table-card", "st-toolbar-btn", "st-quantity-pill", "journey-receipt-entry-grid", "journey-receipts-simple", "form-control", "form-select" })
+        {
+            Assert.DoesNotContain(legacy, block);
+        }
+
+        // نمایش فیلدهای ضایعات از قرارداد مشترک ak می‌آید، نه از CSS صفحه‌ای
+        var akCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+        Assert.Contains("[data-bulk-receipt-form] .ak-loss-only", akCss);
+        Assert.Contains("input[data-loss-mode=\"immediate\"]:checked", akCss);
+
+        var coreJs = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/core.js");
+        Assert.Contains("function syncStorageTankOptions()", coreJs);
+        Assert.Contains("[data-bulk-receipt-terminal-select]", coreJs);
+        Assert.Contains("[data-bulk-receipt-tank-select]", coreJs);
+        Assert.Contains("option.getAttribute(\"data-terminal-id\")", coreJs);
+        Assert.Contains("terminalSelect.addEventListener(\"change\", syncStorageTankOptions);", coreJs);
+    }
+
+    [Fact]
+    public void ContractJourney_Details_Uses_Shared_Ak_Detail_Contract()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+
+        Assert.Contains("ak-form-page", view);
+        Assert.Contains("data-contract-journey-page", view);
+        Assert.Contains("_AkPageHeader.cshtml", view);
+        Assert.Contains("_AkSectionHead.cshtml", view);
+        Assert.Contains("class=\"ptg-tabs-rail\"", view);
+        Assert.Contains("data-contract-journey-tab-link=\"true\"", view);
+        Assert.Contains("ak-status", view);
+        Assert.Contains("ak-row-menu", view);
+        Assert.Contains("ak-col-actions", view);
+        Assert.Contains("ak-col-num", view);
+        Assert.Contains("ak-empty", view);
+
+        foreach (var legacy in new[]
+        {
+            "cj-", "journey-action-btn", "journey-list-header-actions", "journey-ops-head-tools",
+            "app-table-card", "card-header", "card-body", "btn-outline-primary", "finance-amount",
+            "status-badge", "operation-chip", "reference-dashboard", "contract-ops-center", "<style"
+        })
+        {
+            Assert.DoesNotContain(legacy, view);
+        }
+    }
+
+    [Fact]
+    public void ContractJourney_Details_Wires_Lazy_Tab_Loading_With_Page_Cache()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var js = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/contract-journey-tabs.js");
+
+        Assert.Contains("var isAjaxTabRequest = string.Equals(Context.Request.Headers[\"X-Requested-With\"], \"XMLHttpRequest\", StringComparison.OrdinalIgnoreCase);", view);
+        Assert.Contains("Layout = isAjaxTabRequest ? null : \"_Layout\";", view);
+        Assert.Contains("ViewData[\"ContractJourneyAssets\"] = true;", view);
+        Assert.Contains("contract-journey-page", view);
+        Assert.Contains("data-contract-journey-tab-nav=\"true\"", view);
+        Assert.Contains("data-contract-journey-tab-link=\"true\"", view);
+        Assert.Contains("data-contract-journey-tab-content=\"true\"", view);
+        Assert.Contains("data-contract-journey-facts", view);
+        Assert.Contains("data-no-spa=\"true\"", view);
+        Assert.Contains("~/js/contract-journey-tabs.js", layout);
+        Assert.Contains("data-ptg-page-asset=\"contract-journey-tabs\"", layout);
+        Assert.Contains("var tabCache = new Map();", js);
+        Assert.Contains("fetch(url", js);
+        Assert.Contains("document.addEventListener(\"click\", onTabClick, true);", js);
+        Assert.Contains("document.querySelector(\"[data-contract-journey-page]\")", js);
+        Assert.Contains("data-contract-journey-tab-loading", js);
+        Assert.Contains("data-contract-journey-tab-error", js);
+    }
+
+    [Fact]
+    public void ContractJourney_Details_Removes_Row_Detail_Modals()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var tabsJs = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/contract-journey-tabs.js");
+
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyRowDetailModal.cshtml"));
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/wwwroot/js/contract-journey-details.js"));
+        Assert.DoesNotContain("data-journey-row-detail", view);
+        Assert.DoesNotContain("journey-row-details-btn", view);
+        Assert.DoesNotContain("data-journey-detail-title", view);
+        Assert.DoesNotContain("rowDetailModalModel", view);
+        Assert.DoesNotContain("ContractJourneyDetailsScript", layout);
+        Assert.DoesNotContain("contract-journey-details", tabsJs);
+    }
+    [Fact]
+    public void ContractJourney_Dashboard_Tab_Is_Merged_Into_Summary()
+    {
+        var tabs = ReadRepoFile("src/PTGOilSystem.Web/Models/ContractJourney/ContractJourneyViewModels.cs");
+        var contractsController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/ContractsController.cs");
+
+        Assert.Contains("Dashboard => Summary", tabs);
+        Assert.Contains("ContractJourneyTabs.Details.Dashboard => ContractJourneyTabs.Details.Summary", contractsController);
+    }
+
+    [Fact]
+    public void Loading_Create_Removes_ContractJourney_Context_Guide_When_ReturnUrl_Is_Local()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Create.cshtml");
+
+        Assert.Contains("Url.IsLocalUrl(Model.ReturnUrl)", contents);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", contents);
+    }
+
+    [Fact]
+    public void Customs_Create_Uses_ReturnUrl_For_Back_And_Cancel()
+    {
+        var controller = ReadRepoFile("src/PTGOilSystem.Web/Controllers/CustomsDeclarationsController.cs");
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/CustomsDeclarations/Create.cshtml");
+
+        Assert.Contains("ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null", controller);
+        Assert.Contains("model.ReturnUrl = TryGetLocalReturnUrl(model.ReturnUrl, out var localReturnUrl) ? localReturnUrl : null;", controller);
+        Assert.Contains("var backUrl = !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)", view);
+        Assert.Contains("_AkFooterActions", view);
+        Assert.Contains("_AkPageHeader", view);
+        Assert.Contains("customs-create-page", view);
+        Assert.Contains("ak-form-section", view);
+        Assert.Contains("ak-footer-actions", ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/Components/Ak/_AkFooterActions.cshtml"));
+        Assert.DoesNotContain("asp-action=\"Index\" asp-route-loadingRegisterId=\"@Model.LoadingRegisterId\" class=\"btn btn-outline-secondary\"", view);
+    }
+
+    [Fact]
+    public void Loading_Details_Preserves_ReturnUrl_And_Falls_Back_To_Contract_Loading_List()
+    {
+        var controller = ReadRepoFile("src/PTGOilSystem.Web/Controllers/LoadingController.cs");
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
+
+        Assert.Contains("public async Task<IActionResult> Index(", controller);
+        Assert.Contains("DateTime? fromDate = null", controller);
+        Assert.Contains("DateTime? toDate = null", controller);
+        Assert.Contains("query = query.Where(l => l.ContractId == contractId.Value);", controller);
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", controller);
+        Assert.Contains("BuildLoadingReceiptCreateModel", controller);
+        Assert.Contains("PopulateReceiptLookupsAsync(receiptEditor)", controller);
+        Assert.Contains("ReceiptEditor = receiptEditor", controller);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", controller);
+        Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", view);
+        Assert.Contains("var loadingListReturnUrl = Url.Action(\"Index\", \"Loading\", new { contractId = Model.ContractId }) ?? \"/Loading\";", view);
+        Assert.Contains("var effectiveReturnUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingListReturnUrl;", view);
+        Assert.Contains("var currentPageReturnUrl = Context.Request.Path + Context.Request.QueryString;", view);
+        Assert.Contains("(string?)effectiveReturnUrl", view);
+        Assert.Contains("data-bs-target=\"#loadingReceiptModal\"", view);
+        Assert.Contains("id=\"loadingReceiptModal\"", view);
+        Assert.Contains("_ReceiptCreateForm.cshtml", view);
+        Assert.Contains("var loadingExpenseTotal = expenseLines.Count > 0", view);
+        Assert.Contains("class=\"ak-form-page\"", view);
+        Assert.Contains("_AkPageHeader", view);
+        Assert.Contains("_AkSectionHead", view);
+        Assert.Contains("class=\"ak-form-section", view);
+        Assert.Contains("class=\"ak-list\"", view);
+        Assert.Contains("class=\"ak-status", view);
+        Assert.DoesNotContain("data-bs-toggle=\"tab\"", view);
+        Assert.DoesNotContain("id=\"loading-tab-", view);
+        Assert.DoesNotContain("loading-details-simple-page", view);
+        Assert.DoesNotContain("loading-detail-clean-header", view);
+        Assert.DoesNotContain("loading-detail-single-shell", view);
+        Assert.Contains("NumberDisplay.UnitPrice(Model.FreightRateUsdPerMt, \"USD/MT\")", view);
+        Assert.Contains("@loadingExpenseTotal.ToString(\"N2\") USD", view);
+        Assert.Contains("@loadingCostsGrandTotal.ToString(\"N2\") USD", view);
+        Assert.Contains("Model.TransportExpenseUsd ?? 0m", view);
+        Assert.Contains("Model.WarehouseExpenseUsd ?? 0m", view);
+        Assert.Contains("Model.RailwayExpenseUsd ?? 0m", view);
+        Assert.Contains("Model.OtherExpenseUsd ?? 0m", view);
+        Assert.DoesNotContain("loading-journal-metrics", view);
+        Assert.DoesNotContain("loading-journal-grid-bottom", view);
+        Assert.DoesNotContain("asp-controller=\"LoadingReceipts\" asp-action=\"Create\" asp-route-loadingId=\"@Model.Id\"", view);
+        Assert.Contains("asp-route-returnUrl=\"@currentPageReturnUrl\"", view);
+        Assert.Contains("asp-controller=\"CustomsDeclarations\" asp-action=\"Create\" asp-route-loadingRegisterId=\"@Model.Id\" asp-route-returnUrl=\"@currentPageReturnUrl\"", view);
+        Assert.DoesNotContain("asp-controller=\"CustomsDeclarations\" asp-action=\"Details\"", view);
+        Assert.DoesNotContain("asp-controller=\"LoadingReceipts\" asp-action=\"Details\"", view);
+        Assert.DoesNotContain("Model.TransportType == PTGOilSystem.Web.Models.Entities.LoadingTransportType.Wagon", view);
+        Assert.DoesNotContain("Model.TransportType == PTGOilSystem.Web.Models.Entities.LoadingTransportType.Truck", view);
+        Assert.DoesNotContain("bi bi-plus-lg me-1", view);
+    }
+
+    [Fact]
+    public void Loading_Details_Header_Provides_Loss_Create_Action()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
+
+        Assert.Contains("asp-controller=\"LossEvents\"", contents);
+        Assert.Contains("asp-action=\"Create\"", contents);
+        Assert.Contains("asp-route-loadingRegisterId=\"@Model.Id\"", contents);
+        Assert.Contains("asp-route-returnUrl=\"@currentPageReturnUrl\"", contents);
+    }
+
+    [Fact]
+    public void Loading_Details_Uses_Shared_Ak_Detail_Contract()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
+        var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+
+        Assert.Contains("class=\"ak-form-page\"", view);
+        Assert.Contains("_AkPageHeader", view);
+        Assert.Contains("_AkSectionHead", view);
+        Assert.Contains("class=\"ak-form-grid", view);
+        Assert.Contains("class=\"ak-list\"", view);
+        Assert.Contains("class=\"ak-status", view);
+        Assert.Contains(".ak-form-page", css);
+        Assert.Contains(".ak-form-section", css);
+        Assert.Contains(".ak-form-grid", css);
+        Assert.Contains(".ak-list", css);
+        Assert.Contains(".ak-status", css);
+        Assert.DoesNotContain("loading-details-simple-page", view);
+        Assert.DoesNotContain("loading-detail-simple-card", view);
+    }
+
+    [Fact]
+    public void LoadingReceipt_Details_Uses_Shared_Ak_Detail_Contract()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/Details.cshtml");
+
+        Assert.Contains("ak-form-page", view);
+        Assert.Contains("_AkPageHeader.cshtml", view);
+        Assert.Contains("ak-form-section", view);
+        Assert.Contains("ViewData[\"HideSectionTabs\"] = true;", view);
+        Assert.DoesNotContain("loading-details-simple-page", view);
+        Assert.DoesNotContain("loading-journal-page", view);
+        Assert.DoesNotContain("loading-receipt-details-page", view);
+        Assert.DoesNotContain("summary-strip", view);
+    }
+    [Fact]
+    public void Operational_Detail_Views_Preserve_Local_ReturnUrl_For_Back_Navigation()
+    {
+        var dispatchController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/DispatchController.cs");
+        var dispatchView = ReadRepoFile("src/PTGOilSystem.Web/Views/Dispatch/Details.cshtml");
+        var salesController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/SalesController.cs");
+        var salesView = ReadRepoFile("src/PTGOilSystem.Web/Views/Sales/Details.cshtml");
+        var expensesController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/ExpensesController.cs");
+        var expensesView = ReadRepoFile("src/PTGOilSystem.Web/Views/Expenses/Details.cshtml");
+        var paymentsController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/PaymentsController.cs");
+        var paymentsView = ReadRepoFile("src/PTGOilSystem.Web/Views/Payments/Details.cshtml");
+        var loadingReceiptsController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/LoadingReceiptsController.cs");
+        var loadingReceiptsView = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/Details.cshtml");
+        var customsController = ReadRepoFile("src/PTGOilSystem.Web/Controllers/CustomsDeclarationsController.cs");
+        var customsView = ReadRepoFile("src/PTGOilSystem.Web/Views/CustomsDeclarations/Details.cshtml");
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", dispatchController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", dispatchController);
+        Assert.Contains("var returnUrl = ViewBag.ReturnUrl as string;", dispatchView);
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", salesController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", salesController);
+        Assert.Contains("var returnUrl = ViewBag.ReturnUrl as string;", salesView);
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", expensesController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", expensesController);
+        Assert.Contains("var returnUrl = ViewBag.ReturnUrl as string;", expensesView);
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", paymentsController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", paymentsController);
+        Assert.Contains("var returnUrl = ViewBag.ReturnUrl as string;", paymentsView);
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", loadingReceiptsController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", loadingReceiptsController);
+        Assert.Contains("var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingDetailsUrl;", loadingReceiptsView);
+
+        Assert.Contains("public async Task<IActionResult> Details(int id, string? returnUrl = null)", customsController);
+        Assert.Contains("ViewBag.ReturnUrl = TryGetLocalReturnUrl(returnUrl, out var localReturnUrl) ? localReturnUrl : null;", customsController);
+        Assert.Contains("var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingDetailsUrl;", customsView);
+    }
+
+    [Fact]
+    public void Sales_Create_Explains_Sales_Contract_And_Source_Purchase_Contract()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Sales/Create.cshtml");
+
+        Assert.Contains("SourcePurchaseContractId", contents);
+        Assert.Contains("قرارداد فروش", contents);
+    }
+
+    [Fact]
+    public void Payments_Create_Uses_Normal_Submit_Text_When_ReturnUrl_Is_Local()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Payments/Create.cshtml");
+
+        Assert.Contains("Url.IsLocalUrl(Model.ReturnUrl)", contents);
+        Assert.Contains("<input asp-for=\"ReturnUrl\" type=\"hidden\" />", contents);
+        Assert.Contains("var submitText = isEdit ?", contents);
+        Assert.Contains("@submitText", contents);
+    }
+
+    [Fact]
+    public void Operational_Create_Forms_Do_Not_Show_ContractJourney_Guide_Blocks()
+    {
+        var formPaths = new[]
+        {
+            "src/PTGOilSystem.Web/Views/Loading/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/Dispatch/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/Sales/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/Expenses/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/Payments/Create.cshtml",
+            "src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml"
+        };
+
+        foreach (var formPath in formPaths)
+        {
+            var contents = ReadRepoFile(formPath);
+
+            Assert.Contains("ReturnUrl", contents);
+        }
+    }
+
+    [Fact]
+    public void Loading_Create_Exposes_Excel_Transport_And_Cost_Fields()
+    {
+        var create = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Create.cshtml");
+        var rowEditor = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/_LoadingRowEditor.cshtml");
+        var editExpenses = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/EditExpenses.cshtml");
+        var expenseEditor = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/_LoadingExpenseEditor.cshtml");
+        var details = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
+        var index = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Index.cshtml");
+
+        Assert.Contains("RWB / CMR / Bill of Lading", create);
+        Assert.Contains("RWB / CMR / Bill of Lading", rowEditor);
+        Assert.Contains("TransportExpenseUsd", rowEditor);
+        Assert.Contains("LogisticsServiceProviderId", rowEditor);
+        Assert.Contains("FreightRateUsdPerMt", rowEditor);
+        Assert.Contains("WarehouseExpenseUsd", rowEditor);
+        Assert.Contains("OtherExpenseUsd", rowEditor);
+        Assert.Contains("ChargeableQuantityMt", rowEditor);
+        Assert.Contains("RailwayRateUsd", rowEditor);
+        Assert.Contains("RailwayExpenseUsd", rowEditor);
+        Assert.DoesNotContain("data-loading-expense-panel", rowEditor);
+        Assert.Contains("_LoadingExpenseEditor", editExpenses);
+        Assert.Contains("loadingExpensesModal", details);
+        Assert.Contains("data-bs-toggle=\"modal\"", details);
+        Assert.Contains("loadingIndexExpensesModal", index);
+        Assert.Contains("data-loading-expense-trigger=\"true\"", index);
+        Assert.Contains("modal = true", index);
+        // Modal is now row-based: the fixed Transport/Warehouse/Railway/Other inputs are gone.
+        var expenseLineRow = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/_LoadingExpenseLineRow.cshtml");
+        Assert.Contains("data-loading-expense-form", expenseEditor);
+        Assert.Contains("data-expense-rows", expenseEditor);
+        Assert.Contains("data-add-row", expenseEditor);
+        Assert.Contains("data-row-template", expenseEditor);
+        Assert.Contains("_LoadingExpenseLineRow", expenseEditor);
+        Assert.Contains("data-loaded-quantity", expenseEditor);
+        Assert.DoesNotContain("data-transport-rate", expenseEditor);
+        Assert.DoesNotContain("data-warehouse-rate", expenseEditor);
+        Assert.Contains("data-row-type", expenseLineRow);
+        Assert.Contains("data-row-calc", expenseLineRow);
+        Assert.Contains("data-row-amount", expenseLineRow);
+        Assert.Contains("data-row-party", expenseLineRow);
+        Assert.Contains("ServiceProviderId", expenseLineRow);
+        Assert.Contains("OperationalAssetId", expenseLineRow);
+        Assert.DoesNotContain("asp-controller=\"Expenses\"", details);
+        Assert.DoesNotContain("asp-controller=\"Expenses\"", index);
+    }
+
+    [Fact]
+    public void Loading_Index_Uses_Shared_Ak_List_Contract()
+    {
+        var index = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Index.cshtml");
+        var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+
+        Assert.Contains("ak-list-page", index);
+        Assert.Contains("_AkPageHeader", index);
+        Assert.Contains("_AkSearchFilter", index);
+        Assert.Contains("ak-table", index);
+        Assert.Contains("ak-status", index);
+        Assert.Contains("ak-row-menu", index);
+        Assert.Contains("ak-pager", index);
+        Assert.DoesNotContain("<colgroup>", index);
+        Assert.DoesNotContain("loading-col-actions", index);
+        Assert.DoesNotContain("loading-table-scroll", index);
+        Assert.DoesNotContain("loading-index-table", index);
+        Assert.DoesNotContain("operations-list-page", index);
+        Assert.Contains(".ak-table", css);
+        Assert.Contains(".ak-status", css);
+        Assert.Contains(".ak-row-menu", css);
+        Assert.Contains(".ak-pager", css);
+    }
+
+    [Fact]
+    public void LoadingReceipt_Create_Exposes_Discharge_And_Difference_Context()
+    {
+        // Create.cshtml now delegates the form body to the
+        // _ReceiptCreateForm partial; both files together represent the
+        // rendered page that the user sees, so the structural assertions
+        // are evaluated against the concatenated content.
+        var page = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/Create.cshtml");
+        var partial = ReadRepoFile("src/PTGOilSystem.Web/Views/LoadingReceipts/_ReceiptCreateForm.cshtml");
+
+        Assert.Contains("_ReceiptCreateForm", page);
+
+        var contents = page + "\n" + partial;
+
+        Assert.Contains("ArrivalDate", contents);
+        Assert.Contains("LeakDate", contents);
+        Assert.Contains("ReceivedQuantityMt", contents);
+        Assert.Contains("ActualArrivedQuantityMt", contents);
+        Assert.Contains("TerminalId", contents);
+        Assert.Contains("StorageTankId", contents);
+        Assert.Contains("ReferenceDocument", contents);
+        Assert.Contains("data-receipt-difference-preview", contents);
+        Assert.Contains("Loaded Quantity - Received/Actual Quantity", contents);
+    }
+
+    [Fact]
+    public void Dispatch_Create_Exposes_Excel_Freight_And_Shortage_Context()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Dispatch/Create.cshtml");
+
+        Assert.Contains("FreightCostUsd", contents);
+        Assert.Contains("FreightPayableUsd", contents);
+        Assert.Contains("AllowanceMt", contents);
+        Assert.Contains("ToleranceMt", contents);
+        Assert.Contains("ChargeableShortageMt", contents);
+        Assert.Contains("ShortageRateUsd", contents);
+        Assert.Contains("کرایه ناخالص", contents);
+        Assert.Contains("Gross freight", contents);
+        Assert.Contains("data-freight-rate-preview", contents);
+        Assert.Contains("Shortage Deduction", contents);
+        Assert.Contains("data-shortage-deduction-preview", contents);
+    }
+
+    [Fact]
+    public void Sales_Create_Exposes_Sales_Contract_Destination_Fx_And_Total_Context()
+    {
+        var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Sales/Create.cshtml");
+        var financeForms = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/finance-forms.js");
+
+        Assert.Contains("_AkPageHeader", contents);
+        Assert.Contains("class=\"ak-form\"", contents);
+        Assert.Contains("_AkSectionHead", contents);
+        Assert.Contains("_AkFooterActions", contents);
+        Assert.Contains("class=\"ak-table\"", contents);
+        Assert.DoesNotContain("ds-form-shell", contents);
+        Assert.DoesNotContain("class=\"sales-create-form\"", contents);
+        Assert.DoesNotContain("contract-form-section", contents);
+        Assert.DoesNotContain("sales-items-table", contents);
+        Assert.Contains("asp-for=\"ContractId\"", contents);
+        Assert.Contains("data-sales-contract-id", contents);
+        Assert.Contains("<label asp-for=\"ContractId\"", contents);
+        Assert.Contains("data-sales-contract-help", contents);
+        Assert.Contains("data-sales-contract-shipment-hint", contents);
+        Assert.Contains("asp-for=\"DestinationLocationId\" type=\"hidden\" data-sales-destination-id", contents);
+        Assert.Contains("asp-for=\"AppliedFxRateToUsd\"", contents);
+        Assert.Contains("asp-for=\"SaleDate\"", contents);
+        Assert.DoesNotContain("<label asp-for=\"DestinationLocationId\"", contents);
+        Assert.Contains("data-sales-stage", contents);
+        Assert.Contains("data-sales-stage-scope=\"terminal\"", contents);
+        Assert.Contains("data-sales-stage-scope=\"transit border customs\"", contents);
+        Assert.Contains("data-sales-shipment", contents);
+        Assert.Contains("data-sales-stock-alert", contents);
+        Assert.Contains("data-sales-stock-balance-url", contents);
+        Assert.Contains("data-sales-fx-rate-field", contents);
+        Assert.Contains("data-sales-total-preview", contents);
+        Assert.Contains("data-sales-total-value", contents);
+        Assert.Contains("data-sales-save-summary", contents);
+        Assert.Contains("خلاصه ثبت فروش", contents);
+        Assert.Contains(".ak-form-section[data-sales-stage-scope]", financeForms);
+        Assert.Contains(".ak-field, .ak-col-full", financeForms);
+        Assert.DoesNotContain(".contract-form-section[data-sales-stage-scope]", financeForms);
+    }
+
+    [Fact]
+    public void Employee_Create_Uses_The_Shared_Page_Form_Without_A_Modal()
+    {
+        var index = ReadRepoFile("src/PTGOilSystem.Web/Views/Employees/Index.cshtml");
+        var content = ReadRepoFile("src/PTGOilSystem.Web/Views/Employees/_Form.cshtml");
+        var createPage = ReadRepoFile("src/PTGOilSystem.Web/Views/Employees/Create.cshtml");
+        var js = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/modal-design-system.js");
+
+        Assert.Contains("Url.Action(\"Create\", new { returnUrl })", index);
+        Assert.DoesNotContain("_CreateModalShell", index);
+        Assert.DoesNotContain("employeeCreateModal", index);
+        Assert.DoesNotContain("employee-create-surface", content);
+        Assert.DoesNotContain("data-employee-create-surface", content);
+        Assert.DoesNotContain("employee-create-profile-card", content);
+        Assert.DoesNotContain("employee-create-footer", content);
+        Assert.DoesNotContain("<form", content);
+        Assert.DoesNotContain("initializeEmployeeCreateSurface", js);
+        Assert.DoesNotContain("data-employee-create-surface", js);
+
+        Assert.Contains("asp-for=\"PhotoFile\"", content);
+        Assert.Contains("class=\"ak-upload\"", content);
+        Assert.Contains("class=\"ak-form-page\"", createPage);
+        Assert.Contains("enctype=\"multipart/form-data\"", createPage);
+    }
+
+    [Fact]
+    public void Modal_Visual_Art_And_Decorative_Assets_Are_Removed()
+    {
+        Assert.False(RepoFileExists("src/PTGOilSystem.Web/Views/Shared/_ModalVisualArt.cshtml"));
+        Assert.False(Directory.Exists(GetRepoPath("src/PTGOilSystem.Web/wwwroot/img/entity-modal-visuals")));
+
+        var modalCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/08-modals.css");
+        Assert.DoesNotContain("ptg-modal-real-icon", modalCss);
+        Assert.DoesNotContain("ptg-modal-visual-mark", modalCss);
+
+        var storageTanks = ReadRepoFile("src/PTGOilSystem.Web/Views/StorageTanks/Details.cshtml");
+        Assert.DoesNotContain("_ModalVisualArt", storageTanks);
+        Assert.DoesNotContain("entity-modal-visuals", storageTanks);
+    }
+
+    private static string ReadRepoFile(string relativePath)
+    {
+        var path = GetRepoPath(relativePath);
+
+        return File.ReadAllText(path);
+    }
+
+    private static string ReadContractJourneyDetailsMarkup()
+    {
+        var details = ReadRepoFile("src/PTGOilSystem.Web/Views/ContractJourney/Details.cshtml");
+
+        return ExpandContractJourneyPartials(details);
+    }
+
+    private static string ExpandContractJourneyPartials(string contents)
+    {
+        foreach (var partial in new[]
+        {
+            ("<partial name=\"_ContractJourneyDetailTabsRail\" model=\"detailTabsRailModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyDetailTabsRail.cshtml"),
+            ("<partial name=\"_ContractJourneyLoadingsTab\" model=\"loadingsTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyLoadingsTab.cshtml"),
+            ("<partial name=\"_ContractJourneyReceiptsTab\" model=\"receiptsTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyReceiptsTab.cshtml"),
+            ("<partial name=\"_ContractJourneyInventoryTab\" model=\"inventoryTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyInventoryTab.cshtml"),
+            ("<partial name=\"_ContractJourneyDispatchTab\" model=\"dispatchTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyDispatchTab.cshtml"),
+            ("<partial name=\"_ContractJourneySalesTab\" model=\"salesTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneySalesTab.cshtml"),
+            ("<partial name=\"_ContractJourneyFinanceTab\" model=\"financeTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyFinanceTab.cshtml"),
+            ("<partial name=\"_ContractJourneyLedgerTab\" model=\"ledgerTabModel\" />", "src/PTGOilSystem.Web/Views/ContractJourney/_ContractJourneyLedgerTab.cshtml")
+        })
+        {
+            contents = contents.Replace(partial.Item1, ReadRepoFile(partial.Item2), StringComparison.Ordinal);
+        }
+
+        return contents;
+    }
+
+    private static bool RepoFileExists(string relativePath)
+        => File.Exists(GetRepoPath(relativePath));
+
+    private static string ExtractSummaryBlock(string contents)
+    {
+        const string startMarker = "@if (activeTab == ContractJourneyTabs.Details.Summary)";
+        const string endMarker = "    @switch (activeTab)";
+
+        var start = contents.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, "Summary block start marker was not found.");
+
+        var end = contents.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, "Summary block end marker was not found.");
+
+        return contents[start..end];
+    }
+
+    private static string ExtractSwitchCaseBlock(string contents, string startMarker, string endMarker)
+    {
+        var start = contents.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Start marker {startMarker} was not found.");
+
+        var end = contents.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+        Assert.True(end > start, $"End marker {endMarker} was not found.");
+
+        return contents[start..end];
+    }
+
+    private static string GetRepoPath(string relativePath)
+        => Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            relativePath.Replace('/', Path.DirectorySeparatorChar)));
+}
+
+
+

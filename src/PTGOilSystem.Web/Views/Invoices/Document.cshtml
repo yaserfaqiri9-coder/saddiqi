@@ -1,0 +1,173 @@
+@model PTGOilSystem.Web.Models.Documents.DocumentInvoiceViewModel
+@{
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEnglish = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    var pageDirection = isEnglish ? "ltr" : "rtl";
+    ViewData["Title"] = isEnglish ? Model.TitleEn : Model.TitleFa;
+    ViewData["HideSectionTabs"] = true;
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+
+    var qrSeed = string.IsNullOrWhiteSpace(Model.SourceReference)
+        ? Model.DocumentNumber
+        : Model.SourceReference;
+
+    int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var ch in value)
+            {
+                hash = (hash * 31) + ch;
+            }
+
+            return hash == int.MinValue ? int.MaxValue : Math.Abs(hash);
+        }
+    }
+
+    var hash = StableHash(qrSeed ?? "PTG");
+    bool QrCell(int index)
+    {
+        var row = index / 9;
+        var col = index % 9;
+        var inFinder = (row < 3 && col < 3) || (row < 3 && col > 5) || (row > 5 && col < 3);
+        if (inFinder)
+        {
+            return row == 0 || row == 2 || col == 0 || col == 2;
+        }
+
+        return (((hash >> (index % 16)) + (index * 13) + row + col) % 5) < 2;
+    }
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/boltz-invoice.css" asp-append-version="true" />
+}
+
+<div class="boltz-invoice-page @($"boltz-invoice-{Model.Tone}")" dir="@pageDirection">
+    <div class="boltz-invoice-breadcrumb">
+        <span>@T(Model.BreadcrumbFa, Model.BreadcrumbEn)</span>
+        <span class="boltz-invoice-breadcrumb-separator">/</span>
+        <strong>@T(Model.TitleFa, Model.TitleEn)</strong>
+    </div>
+
+    <div class="boltz-invoice-actions print-hidden">
+        <a asp-controller="@Model.BackController"
+           asp-action="@Model.BackAction"
+           asp-all-route-data="@Model.BackRouteValues"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i>
+            @T("بازگشت", "Back")
+        </a>
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+            <i class="bi bi-printer"></i>
+            @T("چاپ سند", "Print")
+        </button>
+    </div>
+
+    <article class="boltz-invoice-card">
+        <header class="boltz-invoice-card-header">
+            <div class="boltz-invoice-card-title">@T(Model.TitleFa, Model.TitleEn)</div>
+            <strong class="boltz-invoice-date">@Model.DocumentDate.ToDisplayDate()</strong>
+            <div class="boltz-invoice-status"><strong>@T("وضعیت:", "Status:")</strong> @T(Model.StatusFa, Model.StatusEn)</div>
+        </header>
+
+        <div class="boltz-invoice-card-body">
+            <section class="boltz-invoice-parties">
+                <div class="boltz-invoice-party">
+                    <h2>@T(Model.FromParty.HeadingFa, Model.FromParty.HeadingEn):</h2>
+                    <strong>@Model.FromParty.Name</strong>
+                    @foreach (var line in Model.FromParty.Details)
+                    {
+                        <span>@line</span>
+                    }
+                </div>
+
+                <div class="boltz-invoice-party">
+                    <h2>@T(Model.ToParty.HeadingFa, Model.ToParty.HeadingEn):</h2>
+                    <strong>@Model.ToParty.Name</strong>
+                    @foreach (var line in Model.ToParty.Details)
+                    {
+                        <span>@line</span>
+                    }
+                </div>
+
+                <div class="boltz-invoice-payment-box">
+                    <div class="boltz-invoice-brand-row">
+                        <img src="~/images/logo1-sidebar.png" asp-append-version="true" alt="@Model.BrandName" />
+                        <div>
+                            <strong>@Model.BrandName</strong>
+                            @if (!string.IsNullOrWhiteSpace(isEnglish ? Model.BrandSubtitleEn : Model.BrandSubtitleFa))
+                            {
+                                <small>@T(Model.BrandSubtitleFa ?? "", Model.BrandSubtitleEn ?? "")</small>
+                            }
+                        </div>
+                    </div>
+                    <span>@T(Model.PaymentBox.HeadingFa, Model.PaymentBox.HeadingEn):</span>
+                    <strong class="boltz-invoice-pay-amount">@Model.PaymentBox.AmountText</strong>
+                    <strong class="boltz-invoice-reference">@Model.PaymentBox.ReferenceText</strong>
+                    @if (!string.IsNullOrWhiteSpace(isEnglish ? Model.PaymentBox.NoteEn : Model.PaymentBox.NoteFa))
+                    {
+                        <small>@T(Model.PaymentBox.NoteFa ?? "", Model.PaymentBox.NoteEn ?? "")</small>
+                    }
+                    <div class="boltz-invoice-qr" aria-label="@T("کد پیگیری سند", "Document trace code")">
+                        @for (var i = 0; i < 81; i++)
+                        {
+                            <span class="@(QrCell(i) ?"is-dark" : null)"></span>
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <div class="table-responsive boltz-invoice-table-wrap">
+                <table class="boltz-invoice-table">
+                    <thead>
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>@T("آیتم", "Item")</th>
+                            <th>@T("شرح", "Description")</th>
+                            <th class="text-end">@T("قیمت واحد", "Unit Cost")</th>
+                            <th class="text-center">@T("مقدار", "Qty")</th>
+                            <th class="text-end">@T("جمع", "Total")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Model.Lines)
+                        {
+                            <tr>
+                                <td class="text-center">@line.Number</td>
+                                <td class="fw-semibold">@line.Item</td>
+                                <td>@line.Description</td>
+                                <td class="text-end">@line.UnitCost</td>
+                                <td class="text-center">@line.Quantity</td>
+                                <td class="text-end">@line.Total</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <section class="boltz-invoice-bottom">
+                <div class="boltz-invoice-note">
+                    @if (!string.IsNullOrWhiteSpace(isEnglish ? Model.NotesEn : Model.NotesFa))
+                    {
+                        <strong>@T("یادداشت", "Note")</strong>
+                        <p>@T(Model.NotesFa ?? "", Model.NotesEn ?? "")</p>
+                    }
+                </div>
+
+                <table class="boltz-invoice-totals">
+                    <tbody>
+                        @foreach (var total in Model.Totals)
+                        {
+                            <tr class="@(total.IsGrandTotal ?"is-grand-total" : null)">
+                                <td><strong>@T(total.LabelFa, total.LabelEn)</strong></td>
+                                <td class="text-end">@total.Value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </article>
+</div>

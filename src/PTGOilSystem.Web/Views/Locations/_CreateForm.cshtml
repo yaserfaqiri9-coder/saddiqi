@@ -1,0 +1,45 @@
+@model Location
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات بندر", (string?)"کد، نام، کشور و نوع بندر را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="Code" class="ak-label">کد</label>
+            <input asp-for="Code" class="ak-input" />
+            <span asp-validation-for="Code" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+            <input asp-for="Name" class="ak-input" />
+            <span asp-validation-for="Name" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Country" class="ak-label">کشور</label>
+            <input asp-for="Country" class="ak-input" />
+            <span asp-validation-for="Country" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Kind" class="ak-label">نوع</label>
+            <select asp-for="Kind" class="ak-input">
+                <option value="Origin">مبدأ</option>
+                <option value="Transit">ترانزیت</option>
+                <option value="Destination">مقصد</option>
+            </select>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت تکمیلی</label>
+            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

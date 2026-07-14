@@ -1,0 +1,595 @@
+@model PTGOilSystem.Web.Models.Sales.GroupSaleCreateViewModel
+@using PTGOilSystem.Web.Models.Sales
+@{
+    ViewData["Title"] ="ثبت فروش گروهی";
+    ViewData["HideSectionTabs"] = true;
+    var sources = (List<GroupSaleSourceItem>)ViewBag.Sources;
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Index");
+}
+
+<div class="ak-form-page">
+    @* data-no-spa + novalidate: مانند فرم مصرف گروهی؛ نرخ تبدیل مخفی نباید native-validation را بلاک کند.
+       data-no-submit-guard: گاردِ سراسریِ core.js روی فرمِ novalidate راهِ آزادسازی ندارد و دکمه را
+       روی «در حال ثبت…» قفل می‌کرد؛ این فرم قفلِ ضدِ دابل‌کلیکِ خودش را با آزادسازیِ امنِ زمان‌دار دارد. *@
+    <form asp-action="CreateGroup" method="post" id="gsaleForm" class="ak-form" data-no-spa data-no-submit-guard novalidate>
+        @Html.AntiForgeryToken()
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div id="gsaleItemsContainer"></div>
+
+        <header class="ak-page-header">
+            <div class="ak-page-heading">
+                <span class="ak-page-icon"><i class="bi bi-cart-plus"></i></span>
+                <div>
+                    <h1>ثبت فروش گروهی</h1>
+                    <p>فروش همزمان از چند منبع: موجودی مخازن، موترها، واگن‌ها و انتقال‌های در مسیر</p>
+                </div>
+            </div>
+            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
+        </header>
+
+        <nav class="ptg-tabs-rail" aria-label="مراحل">
+            <button type="button" class="ptg-tabs-link is-active" data-step-btn="1"><span>1</span> انتخاب منابع</button>
+            <span></span>
+            <button type="button" class="ptg-tabs-link" data-step-btn="2"><span>2</span> تعیین مقدار</button>
+            <span></span>
+            <button type="button" class="ptg-tabs-link" data-step-btn="3"><span>3</span> مشخصات فروش</button>
+            <span></span>
+            <button type="button" class="ptg-tabs-link" data-step-btn="4"><span>4</span> بررسی و ثبت</button>
+        </nav>
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <!-- مرحله ۱: انتخاب منابع -->
+        <section class="ak-form-section" data-step-panel="1">
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">انتخاب منابع قابل فروش</h2>
+                    <div class="ak-form-grid">
+                        <label class="ak-field">
+                            <span>نوع منبع</span>
+                            <select class="ak-input" id="fKind"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>نوع وسیله</span>
+                            <select class="ak-input" id="fVehicle"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>کالا</span>
+                            <select class="ak-input" id="fProduct"><option value="">همه</option></select>
+                        </label>
+                        <label class="ak-field">
+                            <span>وضعیت</span>
+                            <select class="ak-input" id="fStatus"><option value="">همه</option></select>
+                        </label>
+                    </div>
+                    <div class="ak-subform-toolbar">
+                        <label class="ak-subform-search">
+                            <i class="bi bi-search"></i>
+                            <input type="search" id="fQuery" placeholder="جستجو در شماره، مسیر، قرارداد..." />
+                        </label>
+                        <button type="button" class="btn ak-secondary-action" id="btnClearFilters">پاک کردن فیلتر</button>
+                    </div>
+
+                    <label class="ak-field">
+                        <input type="checkbox" id="chkAll" />
+                        <span>انتخاب همه نتایج (<span id="lblResultCount">0</span> منبع)</span>
+                    </label>
+
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-check"></th>
+                                    <th>#</th>
+                                    <th>نوع منبع</th>
+                                    <th>وسیله</th>
+                                    <th>شماره</th>
+                                    <th>مسیر</th>
+                                    <th>کالا</th>
+                                    <th>شرکت</th>
+                                    <th>موجودی/مقدار</th>
+                                    <th>وضعیت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="srcBody"></tbody>
+                        </table>
+                        <div class="ak-empty" id="srcEmpty" hidden>
+                            <i class="bi bi-inbox"></i>
+                            هیچ منبع قابل فروشی با این فیلتر یافت نشد
+                        </div>
+                    </div>
+
+                    <div class="ak-pager">
+                        <label class="ak-field">
+                            <select class="ak-input" id="pageSize">
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                            <span>تعداد در صفحه</span>
+                        </label>
+                        <div class="ak-section-desc" id="pageInfo"></div>
+                        <div class="ak-pager" id="pager"></div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="ak-form-section">
+                <div class="ak-form-section ak-list">
+                    <h2 class="ak-section-title">خلاصه انتخاب</h2>
+                    <div class="ak-list-row">
+                        <span>تعداد منابع انتخاب شده</span>
+                        <strong class="ak-num" id="sumCount">0</strong>
+                    </div>
+                    <div class="ak-list-row">
+                        <span>مجموع مقدار</span>
+                        <strong class="ak-num"><span id="sumQty">0</span> تن</strong>
+                    </div>
+                    <div class="ak-list-row">
+                        <span>نوع منابع</span>
+                        <div id="sumKinds" class="ak-list"></div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <!-- مرحله ۲: تعیین مقدار -->
+        <section class="ak-form-section" data-step-panel="2" hidden>
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">تعیین مقدار فروش هر منبع</h2>
+                    <p class="ak-note">موجودی مخازن قابل فروش بر اساس تن است؛ موتر و واگن به صورت کامل فروخته می‌شوند.</p>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>نوع منبع</th>
+                                    <th>شماره</th>
+                                    <th>مسیر</th>
+                                    <th>کالا</th>
+                                    <th>موجودی (تن)</th>
+                                    <th>مقدار فروش (تن)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="qtyBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- مرحله ۳: مشخصات فروش -->
+        <section class="ak-form-section" data-step-panel="3" hidden>
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">مشخصات فروش</h2>
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label asp-for="CustomerId">مشتری <em>*</em></label>
+                            <select asp-for="CustomerId" asp-items="ViewBag.Customers" class="ak-input">
+                                <option value="">انتخاب مشتری</option>
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="SaleDate">تاریخ فروش <em>*</em></label>
+                            <input asp-for="SaleDate" type="date" class="ak-input" />
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="Currency">ارز <em>*</em></label>
+                            <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input" id="currencySelect"></select>
+                        </div>
+                        <div class="ak-field" data-fx-rate-group data-fx-currency-source="#currencySelect">
+                            <div data-fx-rate-field>
+                                <label>نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                                <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input autocomplete="off" placeholder="مثال: ۷۷" />
+                                <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                            </div>
+                            <div data-fx-usd-note class="d-none">
+                                <small class="form-text text-muted"><i class="bi bi-info-circle"></i> فروش دالری است؛ نرخ تبدیل لازم نیست.</small>
+                            </div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="UnitPriceInCurrency">نرخ فروش هر تن <em>*</em></label>
+                            <div class="ak-input-unit">
+                                <span data-cur-tag>USD</span>
+                                <input asp-for="UnitPriceInCurrency" type="number" step="0.0001" min="0" class="ak-input" placeholder="0.00" />
+                            </div>
+                        </div>
+                        <div class="ak-field">
+                            <label asp-for="PaymentNote">پرداخت / شرایط</label>
+                            <input asp-for="PaymentNote" class="ak-input" placeholder="مثلاً: نقد، بعد از تخلیه، ..." />
+                        </div>
+                        <div class="ak-field ak-col-full">
+                            <label asp-for="Notes">توضیحات</label>
+                            <textarea asp-for="Notes" class="ak-input" rows="2" placeholder="توضیحات (اختیاری)..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- مرحله ۴: بررسی و ثبت -->
+        <section class="ak-form-section" data-step-panel="4" hidden>
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">پیش‌نمایش فروش گروهی</h2>
+                    <div class="ak-list" id="previewMeta"></div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>نوع منبع</th>
+                                    <th>شماره</th>
+                                    <th>کالا</th>
+                                    <th>مقدار (تن)</th>
+                                    <th>مبلغ ردیف</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="ak-table-total">مجموع مقدار</td>
+                                    <td class="ak-num"><span id="previewQty">0</span> تن</td>
+                                    <td class="ak-num"><span id="previewTotal">0.00</span> <span data-cur-tag>USD</span></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="ak-note">
+                        <i class="bi bi-shield-check"></i>
+                        برای هر منبع یک سند فروش جداگانه با موجودی و سند حسابداری خودش ثبت می‌شود؛ همه زیر یک رکورد اصلی گروهی قرار می‌گیرند.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="ak-form-section">
+            <div class="ak-note">
+                <i class="bi bi-info-circle"></i>
+                <span id="footerNote">در مرحله بعد، مقدار فروش هر منبع را تعیین می‌کنید.</span>
+            </div>
+            <div class="ak-footer-actions">
+                <a href="@cancelUrl" class="btn ak-secondary-action">انصراف</a>
+                <button type="button" class="btn ak-secondary-action" id="btnPrev" hidden>مرحله قبلی</button>
+                <button type="button" class="btn ak-primary-action" id="btnNext">مرحله بعدی <i class="bi bi-arrow-left"></i></button>
+                <button type="submit" class="btn ak-primary-action" id="btnSubmit" hidden>
+                    <i class="bi bi-check2-circle"></i> ثبت نهایی فروش گروهی
+                </button>
+            </div>
+        </footer>
+    </form>
+</div>
+
+<script id="gsaleSrcData" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(sources.Select(o => new
+{
+    key = o.Key,
+    kind = (int)o.Kind,
+    id = o.Id,
+    kindLabel = o.KindLabel,
+    vehicle = o.VehicleKind,
+    number = o.Number,
+    route = o.Route,
+    product = o.ProductName,
+    company = o.CompanyName,
+    contract = o.ContractNumber,
+    available = o.AvailableMt,
+    isFull = o.IsFullVehicle,
+    status = o.StatusLabel,
+    date = o.MoveDate.ToString("yyyy-MM-dd"),
+    productId = o.ProductId,
+    terminalId = o.TerminalId,
+    tankId = o.StorageTankId,
+    contractId = o.SourcePurchaseContractId,
+    companyId = o.CompanyId
+})))</script>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+    (function () {
+        'use strict';
+        var sources = JSON.parse(document.getElementById('gsaleSrcData').textContent || '[]');
+        var state = {
+            step: 1,
+            page: 1,
+            pageSize: 10,
+            selected: new Map(), // key -> { src, qty }
+            filtered: sources.slice()
+        };
+
+        var $ = function (id) { return document.getElementById(id); };
+        function fmt(n) { return (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function fmtQty(n) { return Number(n).toLocaleString('en-US', { maximumFractionDigits: 3 }); }
+
+        // ---------- فیلترها ----------
+        var selects = { fKind: 'kindLabel', fVehicle: 'vehicle', fProduct: 'product', fStatus: 'status' };
+        Object.keys(selects).forEach(function (selId) {
+            var field = selects[selId];
+            var values = Array.from(new Set(sources.map(function (o) { return o[field]; }))).filter(Boolean);
+            var el = $(selId);
+            values.forEach(function (v) {
+                var opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                el.appendChild(opt);
+            });
+        });
+
+        function applyFilters() {
+            var q = ($('fQuery').value || '').trim().toLowerCase();
+            state.filtered = sources.filter(function (o) {
+                if ($('fKind').value && o.kindLabel !== $('fKind').value) return false;
+                if ($('fVehicle').value && o.vehicle !== $('fVehicle').value) return false;
+                if ($('fProduct').value && o.product !== $('fProduct').value) return false;
+                if ($('fStatus').value && o.status !== $('fStatus').value) return false;
+                if (q && (o.number + ' ' + o.route + ' ' + o.contract + ' ' + o.kindLabel + ' ' + o.company).toLowerCase().indexOf(q) < 0) return false;
+                return true;
+            });
+            state.page = 1;
+            renderTable();
+        }
+        ['fKind', 'fVehicle', 'fProduct', 'fStatus'].forEach(function (id) { $(id).addEventListener('change', applyFilters); });
+        $('fQuery').addEventListener('input', applyFilters);
+        $('btnClearFilters').addEventListener('click', function () {
+            ['fKind', 'fVehicle', 'fProduct', 'fStatus', 'fQuery'].forEach(function (id) { $(id).value = ''; });
+            applyFilters();
+        });
+
+        // ---------- جدول ----------
+        function renderTable() {
+            var body = $('srcBody');
+            body.innerHTML = '';
+            var total = state.filtered.length;
+            $('lblResultCount').textContent = total;
+            $('srcEmpty').hidden = total > 0;
+
+            var pages = Math.max(1, Math.ceil(total / state.pageSize));
+            if (state.page > pages) state.page = pages;
+            var start = (state.page - 1) * state.pageSize;
+            var slice = state.filtered.slice(start, start + state.pageSize);
+
+            slice.forEach(function (o, idx) {
+                var tr = document.createElement('tr');
+                var checked = state.selected.has(o.key);
+                if (checked) tr.classList.add('is-selected');
+                tr.innerHTML =
+                    '<td class="ak-col-check"><input type="checkbox" ' + (checked ? 'checked' : '') + '></td>' +
+                    '<td>' + (start + idx + 1) + '</td>' +
+                    '<td>' + o.kindLabel + '</td>' +
+                    '<td>' + o.vehicle + '</td>' +
+                    '<td class="ak-num">' + o.number + '</td>' +
+                    '<td>' + o.route + '</td>' +
+                    '<td>' + o.product + '</td>' +
+                    '<td>' + o.company + '</td>' +
+                    '<td class="ak-num">' + fmtQty(o.available) + '</td>' +
+                    '<td><span class="ak-status is-active">' + o.status + '</span></td>';
+                tr.addEventListener('click', function (e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    toggle(o);
+                });
+                tr.querySelector('input').addEventListener('change', function () { toggle(o); });
+                body.appendChild(tr);
+            });
+
+            $('pageInfo').textContent = total === 0 ? '' :
+                'نمایش ' + (start + 1) + ' تا ' + Math.min(start + state.pageSize, total) + ' از ' + total + ' مورد';
+
+            var pager = $('pager');
+            pager.innerHTML = '';
+            for (var p = 1; p <= pages; p++) {
+                (function (pp) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'page-link' + (pp === state.page ? ' is-active' : '');
+                    b.textContent = pp;
+                    b.addEventListener('click', function () { state.page = pp; renderTable(); });
+                    pager.appendChild(b);
+                })(p);
+            }
+
+            $('chkAll').checked = state.filtered.length > 0 && state.filtered.every(function (o) { return state.selected.has(o.key); });
+            renderSummary();
+        }
+
+        function toggle(o) {
+            if (state.selected.has(o.key)) state.selected.delete(o.key);
+            else state.selected.set(o.key, { src: o, qty: o.available });
+            renderTable();
+        }
+
+        $('chkAll').addEventListener('change', function () {
+            if (this.checked) state.filtered.forEach(function (o) { if (!state.selected.has(o.key)) state.selected.set(o.key, { src: o, qty: o.available }); });
+            else state.filtered.forEach(function (o) { state.selected.delete(o.key); });
+            renderTable();
+        });
+        $('pageSize').addEventListener('change', function () { state.pageSize = parseInt(this.value, 10) || 10; state.page = 1; renderTable(); });
+
+        function renderSummary() {
+            var items = Array.from(state.selected.values());
+            $('sumCount').textContent = items.length;
+            $('sumQty').textContent = fmtQty(items.reduce(function (a, s) { return a + Number(s.qty || 0); }, 0));
+            var byKind = {};
+            items.forEach(function (s) { byKind[s.src.kindLabel] = (byKind[s.src.kindLabel] || 0) + 1; });
+            $('sumKinds').innerHTML = Object.keys(byKind).map(function (v) {
+                return '<div><span>' + v + '</span><b>' + byKind[v] + '</b></div>';
+            }).join('') || '<div class="ak-note">—</div>';
+        }
+
+        // ---------- مرحله ۲: مقدار ----------
+        function renderQty() {
+            var body = $('qtyBody');
+            body.innerHTML = '';
+            var items = Array.from(state.selected.values());
+            items.forEach(function (s, i) {
+                var tr = document.createElement('tr');
+                var qtyCell;
+                if (s.src.isFull) {
+                    qtyCell = '<td class="ak-num"><b>' + fmtQty(s.src.available) + '</b> <small class="ak-note">(کامل)</small></td>';
+                } else {
+                    qtyCell = '<td><input type="number" step="0.0001" min="0" max="' + s.src.available + '" class="ak-input gsale-qty-input" data-key="' + s.src.key + '" value="' + (s.qty || '') + '"></td>';
+                }
+                tr.innerHTML =
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + s.src.kindLabel + '</td>' +
+                    '<td class="ak-num">' + s.src.number + '</td>' +
+                    '<td>' + s.src.route + '</td>' +
+                    '<td>' + s.src.product + '</td>' +
+                    '<td class="ak-num">' + fmtQty(s.src.available) + '</td>' +
+                    qtyCell;
+                body.appendChild(tr);
+            });
+            body.querySelectorAll('.gsale-qty-input').forEach(function (inp) {
+                inp.addEventListener('input', function () {
+                    var entry = state.selected.get(this.dataset.key);
+                    if (entry) entry.qty = parseFloat(this.value) || 0;
+                });
+            });
+        }
+
+        // ---------- ارز ----------
+        var curSel = $('currencySelect');
+        function syncCurrencyTags() { document.querySelectorAll('[data-cur-tag]').forEach(function (t) { t.textContent = curSel.value || 'USD'; }); }
+        if (curSel) { curSel.addEventListener('change', syncCurrencyTags); syncCurrencyTags(); }
+
+        // ---------- پیش‌نمایش ----------
+        function renderPreview() {
+            var items = Array.from(state.selected.values());
+            var price = parseFloat($('UnitPriceInCurrency').value) || 0;
+            var body = $('previewBody');
+            body.innerHTML = '';
+            var totalQty = 0, total = 0;
+            items.forEach(function (s, i) {
+                var qty = s.src.isFull ? Number(s.src.available) : Number(s.qty || 0);
+                var amount = Math.round(qty * price * 100) / 100;
+                totalQty += qty; total += amount;
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + s.src.kindLabel + '</td>' +
+                    '<td class="ak-num">' + s.src.number + '</td>' +
+                    '<td>' + s.src.product + '</td>' +
+                    '<td class="ak-num">' + fmtQty(qty) + '</td>' +
+                    '<td class="ak-num">' + fmt(amount) + '</td>';
+                body.appendChild(tr);
+            });
+            var cust = $('CustomerId');
+            $('previewMeta').innerHTML =
+                '<span><b>مشتری:</b> ' + (cust.options[cust.selectedIndex] ? cust.options[cust.selectedIndex].text : '-') + '</span>' +
+                '<span><b>نرخ هر تن:</b> ' + fmt(price) + ' ' + (curSel.value || 'USD') + '</span>' +
+                '<span><b>تعداد منابع:</b> ' + items.length + '</span>';
+            $('previewQty').textContent = fmtQty(totalQty);
+            $('previewTotal').textContent = fmt(total);
+            syncItemsInputs();
+        }
+
+        // ---------- ساخت فیلدهای Items ----------
+        function syncItemsInputs() {
+            var container = $('gsaleItemsContainer');
+            container.innerHTML = '';
+            var i = 0;
+            state.selected.forEach(function (s) {
+                var mk = function (name, value) {
+                    var inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'Items[' + i + '].' + name;
+                    inp.value = value;
+                    container.appendChild(inp);
+                };
+                mk('Kind', s.src.kind);
+                mk('Id', s.src.id);
+                mk('QuantityMt', s.src.isFull ? s.src.available : (s.qty || 0));
+                if (s.src.kind === 1) {
+                    mk('ProductId', s.src.productId);
+                    mk('TerminalId', s.src.terminalId);
+                    mk('StorageTankId', s.src.tankId);
+                    mk('SourcePurchaseContractId', s.src.contractId);
+                    mk('CompanyId', s.src.companyId);
+                }
+                i++;
+            });
+        }
+
+        // ---------- ویزارد ----------
+        var notes = {
+            1: 'در مرحله بعد، مقدار فروش هر منبع را تعیین می‌کنید.',
+            2: 'در مرحله بعد، مشخصات مشتری و نرخ فروش را وارد می‌کنید.',
+            3: 'در مرحله بعد، پیش‌نمایش فروش را می‌بینید و ثبت نهایی را انجام می‌دهید.',
+            4: 'با ثبت نهایی، برای هر منبع یک سند فروش جداگانه ساخته می‌شود.'
+        };
+
+        function validateStep2() {
+            var bad = Array.from(state.selected.values()).some(function (s) {
+                if (s.src.isFull) return false;
+                var q = Number(s.qty || 0);
+                return !(q > 0) || q > Number(s.src.available) + 0.0001;
+            });
+            if (bad) { alert('مقدار فروش موجودی مخازن باید بزرگ‌تر از صفر و حداکثر برابر موجودی آزاد باشد.'); return false; }
+            return true;
+        }
+
+        function validateStep3() {
+            if (!$('CustomerId').value) { alert('مشتری را انتخاب کنید.'); return false; }
+            if (!(parseFloat($('UnitPriceInCurrency').value) > 0)) { alert('نرخ فروش هر تن را وارد کنید.'); return false; }
+            var cur = (curSel && curSel.value) || 'USD';
+            if (cur !== 'USD') {
+                var tech = document.querySelector('[data-fx-rate-technical]');
+                if (!tech || !(parseFloat(tech.value) > 0)) { alert('برای ارز ' + cur + ' نرخ تبدیل را وارد کنید.'); return false; }
+            }
+            return true;
+        }
+
+        function goStep(n) {
+            if (n < 1 || n > 4) return;
+            if (n > 1 && state.selected.size === 0) { alert('حداقل یک منبع را انتخاب کنید.'); return; }
+            if (n > 2 && !validateStep2()) return;
+            if (n > 3 && !validateStep3()) return;
+            state.step = n;
+            document.querySelectorAll('[data-step-panel]').forEach(function (p) { p.hidden = parseInt(p.dataset.stepPanel, 10) !== n; });
+            document.querySelectorAll('[data-step-btn]').forEach(function (b) {
+                var bn = parseInt(b.dataset.stepBtn, 10);
+                b.classList.toggle('is-active', bn === n);
+                b.classList.toggle('is-done', bn < n);
+            });
+            $('btnPrev').hidden = n === 1;
+            $('btnNext').hidden = n === 4;
+            $('btnSubmit').hidden = n !== 4;
+            $('footerNote').textContent = notes[n];
+            if (n === 2) renderQty();
+            if (n === 4) renderPreview();
+        }
+
+        document.querySelectorAll('[data-step-btn]').forEach(function (b) {
+            b.addEventListener('click', function () { goStep(parseInt(this.dataset.stepBtn, 10)); });
+        });
+        $('btnNext').addEventListener('click', function () { goStep(state.step + 1); });
+        $('btnPrev').addEventListener('click', function () { goStep(state.step - 1); });
+
+        document.getElementById('gsaleForm').addEventListener('submit', function (e) {
+            if (state.selected.size === 0 || !validateStep2() || !validateStep3()) { e.preventDefault(); return; }
+            syncItemsInputs();
+
+            // قفلِ سادهٔ ضدِ دابل‌کلیک. اگر ناوبری انجام نشد (خطای شبکه/سرور)،
+            // بعد از چند ثانیه دکمه آزاد می‌شود تا هرگز روی «در حال ثبت…» گیر نکند.
+            var btn = $('btnSubmit');
+            if (btn && !btn.disabled) {
+                var original = btn.innerHTML;
+                setTimeout(function () {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> در حال ثبت…';
+                }, 0);
+                setTimeout(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }, 8000);
+            }
+        });
+
+        renderTable();
+        goStep(1);
+    })();
+    </script>
+}

@@ -1,0 +1,65 @@
+@model PTGOilSystem.Web.Models.Reconciliation.ReconciliationIndexViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"کنترل مغایرت‌ها","Reconciliation");
+    var openShipmentIssues = Model.ShipmentsWithoutSalesCount + Model.ShipmentsWithoutExpensesCount + Model.DispatchesWithoutReceiptCount;
+    var financeIssueCount = Model.MissingLedgerCount + Model.NonZeroBalancesCount;
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context,"کنترل مغایرت‌ها","Reconciliation"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+    </div>
+
+    <section class="ak-form-section ak-summary" aria-label="خلاصهٔ مغایرت‌ها">
+        <dl class="ak-summary-list">
+            <div><dt>@UiText.T(Context,"قراردادهای باز","Open Contracts")</dt><dd class="ak-num">@Model.OpenContractsCount.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context,"حمل باز / ناتمام","Open Shipments / Incomplete")</dt><dd class="ak-num">@openShipmentIssues.ToString("N0") / @Model.IncompleteAfterReceiptCount.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context,"ثبت مالی / مانده باز","Ledger / Balance Issues")</dt><dd class="ak-num">@financeIssueCount.ToString("N0")</dd></div>
+            <div><dt>@UiText.T(Context,"ریسک کارمندان / رزنامچه","Employee / Roznamcha")</dt><dd class="ak-num">@Model.EmployeeIssueCount.ToString("N0") / @Model.RoznamchaIssueCount.ToString("N0")</dd></div>
+        </dl>
+    </section>
+
+    <div class="ak-hub-grid">
+        <a class="ak-hub-tile" asp-action="OpenContracts">
+            <span class="ak-hub-tile-title">قراردادهای باز <span class="ak-status">@Model.OpenContractsCount</span></span>
+            <span class="ak-hub-tile-desc">مقدار باقی‌مانده یا وضعیت نیازمند بررسی</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="OpenShipments">
+            <span class="ak-hub-tile-title">حمل و دیسپچ باز <span class="ak-status">@(Model.ShipmentsWithoutSalesCount + Model.ShipmentsWithoutExpensesCount + Model.DispatchesWithoutReceiptCount)</span></span>
+            <span class="ak-hub-tile-desc">حمل بدون فروش/مصرف یا دیسپچ بدون رسید</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="IncompleteAfterReceipt">
+            <span class="ak-hub-tile-title">بارهای در مسیر / ناتمام بعد از رسید <span class="ak-status">@Model.IncompleteAfterReceiptCount</span></span>
+            <span class="ak-hub-tile-desc">بارگیری مستقیم بدون پایان، انتقال در مسیر، تضاد فروش/تخلیه، باقی‌مانده دیسپچ</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="MissingLedger">
+            <span class="ak-hub-tile-title">ثبت مالی ناقص <span class="ak-status is-inactive">@Model.MissingLedgerCount</span></span>
+            <span class="ak-hub-tile-desc">تراکنش‌هایی که دفتر کل متناظر ندارند</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="NonZeroBalances">
+            <span class="ak-hub-tile-title">مانده‌های باز <span class="ak-status">@Model.NonZeroBalancesCount</span></span>
+            <span class="ak-hub-tile-desc">مانده‌های غیرصفر براساس دفتر کل</span>
+        </a>
+        <a class="ak-hub-tile" asp-controller="LossEvents" asp-action="Index">
+            <span class="ak-hub-tile-title">کسری‌ها و ضایعات <span class="ak-status">@Model.LossEventsCount</span></span>
+            <span class="ak-hub-tile-desc">مواردی که باید بررسی و ردیابی شوند</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="EmployeeTransactions">
+            <span class="ak-hub-tile-title">مغایرت معاش کارمندان <span class="ak-status">@Model.EmployeeIssueCount</span></span>
+            <span class="ak-hub-tile-desc">پرداخت/برداشت بدون Ledger، بدون حساب نقد یا مبلغ ناسازگار</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="Roznamcha">
+            <span class="ak-hub-tile-title">مغایرت رزنامچه <span class="ak-status">@Model.RoznamchaIssueCount</span></span>
+            <span class="ak-hub-tile-desc">طرف حساب، حساب نقد/بانک، Ledger و ریسک دوباره‌شماری مصارف</span>
+        </a>
+        <a class="ak-hub-tile" asp-action="SuspenseMoney">
+            <span class="ak-hub-tile-title">پول‌های معلق <span class="ak-status is-inactive">@Model.SuspenseMoneyCount</span></span>
+            <span class="ak-hub-tile-desc">پولی که هنوز به مشتری، تأمین‌کننده، قرارداد یا سند وصل نیست</span>
+        </a>
+    </div>
+</div>

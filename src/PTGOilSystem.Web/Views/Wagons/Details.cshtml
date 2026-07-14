@@ -1,0 +1,51 @@
+@model Wagon
+@{
+    ViewData["Title"] = "جزئیات واگون";
+    var profile = ViewData["ResourceProfile"] as TransportResourceProfileViewModel ?? TransportResourceProfileViewModel.Empty();
+    var activeTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeTab = activeTab is "docs" or "info" ? activeTab : "trips";
+    var docsReady = profile.Documents.Count > 0;
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
+                       "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
+
+    <section class="ak-form-section">
+        @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (Model.WagonNumber, (string?)null))
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>اطلاعات جانبی</dt><dd>@(string.IsNullOrWhiteSpace(Model.Owner) ? "-" : Model.Owner)</dd></div>
+            <div class="ak-list-row"><dt>تعداد کل سفرها</dt><dd>@profile.Trips.Count</dd></div>
+            <div class="ak-list-row"><dt>وضعیت مدارک</dt><dd><span class="ak-status @(docsReady ?"is-active" : "is-pending")">@(docsReady ? "تکمیل و معتبر" : "نیاز به بررسی")</span></dd></div>
+            <div class="ak-list-row"><dt>ظرفیت</dt><dd>@(Model.CapacityMt?.ToString("N3") ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span></dd></div>
+            <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? "-" : Model.Notes)</dd></div>
+        </dl>
+    </section>
+
+    <nav class="ptg-tabs-rail" aria-label="بخش‌های جزئیات">
+        <a asp-route-id="@Model.Id" asp-route-tab="trips" class="ptg-tab-item @(activeTab =="trips" ? "is-active" : null)">سوابق سفرها</a>
+        <a asp-route-id="@Model.Id" asp-route-tab="docs" class="ptg-tab-item @(activeTab =="docs" ? "is-active" : null)">اسناد و مدارک</a>
+        <a asp-route-id="@Model.Id" asp-route-tab="info" class="ptg-tab-item @(activeTab =="info" ? "is-active" : null)">مشخصات پایه</a>
+    </nav>
+
+    <section class="ak-form-section">
+        @if (activeTab == "docs")
+        {
+            @await Html.PartialAsync("_TransportResourceDocs", profile)
+        }
+        else if (activeTab == "trips")
+        {
+            @await Html.PartialAsync("_TransportResourceTrips", profile)
+        }
+        else
+        {
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>شناسه</dt><dd>@Model.Id</dd></div>
+                <div class="ak-list-row"><dt>نام / شماره</dt><dd>@(Model.WagonNumber)</dd></div>
+            </dl>
+        }
+    </section>
+</div>

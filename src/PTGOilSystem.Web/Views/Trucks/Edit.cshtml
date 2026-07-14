@@ -1,0 +1,11 @@
+@model Truck
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش موتر", "Edit Truck");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "موترها", "Trucks");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "اطلاعات پلاک، مالک و ظرفیت این موتر را به‌روزرسانی کنید.", "Update plate number, owner and capacity of this truck.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Trucks/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

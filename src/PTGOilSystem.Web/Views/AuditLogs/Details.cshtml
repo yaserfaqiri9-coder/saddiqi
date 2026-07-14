@@ -1,0 +1,163 @@
+@using PTGOilSystem.Web.Models.Audit
+@model ActivityLogDetailsViewModel
+@{
+    ViewData["Title"] = UiText.T(Context,"جزئیات لاگ","Log Details");
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">@UiText.T(Context,"جزئیات فعالیت","Activity Details")</h1>
+            <p class="ak-note">@Model.HumanSummary</p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Index" class="btn ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
+            @if (!string.IsNullOrWhiteSpace(Model.RelatedController) && Model.RelatedId.HasValue)
+            {
+                <a asp-controller="@Model.RelatedController" asp-action="@Model.RelatedAction" asp-route-id="@Model.RelatedId" class="btn ak-primary-action">@UiText.T(Context,"مشاهده سند","Open record")</a>
+            }
+        </div>
+    </div>
+
+    <section class="ak-summary" aria-label="@UiText.T(Context,"خلاصه جزئیات","Details summary")">
+        <article class="ak-field">
+            <span>@UiText.T(Context,"کاربر","User")</span>
+            <strong>@Model.ActorDisplay</strong>
+        </article>
+        <article class="ak-field">
+            <span>@UiText.T(Context,"بخش","Module")</span>
+            <strong>@Model.ModuleDisplay</strong>
+        </article>
+        <article class="ak-field">
+            <span>@UiText.T(Context,"عملیات","Action")</span>
+            <strong>@Model.ActionDisplay</strong>
+        </article>
+        <article class="ak-field">
+            <span>@UiText.T(Context,"اهمیت","Severity")</span>
+            <strong>@Model.SeverityLabel</strong>
+        </article>
+        <article class="ak-field">
+            <span>@UiText.T(Context,"نتیجه","Result")</span>
+            <strong>@Model.ResultLabel</strong>
+        </article>
+    </section>
+
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <div class="ak-form-section">
+                <div class="ak-section-head">@UiText.T(Context,"کاربر و زمان","User & Time")</div>
+                <div>
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"کاربر","User")</dt><dd>@Model.ActorDisplay</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"نقش","Role")</dt><dd>@(Model.ActorRoleName ??"-")</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"زمان","Time")</dt><dd dir="ltr">@Model.ActionAtUtc.ToDisplayDateTime()</dd></div>
+                        <div class="ak-list-row"><dt>IP</dt><dd>@(Model.IpAddress ??"-")</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"دستگاه/مرورگر","Device")</dt><dd class="ak-note">@(!string.IsNullOrWhiteSpace(Model.UserAgent) ? Model.UserAgent :"-")</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="ak-field">
+            <div class="ak-form-section">
+                <div class="ak-section-head">@UiText.T(Context,"سند و نتیجه","Record & Result")</div>
+                <div>
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>Log ID</dt><dd>#@Model.Id</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"Module","Module")</dt><dd>@(Model.Module ??"-")</dd></div>
+                        <div class="ak-list-row"><dt>Entity</dt><dd>@Model.EntityName</dd></div>
+                        <div class="ak-list-row"><dt>RecordId</dt><dd>@(Model.EntityId > 0 ? Model.EntityId.ToString() :"-")</dd></div>
+                        <div class="ak-list-row"><dt>Action</dt><dd>@Model.Action</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"نتیجه","Result")</dt><dd><span class="ak-status @(Model.IsSuccess ?"is-active" :"is-inactive")">@Model.ResultLabel</span></dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"کد پاسخ","Status")</dt><dd>@(Model.StatusCode?.ToString() ??"-")</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-field ak-col-full">
+            <div class="ak-form-section">
+                <div class="ak-section-head">@UiText.T(Context,"تغییرات Before / After","Before / After")</div>
+                <div>
+                    @if (Model.Changes.Any())
+                    {
+                        <div class="ak-table-wrap">
+                            <table class="ak-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>@UiText.T(Context,"فیلد","Field")</th>
+                                        <th>@UiText.T(Context,"قبل","Before")</th>
+                                        <th>@UiText.T(Context,"بعد","After")</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var change in Model.Changes)
+                                    {
+                                        <tr>
+                                            <td>@change.Field</td>
+                                            <td dir="ltr">@change.Before</td>
+                                            <td dir="ltr">@change.After</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">@UiText.T(Context,"برای این لاگ تغییر فیلدی ثبت نشده است.","No field-level change was recorded for this log.")</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="ak-field">
+            <div class="ak-form-section">
+                <div class="ak-section-head">@UiText.T(Context,"درخواست","Request")</div>
+                <div>
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>HTTP</dt><dd>@(Model.HttpMethod ??"-")</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"مسیر","Path")</dt><dd><code>@(Model.RequestPath ??"-")</code></dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"Controller/Action","Controller/Action")</dt><dd>@(string.IsNullOrWhiteSpace(Model.ControllerName) ?"-" : $"{Model.ControllerName}/{Model.ActionName}")</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"مدت","Duration")</dt><dd>@(Model.DurationMs.HasValue ? $"{Model.DurationMs.Value:N0} ms" :"-")</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="ak-field">
+            <div class="ak-form-section">
+                <div class="ak-section-head">@UiText.T(Context,"ردیابی","Trace")</div>
+                <div>
+                    <dl class="ak-list">
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"Correlation","Correlation")</dt><dd><code>@(Model.CorrelationId ??"-")</code></dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"ایجاد","Created")</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"آخرین ویرایش","Last updated")</dt><dd>@(Model.UpdatedAtUtc?.ToDisplayDateTime() ??"-")</dd></div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Diff) && !Model.Changes.Any())
+        {
+            <div class="ak-field ak-col-full">
+                <div class="ak-form-section">
+                    <div class="ak-section-head">Diff</div>
+                    <div>
+                        <pre class="ak-note mb-0">@(Model.Diff)</pre>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.MetadataJson))
+        {
+            <div class="ak-field ak-col-full">
+                <div class="ak-form-section">
+                    <div class="ak-section-head">Metadata</div>
+                    <div>
+                        <pre class="ak-note mb-0" dir="ltr">@Model.MetadataJson</pre>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

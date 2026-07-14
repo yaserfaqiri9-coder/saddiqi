@@ -1,0 +1,123 @@
+@model PTGOilSystem.Web.Models.Contracts.EditPricingViewModel
+@using PTGOilSystem.Web.Models.Contracts
+@{
+    ViewData["Title"] = "تکمیل / اصلاح نرخ قرارداد";
+    var isPlatts = Model.UiPricingType == UiPricingType.Platts;
+    var isModal = Context.Request.Query["modal"] == "1";
+}
+
+<div class="ak-form-page">
+@if (!isModal)
+{
+    @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkPageHeader.cshtml",
+        (ViewData["Title"]?.ToString() ?? "اصلاح نرخ قرارداد", false,
+         (string?)null, (string?)null, (string?)null, (string?)null,
+         "بازگشت", "bi-arrow-right",
+         string.IsNullOrWhiteSpace(Model.ReturnUrl) ? (string?)Url.Action("Details", "Contracts", new { id = Model.Id }) : Model.ReturnUrl))
+}
+<form asp-action="EditPricing" asp-route-id="@Model.Id" asp-route-modal="@(isModal ? "1" : null)" method="post" class="ak-form">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <input asp-for="ContractNumber" type="hidden" />
+    <input asp-for="ProductName" type="hidden" />
+    <input asp-for="ReturnUrl" type="hidden" />
+
+    <div>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+        <div class="ak-note">
+            <span>@Model.ContractNumber</span>
+            <span> · @Model.ProductName</span>
+        </div>
+
+        <section class="ak-form-section">
+            @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("نرخ قرارداد", (string?)null))
+        <div class="ak-form-grid">
+            <div class="ak-field">
+                <label asp-for="UiPricingType" class="ak-label">نوع نرخ</label>
+                <select asp-for="UiPricingType" id="uiPricingType" class="ak-input">
+                    <option value="@((int)UiPricingType.Agreed)">نرخ قطعی / توافقی</option>
+                    <option value="@((int)UiPricingType.Platts)">نرخ Platt's</option>
+                </select>
+                <span asp-validation-for="UiPricingType" class="ak-field-error"></span>
+            </div>
+
+            <div class="ak-field @(isPlatts ?"" : "d-none")" data-pricing-platts>
+                <label asp-for="PlattsUiMode" class="ak-label">نوع Platt's</label>
+                <select asp-for="PlattsUiMode" class="ak-input">
+                    <option value="@((int)PlattsUiMode.Daily)">روزانه</option>
+                    <option value="@((int)PlattsUiMode.MonthlyAverage)">میانگین ماهانه</option>
+                    <option value="@((int)PlattsUiMode.ManualDescriptive)">دستی / توضیحی</option>
+                </select>
+                <span asp-validation-for="PlattsUiMode" class="ak-field-error"></span>
+            </div>
+
+            <div class="ak-field ak-col-full">
+                <label asp-for="FinalPriceUsdPerMt" class="ak-label">قیمت نهایی اعلام‌شده USD/MT</label>
+                <input asp-for="FinalPriceUsdPerMt" class="ak-input" type="number" min="0.0001" step="0.0001" />
+                <span class="ak-note">
+                    اگر نرخ هنوز اعلام نشده، خالی بگذارید تا وضعیت «در انتظار نرخ» بماند.
+                    <span class="@(isPlatts ?"" : "d-none")" data-pricing-platts>برای قراردادهای Platts، این فیلد همیشه دستی است.</span>
+                </span>
+                <span asp-validation-for="FinalPriceUsdPerMt" class="ak-field-error"></span>
+            </div>
+
+            <div class="ak-field ak-col-full">
+                <label asp-for="PricingNote" class="ak-label">توضیح / یادداشت نرخ</label>
+                <textarea asp-for="PricingNote" class="ak-input" rows="2" placeholder="مثال: میانگین ۶ روز بعد از بارگیری + 35 USD"></textarea>
+                <span asp-validation-for="PricingNote" class="ak-field-error"></span>
+            </div>
+        </div>
+        </section>
+
+        @if (Model.ShowRubRateEntry)
+        {
+            <section class="ak-form-section">
+                @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("نرخ روبل قرارداد", (string?)null))
+                <div class="ak-note">
+                    <span>قیمت روبلی این قرارداد روی «نرخ بعداً مشخص می‌شود» است. اگر نرخ روبل مشخص شده، آن را برای کل قرارداد وارد کنید (نه هر بارگیری). با ثبت، سیاست به «نرخ ثابت قرارداد» تبدیل می‌شود.</span>
+                </div>
+                <div class="ak-form-grid">
+                    <div class="ak-field">
+                        <label asp-for="ContractRubPerUsdRate" class="ak-label">هر ۱ دالر چند روبل؟</label>
+                        <input asp-for="ContractRubPerUsdRate" class="ak-input" type="number" min="0.000001" step="0.000001" placeholder="مثلاً 92" />
+                        <span class="ak-note">برای کل قرارداد؛ اگر مشخص نیست خالی بگذارید.</span>
+                        <span asp-validation-for="ContractRubPerUsdRate" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field">
+                        <label asp-for="ContractRubRateDate" class="ak-label">تاریخ نرخ روبل</label>
+                        <input asp-for="ContractRubRateDate" type="date" class="ak-input" value="@(Model.ContractRubRateDate?.ToHtmlDateInput())" />
+                        <span asp-validation-for="ContractRubRateDate" class="ak-field-error"></span>
+                    </div>
+                    <div class="ak-field ak-col-full">
+                        <label asp-for="ContractRubRateSource" class="ak-label">مرجع نرخ روبل</label>
+                        <input asp-for="ContractRubRateSource" class="ak-input" maxlength="200" />
+                        <span asp-validation-for="ContractRubRateSource" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </section>
+        }
+    </div>
+
+    <div class="ak-footer-actions">
+        <button type="submit" class="ak-save">ذخیره نرخ قرارداد</button>
+        <a href="@(string.IsNullOrWhiteSpace(Model.ReturnUrl) ? Url.Action("Details", "Contracts", new { id = Model.Id }) : Model.ReturnUrl)" class="ak-cancel">بازگشت</a>
+    </div>
+</form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const typeSelect = document.getElementById('uiPricingType');
+            const plattsFields = document.querySelectorAll('[data-pricing-platts]');
+            const sync = () => {
+                const isPlattsSelected = typeSelect?.value === '@((int)UiPricingType.Platts)';
+                plattsFields.forEach(el => el.classList.toggle('d-none', !isPlattsSelected));
+            };
+            typeSelect?.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+}

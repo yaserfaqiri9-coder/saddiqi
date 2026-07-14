@@ -1,0 +1,5 @@
+@{
+    Layout = string.Equals(Context.Request.Query["modal"].ToString(), "1", StringComparison.Ordinal)
+        ? "_ModalLayout"
+        : "_Layout";
+}

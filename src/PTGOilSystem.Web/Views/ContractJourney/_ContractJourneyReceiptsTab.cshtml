@@ -1,0 +1,249 @@
+@using PTGOilSystem.Web.Models.ContractJourney
+@using PTGOilSystem.Web.Models.Loading
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyReceiptsTabViewModel
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string UnitMt() => T("تن", "MT");
+    string TextOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+    string ReturnUrl(string tab)
+        => Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId, tab, lockContract = Model.LockContract })
+            ?? $"/ContractJourney/Details?contractId={Model.ContractId}&tab={tab}&lockContract={Model.LockContract.ToString().ToLowerInvariant()}";
+}
+
+<div id="journey-tab-lists" class="ak-tab-panel" dir="@Model.PageDirection">
+
+    @* ─── بارگیری‌های در انتظار رسید + فرم رسید گروهی ─── *@
+    @if (Model.BulkReceiptCandidates.Any())
+    {
+        <form asp-controller="LoadingReceipts" asp-action="BulkCreate" method="post" class="ak-form" data-bulk-receipt-form data-bulk-receipt-collapsed="true" data-no-spa="true">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ContractId" value="@Model.ContractId" />
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" />
+
+            <section class="ak-form-section">
+                <div class="ak-section-head">
+                    <div>
+                        <h2 class="ak-section-title">@T("بارگیری‌های در انتظار رسید", "Loadings awaiting receipt")</h2>
+                        <p class="ak-section-desc">@T("بارگیری‌ها را انتخاب کنید و رسید گروهی ثبت کنید.", "Select loadings and record a bulk receipt.")</p>
+                    </div>
+                    <div class="ak-page-actions">
+                        <button type="button" class="btn btn-light ak-secondary-action" data-bulk-receipt-select-all>
+                            <i class="bi bi-check2-square" aria-hidden="true"></i>
+                            <span>@T("انتخاب همه", "Select all")</span>
+                        </button>
+                        <button type="button" class="btn btn-light ak-secondary-action" data-bulk-receipt-clear>
+                            <i class="bi bi-square" aria-hidden="true"></i>
+                            <span>@T("پاک‌کردن", "Clear")</span>
+                        </button>
+                        <button type="button" class="btn btn-primary ak-primary-action" data-bulk-receipt-toggle aria-expanded="false" aria-controls="bulkReceiptPanel-@Model.ContractId">
+                            <span data-bulk-receipt-toggle-label data-open-label="@T("ثبت رسید گروهی", "Bulk receipt")" data-close-label="@T("بستن فرم", "Close form")">@T("ثبت رسید گروهی", "Bulk receipt")</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ak-table-wrap">
+                    <table class="ak-table">
+                        <thead>
+                            <tr>
+                                <th class="ak-col-check"></th>
+                                <th class="ak-col-grow">@T("بارگیری", "Loading")</th>
+                                <th>@T("تاریخ", "Date")</th>
+                                <th>@T("مقصد", "Destination")</th>
+                                <th class="ak-col-num">@T("مانده", "Remaining") (@UnitMt())</th>
+                                <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.BulkReceiptCandidates)
+                            {
+                                <tr>
+                                    <td class="ak-col-check">
+                                        <input class="ak-check" type="checkbox" name="LoadingRegisterIds" value="@item.LoadingRegisterId" data-bulk-receipt-row data-bulk-receipt-qty="@item.RemainingQuantityMt.ToString(System.Globalization.CultureInfo.InvariantCulture)" checked aria-label="@T("انتخاب بارگیری", "Select loading") #@item.LoadingRegisterId" />
+                                    </td>
+                                    <td class="ak-col-grow">
+                                        <a asp-controller="Loading" asp-action="Details" asp-route-id="@item.LoadingRegisterId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="ak-name">#@item.LoadingRegisterId</a>
+                                    </td>
+                                    <td>@item.LoadingDate.ToDisplayDate()</td>
+                                    <td>@TextOrDash(item.DestinationName ?? item.ConsigneeName)</td>
+                                    <td class="ak-num">@NumberDisplay.Quantity(item.RemainingQuantityMt)</td>
+                                    <td class="ak-col-actions">
+                                        <div class="dropdown ak-row-menu">
+                                            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <a asp-controller="LoadingReceipts" asp-action="Create" asp-route-loadingId="@item.LoadingRegisterId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="dropdown-item" data-page-modal="true" data-page-modal-title="@T("ثبت رسید بارگیری", "New loading receipt") #@item.LoadingRegisterId">
+                                                        <i class="bi bi-box-arrow-in-down"></i> @T("ثبت تکی", "Single receipt")
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @* فرم ثبت رسید گروهی — زیر جدول، پیش‌فرض مخفی *@
+                <div id="bulkReceiptPanel-@Model.ContractId" class="ak-section-body" data-bulk-receipt-panel hidden>
+                    <div class="ak-form-grid">
+                        <div class="ak-field">
+                            <label class="ak-label" for="bulkReceiptDate-@Model.ContractId">@T("تاریخ رسید", "Receipt date")</label>
+                            <input id="bulkReceiptDate-@Model.ContractId" name="ReceiptDate" type="date" class="ak-input" value="@DateTime.UtcNow.Date.ToHtmlDateInput()" />
+                        </div>
+
+                        <div class="ak-field">
+                            <label class="ak-label" for="bulkReceiptTotal-@Model.ContractId">@T("مقدار رسید", "Received quantity") (@UnitMt())</label>
+                            <input id="bulkReceiptTotal-@Model.ContractId" name="TotalReceivedQuantityMt" class="ak-input ak-num" value="@Model.BulkReceiptDefaultQuantityMt.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" data-bulk-receipt-total-input />
+                        </div>
+
+                        <div class="ak-field">
+                            <label class="ak-label" for="bulkReceiptTerminal-@Model.ContractId">@T("ترمینال", "Terminal")</label>
+                            <select id="bulkReceiptTerminal-@Model.ContractId" name="TerminalId" class="ak-input" data-bulk-receipt-terminal-select>
+                                <option value="">— @T("انتخاب کنید", "Select") —</option>
+                                @foreach (var terminal in Model.BulkReceiptTerminals)
+                                {
+                                    <option value="@terminal.Value">@terminal.Text</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="ak-field">
+                            <label class="ak-label" for="bulkReceiptTank-@Model.ContractId">@T("مخزن", "Storage tank")</label>
+                            <select id="bulkReceiptTank-@Model.ContractId" name="StorageTankId" class="ak-input" data-bulk-receipt-tank-select>
+                                <option value="">— @T("انتخاب کنید", "Select") —</option>
+                                @foreach (var tank in Model.BulkReceiptStorageTanks)
+                                {
+                                    <option value="@tank.Id" data-terminal-id="@tank.TerminalId">@tank.DisplayName</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="ak-field ak-col-full">
+                            <span class="ak-label">@T("نحوه ثبت ضایعات", "Loss handling")</span>
+                            <div class="ak-toggle-field">
+                                <label class="form-check">
+                                    <input class="form-check-input" type="radio" name="LossMode" value="@((int)BulkReceiptLossMode.None)" checked />
+                                    <span class="form-check-label">@T("بدون ضایعات", "No loss")</span>
+                                </label>
+                                <label class="form-check">
+                                    <input class="form-check-input" type="radio" name="LossMode" value="@((int)BulkReceiptLossMode.ImmediateKnownLoss)" data-loss-mode="immediate" />
+                                    <span class="form-check-label">@T("ضایعات فوری", "Immediate loss")</span>
+                                </label>
+                                <label class="form-check">
+                                    <input class="form-check-input" type="radio" name="LossMode" value="@((int)BulkReceiptLossMode.DeferredTankSettlement)" />
+                                    <span class="form-check-label">@T("تسویه مخزن", "Tank settlement")</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        @* فیلدهای ضایعات — فقط وقتی «ضایعات فوری» انتخاب شده نمایش داده می‌شوند *@
+                        <div class="ak-field ak-loss-only">
+                            <label class="ak-label" for="bulkReceiptLoss-@Model.ContractId">@T("ضایعات کل", "Total loss") (@UnitMt())</label>
+                            <input id="bulkReceiptLoss-@Model.ContractId" name="TotalLossQuantityMt" class="ak-input ak-num" />
+                        </div>
+
+                        <div class="ak-field ak-loss-only">
+                            <label class="ak-label" for="bulkReceiptTolerance-@Model.ContractId">@T("تلورانس مجاز", "Allowed tolerance") (@UnitMt())</label>
+                            <input id="bulkReceiptTolerance-@Model.ContractId" name="TotalLossToleranceQuantityMt" class="ak-input ak-num" />
+                        </div>
+
+                        <div class="ak-field ak-loss-only">
+                            <label class="ak-label" for="bulkReceiptReference-@Model.ContractId">@T("شماره رسید / مرجع", "Receipt / reference")</label>
+                            <input id="bulkReceiptReference-@Model.ContractId" name="ReferenceDocument" class="ak-input" />
+                        </div>
+
+                        <div class="ak-field ak-loss-only">
+                            <label class="ak-label" for="bulkReceiptResponsible-@Model.ContractId">@T("مسئول ضایعات", "Loss responsible")</label>
+                            <input id="bulkReceiptResponsible-@Model.ContractId" name="LossResponsiblePartyName" class="ak-input" />
+                        </div>
+
+                        <p class="ak-note ak-col-full">
+                            @T("انتخاب", "Selected"): <strong data-bulk-receipt-selected-count>0</strong>
+                            ·
+                            @T("مانده", "Remaining"): <strong data-bulk-receipt-selected-qty>0.0000</strong> @UnitMt()
+                        </p>
+                    </div>
+
+                    <div class="ak-footer-actions">
+                        <button type="submit" class="btn btn-primary ak-save">
+                            @T("ثبت و تایید رسید", "Save receipt")
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </form>
+    }
+
+    @* ─── رسیدهای ثبت‌شده ─── *@
+    <section class="ak-form-section">
+        <div class="ak-section-head">
+            <div>
+                <h2 class="ak-section-title">@T("رسیدهای ثبت‌شده", "Registered receipts")</h2>
+                <p class="ak-section-desc">@T("رسید جنس در مخزن", "Goods received into storage")</p>
+            </div>
+            @if (!Model.BulkReceiptCandidates.Any() && Model.FirstLoadingId.HasValue)
+            {
+                <a asp-controller="LoadingReceipts" asp-action="Create" asp-route-loadingId="@Model.FirstLoadingId.Value" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="btn btn-primary ak-primary-action" data-page-modal="true" data-page-modal-title="@T("ثبت رسید بارگیری", "New loading receipt") #@Model.FirstLoadingId.Value">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    <span>@T("ثبت رسید جدید", "New receipt")</span>
+                </a>
+            }
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@T("رسید", "Receipt")</th>
+                        <th>@T("بارگیری", "Loading")</th>
+                        <th>@T("تاریخ", "Date")</th>
+                        <th>@T("ترمینال / تانک", "Terminal / Tank")</th>
+                        <th class="ak-col-num">@T("مقدار", "Quantity") (@UnitMt())</th>
+                        <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="ak-col-grow">
+                            <a asp-controller="LoadingReceipts" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="ak-name">#@item.Id</a>
+                        </td>
+                        <td>#@item.LoadingRegisterId</td>
+                        <td>@item.ReceiptDate.ToDisplayDate()</td>
+                        <td>@item.TerminalName / @(item.StorageTankCode ?? "—")</td>
+                        <td class="ak-num">@NumberDisplay.Quantity(item.ReceivedQuantityMt)</td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a asp-controller="LoadingReceipts" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                    <li><a asp-controller="LoadingReceipts" asp-action="Edit" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Receipts)" class="dropdown-item"><i class="bi bi-pencil-square"></i> @T("ویرایش", "Edit")</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="6">
+                            <div class="ak-empty">
+                                <i class="bi bi-inbox"></i>
+                                @Model.NoRecordsText
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @Model.PagerHtml
+    </section>
+</div>

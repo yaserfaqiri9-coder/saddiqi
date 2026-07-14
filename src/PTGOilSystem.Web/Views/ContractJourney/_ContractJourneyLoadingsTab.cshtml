@@ -1,0 +1,133 @@
+@using PTGOilSystem.Web.Models.ContractJourney
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyLoadingsTabViewModel
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    string TextOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+    string RubStatusText(ContractJourneyLoadingItemViewModel item)
+    {
+        if (!string.Equals(item.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase))
+        {
+            return "-";
+        }
+
+        if (item.HasFileRub && !item.RubPerUsdRate.HasValue)
+        {
+            return T("از فایل اکسل", "From Excel file");
+        }
+
+        return item.RubRateStatus == PTGOilSystem.Web.Models.Entities.RubSettlementRateStatus.Locked
+            ? T("قفل‌شده", "Locked")
+            : T("در انتظار نرخ", "Pending rate");
+    }
+
+    string RubRateText(ContractJourneyLoadingItemViewModel item)
+    {
+        if (!string.Equals(item.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase))
+        {
+            return "-";
+        }
+
+        return item.RubPerUsdRate?.ToString("N6")
+            ?? (item.HasFileRub ? T("از فایل", "From file") : "-");
+    }
+
+    string RubAmountText(ContractJourneyLoadingItemViewModel item)
+    {
+        if (!string.Equals(item.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase))
+        {
+            return "-";
+        }
+
+        return item.AmountRubLive.HasValue
+            ? $"₽ {item.AmountRubLive.Value:N2}"
+            : item.FileRubAmount.HasValue
+                ? $"₽ {item.FileRubAmount.Value:N2}"
+            : T("در انتظار نرخ", "Pending rate");
+    }
+
+    string ReturnUrl(string tab)
+        => Url.Action("Details", "ContractJourney", new { contractId = Model.ContractId, tab, lockContract = Model.LockContract })
+            ?? $"/ContractJourney/Details?contractId={Model.ContractId}&tab={tab}&lockContract={Model.LockContract.ToString().ToLowerInvariant()}";
+}
+
+<div id="journey-tab-lists" class="ak-tab-panel" dir="@Model.PageDirection">
+    <section class="ak-form-section">
+        <div class="ak-section-head">
+            <div>
+                <h2 class="ak-section-title">@T("سوابق بارگیری", "Loading records")</h2>
+                <p class="ak-section-desc">@T("تحویل جنس از مبدا به مقصد نهایی", "Goods loaded from origin to final destination")</p>
+            </div>
+            <a asp-controller="Loading" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-lockContract="true" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Loadings)" class="btn btn-primary ak-primary-action">
+                <i class="bi bi-train-freight-front"></i>
+                <span>@T("ثبت بارگیری جدید", "New loading")</span>
+            </a>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@T("نمبر وسیله", "Vehicle No")</th>
+                        <th>@T("تاریخ", "Date")</th>
+                        <th>@T("جنس", "Product")</th>
+                        <th>@T("وسیله حمل", "Transport")</th>
+                        <th class="ak-col-num">@T("مقدار بارگیری‌شده", "Loaded Qty")</th>
+                        <th class="ak-col-num">@T("مقدار رسید‌شده", "Received Qty")</th>
+                        <th class="ak-col-num">@T("قیمت فی تن", "Unit Price")</th>
+                        <th class="ak-col-num">@T("ارزش بارگیری", "Loading Value")</th>
+                        <th class="ak-col-num">@T("هر 1 دالر چند روبل است؟", "RUB per 1 USD")</th>
+                        <th>@T("وضعیت نرخ روبل", "RUB rate status")</th>
+                        <th class="ak-col-num">@T("معادل روبلی", "RUB equivalent")</th>
+                        <th class="ak-col-actions">@T("عملیات", "Actions")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    var vehicleNo = TextOrDash(item.VehicleSummary ?? item.WagonNumber);
+                    <tr>
+                        <td class="ak-col-grow">
+                            <a asp-controller="Loading" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Loadings)" class="ak-name">@vehicleNo</a>
+                        </td>
+                        <td>@item.LoadingDate.ToDisplayDate()</td>
+                        <td>@item.ProductName</td>
+                        <td>@item.TransportTypeLabel</td>
+                        <td class="ak-num">@item.LoadedQuantityMt.ToString("N3")</td>
+                        <td class="ak-num">@item.TotalReceivedQuantityMt.ToString("N3")</td>
+                        <td class="ak-num">@(item.LoadingPriceUsd.HasValue ? item.LoadingPriceUsd.Value.ToString("N2") : "-")</td>
+                        <td class="ak-num">@(item.LoadingValueUsd.HasValue ? item.LoadingValueUsd.Value.ToString("N2") : "-")</td>
+                        <td class="ak-num">@RubRateText(item)</td>
+                        <td>
+                            <span class="ak-status @(item.RubRateStatus == PTGOilSystem.Web.Models.Entities.RubSettlementRateStatus.Locked ?"is-active" : "is-inactive")">@RubStatusText(item)</span>
+                        </td>
+                        <td class="ak-num">@RubAmountText(item)</td>
+                        <td class="ak-col-actions">
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a asp-controller="Loading" asp-action="Details" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Loadings)" class="dropdown-item"><i class="bi bi-eye"></i> @T("جزئیات", "Details")</a></li>
+                                    <li><a asp-controller="Loading" asp-action="Edit" asp-route-id="@item.Id" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Loadings)" class="dropdown-item"><i class="bi bi-pencil-square"></i> @T("ویرایش", "Edit")</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr>
+                        <td colspan="12">
+                            <div class="ak-empty">
+                                <i class="bi bi-truck"></i>
+                                @Model.NoRecordsText
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @Model.PagerHtml
+    </section>
+</div>

@@ -1,0 +1,80 @@
+@model object
+@{
+    var modalId = ViewData["CreateModalId"] as string ?? "createModal";
+    var formId = ViewData["CreateFormId"] as string ?? "createForm";
+    var modalTitle = ViewData["CreateModalTitle"] as string ?? "ثبت جدید";
+    var modalSubtitle = ViewData["CreateModalSubtitle"] as string;
+    var dialogClass = ViewData["CreateModalDialogClass"] as string ?? "modal-lg";
+    var formPartialPath = ViewData["CreateFormPartialPath"] as string;
+    var formAction = ViewData["CreateFormAction"] as string ?? "Create";
+    var formController = ViewData["CreateFormController"] as string;
+    var formMethod = ViewData["CreateFormMethod"] as string ?? "post";
+    var formEnctype = ViewData["CreateFormEnctype"] as string;
+    var formNoSpa = ViewData["CreateFormNoSpa"] as bool? == true;
+    var labelId = $"{modalId}Label";
+
+    var requestedLanguage = Context.Request.Cookies["ptg-ui-lang"] ?? "fa";
+    var isEn = string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase);
+    string T(string fa, string en) => isEn ? en : fa;
+
+    var submitText = ViewData["CreateModalSubmitText"] as string ?? T("ذخیره", "Save");
+    var cancelText = ViewData["CreateModalCancelText"] as string ?? T("انصراف", "Cancel");
+
+    if (string.IsNullOrWhiteSpace(formPartialPath))
+    {
+        throw new System.InvalidOperationException("Create form partial path is required.");
+    }
+
+    // اگر کنترلر فرم صریح تعیین نشده باشد، آن را از مسیر پارشال (/Views/{Controller}/...) استخراج کن.
+    // این کار جلوی اشتباه‌شدن action به /Home/Create را هنگام بارگذاری صفحه از طریق SPA می‌گیرد.
+    if (string.IsNullOrWhiteSpace(formController))
+    {
+        var pathSegments = formPartialPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var viewsIndex = System.Array.FindIndex(pathSegments, s => string.Equals(s, "Views", StringComparison.OrdinalIgnoreCase));
+        if (viewsIndex >= 0 && viewsIndex + 1 < pathSegments.Length)
+        {
+            formController = pathSegments[viewsIndex + 1];
+        }
+    }
+}
+
+<div class="modal fade ak-modal" id="@modalId" tabindex="-1" aria-labelledby="@labelId" aria-hidden="true" data-entity-modal="@modalId">
+    <div class="modal-dialog @dialogClass modal-dialog-centered">
+        <div class="modal-content ak-modal-content">
+            <div class="ak-modal-head">
+                <div>
+                    <h2 class="ak-modal-title" id="@labelId">@modalTitle</h2>
+                    @if (!string.IsNullOrWhiteSpace(modalSubtitle))
+                    {
+                        <p class="ak-modal-subtitle">@modalSubtitle</p>
+                    }
+                </div>
+                <button type="button" class="ak-modal-close" data-bs-dismiss="modal" data-entity-modal-close aria-label="@T("بستن", "Close")">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body ak-modal-body">
+                @if (formNoSpa)
+                {
+                    <form id="@formId" asp-controller="@formController" asp-action="@formAction" method="@formMethod" enctype="@formEnctype" class="ak-form ptg-modal-inline-form" data-no-spa>
+                        <div class="ptg-modal-form-scroll">
+                            @await Html.PartialAsync(formPartialPath, Model)
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <form id="@formId" asp-controller="@formController" asp-action="@formAction" method="@formMethod" enctype="@formEnctype" class="ak-form ptg-modal-inline-form" data-no-spa data-ptg-entity-modal-form>
+                        <div class="ptg-modal-form-scroll">
+                            @await Html.PartialAsync(formPartialPath, Model)
+                        </div>
+                    </form>
+                }
+            </div>
+            <div class="ak-modal-foot">
+                <button type="button" class="ak-cancel" data-bs-dismiss="modal" data-entity-modal-close>@cancelText</button>
+                <button type="submit" form="@formId" class="ak-save ak-modal-submit">@submitText</button>
+            </div>
+        </div>
+    </div>
+</div>

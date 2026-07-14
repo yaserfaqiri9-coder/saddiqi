@@ -1,0 +1,20 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingExpenseEditViewModel
+@{
+    ViewData["Title"] = $"تکمیل مصارف بارگیری #{Model.Id}";
+    ViewData["LoadingExpenseEditorAssets"] = true;
+    var backUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Details", "Loading", new { id = Model.Id }) ?? $"/Loading/Details/{Model.Id}";
+    var expenseEditorViewData = new Microsoft.AspNetCore.Mvc.ViewFeatures.ViewDataDictionary(ViewData)
+    {
+        ["CancelUrl"] = backUrl,
+        ["IsExpenseModal"] = false
+    };
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("تکمیل مصارف بارگیری", false, (string?)null, (string?)null, (string?)null, (string?)null, "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+
+    <partial name="_LoadingExpenseEditor" model="Model" view-data="expenseEditorViewData" />
+</div>

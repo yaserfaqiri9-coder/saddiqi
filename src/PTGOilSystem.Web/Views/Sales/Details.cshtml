@@ -1,0 +1,170 @@
+@model PTGOilSystem.Web.Models.Sales.SalesDetailsViewModel
+@using PTGOilSystem.Web.Models.Sales
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "Sales") ?? "/Sales";
+    var currentReturnUrl = Context.Request.Path + Context.Request.QueryString;
+    var contractText = SalesContractText.Display(Model.ContractNumber);
+    var stockSourceText = Model.StockSourceType?.ToString() ?? T("ثبت نشده", "Not set");
+    var ledgerRecorded = Model.LedgerEntryId.HasValue;
+    var hasInventoryTrace = Model.InventoryMovementId.HasValue
+        || Model.LoadingReceiptId.HasValue
+        || Model.InventoryTransportReceiptId.HasValue
+        || Model.LoadingReceiptAllocationId.HasValue;
+    var inventoryStatus = Model.InventoryMovementId.HasValue
+        ? T("خروج موجودی", "Inventory out")
+        : hasInventoryTrace
+            ? T("فقط ردیابی", "Trace only")
+            : T("ثبت نشده", "No trace");
+    var isSameCurrency = string.Equals(Model.Currency, "USD", StringComparison.OrdinalIgnoreCase);
+
+    ViewData["Title"] = T("جزئیات فروش", "Sale Details");
+    ViewData["HideSectionTabs"] = true;
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((T("جزئیات فروش", "Sale details") + " " + Model.InvoiceNumber, false,
+                       T("ویرایش", "Edit"), "bi-pencil-square",
+                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), (string?)null,
+                       T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
+
+    <div class="ak-page-actions">
+        @if (Model.IsCancelled)
+        {
+            <span class="ak-status is-inactive"><i class="bi bi-x-circle"></i> @T("لغو شده", "Cancelled")</span>
+        }
+        else
+        {
+            <span class="ak-status is-active"><i class="bi bi-check-circle"></i> @T("تکمیل شده", "Completed")</span>
+        }
+        <div class="dropdown ak-row-menu">
+            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Invoice" asp-route-id="@Model.Id" asp-route-template="faisal" target="_blank" rel="noopener"><i class="bi bi-receipt"></i> @T("فاکتور Faisal", "Faisal invoice")</a></li>
+                <li><a class="dropdown-item" asp-action="Invoice" asp-route-id="@Model.Id" asp-route-template="fawad" target="_blank" rel="noopener"><i class="bi bi-receipt-cutoff"></i> @T("فاکتور Fawad", "Fawad invoice")</a></li>
+                <li><a class="dropdown-item" href="@(Url.Action("Create", new { returnUrl = backUrl }) ?? "#")"><i class="bi bi-plus-lg"></i> @T("فروش جدید", "New sale")</a></li>
+                @if (!Model.IsCancelled)
+                {
+                    <li>
+                        <form asp-action="Cancel" asp-route-id="@Model.Id" asp-route-returnUrl="@currentReturnUrl" method="post" data-no-spa="true"
+                              onsubmit="return confirm('@T("این فروش ابطال شود؟", "Cancel this sale?")');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="dropdown-item ak-danger">
+                                <i class="bi bi-slash-circle"></i> @T("ابطال فروش", "Cancel sale")
+                            </button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <section class="ak-form-section ak-form-grid">
+        <div class="ak-field">
+            <span class="ak-label">@T("تاریخ فروش", "Sale date")</span>
+            <strong>@Model.SaleDate.ToDisplayDate()</strong>
+            <span class="ak-section-desc">@T("مرحله فروش", "Sale stage"): @SaleStageLabels.ToPersian(Model.SaleStage)</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("مشتری", "Customer")</span>
+            <strong>@Model.CustomerName</strong>
+            <span class="ak-section-desc">@T("قرارداد", "Contract"): @contractText</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("شماره فاکتور", "Invoice no.")</span>
+            <strong>@Model.InvoiceNumber</strong>
+            <span class="ak-section-desc">@T("شماره داخلی", "Internal id"): #@Model.Id</span>
+        </div>
+        <div class="ak-field">
+            <span class="ak-label">@T("مبلغ قابل دریافت", "Amount due")</span>
+            <strong class="ak-num">@Model.TotalUsd.ToString("N2") USD</strong>
+            <span class="ak-section-desc">@T("ثبت‌کننده", "Recorded by"): @(Model.CreatedByName ?? "-") · @Model.CreatedAtUtc.ToDisplayDateTime()</span>
+        </div>
+    </section>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("اقلام فروش", "Sale items"), (string?)null))" />
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th class="ak-col-grow">@T("محصول", "Product")</th>
+                        <th>@T("واحد", "Unit")</th>
+                        <th class="ak-col-num">@T("مقدار", "Quantity")</th>
+                        <th class="ak-col-num">@T("قیمت واحد", "Unit price") (USD)</th>
+                        <th class="ak-col-num">@T("مبلغ کل", "Total") (USD)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="ak-col-grow">@Model.ProductName</td>
+                        <td>MT</td>
+                        <td class="ak-num">@NumberDisplay.Quantity(Model.QuantityMt)</td>
+                        <td class="ak-num">@Model.UnitPriceUsd.ToString("N2")</td>
+                        <td class="ak-num">@Model.TotalUsd.ToString("N2")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="ak-form-grid">
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("اطلاعات پرداخت و دفتر", "Payment & ledger"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("ارز پرداخت", "Currency")</dt><dd>@Model.Currency</dd></div>
+                <div class="ak-list-row"><dt>@T("نرخ ارز", "FX rate")</dt><dd class="ak-num">@NumberDisplay.FxRate(Model.AppliedFxRateToUsd)</dd></div>
+                <div class="ak-list-row"><dt>@T("مبلغ قابل دریافت", "Amount due")</dt><dd class="ak-num">@Model.TotalUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row">
+                    <dt>@T("وضعیت دفتر", "Ledger status")</dt>
+                    <dd>
+                        <span class="ak-status @(ledgerRecorded ?"is-active" : "is-inactive")">
+                            @(ledgerRecorded ? T("ثبت‌شده", "Recorded") : T("ثبت نشده", "Pending"))
+                        </span>
+                    </dd>
+                </div>
+                <div class="ak-list-row"><dt>@T("مرجع دفتر", "Ledger ref")</dt><dd>@(Model.LedgerReference ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("سمت / شرح", "Side / note")</dt><dd>@(Model.LedgerSideName ?? "-")@(string.IsNullOrWhiteSpace(Model.LedgerDescription) ? "" : " · " + Model.LedgerDescription)</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("خلاصه فروش", "Sale summary"), (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@T("جمع مقدار", "Total quantity")</dt><dd class="ak-num">@NumberDisplay.Quantity(Model.QuantityMt) MT</dd></div>
+                <div class="ak-list-row"><dt>@T("قیمت واحد", "Unit price") (USD)</dt><dd class="ak-num">@Model.UnitPriceUsd.ToString("N2")</dd></div>
+                <div class="ak-list-row"><dt>@T("جمع مبلغ", "Total amount") (USD)</dt><dd class="ak-num">@Model.TotalUsd.ToString("N2")</dd></div>
+                @if (!isSameCurrency)
+                {
+                    <div class="ak-list-row"><dt>@T("قیمت واحد سند", "Doc unit price")</dt><dd class="ak-num">@Model.UnitPriceInCurrency.ToString("N2") @Model.Currency</dd></div>
+                    <div class="ak-list-row"><dt>@T("جمع سند", "Document total")</dt><dd class="ak-num">@Model.TotalInCurrency.ToString("N2") @Model.Currency</dd></div>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("منبع و ردیابی موجودی", "Source & inventory trace"), (string?)null))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>@T("منبع موجودی", "Stock source")</dt><dd>@stockSourceText</dd></div>
+            <div class="ak-list-row"><dt>@T("ترمینال منبع", "Source terminal")</dt><dd>@(Model.SourceTerminalName ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("مخزن منبع", "Source tank")</dt><dd>@(Model.SourceStorageTankCode ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("قرارداد خرید منبع", "Source purchase")</dt><dd>@(Model.SourcePurchaseContractNumber ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("مقصد", "Destination")</dt><dd>@(Model.DestinationName ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("سریال تکت", "Ticket serial")</dt><dd>@(Model.TicketSerialNumber ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("ردیابی موجودی", "Inventory trace")</dt><dd>@inventoryStatus</dd></div>
+        </dl>
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <p class="ak-note">@Model.Notes</p>
+        }
+    </section>
+</div>

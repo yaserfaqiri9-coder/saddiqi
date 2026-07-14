@@ -1,0 +1,113 @@
+@model IReadOnlyList<PTGOilSystem.Web.Models.Customs.PerWagonPnlRowViewModel>
+@{
+    ViewData["Title"] = $"گزارش سود/زیان واگن — {ViewBag.ContractNumber}";
+    int contractId = ViewBag.ContractId;
+}
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("گزارش سود و زیان هر واگن", true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Details", "ContractJourney", new { contractId })))" />
+    <p class="ak-note">قرارداد: <strong>@ViewBag.ContractNumber</strong> — جنس: <strong>@ViewBag.ProductName</strong></p>
+    <div class="ak-page-actions"><button type="button" class="btn ak-secondary-action" onclick="window.print()">چاپ</button></div>
+
+    @if (!Model.Any())
+    {
+        <div class="ak-empty"><i class="bi bi-info-circle-fill"></i><div>هیچ رکورد بارگیری برای این قرارداد ثبت نشده است.</div></div>
+    }
+    else
+    {
+        <div class="summary-strip mb-3">
+            <div class="summary-tile"><div class="summary-tile-label">تعداد واگن</div><div class="summary-tile-value">@Model.Count</div></div>
+            <div class="summary-tile"><div class="summary-tile-label">مجموع بارگیری (MT)</div><div class="summary-tile-value">@Model.Sum(r => r.LoadedQuantityMt).ToString("N4")</div></div>
+            <div class="summary-tile"><div class="summary-tile-label">مجموع مصارف گمرکی (AFN)</div><div class="summary-tile-value text-warning fw-bold">@Model.Sum(r => r.TotalCustomsAfn ?? 0).ToString("N2")</div></div>
+            <div class="summary-tile"><div class="summary-tile-label">مجموع مصارف گمرکی (USD)</div><div class="summary-tile-value">@Model.Sum(r => r.TotalCustomsUsd ?? 0).ToString("N2")</div></div>
+        </div>
+
+        <div class="ak-table-wrap">
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>@UiText.T(Context,"تاریخ","Date")</th>
+                                <th>واگن</th>
+                                <th class="text-end">بارگیری (MT)</th>
+                                <th class="text-end">مقدار قابل حساب (MT)</th>
+                                <th class="text-end">قیمت خرید (USD/MT)</th>
+                                <th class="text-end">مصرف خرید (USD)</th>
+                                <th class="text-end">مصارف گمرک (AFN)</th>
+                                <th class="text-end">مصارف گمرک (USD)</th>
+                                <th class="text-end">کرایه راه آهن (USD)</th>
+                                <th class="text-end">سایر مصارف (USD)</th>
+                                <th class="text-end">اعلامیه‌ها</th>
+                                <th>@UiText.T(Context,"عملیات","Operations")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model)
+                            {
+                                <tr>
+                                    <td><small>@row.LoadingRegisterId</small></td>
+                                    <td>@row.LoadingDate.ToDisplayDate()</td>
+                                    <td><code>@(row.WagonNumber ?? "—")</code></td>
+                                    <td class="text-end">@row.LoadedQuantityMt.ToString("N4")</td>
+                                    <td class="text-end @(row.ChargeableQuantityMt.HasValue && row.ChargeableQuantityMt != row.LoadedQuantityMt ?"text-warning fw-semibold" : "")">
+                                        @if (row.ChargeableQuantityMt.HasValue)
+                                        {
+                                            @row.ChargeableQuantityMt.Value.ToString("N4")
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">همان بارگیری</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">@(row.LoadingPriceUsd?.ToString("N4") ?? "—")</td>
+                                    <td class="text-end">@(row.PurchaseCostUsd?.ToString("N2") ?? "—")</td>
+                                    <td class="text-end fw-semibold text-warning">
+                                        @(row.TotalCustomsAfn.HasValue && row.TotalCustomsAfn > 0 ? row.TotalCustomsAfn.Value.ToString("N2") : "—")
+                                    </td>
+                                    <td class="text-end">
+                                        @(row.TotalCustomsUsd.HasValue && row.TotalCustomsUsd > 0 ? row.TotalCustomsUsd.Value.ToString("N2") : "—")
+                                    </td>
+                                    <td class="text-end">@(row.RailwayExpenseUsd?.ToString("N2") ?? "—")</td>
+                                    <td class="text-end">@(row.OtherExpenseUsd?.ToString("N2") ?? "—")</td>
+                                    <td class="text-center">
+                                        @if (row.CustomsDeclarationCount > 0)
+                                        {
+                                            <span class="ak-status text-bg-success">@row.CustomsDeclarationCount</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="ak-status text-bg-light text-muted border">۰</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <a asp-controller="CustomsDeclarations" asp-action="Index" asp-route-loadingRegisterId="@row.LoadingRegisterId"
+                                           class="btn btn-sm ak-secondary-action">اعلامیه‌ها</a>
+                                        <a asp-controller="CustomsDeclarations" asp-action="Create" asp-route-loadingRegisterId="@row.LoadingRegisterId"
+                                           asp-route-returnUrl="@(Context.Request.Path+Context.Request.QueryString)"
+                                           class="btn btn-sm ak-secondary-action">+ اعلامیه</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="fw-semibold">
+                            <tr>
+                                <td colspan="3">مجموع</td>
+                                <td class="text-end">@Model.Sum(r => r.LoadedQuantityMt).ToString("N4")</td>
+                                <td class="text-end">@Model.Sum(r => r.ChargeableQuantityMt ?? r.LoadedQuantityMt).ToString("N4")</td>
+                                <td></td>
+                                <td class="text-end">@Model.Sum(r => r.PurchaseCostUsd ?? 0).ToString("N2")</td>
+                                <td class="text-end text-warning">@Model.Sum(r => r.TotalCustomsAfn ?? 0).ToString("N2")</td>
+                                <td class="text-end">@Model.Sum(r => r.TotalCustomsUsd ?? 0).ToString("N2")</td>
+                                <td class="text-end">@Model.Sum(r => r.RailwayExpenseUsd ?? 0).ToString("N2")</td>
+                                <td class="text-end">@Model.Sum(r => r.OtherExpenseUsd ?? 0).ToString("N2")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+        </div>
+    }
+</div>

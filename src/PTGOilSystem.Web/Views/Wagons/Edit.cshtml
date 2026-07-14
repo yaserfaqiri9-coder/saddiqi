@@ -1,0 +1,11 @@
+@model Wagon
+@{
+    ViewData["Title"] = UiText.T(Context, "ویرایش واگون", "Edit Wagon");
+    ViewData["EditPageIndexLabel"] = UiText.T(Context, "واگون‌ها", "Wagons");
+    ViewData["EditPageSubtitle"] = UiText.T(Context, "مشخصات این واگون و وضعیت فعالیت آن را به‌روزرسانی کنید.", "Update wagon specs and activity status.");
+    ViewData["EditPageId"] = Model.Id;
+    ViewData["EditFormPartialPath"] = "/Views/Wagons/_CreateForm.cshtml";
+}
+
+<partial name="~/Views/Shared/_EditPageShell.cshtml" model="Model" />
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

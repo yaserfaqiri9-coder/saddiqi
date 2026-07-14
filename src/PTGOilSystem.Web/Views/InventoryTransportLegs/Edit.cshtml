@@ -1,0 +1,240 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportLegCreateViewModel
+@{
+    ViewData["InventoryTransportLegFormAssets"] = true;
+    ViewData["Title"] = UiText.T(Context, "ویرایش جریان حمل بار", "Edit Cargo Flow");
+    var transportTypeOptions = new List<SelectListItem>
+    {
+        new() { Value = ((int)LoadingTransportType.Unspecified).ToString(), Text = UiText.T(Context, "انتخاب کنید", "Select"), Selected = Model.TransportType == LoadingTransportType.Unspecified },
+        new() { Value = ((int)LoadingTransportType.Vessel).ToString(), Text = UiText.T(Context, "کشتی", "Vessel"), Selected = Model.TransportType == LoadingTransportType.Vessel },
+        new() { Value = ((int)LoadingTransportType.Wagon).ToString(), Text = UiText.T(Context, "واگن", "Wagon"), Selected = Model.TransportType == LoadingTransportType.Wagon },
+        new() { Value = ((int)LoadingTransportType.Truck).ToString(), Text = UiText.T(Context, "موتر", "Truck"), Selected = Model.TransportType == LoadingTransportType.Truck }
+    };
+    var wagonNumberOptions = ViewBag.WagonNumberOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+    var truckNumberOptions = ViewBag.TruckNumberOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+    var vesselNameOptions = ViewBag.VesselNameOptions as IReadOnlyList<string> ?? Array.Empty<string>();
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-header-main">
+<h1 class="ak-page-title">@UiText.T(Context, "ویرایش جریان حمل بار", "Edit Cargo Flow")</h1>
+            <p class="ak-section-desc">@UiText.T(Context, "فقط سندهای Draft که هنوز خروج موجودی ندارند قابل ویرایش هستند.", "Only draft transport legs without outbound movement can be edited.")</p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light ak-secondary-action">@UiText.T(Context, "بازگشت", "Back")</a>
+        </div>
+    </div>
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form-section" data-inventory-transport-leg-form>
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div class="ak-section-body">
+            <div asp-validation-summary="All" class="mb-3"></div>
+            <div class="ak-form-grid g-3">
+                <div class="ak-field">
+                    <label asp-for="SourcePurchaseContractId" class="ak-label">@UiText.T(Context, "قرارداد خرید منبع", "Source Purchase Contract")</label>
+                    <select asp-for="SourcePurchaseContractId" asp-items="ViewBag.Contracts" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب قرارداد خرید", "Select purchase contract")</option>
+                    </select>
+                    <span asp-validation-for="SourcePurchaseContractId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ProductId" class="ak-label">@UiText.T(Context, "محصول", "Product")</label>
+                    <select asp-for="ProductId" asp-items="ViewBag.Products" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب محصول", "Select product")</option>
+                    </select>
+                    <span asp-validation-for="ProductId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SourceTerminalId" class="ak-label">@UiText.T(Context, "ترمینال منبع", "Source Terminal")</label>
+                    <select asp-for="SourceTerminalId" asp-items="ViewBag.SourceTerminals" class="ak-input">
+                        <option value="">@UiText.T(Context, "انتخاب ترمینال منبع", "Select source terminal")</option>
+                    </select>
+                    <span asp-validation-for="SourceTerminalId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="SourceStorageTankId" class="ak-label">@UiText.T(Context, "مخزن منبع", "Source Tank")</label>
+                    <select asp-for="SourceStorageTankId" asp-items="ViewBag.SourceStorageTanks" class="ak-input">
+                        <option value="">@UiText.T(Context, "بدون مخزن منبع", "No source tank")</option>
+                    </select>
+                    <span asp-validation-for="SourceStorageTankId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DestinationTerminalId" class="ak-label">@UiText.T(Context, "ترمینال مقصد", "Destination Terminal")</label>
+                    <select asp-for="DestinationTerminalId" asp-items="ViewBag.DestinationTerminals" class="ak-input">
+                        <option value="">@UiText.T(Context, "بعداً انتخاب می‌کنم", "Choose destination terminal later")</option>
+                    </select>
+                    <div class="ak-section-desc">@UiText.T(Context, "اگر مقصد هنوز مشخص نیست، خالی بگذارید و بعداً تکمیل کنید.", "Leave destination blank if it is not known yet and complete it later.")</div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DestinationStorageTankId" class="ak-label">@UiText.T(Context, "مخزن مقصد", "Destination Tank")</label>
+                    <select asp-for="DestinationStorageTankId" asp-items="ViewBag.DestinationStorageTanks" class="ak-input">
+                        <option value="">@UiText.T(Context, "بعداً انتخاب می‌کنم", "Choose destination tank later")</option>
+                    </select>
+                    <div class="ak-section-desc">@UiText.T(Context, "می‌توانید مخزن مقصد را در مرحله رسید تکمیل کنید.", "You can complete the destination tank at receipt time.")</div>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="DestinationLocationId" class="ak-label">@UiText.T(Context, "موقعیت مقصد", "Destination Location")</label>
+                    <select asp-for="DestinationLocationId" asp-items="ViewBag.Destinations" class="ak-input">
+                        <option value="">@UiText.T(Context, "بدون موقعیت مقصد", "No destination location")</option>
+                    </select>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="TransportType" class="ak-label">@UiText.T(Context, "نوع حمل", "Transport Type")</label>
+                    <select asp-for="TransportType" asp-items="transportTypeOptions" class="ak-input"
+                            data-transport-type-select
+                            data-transport-value-wagon="@((int)LoadingTransportType.Wagon)"
+                            data-transport-value-truck="@((int)LoadingTransportType.Truck)"
+                            data-transport-value-vessel="@((int)LoadingTransportType.Vessel)"></select>
+                    <span asp-validation-for="TransportType" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field" data-vessel-only-field>
+                    <label asp-for="ShipmentId" class="ak-label">Shipment (Vessel Voyage)</label>
+                    <select asp-for="ShipmentId" asp-items="ViewBag.Shipments" class="ak-input">
+                        <option value="">No shipment link</option>
+                    </select>
+                    <span asp-validation-for="ShipmentId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ServiceProviderId" class="ak-label">@UiText.T(Context, "شرکت خدماتی بیرونی", "External Service Provider")</label>
+                    <select asp-for="ServiceProviderId" asp-items="ViewBag.ServiceProviders" class="ak-input">
+                        <option value="">@UiText.T(Context, "بدون شرکت خدماتی", "No service provider")</option>
+                    </select>
+                    <span asp-validation-for="ServiceProviderId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="OperationalAssetId" class="ak-label">@UiText.T(Context, "دارایی عملیاتی شرکت", "Operational Asset")</label>
+                    <select asp-for="OperationalAssetId" asp-items="ViewBag.OperationalAssets" class="ak-input">
+                        <option value="">@UiText.T(Context, "بدون دارایی عملیاتی", "No operational asset")</option>
+                    </select>
+                    <span asp-validation-for="OperationalAssetId" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="WagonNumber" class="ak-label"
+                           data-transport-dynamic-label
+                           data-transport-field-kind="vehicle"
+                           data-transport-label-default="@UiText.T(Context, "شناسه وسیله حمل", "Transport Unit")"
+                           data-transport-label-wagon="@UiText.T(Context, "شماره واگن", "Wagon Number")"
+                           data-transport-label-truck="@UiText.T(Context, "نمبر پلیت موتر", "Truck Plate Number")"
+                           data-transport-label-vessel="@UiText.T(Context, "نام کشتی", "Vessel Name")">@UiText.T(Context, "شماره واگن", "Wagon Number")</label>
+                    <input asp-for="WagonNumber" class="ak-input"
+                           list="transportUnitOptionsWagon"
+                           data-transport-unit-input
+                           data-transport-dynamic-placeholder
+                           data-transport-dynamic-list
+                           data-transport-field-kind="vehicle"
+                           data-transport-list-default=""
+                           data-transport-list-wagon="transportUnitOptionsWagon"
+                           data-transport-list-truck="transportUnitOptionsTruck"
+                           data-transport-list-vessel="transportUnitOptionsVessel"
+                           data-transport-placeholder-default="@UiText.T(Context, "شناسه وسیله حمل", "Transport unit")"
+                           data-transport-placeholder-wagon="@UiText.T(Context, "مثلاً WGN-001", "Example WGN-001")"
+                           data-transport-placeholder-truck="@UiText.T(Context, "مثلاً 12-34567", "Example 12-34567")"
+                           data-transport-placeholder-vessel="@UiText.T(Context, "نام کشتی", "Vessel name")" />
+                    <datalist id="transportUnitOptionsWagon">
+                        @foreach (var option in wagonNumberOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <datalist id="transportUnitOptionsTruck">
+                        @foreach (var option in truckNumberOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <datalist id="transportUnitOptionsVessel">
+                        @foreach (var option in vesselNameOptions)
+                        {
+                            <option value="@option"></option>
+                        }
+                    </datalist>
+                    <span asp-validation-for="WagonNumber" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="RwbNo" class="ak-label"
+                           data-transport-dynamic-label
+                           data-transport-field-kind="primary-reference"
+                           data-transport-label-default="@UiText.T(Context, "شماره سند حمل", "Transport Reference")"
+                           data-transport-label-wagon="@UiText.T(Context, "شماره RWB", "RWB Number")"
+                           data-transport-label-truck="@UiText.T(Context, "شماره CMR", "CMR Number")"
+                           data-transport-label-vessel="@UiText.T(Context, "شماره سفر کشتی", "Voyage Number")">@UiText.T(Context, "شماره RWB", "RWB Number")</label>
+                    <input asp-for="RwbNo" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="primary-reference"
+                           data-transport-placeholder-default="@UiText.T(Context, "شماره سند حمل", "Transport reference")"
+                           data-transport-placeholder-wagon="@UiText.T(Context, "شماره RWB", "RWB number")"
+                           data-transport-placeholder-truck="@UiText.T(Context, "شماره CMR", "CMR number")"
+                           data-transport-placeholder-vessel="@UiText.T(Context, "شماره Voyage", "Voyage number")" />
+                    <span asp-validation-for="RwbNo" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="BillOfLadingNumber" class="ak-label"
+                           data-transport-dynamic-label
+                           data-transport-field-kind="bill-of-lading"
+                           data-transport-label-default="@UiText.T(Context, "شماره بارنامه", "Bill of Lading")"
+                           data-transport-label-wagon="@UiText.T(Context, "شماره بارنامه واگن", "Wagon Bill Number")"
+                           data-transport-label-truck="@UiText.T(Context, "شماره بارنامه / CMR", "Waybill / CMR")"
+                           data-transport-label-vessel="@UiText.T(Context, "Bill of Lading کشتی", "Vessel Bill of Lading")">@UiText.T(Context, "شماره بارنامه", "Bill of Lading")</label>
+                    <input asp-for="BillOfLadingNumber" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="bill-of-lading"
+                           data-transport-placeholder-default="@UiText.T(Context, "شماره بارنامه", "Bill of lading")"
+                           data-transport-placeholder-wagon="@UiText.T(Context, "شماره بارنامه یا ریل", "Wagon bill or rail reference")"
+                           data-transport-placeholder-truck="@UiText.T(Context, "CMR یا بارنامه موتر", "CMR or truck waybill")"
+                           data-transport-placeholder-vessel="@UiText.T(Context, "Bill of Lading کشتی", "Vessel bill of lading")" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="RouteDescription" class="ak-label"
+                           data-transport-dynamic-label
+                           data-transport-field-kind="route"
+                           data-transport-label-default="@UiText.T(Context, "مسیر حمل", "Route")"
+                           data-transport-label-wagon="@UiText.T(Context, "مسیر واگن", "Wagon Route")"
+                           data-transport-label-truck="@UiText.T(Context, "مسیر موتر", "Truck Route")"
+                           data-transport-label-vessel="@UiText.T(Context, "مسیر کشتی", "Vessel Route")">@UiText.T(Context, "مسیر حمل", "Route")</label>
+                    <input asp-for="RouteDescription" class="ak-input"
+                           data-transport-dynamic-placeholder
+                           data-transport-field-kind="route"
+                           data-transport-placeholder-default="@UiText.T(Context, "مسیر حمل", "Transport route")"
+                           data-transport-placeholder-wagon="@UiText.T(Context, "مبدأ تا مرز / مقصد واگن", "Origin to border / wagon destination")"
+                           data-transport-placeholder-truck="@UiText.T(Context, "مسیر موتر تا مقصد", "Truck route to destination")"
+                           data-transport-placeholder-vessel="@UiText.T(Context, "بندر مبدأ تا بندر مقصد", "Origin port to destination port")" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="LoadedDate" class="ak-label">@UiText.T(Context, "تاریخ بارگیری", "Loaded Date")</label>
+                    <input asp-for="LoadedDate" type="date" class="ak-input" />
+                    <span asp-validation-for="LoadedDate" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ExpectedArrivalDate" class="ak-label">@UiText.T(Context, "تاریخ رسیدن مورد انتظار", "Expected Arrival")</label>
+                    <input asp-for="ExpectedArrivalDate" type="date" class="ak-input" />
+                </div>
+                <div class="ak-field">
+                    <label asp-for="QuantityMt" class="ak-label">@UiText.T(Context, "مقدار (تن)", "Quantity (MT)")</label>
+                    <input asp-for="QuantityMt" class="ak-input" />
+                    <span asp-validation-for="QuantityMt" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ChargeableQuantityMt" class="ak-label">@UiText.T(Context, "مقدار قابل محاسبه (تن)", "Chargeable Quantity (MT)")</label>
+                    <input asp-for="ChargeableQuantityMt" class="ak-input" />
+                    <span asp-validation-for="ChargeableQuantityMt" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="PurchaseUnitCostUsd" class="ak-label">Purchase USD/MT</label>
+                    <input asp-for="PurchaseUnitCostUsd" class="ak-input" />
+                    <span asp-validation-for="PurchaseUnitCostUsd" class="field-validation-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Notes" class="ak-label">@UiText.T(Context, "یادداشت", "Notes")</label>
+                    <textarea asp-for="Notes" rows="3" class="ak-input"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="ak-footer-actions d-flex justify-content-end gap-2">
+            <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-light ak-secondary-action">@UiText.T(Context, "لغو", "Cancel")</a>
+            <button type="submit" class="btn btn-primary ak-primary-action">@UiText.T(Context, "ذخیره ویرایش", "Save Changes")</button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,47 @@
+@model Driver
+
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+<section class="ak-form-section">
+    <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+             model="@(("اطلاعات راننده", (string?)"نام، جواز و اطلاعات تماس راننده را وارد کنید."))" />
+    <div class="ak-form-grid">
+        <div class="ak-field">
+            <label asp-for="FullName" class="ak-label">نام کامل <span class="ak-req">*</span></label>
+            <input asp-for="FullName" class="ak-input" />
+            <span asp-validation-for="FullName" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="LicenseNumber" class="ak-label">شماره جواز</label>
+            <input asp-for="LicenseNumber" class="ak-input" />
+            <span asp-validation-for="LicenseNumber" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Phone" class="ak-label">تلفن</label>
+            <input asp-for="Phone" class="ak-input" />
+            <span asp-validation-for="Phone" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="NationalId" class="ak-label">شناسه ملی</label>
+            <input asp-for="NationalId" class="ak-input" />
+            <span asp-validation-for="NationalId" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="Address" class="ak-label">آدرس</label>
+            <input asp-for="Address" class="ak-input" />
+            <span asp-validation-for="Address" class="ak-field-error"></span>
+        </div>
+        <div class="ak-toggle-field">
+            <div class="form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" role="switch" />
+                <label asp-for="IsActive" class="form-check-label">فعال</label>
+            </div>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="Notes" class="ak-label">یادداشت</label>
+            <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+            <span asp-validation-for="Notes" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>

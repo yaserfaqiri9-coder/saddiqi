@@ -1,0 +1,95 @@
+@model IReadOnlyList<PTGOilSystem.Web.Controllers.ShipmentContractRowViewModel>
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = "قراردادهای محموله";
+    int shipmentId = ViewBag.ShipmentId;
+    string shipmentCode = ViewBag.ShipmentCode;
+    string primaryContract = ViewBag.PrimaryContractNumber;
+}
+
+<div>
+    <div class="ak-page-header">
+        <div class="ak-page-header-main">
+<h1 class="ak-page-title">قراردادهای مرتبط با محموله</h1>
+            <p class="ak-section-desc">
+                محموله: <strong>@shipmentCode</strong> — قرارداد اصلی: <code>@primaryContract</code>
+                <span class="badge text-bg-info ms-2">چند قرارداد در یک محموله</span>
+            </p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Create" asp-route-shipmentId="@shipmentId"
+               asp-route-returnUrl="@(Context.Request.Path + Context.Request.QueryString)"
+               class="btn btn-primary ak-primary-action">+ افزودن قرارداد</a>
+            <a asp-controller="ShipmentPnl" asp-action="Details" asp-route-id="@shipmentId" class="btn btn-light ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="ak-note">
+            <i class="bi bi-info-circle-fill"></i>
+            <div>هنوز هیچ قراردادی به این محموله اضافه نشده است. برای سناریوهای multi-contract vessel، قراردادها را از دکمه بالا اضافه کنید.</div>
+        </div>
+    }
+    else
+    {
+        <div class="ak-form-section">
+            <div class="ak-section-body p-0">
+                <div class="ak-table-wrap">
+                    <table class="ak-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>@UiText.T(Context,"شماره قرارداد","Contract No.")</th>
+                                <th>@UiText.T(Context,"نوع","Type")</th>
+                                <th>@UiText.T(Context,"جنس","Product")</th>
+                                <th class="text-end">مقدار (MT)</th>
+                                <th>@UiText.T(Context,"یادداشت","Note")</th>
+                                <th>@UiText.T(Context,"عملیات","Operations")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model)
+                            {
+                                <tr>
+                                    <td>@row.Id</td>
+                                    <td>
+                                        <a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@row.ContractId" asp-route-lockContract="true">
+                                            <code>@row.ContractNumber</code>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(row.ContractType == ContractType.Purchase ?"text-bg-primary" : "text-bg-success")">
+                                            @(row.ContractType == ContractType.Purchase ? "خرید" : "فروش")
+                                        </span>
+                                    </td>
+                                    <td>@row.ProductName</td>
+                                    <td class="text-end">@(row.QuantityMt?.ToString("N4") ?? "—")</td>
+                                    <td><small class="text-muted">@(row.Notes ?? "—")</small></td>
+                                    <td>
+                                        <div class="ak-row-menu">
+                                        <form asp-action="Delete" asp-route-id="@row.Id"
+                                              asp-route-returnUrl="@(Context.Request.Path + Context.Request.QueryString)"
+                                              method="post" class="d-inline"
+                                              data-ptg-confirm="true" data-ptg-confirm-title="حذف ربط قرارداد" data-ptg-confirm-message="ربط این قرارداد از محموله حذف شود؟">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-light ak-secondary-action" title="حذف" aria-label="حذف"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="4" class="fw-bold">مجموع</td>
+                                <td class="text-end fw-bold">@Model.Sum(r => r.QuantityMt ?? 0).ToString("N4")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>

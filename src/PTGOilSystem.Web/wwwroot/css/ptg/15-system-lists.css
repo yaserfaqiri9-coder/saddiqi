@@ -1,0 +1,390 @@
+/*
+ * PTG system lists.
+ * Final shared list/table skin for every authenticated list surface.
+ */
+
+body.boltz-shell.app-shell-authenticated,
+body.ptg-modal-document {
+    --ptg-list-radius: 18px;
+    --ptg-list-border: #E5E7EB;
+    --ptg-list-line: #EEF2F6;
+    --ptg-list-head-bg: #ececec;
+    --ptg-list-card-shadow: 0 1px 2px rgba(16, 24, 40, .035);
+    --ptg-list-title: #10233F;
+    --ptg-list-text: #243B5A;
+    --ptg-list-muted: #637793;
+    --ptg-list-soft: #8B9AB0;
+    --ptg-list-blue: var(--ptg-primary-dark);
+    --ptg-list-blue-bg: var(--ptg-primary-tint);
+    --ptg-list-green: #07966A;
+    --ptg-list-green-bg: #ECFAF4;
+    --ptg-list-red: #DF1F4B;
+    --ptg-list-red-bg: #FFF2F5;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager,
+body.ptg-modal-document .ptg-client-pager {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .38rem;
+    padding: .68rem .95rem .78rem;
+    border-top: 1px solid var(--ptg-list-line);
+    background: #FFFFFF;
+    color: var(--ptg-list-muted);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-info,
+body.ptg-modal-document .ptg-client-pager-info {
+    margin-inline-end: auto;
+    color: var(--ptg-list-soft);
+    font-size: .74rem;
+    font-weight: 600;
+    direction: ltr;
+    unicode-bidi: plaintext;
+    font-family: "Poppins", "Vazirmatn", Tahoma, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-pages,
+body.ptg-modal-document .ptg-client-pager-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-button,
+body.ptg-modal-document .ptg-client-pager-button {
+    min-width: 2rem;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .32rem .62rem;
+    border: 1px solid #E3EAF4;
+    border-radius: .72rem;
+    background: #FFFFFF;
+    color: var(--ptg-list-muted);
+    font-size: .74rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: none;
+    transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-button:hover,
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-button:focus,
+body.ptg-modal-document .ptg-client-pager-button:hover,
+body.ptg-modal-document .ptg-client-pager-button:focus {
+    border-color: rgba(var(--ptg-primary-rgb), .24);
+    background: var(--ptg-list-blue-bg);
+    color: var(--ptg-list-blue);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-button.is-active,
+body.ptg-modal-document .ptg-client-pager-button.is-active {
+    border-color: rgba(var(--ptg-primary-rgb), .32);
+    background: var(--ptg-list-blue-bg);
+    color: var(--ptg-list-blue);
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-button:disabled,
+body.ptg-modal-document .ptg-client-pager-button:disabled {
+    opacity: .52;
+    cursor: not-allowed;
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated .boltz-content table:is(.table.is-responsive-table, .ds-table) tbody tr,
+    body.ptg-modal-document table:is(.table.is-responsive-table, .ds-table) tbody tr {
+        gap: .28rem !important;
+        padding: 1rem .95rem !important;
+        border: 1px solid var(--ptg-list-border) !important;
+        border-radius: 14px !important;
+        background: #FFFFFF !important;
+        box-shadow: none !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content table:is(.table.is-responsive-table, .ds-table) tbody :is(td, th),
+    body.ptg-modal-document table:is(.table.is-responsive-table, .ds-table) tbody :is(td, th) {
+        height: auto !important;
+        padding: .42rem 0 !important;
+        border-bottom: 1px solid var(--ptg-list-line) !important;
+        font-size: .8rem !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content table:is(.table.is-responsive-table, .ds-table) tbody :is(td, th)::before,
+    body.ptg-modal-document table:is(.table.is-responsive-table, .ds-table) tbody :is(td, th)::before {
+        color: var(--ptg-list-muted) !important;
+        font-size: .72rem !important;
+        font-weight: 700 !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content table:is(.table.is-responsive-table, .ds-table) tbody :is(.action-cell, .table-actions),
+    body.ptg-modal-document table:is(.table.is-responsive-table, .ds-table) tbody :is(.action-cell, .table-actions) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: .35rem !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content table:is(.table.is-responsive-table, .ds-table) tbody :is(.action-cell, .table-actions) > :is(.btn, form, .d-inline),
+    body.ptg-modal-document table:is(.table.is-responsive-table, .ds-table) tbody :is(.action-cell, .table-actions) > :is(.btn, form, .d-inline) {
+        width: auto !important;
+        flex: 0 0 auto !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager,
+    body.ptg-modal-document .ptg-client-pager {
+        justify-content: flex-start;
+        padding-inline: .85rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-content .ptg-client-pager-info,
+    body.ptg-modal-document .ptg-client-pager-info {
+        width: 100%;
+        margin-inline-end: 0;
+    }
+}
+
+/* Supplier profile detail tabs contain wide operational ledgers. Keep those
+   tables scrollable instead of squeezing or clipping columns inside tab panes. */
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page :is(.tab-content, .tab-pane) {
+    min-width: 0;
+    max-width: 100%;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page .table-responsive {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 transparent;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page .table-responsive > table {
+    width: max-content !important;
+    min-width: 100% !important;
+    table-layout: fixed !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page .table-responsive > table :is(th, td) {
+    white-space: nowrap;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page :is(#supplier-contracts, #supplier-payments, #supplier-sarraf, #supplier-statement) .table-responsive > table {
+    min-width: 74rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page #supplier-contracts > .table-responsive > table {
+    min-width: 92rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page #supplier-payments > .table-responsive > table,
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page #supplier-sarraf > .table-responsive > table {
+    min-width: 82rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page #supplier-payments .ds-card .table-responsive > table {
+    min-width: 56rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page .supplier-statement-ledger-wrap > table.supplier-statement-ledger {
+    min-width: 104rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-suppliers.action-details .boltz-content .supplier-details-page .supplier-statement-ledger :is(.sl-desc, .sl-desc-line, .sl-desc-text) {
+    min-width: 18rem;
+    max-width: 28rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Tab + filter wrapper = TOP of the panel: white, flat bottom, no shadow seam */
+body.boltz-shell.app-shell-authenticated .list-header-extension {
+    background: #FFFFFF !important;
+    border: 1px solid var(--ptg-border) !important;
+    border-bottom: 0 !important;
+    border-radius: var(--ptg-radius-card) var(--ptg-radius-card) 0 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    margin-bottom: 0 !important;
+}
+
+/* Header row (field titles) = quiet light strip on list tables. */
+body.boltz-shell.app-shell-authenticated .boltz-content :is(.app-table-card, .card.app-table-card) table:is(.table, .ds-table) thead th,
+body.ptg-modal-document :is(.app-table-card, .card.app-table-card) table:is(.table, .ds-table) thead th {
+    --bs-table-bg: #ececec !important;
+    --bs-table-bg-state: #ececec !important;
+    --bs-table-accent-bg: transparent !important;
+    background: #ececec !important;
+    background-color: #ececec !important;
+    box-shadow: none !important;
+    color: var(--ptg-list-muted) !important;
+    height: 38px !important;
+    padding: .55rem 1rem !important;
+    border-bottom: 0 !important;
+    font-weight: 800 !important;
+}
+
+/* OA: connect the section-tabs strip + filter bar into one white panel.
+   .boltz-content is a grid with gap:1.25rem (that gap is the gray space), so
+   collapse its row-gap and flatten the touching edges. Card shell stays below. */
+body.boltz-shell.app-shell-authenticated.controller-operationalassets.action-index .boltz-content {
+    row-gap: 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-operationalassets.action-index .boltz-content .boltz-content-body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* ─── People / Parties index: merge the section-tabs strip + filter bar into one
+   white panel (same treatment as OperationalAssets above). The two bars used to
+   float apart with a gap and a redundant title row between them; here they butt
+   together with shared edges so they read as a single toolbar. ──────────────── */
+body.boltz-shell.app-shell-authenticated:is(.controller-partners, .controller-companies, .controller-suppliers, .controller-customers, .controller-serviceproviders, .controller-sarrafs, .controller-employees).action-index .boltz-content {
+    row-gap: 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated:is(.controller-partners, .controller-companies, .controller-suppliers, .controller-customers, .controller-serviceproviders, .controller-sarrafs, .controller-employees).action-index .boltz-content .boltz-content-body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* keep the card grid separated below the merged panel */
+body.boltz-shell.app-shell-authenticated:is(.controller-partners, .controller-companies, .controller-suppliers, .controller-customers, .controller-serviceproviders, .controller-sarrafs, .controller-employees).action-index .boltz-content .people-parties-page {
+    row-gap: 1rem !important;
+}
+
+/* filter bar = BOTTOM of the panel: flat top, no top divider{
+    margin-top: 0 !important;
+    border-top: 0 !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ─── Base Definitions (تعاریف پایه) index: merge the section-tabs strip + filter
+   bar into ONE white panel — byte-for-byte the same treatment as the People /
+   Parties block above, just scoped to the foundation controllers. Every base-data
+   tab (definitions + resources) now shows a single unified toolbar instead of a
+   scattered header + tabs + filter. ─────────────────────────────────────────── */
+body.boltz-shell.app-shell-authenticated:is(.controller-products, .controller-units, .controller-currencies, .controller-dailyfxrates, .controller-locations, .controller-expensetypes, .controller-expenserules, .controller-terminals, .controller-storagetanks, .controller-trucks, .controller-wagons, .controller-drivers, .controller-vessels).action-index .boltz-content {
+    row-gap: 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated:is(.controller-products, .controller-units, .controller-currencies, .controller-dailyfxrates, .controller-locations, .controller-expensetypes, .controller-expenserules, .controller-terminals, .controller-storagetanks, .controller-trucks, .controller-wagons, .controller-drivers, .controller-vessels).action-index .boltz-content .boltz-content-body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* filter bar = BOTTOM of the panel: flat top, no top divider{
+    margin-top: 0 !important;
+    border-top: 0 !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ─── Collapsible advanced filters inside the unified toolbar ─────────────────
+   The extra filter <select>s are hidden by default and revealed by the «فیلترها»
+   toggle button (Bootstrap collapse). When open they wrap onto a full-width row
+   under the search/apply line{
+    width: 100%;
+    flex-basis: 100%;
+}
+
+/* Force every list/table header row (field-title row) to #ececec — catch-all,
+   beats per-table/per-controller overrides. Display-only. */
+body.boltz-shell.app-shell-authenticated .boltz-content table thead th,
+body.boltz-shell.app-shell-authenticated .boltz-content table thead tr,
+body.boltz-shell.app-shell-authenticated table thead th,
+body.ptg-modal-document table thead th,
+body.ptg-modal-document table thead tr {
+    background: #ececec !important;
+    background-color: #ececec !important;
+}
+
+/* Shipment summary: page-scoped compact layout. */
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane {
+    gap: .55rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane > :is(.card, details) {
+    margin: 0 !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane > :is(.card, details) > .card-header {
+    min-height: 44px !important;
+    padding: .5rem .75rem !important;
+    font-size: .84rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane > .card > .card-body {
+    padding: .6rem .75rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane table.ds-table thead th {
+    height: 38px !important;
+    padding: .45rem .55rem !important;
+    font-size: .72rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane table.ds-table tbody :is(td, th) {
+    height: 44px !important;
+    padding: .45rem .55rem !important;
+    font-size: .8rem !important;
+    line-height: 1.35 !important;
+}
+
+body.boltz-shell.app-shell-authenticated.controller-shipmentpnl.action-details .shipment-summary-pane details > summary.card-header {
+    cursor: pointer;
+}
+
+/* =====================================================================
+ * Contracts index — Minimal file-manager list (reference screenshot).
+ * Grey rounded header row + separated white rounded rows, soft borders,
+ * 32px type icon, two-line date cell, quiet trailing actions.
+ * ===================================================================== */
+body.boltz-shell.controller-contracts.action-index .contracts-list {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin-top: .85rem;
+}
+
+body.boltz-shell.controller-contracts.action-index :is(.fml-head, .fml-row) {
+    display: grid;
+    grid-template-columns: 2.2rem minmax(14rem, 1fr) 8.5rem 6.5rem 11rem 7.5rem 5.5rem;
+    align-items: center;
+    column-gap: .75rem;
+    padding-inline: 1rem;
+}
+
+body.boltz-shell.controller-contracts.action-index .contracts-list-empty {
+    margin-top: .85rem;
+}
+
+/* Narrow widths: drop secondary columns, keep name + date + actions. */
+@media (max-width: 991.98px) {
+    body.boltz-shell.controller-contracts.action-index :is(.fml-head, .fml-row) {
+        grid-template-columns: 2.2rem minmax(0, 1fr) 9rem 5.5rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    body.boltz-shell.controller-contracts.action-index :is(.fml-head, .fml-row) {
+        grid-template-columns: minmax(0, 1fr) 5.5rem;
+        padding-inline: .75rem;
+    }
+}

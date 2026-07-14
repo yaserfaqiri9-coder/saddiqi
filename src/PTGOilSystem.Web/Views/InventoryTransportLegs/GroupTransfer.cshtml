@@ -1,0 +1,619 @@
+@using System.Globalization
+@using PTGOilSystem.Web.Models.Entities
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupTransferViewModel
+@{
+    ViewData["Title"] = "انتقال گروهی از حمل‌های در جریان";
+    ViewData["HideSectionTabs"] = true;
+    ViewData["LoadingCreateAssets"] = true;
+    string Inv(decimal v) => v.ToString(CultureInfo.InvariantCulture);
+    var hasShipment = Model.ShipmentId > 0 && Model.Wagons.Count > 0;
+    var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) ? Model.ReturnUrl : Url.Action("Index");
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-actions">
+            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بازگشت" title="بازگشت">
+                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                <span>بازگشت</span>
+            </a>
+        </div>
+    </div>
+
+    @if (!hasShipment)
+    {
+        @* ── مرحله ۱: انتخاب محموله / کشتی ── *@
+        <form asp-action="GroupTransfer" method="get" class="ak-form-section ak-form">
+            <div class="ak-section-body p-4 p-md-5">
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <div class="ptg-tabs-rail mb-4" aria-label="مراحل انتقال">
+                    <span class="ptg-tab-item is-active">۱ انتخاب کشتی</span>
+                    <span class="ptg-tab-item">۲ واگن‌ها</span>
+                    <span class="ptg-tab-item">۳ موترها</span>
+                    <span class="ptg-tab-item">۴ تقسیم</span>
+                    <span class="ptg-tab-item">۵ پیش‌نمایش</span>
+                </div>
+                <h2 class="h5 mb-3">محموله یا کشتی مبدأ را انتخاب کنید</h2>
+                <p class="text-muted small mb-4">فقط محموله‌هایی نمایش داده می‌شوند که واگن در جریان (بارگیری‌شده و هنوز تخلیه‌نشده) دارند.</p>
+                <div class="ak-form-grid g-4">
+                    <div class="ak-field">
+                        <label class="ak-label">محموله / کشتی</label>
+                        <select name="shipmentId" class="ak-input" required>
+                            <option value="">— انتخاب کنید —</option>
+                            @foreach (var s in (SelectList)ViewBag.TransferShipments)
+                            {
+                                <option value="@s.Value">@s.Text</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="ak-footer-actions">
+                <a href="@cancelUrl" class="btn btn-light ak-secondary-action">انصراف</a>
+                <button type="submit" class="btn btn-primary ak-primary-action">ادامه — نمایش واگن‌ها</button>
+            </div>
+        </form>
+    }
+    else
+    {
+        @* ── مراحل ۲ تا ۵: انتخاب واگن، موتر، تقسیم، پیش‌نمایش و ثبت ── *@
+        <form asp-action="GroupTransfer" method="post" class="ak-form-section ak-form" id="transfer-form">
+            @Html.AntiForgeryToken()
+            <input asp-for="ShipmentId" type="hidden" />
+            <input asp-for="ReturnUrl" type="hidden" />
+            <input asp-for="ActiveStep" type="hidden" id="active-step" />
+
+            <div class="ak-section-body p-4 p-md-5">
+                <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
+
+                <div class="ptg-tabs-rail mb-4" aria-label="مراحل انتقال">
+                    <button type="button" class="ptg-tab-item" data-step-tab="2">۲ واگن‌ها</button>
+                    <button type="button" class="ptg-tab-item" data-step-tab="3">۳ موترها</button>
+                    <button type="button" class="ptg-tab-item" data-step-tab="4">۴ تقسیم</button>
+                    <button type="button" class="ptg-tab-item" data-step-tab="5">۵ پیش‌نمایش</button>
+                </div>
+
+                <div class="transfer-summary-bar mb-4">
+                    <div><span class="text-muted small d-block">کشتی</span><strong>@Model.ShipmentName</strong></div>
+                    <div><span class="text-muted small d-block">جنس</span><strong>@Model.ProductName</strong></div>
+                    <div><span class="text-muted small d-block">باقیماندهٔ انتخاب‌شده</span><strong dir="ltr" data-selected-remaining>@NumberDisplay.Quantity(Model.SelectedRemainingQuantityMt) MT</strong></div>
+                    <div>
+                        <label class="text-muted small d-block">تاریخ انتقال</label>
+                        <input asp-for="TransferDate" type="date" class="ak-input" />
+                    </div>
+                </div>
+
+                @* ── مرحله ۲: انتخاب واگن‌های در جریان ── *@
+                <section class="transfer-panel" data-step="2">
+                    <h2 class="h6 mb-3">واگن‌های در جریان — واگن‌های موردنظر را انتخاب کنید</h2>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-check"><input type="checkbox" data-wagon-select-all checked /></th>
+                                    <th>واگن</th>
+                                    <th>قرارداد</th>
+                                    <th>جنس</th>
+                                    <th class="text-end">مقدار اولیه</th>
+                                    <th class="text-end">انتقال‌شده</th>
+                                    <th class="text-end">باقیمانده</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < Model.Wagons.Count; i++)
+                                {
+                                    var w = Model.Wagons[i];
+                                    <tr data-wagon-row data-wagon-remaining="@Inv(w.RemainingQuantityMt)">
+                                        <td>
+                                            <input type="hidden" asp-for="Wagons[i].LegId" />
+                                            <input type="checkbox" name="Wagons[@i].Selected" value="true" data-wagon-select @(w.Selected ? "checked" : "") />
+                                            <input type="hidden" name="Wagons[@i].Selected" value="false" />
+                                        </td>
+                                        <td>@w.WagonLabel @(string.IsNullOrWhiteSpace(w.RwbNo) ? "" : $"({w.RwbNo})")</td>
+                                        <td>@w.ContractNumber</td>
+                                        <td>@w.ProductName</td>
+                                        <td class="text-end" dir="ltr">@NumberDisplay.Quantity(w.InitialQuantityMt)</td>
+                                        <td class="text-end" dir="ltr">@NumberDisplay.Quantity(w.TransferredQuantityMt)</td>
+                                        <td class="text-end fw-bold" dir="ltr">@NumberDisplay.Quantity(w.RemainingQuantityMt)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                @* ── مرحله ۳: افزودن موترهای مقصد و ظرفیت ── *@
+                <section class="transfer-panel d-none" data-step="3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                        <h2 class="h6 mb-0">موترهای مقصد را اضافه کنید</h2>
+                        <button type="button" class="btn btn-light ak-secondary-action btn-sm" data-upload-open>
+                            <i class="bi bi-file-earmark-excel"></i> اپلود اکسل موترها
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-3">نمبر پلیت موتر و نام راننده را مستقیم تایپ کنید؛ اگر در سیستم نباشند هنگام ثبت ساخته می‌شوند.</p>
+
+                    @* datalist پیشنهاد موتر/راننده‌های موجود (تایپ آزاد است، محدود به این‌ها نیست) *@
+                    <datalist id="dl-trucks">
+                        @foreach (var t in (SelectList)ViewBag.Trucks) { <option value="@t.Text"></option> }
+                    </datalist>
+                    <datalist id="dl-drivers">
+                        @foreach (var d in (SelectList)ViewBag.Drivers) { <option value="@d.Text"></option> }
+                    </datalist>
+
+                    <div class="ak-table-wrap">
+                        <table class="ak-table align-middle" id="trucks-table">
+                            <thead>
+                                <tr>
+                                    <th class="ak-col-num">№</th>
+                                    <th>موتر (نمبر پلیت)</th>
+                                    <th>راننده</th>
+                                    <th class="text-end">ظرفیت (MT)</th>
+                                    <th>سریال تکت</th>
+                                    <th class="ak-col-actions"></th>
+                                </tr>
+                            </thead>
+                            <tbody data-trucks-body>
+                                @for (var i = 0; i < Model.Trucks.Count; i++)
+                                {
+                                    <tr data-truck-row>
+                                        <td class="truck-index text-muted">@(i + 1)</td>
+                                        <td><input name="Trucks[@i].TruckPlateNumber" value="@Model.Trucks[i].TruckPlateNumber" list="dl-trucks" class="ak-input" data-truck-plate autocomplete="off" placeholder="نمبر پلیت" /></td>
+                                        <td><input name="Trucks[@i].DriverName" value="@Model.Trucks[i].DriverName" list="dl-drivers" class="ak-input" data-truck-driver autocomplete="off" placeholder="نام راننده" /></td>
+                                        <td class="text-end"><input name="Trucks[@i].CapacityMt" value="@(Model.Trucks[i].CapacityMt?.ToString(CultureInfo.InvariantCulture))" class="ak-input text-end" dir="ltr" data-truck-capacity /></td>
+                                        <td><input name="Trucks[@i].TicketSerialNumber" value="@Model.Trucks[i].TicketSerialNumber" class="ak-input" data-truck-ticket /></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-light ak-danger-action" data-truck-remove><i class="bi bi-x-lg"></i></button>
+                                            <input name="Trucks[@i].QuantityMt" type="hidden" data-truck-quantity value="@Inv(Model.Trucks[i].QuantityMt)" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-light ak-secondary-action btn-sm" data-truck-add><i class="bi bi-plus-lg"></i> افزودن موتر</button>
+
+                    @* قالب ردیف موتر برای افزودن پویا *@
+                    <template id="truck-row-template">
+                        <tr data-truck-row>
+                            <td class="truck-index text-muted"></td>
+                            <td><input name="Trucks[__i__].TruckPlateNumber" list="dl-trucks" class="ak-input" data-truck-plate autocomplete="off" placeholder="نمبر پلیت" /></td>
+                            <td><input name="Trucks[__i__].DriverName" list="dl-drivers" class="ak-input" data-truck-driver autocomplete="off" placeholder="نام راننده" /></td>
+                            <td class="text-end"><input name="Trucks[__i__].CapacityMt" class="ak-input text-end" dir="ltr" data-truck-capacity /></td>
+                            <td><input name="Trucks[__i__].TicketSerialNumber" class="ak-input" data-truck-ticket /></td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-light ak-danger-action" data-truck-remove><i class="bi bi-x-lg"></i></button>
+                                <input name="Trucks[__i__].QuantityMt" type="hidden" data-truck-quantity value="0" />
+                            </td>
+                        </tr>
+                    </template>
+
+                    @* اپلود فایل اکسل موترها *@
+                    <div class="transfer-paste-box d-none" data-upload-box>
+                        <label class="ak-label small">
+                            فایل اکسل موترها را انتخاب کنید. ستون‌های خوانده‌شده:
+                            <strong>تاریخ | نمبر موتر | وزن سیمیر | فی تن کرایه | مجموع</strong>
+                            — «نمبر موتر» و «وزن سیمیر» (مقدار انتقال) استفاده می‌شوند.
+                        </label>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <input type="file" class="ak-input" accept=".xlsx,.xls" data-upload-file />
+                            <button type="button" class="btn btn-primary ak-primary-action btn-sm" data-upload-apply>خواندن و افزودن</button>
+                            <button type="button" class="btn btn-light ak-secondary-action btn-sm" data-upload-cancel>بستن</button>
+                            <span class="small text-muted" data-upload-status></span>
+                        </div>
+                    </div>
+                    <span data-import-url="@Url.Action("ImportVehiclesExcel")" class="d-none"></span>
+                </section>
+
+                @* ── مرحله ۴: روش تقسیم ── *@
+                <section class="transfer-panel d-none" data-step="4">
+                    <h2 class="h6 mb-3">روش تقسیم مقدار بین موترها</h2>
+                    <div class="ak-form-grid g-3 align-items-end mb-3">
+                        <div class="ak-field">
+                            <label asp-for="SplitMode" class="ak-label"></label>
+                            <select asp-for="SplitMode" class="ak-input" id="split-mode">
+                                <option value="0">مساوی</option>
+                                <option value="1">براساس ظرفیت</option>
+                                <option value="2">دستی</option>
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <button type="button" class="btn btn-light ak-secondary-action" data-apply-split>اعمال تقسیم</button>
+                        </div>
+                    </div>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>موتر</th>
+                                    <th class="text-end">ظرفیت</th>
+                                    <th class="text-end">مقدار انتقال (MT)</th>
+                                </tr>
+                            </thead>
+                            <tbody data-split-body></tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td>مجموع</td>
+                                    <td></td>
+                                    <td class="text-end" dir="ltr"><span data-split-total>0</span> / <span data-selected-remaining-mirror dir="ltr"></span></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="alert alert-warning d-none" data-split-over>مجموع تخصیص موترها از باقیماندهٔ انتخاب‌شده بیشتر است.</div>
+                </section>
+
+                @* ── مرحله ۵: پیش‌نمایش مسیر و ثبت ── *@
+                <section class="transfer-panel d-none" data-step="5">
+                    <h2 class="h6 mb-3">پیش‌نمایش مسیر کشتی ← واگن ← موتر</h2>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>کشتی</th>
+                                    <th>واگن (مبدأ)</th>
+                                    <th>موتر (مقصد)</th>
+                                    <th class="text-end">مقدار (MT)</th>
+                                </tr>
+                            </thead>
+                            <tbody data-preview-body></tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info d-none" data-preview-empty>هیچ تخصیصی برای انتقال ساخته نشد. مرحله‌های قبل را بررسی کنید.</div>
+                    <div class="alert alert-danger d-none" data-preview-unfit></div>
+                    <div class="ak-form-grid g-3 mt-2">
+                        <div class="ak-field">
+                            <label asp-for="Notes" class="ak-label"></label>
+                            <textarea asp-for="Notes" class="ak-input" rows="2"></textarea>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="ak-footer-actions">
+                <a href="@cancelUrl" class="btn btn-light ak-secondary-action">انصراف</a>
+                <button type="button" class="btn btn-light ak-secondary-action" data-step-prev>مرحله قبل</button>
+                <button type="button" class="btn btn-primary ak-primary-action" data-step-next>مرحله بعد</button>
+                <button type="submit" class="btn btn-success ak-primary-action d-none" data-submit-transfer>ثبت نهایی انتقال</button>
+            </div>
+        </form>
+    }
+
+    @* ── انتقال‌های ثبت‌شدهٔ این کشتی (قابل لغو) ── *@
+    @if (Model.ShipmentId > 0 && Model.RegisteredTransfers.Count > 0)
+    {
+        <div class="ak-form-section ak-form mt-4">
+            <div class="ak-section-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-1 gap-2">
+                    <h2 class="h6 mb-0">انتقال‌های ثبت‌شدهٔ این کشتی</h2>
+                    <span class="text-muted small">@Model.RegisteredTransfers.Count ردیف — مجموع <span dir="ltr">@NumberDisplay.Quantity(Model.RegisteredTransfers.Sum(t => t.QuantityMt))</span> MT</span>
+                </div>
+                <p class="text-muted small mb-3">با لغو هر ردیف، رسید و دیسپچ موتر آن لغو و باقیماندهٔ واگن به حالت قبل برمی‌گردد.</p>
+                <div class="ak-table-wrap">
+                    <table class="ak-table align-middle">
+                        <thead>
+                            <tr>
+                                <th>تاریخ</th>
+                                <th>واگن (مبدأ)</th>
+                                <th>موتر (مقصد)</th>
+                                <th>راننده</th>
+                                <th>سریال تکت</th>
+                                <th class="text-end">مقدار (MT)</th>
+                                <th class="ak-col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Model.RegisteredTransfers)
+                            {
+                                <tr>
+                                    <td dir="ltr">@t.ReceiptDate.ToString("yyyy/MM/dd")</td>
+                                    <td>@t.WagonLabel</td>
+                                    <td>@t.TruckPlateNumber</td>
+                                    <td>@(string.IsNullOrWhiteSpace(t.DriverName) ? "—" : t.DriverName)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(t.TicketSerialNumber) ? "—" : t.TicketSerialNumber)</td>
+                                    <td class="text-end fw-bold" dir="ltr">@NumberDisplay.Quantity(t.QuantityMt)</td>
+                                    <td class="text-end">
+                                        @if (t.HasLinkedSale)
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning-emphasis" title="ابتدا فروش لینک‌شده را لغو کنید">فروش ثبت‌شده</span>
+                                        }
+                                        else
+                                        {
+                                            <form asp-action="CancelGroupTransfer" method="post" class="d-inline"
+                                                  onsubmit="return confirm('این انتقال لغو شود؟ باقیماندهٔ واگن به حالت قبل برمی‌گردد.');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@t.ReceiptId" />
+                                                <input type="hidden" name="shipmentId" value="@Model.ShipmentId" />
+                                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                                <button type="submit" class="btn btn-sm btn-light ak-danger-action">
+                                                    <i class="bi bi-x-circle"></i> لغو
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('transfer-form');
+            if (!form) { return; }
+
+            var shipmentName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ShipmentName ?? ""));
+            var STEP_MIN = 2, STEP_MAX = 5;
+            var current = 2;
+            var activeStepInput = document.getElementById('active-step');
+            var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-step-tab]'));
+            var panels = Array.prototype.slice.call(document.querySelectorAll('.transfer-panel'));
+            var btnPrev = document.querySelector('[data-step-prev]');
+            var btnNext = document.querySelector('[data-step-next]');
+            var btnSubmit = document.querySelector('[data-submit-transfer]');
+
+            function num(el) { var v = el && el.value ? parseFloat(String(el.value).replace(/,/g, '')) : 0; return isFinite(v) ? v : 0; }
+            function fmt(v) { return new Intl.NumberFormat('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v || 0); }
+
+            // ── باقیماندهٔ انتخاب‌شده ──
+            function selectedWagons() {
+                return Array.prototype.slice.call(document.querySelectorAll('[data-wagon-row]')).filter(function (row) {
+                    var cb = row.querySelector('[data-wagon-select]');
+                    return cb && cb.checked;
+                }).map(function (row) {
+                    return { row: row, remaining: parseFloat(row.getAttribute('data-wagon-remaining')) || 0,
+                        wagon: row.querySelector('td:nth-child(2)').textContent.trim() };
+                });
+            }
+            function selectedRemaining() {
+                return selectedWagons().reduce(function (a, w) { return a + w.remaining; }, 0);
+            }
+            function refreshSelectedRemaining() {
+                var total = selectedRemaining();
+                document.querySelectorAll('[data-selected-remaining]').forEach(function (el) { el.textContent = fmt(total) + ' MT'; });
+                document.querySelectorAll('[data-selected-remaining-mirror]').forEach(function (el) { el.textContent = fmt(total); });
+            }
+
+            // ── موترها ──
+            var trucksBody = document.querySelector('[data-trucks-body]');
+            var template = document.getElementById('truck-row-template');
+            function truckRows() { return Array.prototype.slice.call(trucksBody.querySelectorAll('[data-truck-row]')); }
+            function reindexTrucks() {
+                truckRows().forEach(function (row, i) {
+                    row.querySelector('.truck-index').textContent = (i + 1);
+                    row.querySelectorAll('[name]').forEach(function (el) {
+                        el.name = el.name.replace(/Trucks\[\d+\]/, 'Trucks[' + i + ']').replace(/Trucks\[__i__\]/, 'Trucks[' + i + ']');
+                    });
+                });
+            }
+            function plateOf(r) { var el = r.querySelector('[data-truck-plate]'); return el ? el.value.trim() : ''; }
+            function hasPlate(r) { return plateOf(r) !== ''; }
+            function addTruck() {
+                var tmp = document.createElement('tbody');
+                tmp.innerHTML = template.innerHTML.trim();
+                var row = tmp.firstElementChild;
+                trucksBody.appendChild(row);
+                reindexTrucks();
+                return row;
+            }
+
+            document.querySelector('[data-truck-add]').addEventListener('click', function () { addTruck(); });
+            trucksBody.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-truck-remove]');
+                if (!btn) { return; }
+                btn.closest('[data-truck-row]').remove();
+                reindexTrucks();
+            });
+
+            // ── تقسیم ──
+            var splitMode = document.getElementById('split-mode');
+            var splitBody = document.querySelector('[data-split-body]');
+            function applySplit() {
+                var mode = splitMode.value;
+                var total = selectedRemaining();
+                var rows = truckRows().filter(hasPlate);
+                if (rows.length === 0) { renderSplit(); return; }
+
+                if (mode === '2') { /* دستی: دست‌نخورده */ }
+                else if (mode === '1') {
+                    var caps = rows.map(function (r) { return num(r.querySelector('[data-truck-capacity]')); });
+                    var sumCap = caps.reduce(function (a, b) { return a + b; }, 0);
+                    rows.forEach(function (r, i) {
+                        var q = sumCap > 0 ? (total * caps[i] / sumCap) : 0;
+                        r.querySelector('[data-truck-quantity]').value = q.toFixed(4);
+                    });
+                } else {
+                    var per = rows.length > 0 ? total / rows.length : 0;
+                    rows.forEach(function (r) { r.querySelector('[data-truck-quantity]').value = per.toFixed(4); });
+                }
+                renderSplit();
+            }
+            function renderSplit() {
+                splitBody.innerHTML = '';
+                var rows = truckRows().filter(hasPlate);
+                var manual = splitMode.value === '2';
+                var total = 0;
+                rows.forEach(function (r) {
+                    var label = plateOf(r) || '—';
+                    var cap = num(r.querySelector('[data-truck-capacity]'));
+                    var qty = num(r.querySelector('[data-truck-quantity]'));
+                    total += qty;
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + label + '</td><td class="text-end" dir="ltr">' + fmt(cap) + '</td>' +
+                        '<td class="text-end"><input class="ak-input text-end" dir="ltr" value="' + qty.toFixed(4) + '" ' + (manual ? '' : 'readonly') + ' data-split-qty></td>';
+                    tr.querySelector('[data-split-qty]').addEventListener('input', function () {
+                        r.querySelector('[data-truck-quantity]').value = num(this) || 0;
+                        updateSplitTotal();
+                    });
+                    splitBody.appendChild(tr);
+                });
+                updateSplitTotal();
+            }
+            function updateSplitTotal() {
+                var total = truckRows().reduce(function (a, r) { return a + num(r.querySelector('[data-truck-quantity]')); }, 0);
+                var el = document.querySelector('[data-split-total]');
+                if (el) { el.textContent = fmt(total); }
+                var over = total > selectedRemaining() + 0.0001;
+                var warn = document.querySelector('[data-split-over]');
+                if (warn) { warn.classList.toggle('d-none', !over); }
+            }
+            document.querySelector('[data-apply-split]').addEventListener('click', applySplit);
+            if (splitMode) { splitMode.addEventListener('change', applySplit); }
+
+            // ── پیش‌نمایش (بازتاب دقیق منطق سرور): «هر موتر یک ردیف» با وزن دقیق ورودی کاربر.
+            // اگر موتری از چند واگن پر شود، همهٔ واگن‌ها در همان یک ردیف نمایش داده می‌شوند.
+            // خطا فقط وقتی که مجموع باقیماندهٔ همهٔ واگن‌ها کافی نباشد. ──
+            function buildPreview() {
+                var body = document.querySelector('[data-preview-body]');
+                body.innerHTML = '';
+                var wagons = selectedWagons().map(function (w) { return { label: w.wagon, left: w.remaining }; });
+                var trucks = truckRows().filter(hasPlate).map(function (r) {
+                    return { label: plateOf(r), qty: num(r.querySelector('[data-truck-quantity]')) };
+                });
+                var count = 0, shortfall = [];
+                function addRow(wagonText, truckLabel, qty) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + shipmentName + '</td><td>' + wagonText + '</td><td>' + truckLabel +
+                        '</td><td class="text-end" dir="ltr">' + qty.toFixed(4) + '</td>';
+                    body.appendChild(tr);
+                    count++;
+                }
+                trucks.forEach(function (t) {
+                    var need = t.qty;
+                    if (need <= 0.0001) { return; }
+
+                    // اول: واگنی که کل وزن این موتر یک‌جا در آن جا می‌شود.
+                    var wholeIdx = -1;
+                    for (var i = 0; i < wagons.length; i++) {
+                        if (wagons[i].left >= need - 0.0001) { wholeIdx = i; break; }
+                    }
+                    if (wholeIdx >= 0) {
+                        addRow(wagons[wholeIdx].label, t.label, need);
+                        wagons[wholeIdx].left -= need;
+                        return;
+                    }
+
+                    // از چند واگن پر می‌شود — همه در همان یک ردیف این موتر.
+                    var parts = [], total = need;
+                    for (var j = 0; j < wagons.length && need > 0.0001; j++) {
+                        if (wagons[j].left <= 0.0001) { continue; }
+                        var take = Math.min(need, wagons[j].left);
+                        parts.push(wagons[j].label + ' (' + take.toFixed(2) + ')');
+                        wagons[j].left -= take;
+                        need -= take;
+                    }
+                    if (need > 0.0001) {
+                        shortfall.push(t.label + ' (' + need.toFixed(4) + ' MT کمبود)');
+                    }
+                    if (parts.length > 0) {
+                        addRow(parts.join(' + '), t.label, total - need);
+                    }
+                });
+                document.querySelector('[data-preview-empty]').classList.toggle('d-none', count > 0);
+                var unfitBox = document.querySelector('[data-preview-unfit]');
+                if (unfitBox) {
+                    unfitBox.classList.toggle('d-none', shortfall.length === 0);
+                    unfitBox.textContent = shortfall.length === 0 ? '' :
+                        'باقیماندهٔ واگن‌های انتخاب‌شده برای این موترها کافی نیست: ' + shortfall.join('، ') +
+                        ' — مقدار موترها را کم کنید یا واگن بیشتری انتخاب کنید.';
+                }
+            }
+
+            // ── ناوبری مرحله‌ها ──
+            function showStep(step) {
+                current = Math.max(STEP_MIN, Math.min(STEP_MAX, step));
+                panels.forEach(function (p) { p.classList.toggle('d-none', p.getAttribute('data-step') !== String(current)); });
+                tabs.forEach(function (t) { t.classList.toggle('is-active', t.getAttribute('data-step-tab') === String(current)); });
+                if (activeStepInput) { activeStepInput.value = current; }
+                btnPrev.classList.toggle('d-none', current === STEP_MIN);
+                btnNext.classList.toggle('d-none', current === STEP_MAX);
+                btnSubmit.classList.toggle('d-none', current !== STEP_MAX);
+                if (current === 4) { renderSplit(); }
+                if (current === 5) { buildPreview(); }
+            }
+            btnPrev.addEventListener('click', function () { showStep(current - 1); });
+            btnNext.addEventListener('click', function () {
+                if (current === 2 && selectedWagons().length === 0) { alert('حداقل یک واگن انتخاب کنید.'); return; }
+                if (current === 3 && truckRows().filter(hasPlate).length === 0) { alert('حداقل یک موتر با نمبر پلیت اضافه کنید.'); return; }
+                if (current === 3) { applySplit(); }
+                showStep(current + 1);
+            });
+            tabs.forEach(function (t) { t.addEventListener('click', function () { showStep(parseInt(t.getAttribute('data-step-tab'), 10)); }); });
+
+            // انتخاب همه
+            var selectAll = document.querySelector('[data-wagon-select-all]');
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    document.querySelectorAll('[data-wagon-select]').forEach(function (cb) { cb.checked = selectAll.checked; });
+                    refreshSelectedRemaining();
+                });
+            }
+            document.querySelectorAll('[data-wagon-select]').forEach(function (cb) {
+                cb.addEventListener('change', refreshSelectedRemaining);
+            });
+
+            // ── اپلود اکسل موترها (از همان endpoint موجودِ ImportVehiclesExcel) ──
+            var uploadBox = document.querySelector('[data-upload-box]');
+            var uploadFile = document.querySelector('[data-upload-file]');
+            var uploadStatus = document.querySelector('[data-upload-status]');
+            var importEl = document.querySelector('[data-import-url]');
+            var importUrl = importEl ? importEl.getAttribute('data-import-url') : '';
+            function setVal(row, sel, val) { var el = row.querySelector(sel); if (el && val != null && val !== '') { el.value = val; } }
+            function isRowEmpty(row) {
+                return !plateOf(row) && !row.querySelector('[data-truck-driver]').value.trim()
+                    && !num(row.querySelector('[data-truck-capacity]')) && !row.querySelector('[data-truck-ticket]').value.trim();
+            }
+            function fillFromVehicles(vehicles) {
+                var added = 0;
+                vehicles.forEach(function (v) {
+                    var plate = (v.vehicleNumber || '').toString().trim();
+                    if (!plate) { return; }
+                    var qty = parseFloat(v.quantityMt) || 0;               // «وزن سیمیر» = مقدار انتقال
+                    var target = truckRows().filter(isRowEmpty)[0] || addTruck();
+                    setVal(target, '[data-truck-plate]', plate);
+                    if (qty > 0) {
+                        setVal(target, '[data-truck-capacity]', qty);
+                        target.querySelector('[data-truck-quantity]').value = qty.toFixed(4);
+                    }
+                    added++;
+                });
+                return added;
+            }
+            function applyUpload() {
+                if (!uploadFile.files || uploadFile.files.length === 0) { uploadStatus.textContent = 'فایلی انتخاب نشده.'; return; }
+                var fd = new FormData();
+                fd.append('file', uploadFile.files[0]);
+                var token = form.querySelector('input[name="__RequestVerificationToken"]');
+                if (token) { fd.append('__RequestVerificationToken', token.value); }
+                uploadStatus.textContent = 'در حال خواندن…';
+                fetch(importUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data || !data.ok) { uploadStatus.textContent = (data && data.message) || 'خواندن فایل ناموفق بود.'; return; }
+                        var added = fillFromVehicles(data.vehicles || []);
+                        if (added === 0) { uploadStatus.textContent = 'ردیف معتبری یافت نشد.'; return; }
+                        // مقادیر از فایل مبنا هستند → روش تقسیم «دستی».
+                        if (splitMode) { splitMode.value = '2'; }
+                        renderSplit();
+                        uploadStatus.textContent = added + ' موتر افزوده شد.';
+                        uploadBox.classList.add('d-none');
+                    })
+                    .catch(function () { uploadStatus.textContent = 'خطا در ارتباط با سرور.'; });
+            }
+            var uploadOpen = document.querySelector('[data-upload-open]');
+            if (uploadOpen) { uploadOpen.addEventListener('click', function () { uploadBox.classList.toggle('d-none'); }); }
+            var uploadApply = document.querySelector('[data-upload-apply]');
+            if (uploadApply) { uploadApply.addEventListener('click', applyUpload); }
+            var uploadCancel = document.querySelector('[data-upload-cancel]');
+            if (uploadCancel) { uploadCancel.addEventListener('click', function () { uploadBox.classList.add('d-none'); }); }
+
+            if (truckRows().length === 0) { addTruck(); }
+            refreshSelectedRemaining();
+            showStep(2);
+        })();
+    </script>
+}

@@ -1,0 +1,80 @@
+@model PTGOilSystem.Web.Models.Expenses.ExpenseImportViewModel
+@{
+    ViewData["Title"] = "وارد کردن مصارف از فایل اکسل";
+    ViewData["HideSectionTabs"] = true;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index");
+    var typeNames = ViewBag.ImportExpenseTypeNames as IEnumerable<string> ?? Array.Empty<string>();
+    var currencies = ViewBag.ImportCurrencies as IEnumerable<string> ?? Array.Empty<string>();
+}
+
+<div class="ak-form-page">
+    <div class="ak-form-section mb-3">
+        <div>
+            <h1 class="h5 mb-1">وارد کردن مصارف از فایل اکسل</h1>
+            <p class="text-muted small mb-0">
+                فایل اکسل را انتخاب کنید. اول یک پیش‌نمایش با بررسی خطاها نشان داده می‌شود؛ تا وقتی تأیید نکنید چیزی ثبت نمی‌شود.
+            </p>
+        </div>
+    </div>
+
+    <div asp-validation-summary="All" class="alert alert-danger" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <form asp-action="ImportPreview" method="post" enctype="multipart/form-data" class="ak-form-section mb-3">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
+        <div>
+            <div class="ak-form-grid align-items-end">
+                <div class="ak-field ak-col-full">
+                    <label asp-for="ImportFile" class="ak-label">فایل اکسل مصارف (.xlsx)</label>
+                    <input asp-for="ImportFile" type="file" accept=".xlsx" class="ak-input" />
+                    <span asp-validation-for="ImportFile" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field d-flex gap-2">
+                    <button type="submit" class="btn ak-primary-action">
+                        <i class="bi bi-search"></i> پیش‌نمایش و بررسی
+                    </button>
+                    <a href="@cancelUrl" class="btn ak-secondary-action">انصراف</a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="ak-form-section mb-3">
+        <div>
+            <h2 class="h6 mb-2">ستون‌های فایل</h2>
+            <div class="ak-table-wrap ptg-table-wrap">
+                <table class="ak-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ستون</th>
+                            <th>لازم؟</th>
+                            <th>توضیح</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>تاریخ</td><td><span class="ak-status bg-danger">بله</span></td><td>تاریخ مصرف، مثلاً 2026-06-24</td></tr>
+                        <tr><td>نوع مصرف</td><td><span class="ak-status bg-danger">بله</span></td><td>نام نوع مصرف، دقیقاً مطابق نام‌های ثبت‌شده در سیستم</td></tr>
+                        <tr><td>مبلغ</td><td><span class="ak-status bg-danger">بله</span></td><td>مبلغ مصرف به همان ارز ستون «ارز»</td></tr>
+                        <tr><td>ارز</td><td><span class="ak-status bg-danger">بله</span></td><td>کد ارز مانند USD، AFN، RUB</td></tr>
+                        <tr><td>نرخ</td><td><span class="ak-status bg-secondary">اختیاری</span></td><td>هر دالر = چند واحد ارز (اگر ارز غیر دالری است و نرخ روز موجود نیست)</td></tr>
+                        <tr><td>قرارداد</td><td><span class="ak-status bg-secondary">اختیاری</span></td><td>شمارهٔ قرارداد مرتبط (در صورت وجود)</td></tr>
+                        <tr><td>شرح</td><td><span class="ak-status bg-secondary">اختیاری</span></td><td>توضیح کوتاه مصرف</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <details class="mt-3">
+                <summary class="text-muted">راهنمای بیشتر (نام‌های مجاز نوع مصرف و ارزها)</summary>
+                <div class="mt-2 small">
+                    <p class="mb-1"><strong>ارزهای مجاز:</strong> @string.Join("، ", currencies)</p>
+                    @if (typeNames.Any())
+                    {
+                        <p class="mb-1"><strong>نمونهٔ نام‌های نوع مصرف:</strong> @string.Join("، ", typeNames.Take(20))</p>
+                    }
+                    <p class="text-muted mb-0">سرستون‌ها می‌توانند دری یا انگلیسی باشند (مثلاً «تاریخ» یا Date، «مبلغ» یا Amount).</p>
+                </div>
+            </details>
+        </div>
+    </div>
+</div>

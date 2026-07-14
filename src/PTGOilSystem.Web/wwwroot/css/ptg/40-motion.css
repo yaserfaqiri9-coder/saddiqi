@@ -1,0 +1,93 @@
+/*
+ * PTG Motion System (40-motion.css)
+ * سیستم انیمیشن عمومی — یک fade واحد برای کل صفحه، فقط opacity برای محتوا.
+ *
+ * اصول (ضد بندبندشدن):
+ *  - کل <main> (تب‌های بخش + کارت‌ها + بدنه) یک واحد animate می‌شود، نه فقط content-body؛
+ *    هیچ جزئی جلوتر یا عقب‌تر ظاهر نمی‌شود.
+ *  - در ناوبری SPA، spa-nav.js اول main را با .ptg-page-swap مخفی می‌کند، همهٔ
+ *    کارهای DOM (اسکریپت‌ها، بازچینی list-shell، تب‌ها) تمام می‌شود، بعد با
+ *    .ptg-page-reveal یک fade کوتاه اجرا می‌شود → هیچ پرشی وسط انیمیشن دیده نمی‌شود.
+ *  - محتوا فقط opacity دارد (بدون translate) → بدون layout shift، بدون حس حرکت تکه‌تکه.
+ *    حرکت فقط برای مودال (scale جزئی).
+ *  - لود کامل صفحه: انیمیشن CSS روی خود main؛ چون main در SPA پایدار می‌ماند،
+ *    این فقط در لود واقعی play می‌شود.
+ *  - اگر JS یا انیمیشن اجرا نشود، opacity پایه ۱ است؛ صفحه هرگز مخفی نمی‌ماند
+ *    (bfcache / Back-Forward امن؛ spa-nav در pageshow هم کلاس را پاک می‌کند).
+ *  - prefers-reduced-motion: همه غیرفعال.
+ */
+
+:root {
+    --ptg-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+    --ptg-motion-fast: 120ms;
+    --ptg-motion-base: 150ms;
+}
+
+@keyframes ptg-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── 1) ورود صفحه — لود کامل (فقط یک‌بار؛ main در SPA بازسازی نمی‌شود) ──── */
+body.boltz-shell.app-shell-authenticated main.boltz-content {
+    animation: ptg-fade-in 160ms var(--ptg-motion-ease);
+}
+
+/* ── 2) ناوبری SPA — spa-nav.js: مخفی حین کار DOM، بعد reveal واحد ───────── */
+main.boltz-content.ptg-page-swap {
+    opacity: 0 !important;
+    animation: none !important;
+    transition: none !important;
+}
+
+main.boltz-content.ptg-page-reveal {
+    animation: ptg-fade-in var(--ptg-motion-base) var(--ptg-motion-ease);
+}
+
+/* ── 3) تغییر تب / پنل جزئیات (ptg-tabs.js همزمان به پنل و عناصر
+       data-ak-tab می‌دهد تا همهٔ بخش‌های تب با هم ظاهر شوند) ─────────────── */
+.ptg-tab-enter,
+.ptg-panel-enter {
+    animation: ptg-fade-in var(--ptg-motion-base) var(--ptg-motion-ease);
+}
+
+/* ── 4) مودال‌ها: fade نرم + scale جزئی به‌جای slide بلند Bootstrap ───────── */
+body.boltz-shell .modal.fade {
+    transition: opacity var(--ptg-motion-base) linear;
+}
+
+body.boltz-shell .modal.fade .modal-dialog {
+    transform: scale(0.985) translateY(4px);
+    transition: transform 160ms var(--ptg-motion-ease);
+}
+
+body.boltz-shell .modal.show .modal-dialog {
+    transform: none;
+}
+
+/* ── 5) dropdownهای Bootstrap (منوی زبان، آواتار، منوی عملیات جدول‌ها) ─────
+   فقط opacity؛ Popper موقعیت منو را با transform inline تعیین می‌کند و
+   انیمیشن transform آن را می‌شکند. */
+body.boltz-shell .dropdown-menu.show {
+    animation: ptg-fade-in var(--ptg-motion-fast) var(--ptg-motion-ease);
+}
+
+/* ── 6) کاهش حرکت (تنظیمات سیستم کاربر) ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    body.boltz-shell.app-shell-authenticated main.boltz-content,
+    main.boltz-content.ptg-page-reveal,
+    .ptg-tab-enter,
+    .ptg-panel-enter,
+    body.boltz-shell .dropdown-menu.show {
+        animation: none !important;
+    }
+
+    body.boltz-shell .modal.fade,
+    body.boltz-shell .modal.fade .modal-dialog {
+        transition: none !important;
+    }
+
+    body.boltz-shell .modal.fade .modal-dialog {
+        transform: none;
+    }
+}

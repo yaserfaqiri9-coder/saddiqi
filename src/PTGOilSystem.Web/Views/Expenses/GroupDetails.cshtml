@@ -1,0 +1,126 @@
+@model PTGOilSystem.Web.Models.Expenses.GroupExpenseDetailsViewModel
+@{
+    ViewData["Title"] = $"مصرف گروهی {Model.BatchNumber}";
+    ViewData["HideSectionTabs"] = true;
+    var activeShares = Model.Shares.Where(s => !s.IsCancelled).ToList();
+    var liveTotal = activeShares.Sum(s => s.Amount);
+    var liveTotalUsd = activeShares.Sum(s => s.AmountUsd);
+}
+
+<div class="ak-form-page">
+    <div>
+        <header class="ak-page-header">
+            <div class="ak-page-heading">
+                <span class="ak-page-icon"><i class="bi bi-journal-check"></i></span>
+                <div>
+                    <h1>مصرف گروهی <span class="ak-num">@Model.BatchNumber</span></h1>
+                    <p>@Model.ExpenseTypeName — @Model.ExpenseDate.ToDisplayDate()</p>
+                </div>
+            </div>
+            <div class="ak-page-actions">
+                @if (Model.IsCancelled)
+                {
+                    <span class="ak-status is-inactive">لغو شده</span>
+                }
+                else
+                {
+                    <form asp-action="CancelGroup" asp-route-id="@Model.Id" method="post"
+                          onsubmit="return confirm('همه سهم‌های این مصرف گروهی لغو و سند معکوس ثبت می‌شود. ادامه می‌دهید؟');" class="ak-form">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-x-circle"></i> لغو مصرف گروهی
+                        </button>
+                    </form>
+                }
+                <a asp-action="Index" class="btn ak-secondary-action">بازگشت به مصارف</a>
+            </div>
+        </header>
+
+        <section class="ak-form-section">
+            <div>
+                <div class="ak-form-section">
+                    <h2 class="ak-section-title">سهم عملیات‌ها</h2>
+                    <div class="ak-table-wrap">
+                        <table class="ak-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>عملیات</th>
+                                    <th>نوع وسیله</th>
+                                    <th>شماره</th>
+                                    <th>مسیر</th>
+                                    <th>مقدار (تن)</th>
+                                    <th>سهم</th>
+                                    <th>معادل USD</th>
+                                    <th>وضعیت</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var i = 0; i < Model.Shares.Count; i++)
+                                {
+                                    var s = Model.Shares[i];
+                                    <tr class="@(s.IsCancelled ?"is-inactive" : null)">
+                                        <td>@(i + 1)</td>
+                                        <td>@s.OperationLabel</td>
+                                        <td>@s.VehicleKind</td>
+                                        <td class="ak-num">@s.Number</td>
+                                        <td>@s.Route</td>
+                                        <td class="ak-num">@s.QuantityMt.ToString("N3")</td>
+                                        <td class="ak-num">@s.Amount.ToString("N2") @Model.Currency</td>
+                                        <td class="ak-num">@s.AmountUsd.ToString("N2")</td>
+                                        <td>
+                                            @if (s.IsCancelled)
+                                            {
+                                                <span class="ak-status is-inactive">لغو شده</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="ak-status is-active">فعال</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a asp-action="Details" asp-route-id="@s.ExpenseId" class="ak-name">جزئیات</a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" class="ak-table-total">مجموع سهم‌های فعال</td>
+                                    <td class="ak-num">@liveTotal.ToString("N2") @Model.Currency</td>
+                                    <td class="ak-num">@liveTotalUsd.ToString("N2")</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="ak-form-section">
+                <div class="ak-form-section ak-list">
+                    <h2 class="ak-section-title">خلاصه</h2>
+                    <div class="ak-list-row"><span>نوع مصرف</span><strong>@Model.ExpenseTypeName</strong></div>
+                    <div class="ak-list-row"><span>پرداخت شونده</span><strong>@(Model.ServiceProviderName ??"—")</strong></div>
+                    <div class="ak-list-row"><span>روش تقسیم</span><strong>@Model.AllocationMethodName</strong></div>
+                    <div class="ak-list-row"><span>تاریخ مصرف</span><strong class="ak-num">@Model.ExpenseDate.ToDisplayDate()</strong></div>
+                    <div class="ak-list-row"><span>ارز</span><strong class="ak-num">@Model.Currency</strong></div>
+                    @if (Model.AppliedFxRateToUsd.HasValue)
+                    {
+                        <div class="ak-list-row"><span>نرخ تبدیل</span><strong class="ak-num">@Model.AppliedFxRateToUsd.Value.ToString("N4")</strong></div>
+                    }
+                    <div class="ak-list-row"><span>مبلغ ثبت‌شده</span><strong class="ak-num">@Model.TotalAmount.ToString("N2") @Model.Currency</strong></div>
+                    <div class="ak-list-row"><span>تعداد سهم‌ها</span><strong>@Model.Shares.Count</strong></div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Description))
+                    {
+                        <div class="ak-list-row">
+                            <span>توضیحات</span>
+                            <div class="ak-list"><div>@Model.Description</div></div>
+                        </div>
+                    }
+                </div>
+            </aside>
+        </section>
+    </div>
+</div>

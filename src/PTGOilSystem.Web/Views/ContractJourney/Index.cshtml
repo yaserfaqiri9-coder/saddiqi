@@ -1,0 +1,141 @@
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyIndexViewModel
+@{
+    ViewData["HideSectionTabs"] = true;
+    ViewData["Title"] = "مرکز عملیات قرارداد";
+
+    var purchaseCount = Model.Items.Count(item => item.ContractTypeName == "خرید");
+    var saleCount = Model.Items.Count(item => item.ContractTypeName == "فروش");
+    var isPickerTab = Model.ActiveTab == PTGOilSystem.Web.Models.ContractJourney.ContractJourneyTabs.Index.Picker;
+    var tabLinks = new[]
+    {
+        new { Key = PTGOilSystem.Web.Models.ContractJourney.ContractJourneyTabs.Index.Picker, Label = "انتخاب قرارداد", Icon = "bi-binoculars" },
+        new { Key = PTGOilSystem.Web.Models.ContractJourney.ContractJourneyTabs.Index.Recent, Label = "قراردادهای اخیر", Icon = "bi-table" }
+    };
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">مرکز عملیات قرارداد</h1>
+            <p class="ak-note">قرارداد را انتخاب کنید تا خلاصه عملیات، موجودی، فروش، مصرف و پرداخت‌های آن در یک صفحه خوانا باز شود.</p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-controller="Reports" asp-action="Index" class="btn ak-secondary-action">
+                <i class="bi bi-arrow-right"></i>
+                بازگشت به گزارش‌ها
+            </a>
+        </div>
+    </div>
+
+    <div class="summary-strip ptg-summary-strip">
+        <div class="summary-tile">
+            <div class="summary-tile-label">کل قراردادها</div>
+            <div class="summary-tile-value ak-num">@Model.Items.Count.ToString("N0")</div>
+        </div>
+        <div class="summary-tile">
+            <div class="summary-tile-label">خرید</div>
+            <div class="summary-tile-value ak-num">@purchaseCount.ToString("N0")</div>
+        </div>
+        <div class="summary-tile">
+            <div class="summary-tile-label">فروش</div>
+            <div class="summary-tile-value ak-num">@saleCount.ToString("N0")</div>
+        </div>
+    </div>
+
+    <nav class="ptg-tabs-rail" role="tablist" aria-label="تب‌های مرکز عملیات قرارداد">
+        @foreach (var tab in tabLinks)
+        {
+            var isActive = Model.ActiveTab == tab.Key;
+            <a class="ptg-tab-item @(isActive ?"is-active" : null)"
+               asp-action="Index"
+               asp-route-tab="@tab.Key"
+               aria-current="@(isActive ? "page" : null)">
+                <i class="bi @tab.Icon"></i>
+                <span>@tab.Label</span>
+            </a>
+        }
+    </nav>
+
+    @if (isPickerTab)
+    {
+        <form method="get" class="ak-form ak-form-section">
+            <div>
+                <section class="form-section pt-0 ptg-form-section">
+                    <h2 class="form-section-title">انتخاب قرارداد</h2>
+                    <p class="form-section-text">با انتخاب قرارداد، نمای کامل و ساده همان قرارداد باز می‌شود.</p>
+                    <div class="ak-form-grid align-items-end">
+                        <div class="ak-field ak-col-full">
+                            <label class="ak-label">قرارداد</label>
+                            <select name="contractId" class="ak-input" asp-items="ViewBag.Contracts">
+                                <option value="">یک قرارداد را انتخاب کنید...</option>
+                            </select>
+                        </div>
+                        <div class="ak-field">
+                            <div class="ak-footer-actions">
+                                <button type="submit" class="btn ak-primary-action ptg-btn ptg-btn-primary">
+                                    <i class="bi bi-arrow-left-circle"></i>
+                                    نمایش مسیر
+                                </button>
+                                <a asp-action="Index" asp-route-tab="@PTGOilSystem.Web.Models.ContractJourney.ContractJourneyTabs.Index.Recent" class="btn ak-secondary-action">قراردادهای اخیر</a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </form>
+    }
+    else
+    {
+        <div class="ak-table-wrap ak-form-section">
+            <div class="ak-section-head d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span>قراردادهای اخیر</span>
+                <a asp-action="Index" asp-route-tab="@PTGOilSystem.Web.Models.ContractJourney.ContractJourneyTabs.Index.Picker" class="btn btn-sm ak-secondary-action">انتخاب قرارداد</a>
+            </div>
+            <div class="p-0">
+                <div class="ak-table-wrap ptg-table-wrap">
+                    <table class="ak-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>@UiText.T(Context,"قرارداد","Contract")</th>
+                                <th>@UiText.T(Context,"نوع","Type")</th>
+                                <th>@UiText.T(Context,"جنس","Product")</th>
+                                <th>@UiText.T(Context,"واحد","Unit")</th>
+                                <th>طرف قرارداد</th>
+                                <th class="text-end">مقدار</th>
+                                <th>@UiText.T(Context,"تاریخ","Date")</th>
+                                <th>@UiText.T(Context,"وضعیت","Status")</th>
+                                <th class="text-end">@UiText.T(Context,"عملیات","Operations")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td><strong>@item.ContractNumber</strong></td>
+                                    <td><span class="@item.ContractTypeBadgeClass">@item.ContractTypeName</span></td>
+                                    <td>@item.ProductName</td>
+                                    <td>@item.ContractUnitText</td>
+                                    <td>@item.PartnerName</td>
+                                    <td class="text-end ak-num">@NumberDisplay.Quantity(item.QuantityMt) MT</td>
+                                    <td>@item.ContractDate.ToDisplayDate()</td>
+                                    <td>@item.StatusName</td>
+                                    <td class="text-end">
+                                        <div class="ak-row-menu"><a asp-action="Details" asp-route-contractId="@item.ContractId" class="btn btn-light ak-secondary-action" title="مشاهده جزئیات" aria-label="مشاهده جزئیات"><i class="bi bi-eye" aria-hidden="true"></i></a></div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.Items.Any())
+                            {
+                                <tr>
+                                    <td colspan="9">
+                                        @await Html.PartialAsync("_EmptyState", ("قراردادی برای نمایش وجود ندارد", "پس از ثبت قراردادها، همین‌جا قابل انتخاب خواهند بود.", "bi-journal-bookmark"))
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>

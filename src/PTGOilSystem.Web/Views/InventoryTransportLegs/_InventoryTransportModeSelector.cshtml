@@ -1,0 +1,27 @@
+@model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportModeSelectorViewModel
+@{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
+    var singleActive = string.Equals(Model.ActiveMode, "single", StringComparison.OrdinalIgnoreCase);
+    var batchActive = string.Equals(Model.ActiveMode, "batch", StringComparison.OrdinalIgnoreCase);
+}
+
+<nav class="ptg-tabs-rail" aria-label="@T("انتقال از موجودی", "Inventory transfer")">
+    <a asp-controller="InventoryTransportLegs"
+       asp-action="Create"
+       asp-route-shipmentId="@Model.ShipmentId"
+       asp-route-returnUrl="@Model.ReturnUrl"
+       class="ptg-tab-item @(singleActive ?"is-active" : null)"
+       aria-current="@(singleActive ? "page" : null)">
+        <strong>@T("انتقال تکی", "Single transfer")</strong>
+        <span>@T("ثبت یک وسیله از موجودی", "Register one vehicle from inventory")</span>
+    </a>
+    <a asp-controller="InventoryTransportLegs"
+       asp-action="CreateBatch"
+       asp-route-shipmentId="@Model.ShipmentId"
+       asp-route-returnUrl="@Model.ReturnUrl"
+       class="ptg-tab-item @(batchActive ?"is-active" : null)"
+       aria-current="@(batchActive ? "page" : null)">
+        <strong>@T("انتقال گروهی", "Batch transfer")</strong>
+        <span>@T("ثبت چند وسیله در یک فرم", "Register multiple vehicles in one form")</span>
+    </a>
+</nav>

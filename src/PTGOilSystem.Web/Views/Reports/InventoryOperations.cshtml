@@ -1,0 +1,136 @@
+@model PTGOilSystem.Web.Models.Reports.InventoryOperationsReportViewModel
+@{
+    ViewData["Title"] = UiText.T(Context, "موجودی و عملیات", "Inventory & Operations");
+    var hasActiveFilters = Model.Filter.FromDate.HasValue || Model.Filter.ToDate.HasValue
+        || Model.Filter.ProductId.HasValue || Model.Filter.ContractId.HasValue
+        || Model.Filter.TerminalId.HasValue || Model.Filter.StorageTankId.HasValue;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "موجودی و عملیات", "Inventory & Operations"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "گزارش‌ها", "Reports"), "bi-arrow-right", Url.Action("Index")))" />
+
+    <p class="ak-note">@UiText.T(Context, "خلاصه موجودی، مخزن‌ها و اخطارهای عملیاتی.", "Inventory, storage groups and operational warnings.")</p>
+
+    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار موجودی و عملیات", "Inventory and operations metrics")">
+        <dl class="ak-summary-list">
+            @foreach (var metric in Model.Metrics.Take(4))
+            {
+                @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
+            }
+        </dl>
+    </section>
+
+    <div class="ak-list">
+        <form method="get" class="ak-report-parameters" id="ioFilterForm">
+            <div class="ak-report-parameters-bar">
+                <div class="ak-report-parameters-anchor">
+                    <button type="button" class="btn btn-light ak-report-parameters-toggle @(hasActiveFilters ?"is-on" : null)" id="ioFilterToggle" aria-label="فیلتر" aria-expanded="false">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <div class="ak-report-parameters-pop" id="ioFilterPop" hidden>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "از تاریخ", "From")</label>
+                        <input class="ak-input" type="date" name="FromDate" value="@Model.Filter.FromDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "تا تاریخ", "To")</label>
+                        <input class="ak-input" type="date" name="ToDate" value="@Model.Filter.ToDate?.ToHtmlDateInput()" />
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "جنس", "Product")</label>
+                        <select class="ak-input" name="ProductId" asp-items="ViewBag.Products"><option value="">@UiText.T(Context, "همه اجناس", "All Products")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "قرارداد", "Contract")</label>
+                        <select class="ak-input" name="ContractId" asp-items="ViewBag.Contracts"><option value="">@UiText.T(Context, "همه قراردادها", "All Contracts")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "ترمینال", "Terminal")</label>
+                        <select class="ak-input" name="TerminalId" asp-items="ViewBag.Terminals"><option value="">@UiText.T(Context, "همه ترمینال‌ها", "All Terminals")</option></select>
+                        <label class="ak-report-parameters-field">@UiText.T(Context, "مخزن", "Tank")</label>
+                        <select class="ak-input" name="StorageTankId" asp-items="ViewBag.StorageTanks"><option value="">@UiText.T(Context, "همه مخزن‌ها", "All Tanks")</option></select>
+                        <button type="submit" class="btn btn-primary ak-report-parameters-apply">@UiText.T(Context, "اعمال", "Apply")</button>
+                        <button type="button" class="btn btn-light ak-report-parameters-apply" onclick="window.print()"><i class="bi bi-printer"></i> @UiText.T(Context, "چاپ", "Print")</button>
+                        @if (hasActiveFilters)
+                        {
+                            <a asp-action="InventoryOperations" class="btn btn-light ak-report-parameters-apply">@UiText.T(Context, "پاک‌کردن", "Clear")</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        @if (Model.Warnings.Any())
+        {
+            <div class="ak-table-wrap">
+                <table class="ak-table">
+                    <thead><tr><th class="ak-col-grow">@UiText.T(Context, "اخطار", "Warning")</th><th>@UiText.T(Context, "شرح", "Description")</th><th class="ak-col-num">@UiText.T(Context, "تعداد", "Count")</th></tr></thead>
+                    <tbody>
+                        @foreach (var warning in Model.Warnings)
+                        {
+                            <tr>
+                                <td class="ak-col-grow">@warning.Title</td>
+                                <td>@warning.Description</td>
+                                <td class="ak-col-num ak-num">@warning.Count.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">@UiText.T(Context, "جنس", "Product")</th><th class="ak-col-num">MT</th><th class="ak-col-num">@UiText.T(Context, "حرکت", "Moves")</th><th>@UiText.T(Context, "آخرین حرکت", "Last Move")</th></tr></thead>
+                <tbody>
+                    @foreach (var row in Model.ProductRows)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@row.GroupName</td>
+                            <td class="ak-col-num ak-num @(row.QuantityMt < 0 ?"ak-num" : "")">@row.QuantityMt.ToString("N4")</td>
+                            <td class="ak-col-num ak-num">@row.MovementCount.ToString("N0")</td>
+                            <td>@(row.LastMovementDate?.ToDisplayDate() ?? "-")</td>
+                        </tr>
+                    }
+                    @if (!Model.ProductRows.Any())
+                    {
+                        <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-box-seam"></i> @UiText.T(Context, "موجودی پیدا نشد؛ فیلترها را تغییر دهید.", "No inventory found; change the filters.")</div></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">@UiText.T(Context, "ترمینال", "Terminal")</th><th>@UiText.T(Context, "مخزن", "Tank")</th><th class="ak-col-num">MT</th><th class="ak-col-num">@UiText.T(Context, "حرکت", "Moves")</th><th>@UiText.T(Context, "آخرین حرکت", "Last Move")</th></tr></thead>
+                <tbody>
+                    @foreach (var row in Model.TerminalRows)
+                    {
+                        <tr>
+                            <td class="ak-col-grow">@row.GroupName</td>
+                            <td>@(row.SecondaryName ?? "-")</td>
+                            <td class="ak-col-num ak-num @(row.QuantityMt < 0 ?"ak-num" : "")">@row.QuantityMt.ToString("N4")</td>
+                            <td class="ak-col-num ak-num">@row.MovementCount.ToString("N0")</td>
+                            <td>@(row.LastMovementDate?.ToDisplayDate() ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.getElementById('ioFilterToggle');
+            var pop = document.getElementById('ioFilterPop');
+            if (!toggle || !pop) return;
+            function close() { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = pop.hidden;
+                pop.hidden = !open;
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', function (e) {
+                if (!pop.hidden && !pop.contains(e.target) && e.target !== toggle) close();
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+        })();
+    </script>
+}

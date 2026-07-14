@@ -1,0 +1,26 @@
+@using PTGOilSystem.Web.Models.ContractJourney
+@model PTGOilSystem.Web.Models.ContractJourney.ContractJourneyDetailTabsRailViewModel
+
+<nav class="ptg-tabs-rail" role="tablist" aria-label="@Model.AriaLabel" data-contract-journey-tab-nav="true">
+                @for (var tabIndex = 0; tabIndex < Model.Tabs.Count; tabIndex++)
+                {
+                    var tab = Model.Tabs[tabIndex];
+                    var isLossesPresentationTab = string.Equals(tab.Key, "losses", StringComparison.OrdinalIgnoreCase);
+                    var routeTab = isLossesPresentationTab ? ContractJourneyTabs.Details.Costs : tab.Key;
+                    var isActive = Model.ActiveTab == tab.Key;
+                    <a class="ptg-tab-item @(isActive ?"is-active" : null)"
+                       asp-action="Details"
+                       asp-route-contractId="@Model.ContractId"
+                       asp-route-tab="@routeTab"
+                       asp-route-lossesView="@(isLossesPresentationTab ? "true" : null)"
+                       asp-route-lockContract="@Model.LockContract"
+                       data-contract-journey-tab-link="true"
+                       data-contract-journey-tab="@tab.Key"
+                       data-no-spa="true"
+                       role="tab"
+                       aria-selected="@(isActive ? "true" : "false")"
+                       aria-current="@(isActive ? "page" : null)">
+                        <span data-tab-label="@tab.Label">@tab.Label</span>
+                    </a>
+                }
+</nav>

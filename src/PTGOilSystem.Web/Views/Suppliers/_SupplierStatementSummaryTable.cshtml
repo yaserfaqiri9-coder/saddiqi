@@ -1,0 +1,57 @@
+@model IEnumerable<PTGOilSystem.Web.Models.Suppliers.SupplierStatementRowViewModel>
+@{
+    var rows = Model.ToList();
+    string Amount(decimal? value) => value.HasValue && value.Value != 0m
+        ? Math.Abs(value.Value).ToString("N2")
+        : "—";
+    string Balance(PTGOilSystem.Web.Models.Suppliers.SupplierStatementRowViewModel row)
+    {
+        var rub = row.RunningBalanceRubEquivalent.HasValue
+            ? $"<span>RUB {Math.Abs(row.RunningBalanceRubEquivalent.Value):N2}</span>"
+            : "<span class=\"supplier-muted\">RUB ثبت نشده</span>";
+        return $"<span>USD {Math.Abs(row.RunningBalanceUsd):N2}</span>{rub}";
+    }
+}
+
+<div class="ak-table-wrap">
+    <table class="ak-table">
+        <thead>
+            <tr>
+                <th>تاریخ</th>
+                <th>شرح</th>
+                <th class="text-end">بدهکار USD</th>
+                <th class="text-end">بستانکار USD</th>
+                <th class="text-end">بدهکار RUB</th>
+                <th class="text-end">بستانکار RUB</th>
+                <th>مانده</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in rows)
+        {
+            var description = string.IsNullOrWhiteSpace(row.Description) ? row.Type : row.Description;
+            <tr>
+                <td>@row.Date.ToDisplayDate()</td>
+                <td>
+                    <span>@description</span>
+                    @if (!string.IsNullOrWhiteSpace(row.ContractNumber))
+                    {
+                        <small>@row.ContractNumber</small>
+                    }
+                </td>
+                <td class="text-end ak-num">@Amount(row.CreditUsd)</td>
+                <td class="text-end ak-num">@Amount(row.DebitUsd)</td>
+                <td class="text-end ak-num">@Amount(row.CreditRubEquivalent)</td>
+                <td class="text-end ak-num">@Amount(row.DebitRubEquivalent)</td>
+                <td class="supplier-balance-cell ak-num">@Html.Raw(Balance(row))</td>
+            </tr>
+        }
+        @if (!rows.Any())
+        {
+            <tr>
+                <td colspan="7" class="ak-empty">هنوز صورت‌حسابی برای این تأمین‌کننده ثبت نشده است.</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

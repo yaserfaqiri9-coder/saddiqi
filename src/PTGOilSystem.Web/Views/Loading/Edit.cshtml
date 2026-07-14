@@ -1,0 +1,116 @@
+@model PTGOilSystem.Web.Models.Loading.LoadingEditViewModel
+@{
+    ViewData["Title"] = $"ویرایش بارگیری #{Model.Id}";
+    var backUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl)
+        ? Model.ReturnUrl
+        : Url.Action("Details", "Loading", new { id = Model.Id }) ?? $"/Loading/Details/{Model.Id}";
+}
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("ویرایش بارگیری", false, (string?)null, (string?)null, (string?)null, (string?)null, "بازگشت", "bi-arrow-right", (string?)backUrl))" />
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+
+        <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("خلاصه بارگیری", (string?)"اطلاعات مرجع این ثبت تغییر نمی‌کند."))" />
+            <dl class="ak-form-grid">
+                <div class="ak-field"><dt class="ak-label">قرارداد</dt><dd>@Model.ContractNumber</dd></div>
+                <div class="ak-field"><dt class="ak-label">محصول</dt><dd>@Model.ProductName</dd></div>
+                <div class="ak-field"><dt class="ak-label">وسیله حمل</dt><dd>@Model.VehicleSummary</dd></div>
+            </dl>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مقدار و قیمت", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="LoadedQuantityMt" class="ak-label"></label>
+                    <input asp-for="LoadedQuantityMt" class="ak-input ak-num" type="number" min="0.0001" step="0.001" />
+                    @if (Model.TotalReceivedQuantityMt > 0)
+                    {
+                        <div class="form-text">نمی‌تواند کمتر از مقدار رسیدشده (@NumberDisplay.Quantity(Model.TotalReceivedQuantityMt) MT) باشد.</div>
+                    }
+                    <span asp-validation-for="LoadedQuantityMt" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="LoadingPriceUsd" class="ak-label"></label>
+                    <input asp-for="LoadingPriceUsd" class="ak-input ak-num" type="number" min="0.0001" step="0.0001" />
+                    <div class="form-text">اگر نرخ هنوز اعلام نشده، خالی بگذارید تا وضعیت «در انتظار نرخ» بماند.</div>
+                    <span asp-validation-for="LoadingPriceUsd" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وسیله و مسیر", (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="LoadingDate" class="ak-label"></label>
+                    <input asp-for="LoadingDate" class="ak-input" type="date" />
+                    <span asp-validation-for="LoadingDate" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="BillOfLadingNumber" class="ak-label"></label>
+                    <input asp-for="BillOfLadingNumber" class="ak-input" placeholder="شماره بارنامه" />
+                    <span asp-validation-for="BillOfLadingNumber" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="RwbNo" class="ak-label"></label>
+                    <input asp-for="RwbNo" class="ak-input" placeholder="شماره RWB" />
+                    <span asp-validation-for="RwbNo" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="WagonNumber" class="ak-label"></label>
+                    <input asp-for="WagonNumber" class="ak-input" placeholder="شماره واگن یا وسیله" />
+                    <span asp-validation-for="WagonNumber" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="RouteDescription" class="ak-label"></label>
+                    <input asp-for="RouteDescription" class="ak-input" placeholder="مثال: بندرعباس ← تهران" />
+                    <span asp-validation-for="RouteDescription" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="ConsigneeName" class="ak-label"></label>
+                    <input asp-for="ConsigneeName" class="ak-input" placeholder="نام گیرنده" />
+                    <span asp-validation-for="ConsigneeName" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="DestinationName" class="ak-label"></label>
+                    <input asp-for="DestinationName" class="ak-input" placeholder="نام مقصد" />
+                    <span asp-validation-for="DestinationName" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field">
+                    <label asp-for="LogisticsCompanyName" class="ak-label"></label>
+                    <input asp-for="LogisticsCompanyName" class="ak-input" placeholder="نام شرکت لجستیک (در صورت نبود در لیست)" />
+                    <div class="form-text">فقط در صورتی که شرکت لجستیک از طریق لیست انتخاب نشده باشد قابل ویرایش است.</div>
+                    <span asp-validation-for="LogisticsCompanyName" class="ak-field-error"></span>
+                </div>
+
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Notes" class="ak-label"></label>
+                    <textarea asp-for="Notes" class="ak-input" rows="3" placeholder="یادداشت‌های اضافه برای این بارگیری"></textarea>
+                    <span asp-validation-for="Notes" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml" model="@(("ذخیره تغییرات", backUrl, "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,36 @@
+@model PTGOilSystem.Web.Models.Reconciliation.OpenContractsViewModel
+@{
+    ViewData["Title"] = "Open Contracts";
+}
+
+<div class="ak-form-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("قراردادهای دارای مقدار باقی‌مانده", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
+
+    <div class="ak-page-actions">
+        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
+        <a asp-action="OpenContractsCsv" class="btn btn-light">Export CSV</a>
+    </div>
+
+    <p class="ak-note">Remaining برابر است با Contract Quantity منهای بیشترین مقدار ثبت‌شده در loading، receipt و sales.</p>
+
+    <section class="ak-form-section">
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead><tr><th class="ak-col-grow">@UiText.T(Context,"قرارداد","Contract")</th><th>@UiText.T(Context,"جنس","Product")</th><th>واحد قرارداد</th><th class="ak-col-num">Contract MT</th><th class="ak-col-num">Loaded</th><th class="ak-col-num">Received</th><th class="ak-col-num">Sold</th><th class="ak-col-num">Remaining</th><th>@UiText.T(Context,"وضعیت","Status")</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr><td class="ak-col-grow">@row.ContractNumber</td><td>@row.ProductName</td><td>@row.ContractUnitText</td><td class="ak-col-num ak-num">@row.ContractQuantityMt.ToString("N4")</td><td class="ak-col-num ak-num">@row.LoadedQuantityMt.ToString("N4")</td><td class="ak-col-num ak-num">@row.ReceivedQuantityMt.ToString("N4")</td><td class="ak-col-num ak-num">@row.SoldQuantityMt.ToString("N4")</td><td class="ak-col-num ak-num">@row.RemainingQuantityMt.ToString("N4")</td><td><span class="ak-status">@row.Status</span></td></tr>
+                }
+                @if (!Model.Rows.Any())
+                {
+                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-check2-circle"></i> وقتی مانده‌ای باقی نمانده باشد این لیست خالی می‌ماند.</div></td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

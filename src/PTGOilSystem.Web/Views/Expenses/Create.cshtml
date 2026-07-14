@@ -1,0 +1,234 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model PTGOilSystem.Web.Models.Expenses.ExpenseCreateViewModel
+@{
+    var isEdit = string.Equals(ViewData["ExpenseFormMode"] as string, "Edit", StringComparison.OrdinalIgnoreCase);
+    var formAction = isEdit ? "Edit" : "Create";
+    int? formRouteId = isEdit ? Model.Id : null;
+    ViewData["Title"] = isEdit ? "ویرایش مصرف" : "ثبت مصرف";
+    ViewData["LoadingCreateAssets"] = true;
+    ViewData["ExpenseFormAssets"] = true;
+    ViewData["ContentBodyClass"] = "boltz-content-body";
+    ViewData["HideSectionTabs"] = true;
+    var hasLocalReturnUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) && Url.IsLocalUrl(Model.ReturnUrl);
+    var cancelUrl = hasLocalReturnUrl ? Model.ReturnUrl : Url.Action("Index");
+    var submitText = isEdit ? "ذخیره تغییرات" : "ثبت مصرف";
+    var expenseTypeNames = ViewBag.ExpenseTypeNames as IEnumerable<string> ?? Array.Empty<string>();
+    var expenseTypeOptions = (ViewBag.ExpenseTypes as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var selectedExpenseTypeText = Model.ExpenseTypeId.HasValue
+        ? expenseTypeOptions.FirstOrDefault(option => option.Value == Model.ExpenseTypeId.Value.ToString())?.Text
+        : null;
+    var expenseTypeEntryValue = !string.IsNullOrWhiteSpace(Model.ManualExpenseTypeName)
+        ? Model.ManualExpenseTypeName
+        : selectedExpenseTypeText ?? "";
+    var contractOptions = (ViewBag.Contracts as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var shipmentOptions = (ViewBag.Shipments as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var truckDispatchOptions = (ViewBag.TruckDispatches as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var transportLegOptions = (ViewBag.TransportLegs as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var serviceProviderOptions = (ViewBag.ServiceProviders as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var operationalAssetOptions = (ViewBag.OperationalAssets as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>()).ToList();
+    var selectedOperationType = "";
+    var selectedOperationValue = "";
+
+    if (Model.TransportLegId.HasValue)
+    {
+        selectedOperationType = "transportLeg";
+        selectedOperationValue = Model.TransportLegId.Value.ToString();
+    }
+    else if (Model.TruckDispatchId.HasValue)
+    {
+        selectedOperationType = "truckDispatch";
+        selectedOperationValue = Model.TruckDispatchId.Value.ToString();
+    }
+    else if (Model.ShipmentId.HasValue)
+    {
+        selectedOperationType = "shipment";
+        selectedOperationValue = Model.ShipmentId.Value.ToString();
+    }
+    else if (Model.ContractId.HasValue)
+    {
+        selectedOperationType = "contract";
+        selectedOperationValue = Model.ContractId.Value.ToString();
+    }
+    else if (Model.ServiceProviderId.HasValue)
+    {
+        selectedOperationType = "serviceProvider";
+        selectedOperationValue = Model.ServiceProviderId.Value.ToString();
+    }
+    else if (Model.OperationalAssetId.HasValue)
+    {
+        selectedOperationType = "operationalAsset";
+        selectedOperationValue = Model.OperationalAssetId.Value.ToString();
+    }
+
+}
+
+<div class="page-stack ak-form-page expense-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, isEdit ? "ویرایش مصرف" : "ثبت مصرف", isEdit ? "Edit Expense" : "Expense Registration"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)cancelUrl))" />
+
+    <form asp-action="@formAction" asp-route-id="@formRouteId" method="post" class="ak-form expense-create-form">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section expense-form-section-money">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "معلومات مصرف", "Expense information"), (string?)null))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label for="ExpenseTypeEntry" class="ak-label">@UiText.T(Context, "نوع مصرف", "Expense type")</label>
+                    <input id="ExpenseTypeEntry"
+                           name="ExpenseTypeEntry"
+                           value="@expenseTypeEntryValue"
+                           list="expenseTypeSuggestions"
+                           class="ak-input"
+                           autocomplete="off"
+                           data-expense-type-entry />
+                    <input asp-for="ExpenseTypeId" type="hidden" data-expense-type-id />
+                    <input asp-for="ManualExpenseTypeName" type="hidden" data-expense-type-manual />
+                    <datalist id="expenseTypeSuggestions">
+                        @foreach (var option in expenseTypeOptions)
+                        {
+                            <option value="@option.Text" data-expense-type-id="@option.Value"></option>
+                        }
+                        @foreach (var expenseTypeName in expenseTypeNames)
+                        {
+                            <option value="@expenseTypeName"></option>
+                        }
+                    </datalist>
+                    <span asp-validation-for="ExpenseTypeId" class="ak-field-error"></span>
+                    <span asp-validation-for="ManualExpenseTypeName" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ExpenseDate" class="ak-label"></label>
+                    <input asp-for="ExpenseDate" type="date" class="ak-input" />
+                    <span asp-validation-for="ExpenseDate" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Currency" class="ak-label"></label>
+                    <select asp-for="Currency" asp-items="ViewBag.Currencies" class="ak-input">
+                        <option value=""></option>
+                    </select>
+                    <span asp-validation-for="Currency" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Amount" class="ak-label"></label>
+                    <input asp-for="Amount" class="ak-input" />
+                    <span asp-validation-for="Amount" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field" data-fx-rate-group data-fx-currency-source="#Currency">
+                    <div data-fx-rate-field>
+                        <label class="ak-label">نرخ دالر به <span data-fx-currency-name>ارز</span></label>
+                        <input type="text" inputmode="decimal" class="ak-input" data-fx-rate-input
+                               id="expenseFxDisplay" placeholder="مثلاً ۷۷" autocomplete="off" />
+                        <input asp-for="AppliedFxRateToUsd" type="hidden" data-fx-rate-technical />
+                        <span asp-validation-for="AppliedFxRateToUsd" class="ak-field-error"></span>
+                    </div>
+                    <div data-fx-usd-note class="d-none">
+                        <small class="form-text text-muted"><i class="bi bi-info-circle"></i> پرداخت دالری است؛ نرخ تبدیل لازم نیست.</small>
+                    </div>
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Description" class="ak-label"></label>
+                    <textarea asp-for="Description" rows="3" class="ak-input"></textarea>
+                    <span asp-validation-for="Description" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section expense-form-section-links">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@((UiText.T(Context, "ارتباط با عملیات", "Operation Link"), (string?)null))" />
+            <div class="ak-form-grid"
+                 data-expense-operation-link
+                 data-selected-type="@selectedOperationType"
+                 data-selected-value="@selectedOperationValue">
+                <div class="d-none" data-expense-operation-options>
+                    <select data-expense-source-options="contract" data-expense-source-label="قرارداد">
+                        @foreach (var option in contractOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                    <select data-expense-source-options="shipment" data-expense-source-label="محموله کشتی">
+                        @foreach (var option in shipmentOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                    <select data-expense-source-options="truckDispatch" data-expense-source-label="ارسال با موتر">
+                        @foreach (var option in truckDispatchOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                    <select data-expense-source-options="transportLeg" data-expense-source-label="جریان حمل بار">
+                        @foreach (var option in transportLegOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                    <select data-expense-source-options="serviceProvider" data-expense-source-label="شرکت خدماتی">
+                        @foreach (var option in serviceProviderOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                    <select data-expense-source-options="operationalAsset" data-expense-source-label="دارایی عملیاتی">
+                        @foreach (var option in operationalAssetOptions)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <input asp-for="ContractId" type="hidden" data-expense-link-target="contract" />
+                <input asp-for="ShipmentId" type="hidden" data-expense-link-target="shipment" />
+                <input asp-for="TruckDispatchId" type="hidden" data-expense-link-target="truckDispatch" />
+                <input asp-for="TransportLegId" type="hidden" data-expense-link-target="transportLeg" />
+                <input asp-for="ServiceProviderId" type="hidden" data-expense-link-target="serviceProvider" />
+                <input asp-for="OperationalAssetId" type="hidden" data-expense-link-target="operationalAsset" />
+
+                <div class="ak-field">
+                    <label for="ExpenseOperationLinkType" class="ak-label">ارتباط با عملیات</label>
+                    <select id="ExpenseOperationLinkType" class="ak-input" data-expense-operation-type>
+                        <option value=""></option>
+                        <option value="contract" selected="@(selectedOperationType == "contract")">قرارداد</option>
+                        <option value="shipment" selected="@(selectedOperationType == "shipment")">محموله کشتی</option>
+                        <option value="truckDispatch" selected="@(selectedOperationType == "truckDispatch")">ارسال با موتر</option>
+                        <option value="transportLeg" selected="@(selectedOperationType == "transportLeg")">جریان حمل بار</option>
+                        <option value="serviceProvider" selected="@(selectedOperationType == "serviceProvider")">شرکت خدماتی</option>
+                        <option value="operationalAsset" selected="@(selectedOperationType == "operationalAsset")">دارایی عملیاتی</option>
+                    </select>
+                </div>
+
+                <div class="ak-field ak-col-full">
+                    <label for="ExpenseOperationLinkRecord" class="ak-label" data-expense-operation-record-label>مورد ثبت‌شده</label>
+                    <select id="ExpenseOperationLinkRecord" class="ak-input" data-expense-operation-record disabled>
+                        <option value=""></option>
+                    </select>
+                    <div class="expense-operation-validation">
+                        <span asp-validation-for="ContractId" class="ak-field-error"></span>
+                        <span asp-validation-for="ShipmentId" class="ak-field-error"></span>
+                        <span asp-validation-for="TruckDispatchId" class="ak-field-error"></span>
+                        <span asp-validation-for="TransportLegId" class="ak-field-error"></span>
+                        <span asp-validation-for="ServiceProviderId" class="ak-field-error"></span>
+                        <span asp-validation-for="OperationalAssetId" class="ak-field-error"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@((submitText, cancelUrl ?? "#", UiText.T(Context, "بازگشت", "Back")))" />
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+}

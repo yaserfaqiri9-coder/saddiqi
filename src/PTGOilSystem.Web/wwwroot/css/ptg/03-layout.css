@@ -1,0 +1,695 @@
+/*
+ * PTG app layout.
+ */
+
+/* اسکرول‌بار عمودی صفحه در حالت RTL باید سمت چپ (دور از سایدبار) بیفتد.
+   کروم برای المان ریشه (html) نوار اسکرول را همیشه سمت راست می‌گذارد و
+   direction:rtl روی html آن را جابه‌جا نمی‌کند. پس اسکرول اصلی صفحه را از
+   ویوپورت به داخل قاب اپ (.ptg-app) منتقل می‌کنیم؛ روی یک المان غیرریشه‌ای
+   با direction:rtl نوار اسکرول به‌درستی سمت چپ رندر می‌شود. */
+html:has(body.boltz-shell.boltz-rtl) {
+    direction: rtl;
+}
+
+/* Off-canvas mobile drawer is position:fixed and parked just off the
+   viewport edge; clip it at the root so it never inflates the document's
+   horizontal scroll width (was causing a phantom sideways scroll at ≤768px). */
+html:has(body.boltz-shell.app-shell-authenticated) {
+    overflow-x: hidden;
+}
+
+body.boltz-shell.boltz-rtl {
+    direction: rtl;
+}
+
+body.boltz-shell.app-shell-authenticated {
+    overflow: hidden;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-app {
+    gap: var(--ptg-space-gap);
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--ptg-page-top) var(--ptg-space-page) var(--ptg-space-page);
+    background: var(--ptg-bg);
+    /* نوار اسکرول باریک (فقط عرض؛ روی ارتفاع صفحه اثری ندارد). */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(143, 145, 165, .42) transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-app::-webkit-scrollbar {
+    width: 7px;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-app::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-app::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(143, 145, 165, .42);
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-app::-webkit-scrollbar-thumb:hover {
+    background: rgba(143, 145, 165, .6);
+}
+
+/* قاب اصلی نباید بلندتر از ناحیهٔ اسکرول (ارتفاع ptg-app منهای padding بالا و پایین)
+   شود؛ در غیر این صورت پایه min-height:100vh باعث یک اسکرول اضافه و بهم‌ریختن
+   فاصلهٔ هدر با بالای صفحه می‌شد. */
+body.boltz-shell.app-shell-authenticated .ptg-main {
+    min-width: 0;
+    min-height: calc(100vh - var(--ptg-page-top) - var(--ptg-space-page));
+    gap: var(--ptg-space-gap);
+}
+
+/* فاصلهٔ زیر هدر و زیر نوار تب در همهٔ صفحات یکدست شود.
+   هدر صفحه داخل RenderBody می‌آید، پس فاصلهٔ بعد از آن باید در همان page-stack
+   هم کنترل شود؛ در غیر این صورت بعضی صفحات به محتوای بعدی می‌چسبند. */
+body.boltz-shell.app-shell-authenticated {
+    --ptg-header-content-gap: 1.25rem;
+}
+body.boltz-shell.app-shell-authenticated .ptg-page > .boltz-content-body,
+body.boltz-shell.app-shell-authenticated .boltz-content-body > :first-child {
+    margin-top: 0 !important;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    min-height: var(--ptg-topbar-height);
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transition: background-color var(--layout-transition), box-shadow var(--layout-transition);
+}
+
+/* Header blends with the light ground; a faint translucent blur only once the
+   page scrolls under it (matches the reference — no hard bar). */
+body.boltz-shell.app-shell-authenticated.is-topbar-scrolled .ptg-topbar {
+    background: rgba(var(--background-paper-rgb, 255, 255, 255), 0.72) !important;
+    -webkit-backdrop-filter: blur(var(--layout-header-blur));
+    backdrop-filter: blur(var(--layout-header-blur));
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar-start,
+body.boltz-shell.app-shell-authenticated .boltz-topbar-end {
+    gap: .9rem;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar-search {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    width: min(100%, 38rem);
+    min-height: 3.75rem;
+    padding: 0 1.45rem;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: var(--ptg-surface) !important;
+    box-shadow: none !important;
+    overflow: hidden;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar-search i {
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    color: var(--ptg-muted);
+    background: transparent !important;
+    font-size: 1.25rem !important;
+}
+
+body.boltz-shell.app-shell-authenticated.boltz-rtl .boltz-topbar-search{
+    direction: rtl !important;
+    text-align: right !important;
+}
+
+body.boltz-shell.app-shell-authenticated.boltz-ltr .boltz-topbar-search{
+    direction: ltr !important;
+    text-align: left !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-topbar-toggle,
+body.boltz-shell.app-shell-authenticated .boltz-icon-button,
+body.boltz-shell.app-shell-authenticated .boltz-language-toggle {
+    width: 3.75rem;
+    height: 3.75rem;
+    border: 2px solid #E4E5EF !important;
+    border-radius: 999px !important;
+    background: var(--ptg-surface) !important;
+    color: var(--ptg-muted) !important;
+    box-shadow: none !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-icon-button:hover,
+body.boltz-shell.app-shell-authenticated .boltz-language-toggle:hover {
+    border-color: rgba(var(--ptg-primary-rgb), .35) !important;
+    color: var(--ptg-primary) !important;
+}
+
+/* حذف خط/دایره دور آیکون همبرگری (باز و بسته کردن سایدبار) */
+body.boltz-shell.app-shell-authenticated .boltz-topbar-toggle,
+body.boltz-shell.app-shell-authenticated .boltz-topbar-toggle:hover,
+body.boltz-shell.app-shell-authenticated .boltz-topbar-toggle:focus {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-icon-badge,
+body.boltz-shell.app-shell-authenticated .boltz-language-toggle [data-current-language-label] {
+    background: var(--ptg-primary) !important;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-page {
+    gap: var(--ptg-space-gap);
+    padding: 0;
+    min-width: 0;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-page-body {
+    width: min(100%, 112rem);
+    max-width: 112rem;
+    gap: var(--ptg-space-gap);
+    margin-inline: auto;
+    padding: 0;
+    background: transparent !important;
+}
+
+body.boltz-shell.app-shell-authenticated .boltz-footer {
+    color: var(--ptg-muted);
+}
+
+body.boltz-shell.app-shell-authenticated .summary-strip-page-top {
+    width: min(100%, 112rem);
+    margin-inline: auto;
+}
+
+@media (min-width: 1200px) {
+    body.boltz-shell.app-shell-authenticated .ptg-app {
+        grid-template-columns: var(--ptg-sidebar-width) minmax(0, 1fr) !important;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-sidebar {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-main {
+        grid-column: 2;
+        grid-row: 1;
+    }
+}
+
+@media (min-width: 992px) {
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-app {
+        grid-template-columns: var(--ptg-mini-sidebar) minmax(0, 1fr) !important;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    /* padding/topbar-top/min-height همگی از این متغیر تغذیه می‌شوند تا در همهٔ
+       بریک‌پوینت‌ها فاصلهٔ بالای صفحه و زیر هدر یکدست بماند. */
+    body.boltz-shell.app-shell-authenticated .ptg-app {
+        --ptg-space-page: 1rem;
+        /* سایدبار در این عرض‌ها position:fixed (کشوی خارج از قاب) است، پس قاب
+           اصلی باید تک‌ستونه شود؛ در غیر این صورت گرید همچنان ستون سایدبار را
+           رزرو می‌کند و محتوا در فضای باقیمانده فشرده و کنارِ فضای خالی می‌افتد
+           (دلیل «dead space» افقی در RTL روی موبایل). */
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+/* ============================================================
+   Header search trigger (small pill: icon + shortcut → dialog)
+   ============================================================ */
+/* Minimal (Akaunting): icon-only ghost trigger, no pill / no shortcut chip. */
+body.boltz-shell.app-shell-authenticated .ptg-hsearch-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--layout-transition);
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-hsearch-trigger:hover,
+body.boltz-shell.app-shell-authenticated .ptg-hsearch-trigger:focus-visible {
+    background: rgba(var(--grey-500-rgb), .08);
+    outline: none;
+}
+
+body.boltz-shell.app-shell-authenticated .ptg-hsearch-trigger .ptg-hsearch-ico {
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+}
+
+/* ============================================================
+   Search dialog (opened by the trigger / Ctrl+K)
+   ============================================================ */
+.ptg-search-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    justify-items: center;
+    align-items: start;
+    padding-top: 12vh;
+}
+
+.ptg-search-backdrop {
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: rgba(28, 37, 46, .32);
+    opacity: 0;
+    transition: opacity 160ms ease;
+}
+
+body.ptg-search-open .ptg-search-backdrop { opacity: 1; }
+
+.ptg-search-panel {
+    position: relative;
+    z-index: 1;
+    width: min(92vw, 40rem);
+    padding: 1rem;
+    border-radius: 14px;
+    background: var(--background-paper);
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, .28);
+    transform: translateY(-10px) scale(.98);
+    opacity: 0;
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1), opacity 180ms ease;
+}
+
+body.ptg-search-open .ptg-search-panel { transform: none; opacity: 1; }
+
+.ptg-search-field {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    height: 3.25rem;
+    margin: 0;
+    padding: 0 1rem;
+    border-radius: 10px;
+    background: rgba(var(--grey-500-rgb), .1);
+}
+
+.ptg-search-field i { color: var(--text-disabled, #9E9E9E); font-size: 1.25rem; }
+
+.ptg-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.ptg-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.ptg-search-esc {
+    flex: 0 0 auto;
+    padding: .1rem .45rem;
+    border-radius: 6px;
+    background: var(--background-paper);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+    color: var(--text-secondary);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.ptg-search-hint {
+    margin: .7rem .25rem 0;
+    color: var(--text-disabled, #9E9E9E);
+    font-size: .8rem;
+}
+
+/* ============================================================
+   Account drawer — full-height panel from the content edge (left/RTL)
+   ============================================================ */
+.ptg-account-root { position: fixed; inset: 0; z-index: 1200; }
+
+.ptg-account-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(28, 37, 46, .28);
+    opacity: 0;
+    transition: opacity 220ms cubic-bezier(.4, 0, .2, 1);
+}
+
+body.ptg-account-open .ptg-account-backdrop { opacity: 1; }
+
+.ptg-account-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: 360px;
+    max-width: 100vw;
+    background: var(--background-paper);
+    box-shadow: 16px 0 44px -12px rgba(0, 0, 0, .22);
+    transform: translateX(-100%);
+    transition: transform 220ms cubic-bezier(.4, 0, .2, 1);
+    will-change: transform;
+    outline: none;
+    overflow: hidden;
+}
+
+/* هاله‌ی نرم و روشن پشت هدر پروفایل (مطابق دیزاین مرجع). */
+.ptg-account-drawer::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 240px;
+    background: radial-gradient(120% 140% at 50% -10%,
+        rgba(var(--primary-main-rgb), .10),
+        rgba(var(--grey-500-rgb), .06) 45%,
+        rgba(var(--background-paper-rgb), 0) 72%);
+    pointer-events: none;
+}
+
+body.ptg-account-open .ptg-account-drawer {
+    transform: translateX(0);
+    transition-duration: 280ms;
+}
+
+.ptg-account-scroll {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 2.75rem 1.25rem 1.25rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.ptg-account-close {
+    position: absolute;
+    top: .9rem;
+    inset-inline-start: .9rem;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    cursor: pointer;
+    z-index: 2;
+    transition: background-color var(--layout-transition), color var(--layout-transition);
+}
+
+.ptg-account-close:hover,
+.ptg-account-close:focus-visible {
+    background: rgba(var(--grey-500-rgb), .12);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.ptg-account-head {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.ptg-account-avatar {
+    display: grid;
+    place-items: center;
+    width: 6rem;
+    height: 6rem;
+    min-height: 6rem;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    border-radius: 999px;
+    padding: 3px;
+    background:
+        linear-gradient(var(--background-paper), var(--background-paper)) padding-box,
+        conic-gradient(from 150deg,
+            rgba(0, 167, 111, 0) 0deg,
+            rgba(0, 167, 111, 0) 95deg,
+            #5BE49B 185deg,
+            #00A76F 265deg,
+            rgba(0, 167, 111, 0) 360deg) border-box;
+    border: 2px solid transparent;
+    box-shadow: 0 10px 24px -8px rgba(var(--grey-500-rgb), .5);
+}
+
+.ptg-account-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    object-fit: cover;
+    display: block;
+}
+
+.ptg-account-name {
+    width: 100%;
+    margin-top: .85rem;
+    color: var(--text-primary);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.ptg-account-email { width: 100%; }
+
+.ptg-account-email {
+    margin-top: .25rem;
+    color: var(--text-secondary);
+    font-size: .875rem;
+}
+
+.ptg-account-switch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+}
+
+.ptg-account-switch-avatar {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 2px;
+    border: 0;
+    border-radius: 999px;
+    /* رینگ گرادیانی ملایم دور آواتار (padding-box سفید + border-box گرادیان). */
+    background:
+        linear-gradient(var(--background-paper), var(--background-paper)) padding-box,
+        linear-gradient(150deg, rgba(var(--grey-500-rgb), .5), rgba(var(--primary-main-rgb), .3)) border-box;
+    /* سایه‌ی نرم برای حس شناور/۳بعدی مطابق مرجع. */
+    box-shadow: 0 5px 14px -4px rgba(var(--grey-500-rgb), .55);
+    cursor: pointer;
+    transition: transform var(--layout-transition), box-shadow var(--layout-transition), background var(--layout-transition);
+}
+
+.ptg-account-switch-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 999px;
+    display: block;
+}
+
+.ptg-account-switch-avatar.is-active {
+    background:
+        linear-gradient(var(--background-paper), var(--background-paper)) padding-box,
+        linear-gradient(150deg, var(--primary-light), var(--primary-main)) border-box;
+    box-shadow: 0 6px 16px -4px rgba(var(--primary-main-rgb), .5);
+}
+
+.ptg-account-switch-avatar:hover { transform: translateY(-2px); }
+
+.ptg-account-switch-add {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(var(--grey-500-rgb), .4);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: .95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px -5px rgba(var(--grey-500-rgb), .5);
+    transition: background-color var(--layout-transition), color var(--layout-transition), border-color var(--layout-transition), transform var(--layout-transition);
+}
+
+.ptg-account-switch-add:hover { transform: translateY(-2px); }
+
+.ptg-account-switch-add:hover,
+.ptg-account-switch-add:focus-visible {
+    background: rgba(var(--grey-500-rgb), .08);
+    color: var(--text-primary);
+    border-color: rgba(var(--grey-500-rgb), .6);
+    outline: none;
+}
+
+.ptg-account-divider {
+    width: 100%;
+    height: 0;
+    margin: 0 0 .85rem;
+    border: 0;
+    border-top: 1px dashed var(--divider);
+    opacity: 1;
+}
+
+.ptg-account-links {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin-bottom: 1rem;
+}
+
+.ptg-account-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: .65rem .75rem;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: .9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color var(--layout-transition), color var(--layout-transition);
+}
+
+.ptg-account-link-ic {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    transition: color var(--layout-transition);
+}
+
+.ptg-account-link-ic svg {
+    width: 1.625rem;
+    height: 1.625rem;
+    display: block;
+    color: inherit;
+    fill: currentColor;
+}
+
+.ptg-account-link-label { flex: 1 1 auto; min-width: 0; }
+
+.ptg-account-link-badge {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 .4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--ptg-danger-soft);
+    color: var(--ptg-danger);
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.ptg-account-link:hover,
+.ptg-account-link:focus-visible {
+    background: rgba(var(--grey-500-rgb), .1);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.ptg-account-link:hover .ptg-account-link-ic,
+.ptg-account-link:focus-visible .ptg-account-link-ic { color: var(--text-primary); }
+
+.ptg-account-logout-form { margin-top: auto; }
+
+.ptg-account-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 3rem;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(var(--error-rgb), .08);
+    color: var(--ptg-danger);
+    font-size: .9375rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color var(--layout-transition);
+}
+
+.ptg-account-logout:hover,
+.ptg-account-logout:focus-visible { background: rgba(var(--error-rgb), .16); outline: none; }
+
+/* Lock the app scroller while the drawer/search overlay is open (no layout shift). */
+body.ptg-account-open .ptg-app,
+body.ptg-search-open .ptg-app { overflow: hidden !important; }
+
+@media (max-width: 991.98px) {
+    .ptg-account-drawer { width: 340px; }
+}
+
+@media (max-width: 575.98px) {
+    .ptg-account-drawer { width: 100vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ptg-account-drawer,
+    .ptg-account-backdrop,
+    .ptg-search-panel,
+    .ptg-search-backdrop { transition-duration: 1ms !important; }
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated .ptg-app {
+        --ptg-space-page: .75rem;
+        gap: 1rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated .ptg-topbar {
+        min-height: auto;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-topbar-start {
+        flex: 1 1 100%;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-topbar-search {
+        min-height: 3.1rem;
+        flex-basis: 100%;
+        padding-inline: 1rem;
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-icon-button,
+    body.boltz-shell.app-shell-authenticated .boltz-language-toggle,
+    body.boltz-shell.app-shell-authenticated .boltz-topbar-toggle {
+        width: 3.1rem;
+        height: 3.1rem;
+    }
+}

@@ -1,0 +1,35 @@
+@*
+    Shared person/party identity cell — 28px circular avatar + name.
+    Reference: Akaunting user row. Used by every human/party list
+    (Users, Customers, Suppliers, Partners, Sarrafs, Service Providers,
+    Drivers, Employees). Styling: .ptg-person-* in 50-ak-components.css.
+
+    Model: (string Name, string? Href, string? ImageUrl)
+      Href     — Details link when the row name navigates; null = plain text.
+      ImageUrl — real profile photo; null = white person icon fallback.
+*@
+@model (string Name, string? Href, string? ImageUrl)
+@{
+    var hasImage = !string.IsNullOrWhiteSpace(Model.ImageUrl);
+    var hasHref = !string.IsNullOrWhiteSpace(Model.Href);
+}
+<div class="ptg-person-cell">
+    <span class="ptg-person-avatar" aria-hidden="true">
+        @if (hasImage)
+        {
+            <img class="ptg-person-avatar-img" src="@Model.ImageUrl" alt="" />
+        }
+        else
+        {
+            <i class="bi bi-person-fill"></i>
+        }
+    </span>
+    @if (hasHref)
+    {
+        <a class="ptg-person-name ak-name" href="@Model.Href">@Model.Name</a>
+    }
+    else
+    {
+        <span class="ptg-person-name">@Model.Name</span>
+    }
+</div>

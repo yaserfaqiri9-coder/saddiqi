@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "shKIZ9FMR13rhtM2T6TvY"
+uri = "file://گزارش-تحلیل-پرداخت-تامین-کننده.md"
+type = "text"
+title = "گزارش تحلیل پرداخت‌های تأمین‌کننده — مقایسه با BNK/Himor"

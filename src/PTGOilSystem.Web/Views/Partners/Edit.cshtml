@@ -1,0 +1,86 @@
+@model Partner
+@{ ViewData["Title"] = "ویرایش شریک"; }
+
+<div class="ak-form-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"ویرایش شریک {Model.Code}", true,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right",
+                       (string?)Url.Action("Details", new { id = Model.Id })))" />
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="ak-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger ak-form-alert"></div>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@(("اطلاعات شریک", (string?)"کد، نام و اطلاعات تماس شریک را وارد کنید."))" />
+            <div class="ak-form-grid">
+                <div class="ak-field">
+                    <label asp-for="Code" class="ak-label">کد <span class="ak-req">*</span></label>
+                    <input asp-for="Code" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Code" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Name" class="ak-label">نام <span class="ak-req">*</span></label>
+                    <input asp-for="Name" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Name" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="NamePersian" class="ak-label">نام فارسی</label>
+                    <input asp-for="NamePersian" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="NamePersian" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Country" class="ak-label">کشور</label>
+                    <input asp-for="Country" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Country" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="ContactPerson" class="ak-label">شخص تماس</label>
+                    <input asp-for="ContactPerson" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="ContactPerson" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Phone" class="ak-label">تلفن</label>
+                    <input asp-for="Phone" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Phone" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field">
+                    <label asp-for="Email" class="ak-label">Email</label>
+                    <input asp-for="Email" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Email" class="ak-field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
+                     model="@(("جزئیات بیشتر", (string?)"آدرس، یادداشت و وضعیت فعال بودن شریک."))" />
+            <div class="ak-form-grid">
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Address" class="ak-label">Address</label>
+                    <input asp-for="Address" class="ak-input" autocomplete="off" />
+                    <span asp-validation-for="Address" class="ak-field-error"></span>
+                </div>
+                <div class="ak-field ak-col-full">
+                    <label asp-for="Notes" class="ak-label">یادداشت</label>
+                    <textarea asp-for="Notes" class="ak-input" rows="3"></textarea>
+                    <span asp-validation-for="Notes" class="ak-field-error"></span>
+                </div>
+                <div class="ak-toggle-field">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">فعال</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <partial name="~/Views/Shared/Components/Ak/_AkFooterActions.cshtml"
+                 model="@(("ذخیره تغییرات", Url.Action("Details", new { id = Model.Id }) ?? "#", "انصراف"))" />
+    </form>
+</div>
+
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

@@ -1,0 +1,109 @@
+@model PTGOilSystem.Web.Models.Entities.CashAccount
+@using PTGOilSystem.Web.Models.Payments
+@{
+    var transactions = ViewBag.PaymentTransactions as IReadOnlyList<PaymentListItemViewModel> ?? Array.Empty<PaymentListItemViewModel>();
+    object? totalInObject = ViewBag.TotalIn;
+    object? totalOutObject = ViewBag.TotalOut;
+    object? closingBalanceObject = ViewBag.ClosingBalance;
+    var totalIn = totalInObject is decimal totalInValue ? totalInValue : 0m;
+    var totalOut = totalOutObject is decimal totalOutValue ? totalOutValue : 0m;
+    var closingBalance = closingBalanceObject is decimal closingBalanceValue ? closingBalanceValue : 0m;
+    ViewData["Title"] = $"حساب {Model.Code}";
+    ViewData["HideSectionTabs"] = true;
+
+    var statusText = Model.IsActive ? "فعال" : "غیرفعال";
+    var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
+    var indexUrl = Url.Action("Index") ?? "#";
+    var detailTabs = new[]
+    {
+        "#account-info|مشخصات|bi-wallet2|active",
+        "#account-ledger|تراکنش‌ها|bi-journal-text|"
+    };
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(($"حساب {Model.Code}", false,
+                       UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", editUrl, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)indexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@statusText</span>
+        <span class="ak-note">@(string.IsNullOrWhiteSpace(Model.BankName) ? Model.Name : $"{Model.Name} · {Model.BankName}")</span>
+    </div>
+
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های حساب", "Account Sections"), detailTabs)" />
+
+    <section id="account-info" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات حساب", "مشخصات مرجع حساب بدون تغییر در منطق پرداخت."))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>کد</dt><dd>@Model.Code</dd></div>
+            <div class="ak-list-row"><dt>نام</dt><dd>@Model.Name</dd></div>
+            <div class="ak-list-row"><dt>نوع حساب</dt><dd>@Model.AccountType</dd></div>
+            <div class="ak-list-row"><dt>ارز</dt><dd>@Model.Currency</dd></div>
+            <div class="ak-list-row"><dt>شماره حساب</dt><dd>@(string.IsNullOrWhiteSpace(Model.AccountNumber) ? "—" : Model.AccountNumber)</dd></div>
+            <div class="ak-list-row"><dt>نام بانک</dt><dd>@(string.IsNullOrWhiteSpace(Model.BankName) ? "—" : Model.BankName)</dd></div>
+            <div class="ak-list-row"><dt>شعبه</dt><dd>@(string.IsNullOrWhiteSpace(Model.Branch) ? "—" : Model.Branch)</dd></div>
+            <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@statusText</span></dd></div>
+            <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? "—" : Model.Notes)</dd></div>
+            <div class="ak-list-row"><dt>تاریخ ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+        </dl>
+    </section>
+
+    <section id="account-ledger" class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("گزارش صندوق/بانک", (string?)null))" />
+        <dl class="ak-summary-list ak-summary">
+            <div><dt>Opening</dt><dd class="ak-num">0.00 @Model.Currency</dd></div>
+            <div><dt>دریافت‌ها</dt><dd class="ak-num">@totalIn.ToString("N2") @Model.Currency</dd></div>
+            <div><dt>پرداخت‌ها</dt><dd class="ak-num">@totalOut.ToString("N2") @Model.Currency</dd></div>
+            <div><dt>Closing</dt><dd class="ak-num @(closingBalance < 0 ?"ak-num" : "ak-num")">@closingBalance.ToString("N2") @Model.Currency</dd></div>
+        </dl>
+
+        <div class="ak-table-wrap">
+            <table class="ak-table">
+                <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th>نوع</th>
+                        <th class="ak-col-grow">طرف حساب</th>
+                        <th>قرارداد</th>
+                        <th class="ak-col-num">مبلغ</th>
+                        <th class="ak-col-num">USD</th>
+                        <th>مرجع</th>
+                        <th>Ledger</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in transactions)
+                    {
+                        <tr>
+                            <td>@row.PaymentDate.ToDisplayDate()</td>
+                            <td><span class="ak-status @(row.Direction == PaymentDirection.In ?"is-active" : "")">@row.PaymentKindName</span></td>
+                            <td class="ak-col-grow">@row.CounterpartyName</td>
+                            <td>@(row.ContractNumber ?? "—")</td>
+                            <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
+                            <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                            <td><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.Id">@(row.Reference ?? $"#{row.Id}")</a></td>
+                            <td>
+                                @if (row.LedgerEntryId.HasValue)
+                                {
+                                    <a asp-controller="Ledger" asp-action="Details" asp-route-id="@row.LedgerEntryId.Value">#@row.LedgerEntryId</a>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!transactions.Any())
+                    {
+                        <tr>
+                            <td colspan="8"><div class="ak-empty"><i class="bi bi-bank"></i> دریافت‌ها و پرداخت‌های رزنامچه برای این صندوق/بانک اینجا دیده می‌شود.</div></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

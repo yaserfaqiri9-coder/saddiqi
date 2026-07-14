@@ -1,0 +1,36 @@
+@model DailyFxRate
+@{
+    ViewData["Title"] = UiText.T(Context, "جزئیات نرخ ارز", "Daily FX Rate Details");
+}
+
+<div class="ak-form-page">
+    <div class="ak-page-header">
+        <div class="ak-page-heading">
+<h1 class="ak-page-title">@UiText.T(Context, "جزئیات نرخ ارز", "Daily FX Rate Details")</h1>
+            <p class="ak-note">@UiText.T(Context, "نرخ ثبت‌شده بین ارز پایه و ارز مقصد با منبع آن.", "Registered rate between the base and quote currency with its source.")</p>
+        </div>
+        <div class="ak-page-actions">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn ak-primary-action">@UiText.T(Context, "ویرایش", "Edit")</a>
+            <a asp-action="Index" class="btn ak-secondary-action">@UiText.T(Context, "بازگشت", "Back")</a>
+        </div>
+    </div>
+
+    <div class="summary-strip">
+        <div class="summary-tile"><div class="summary-tile-label">@UiText.T(Context, "تاریخ", "Date")</div><div class="summary-tile-value">@Model.RateDate.ToDisplayDate()</div></div>
+        <div class="summary-tile"><div class="summary-tile-label">@UiText.T(Context, "جفت ارز", "Pair")</div><div class="summary-tile-value"><code>@Model.BaseCurrency/@Model.QuoteCurrency</code></div></div>
+        <div class="summary-tile"><div class="summary-tile-label">@UiText.T(Context, "نرخ", "Rate")</div><div class="summary-tile-value ak-num">@Model.Rate.ToString("N4")</div></div>
+    </div>
+
+    <div class="ak-form-section">
+        <div class="ak-section-head">@UiText.T(Context, "اطلاعات نرخ", "Rate Information")</div>
+        <div>
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>@UiText.T(Context, "تاریخ", "Date")</dt><dd>@Model.RateDate.ToDisplayDate()</dd></div>
+                <div class="ak-list-row"><dt>@UiText.T(Context, "ارز پایه", "Base Currency")</dt><dd><code>@Model.BaseCurrency</code></dd></div>
+                <div class="ak-list-row"><dt>@UiText.T(Context, "ارز مقصد", "Quote Currency")</dt><dd><code>@Model.QuoteCurrency</code></dd></div>
+                <div class="ak-list-row"><dt>@UiText.T(Context, "نرخ", "Rate")</dt><dd class="ak-num">@Model.Rate.ToString("N4")</dd></div>
+                <div class="ak-list-row"><dt>@UiText.T(Context, "منبع", "Source")</dt><dd>@(string.IsNullOrWhiteSpace(Model.Source) ? "-" : Model.Source)</dd></div>
+            </dl>
+        </div>
+    </div>
+</div>

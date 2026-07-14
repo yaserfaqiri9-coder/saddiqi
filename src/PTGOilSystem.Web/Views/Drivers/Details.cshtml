@@ -1,0 +1,85 @@
+@model Driver
+@{
+    ViewData["Title"] = "جزئیات راننده";
+    ViewData["HideSectionTabs"] = true;
+    var profile = ViewData["ResourceProfile"] as TransportResourceProfileViewModel ?? TransportResourceProfileViewModel.Empty();
+    var activeTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeTab = activeTab is "docs" or "info" ? activeTab : "trips";
+    var code = string.IsNullOrWhiteSpace(Model.LicenseNumber) ? $"DRV-{Model.Id:0000}" : Model.LicenseNumber;
+    var docsReady = profile.Documents.Count > 0;
+    var hasLedger = ViewData["DriverHasLedger"] as bool? ?? false;
+    var freightCreditUsd = ViewData["DriverFreightCreditUsd"] as decimal? ?? 0m;
+    var shortageDebitUsd = ViewData["DriverShortageDebitUsd"] as decimal? ?? 0m;
+    var netOwedUsd = ViewData["DriverNetOwedUsd"] as decimal? ?? 0m;
+
+    var tripsUrl = Url.Action("Details", new { id = Model.Id, tab = "trips" }) ?? "#";
+    var docsUrl = Url.Action("Details", new { id = Model.Id, tab = "docs" }) ?? "#";
+    var infoUrl = Url.Action("Details", new { id = Model.Id, tab = "info" }) ?? "#";
+    var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
+    var indexUrl = Url.Action("Index") ?? "#";
+}
+
+<div class="ak-form-page ak-party-page" dir="rtl">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((Model.FullName, false,
+                       "ویرایش مشخصات", "bi-pencil", editUrl, (string?)null,
+                       "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
+
+    <div class="ak-page-actions">
+        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
+        <span class="ak-note">@code</span>
+    </div>
+
+    @* ===== وضعیت حساب / سوابق (تخت) ===== *@
+    <section class="ak-form-section">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت راننده", (string?)null))" />
+        <dl class="ak-list">
+            <div class="ak-list-row"><dt>تعداد کل سفرها</dt><dd class="ak-num">@profile.Trips.Count.ToString("N0")</dd></div>
+            <div class="ak-list-row"><dt>وضعیت مدارک</dt><dd>@(docsReady ? "تکمیل و معتبر" : "نیاز به بررسی") (@profile.Documents.Count.ToString("N0"))</dd></div>
+            @if (hasLedger)
+            {
+                <div class="ak-list-row"><dt>کرایهٔ بستانکار</dt><dd class="ak-num">@freightCreditUsd.ToString("N2") USD</dd></div>
+                @if (shortageDebitUsd > 0m)
+                {
+                    <div class="ak-list-row"><dt>بدهی خسارت کسری</dt><dd class="ak-num">@shortageDebitUsd.ToString("N2") USD</dd></div>
+                }
+                <div class="ak-list-row"><dt>ماندهٔ خالص</dt><dd class="ak-num @(netOwedUsd >= 0m ?"ak-num" : "ak-num")">@Math.Abs(netOwedUsd).ToString("N2") USD — @(netOwedUsd >= 0m ? "بدهی ما به راننده" : "بدهی راننده به ما")</dd></div>
+            }
+        </dl>
+    </section>
+
+    @* ===== ریل تب‌های ناوبری سروری (canonical ptg-tabs-rail) ===== *@
+    <nav class="ptg-tabs-rail" role="tablist" aria-label="بخش‌های پروفایل راننده">
+        <a class="ptg-tab-item @(activeTab =="trips" ? "is-active" : "")" href="@tripsUrl" role="tab" aria-selected="@(activeTab == "trips" ? "true" : "false")"><span data-tab-label="سوابق سفرها">سوابق سفرها</span></a>
+        <a class="ptg-tab-item @(activeTab =="docs" ? "is-active" : "")" href="@docsUrl" role="tab" aria-selected="@(activeTab == "docs" ? "true" : "false")"><span data-tab-label="اسناد و مدارک">اسناد و مدارک</span></a>
+        <a class="ptg-tab-item @(activeTab =="info" ? "is-active" : "")" href="@infoUrl" role="tab" aria-selected="@(activeTab == "info" ? "true" : "false")"><span data-tab-label="مشخصات پایه">مشخصات پایه</span></a>
+    </nav>
+
+    @if (activeTab == "docs")
+    {
+        <section class="ak-form-section">
+            @await Html.PartialAsync("_TransportResourceDocs", profile)
+        </section>
+    }
+    else if (activeTab == "info")
+    {
+        <section class="ak-form-section">
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات پایه", (string?)null))" />
+            <dl class="ak-list">
+                <div class="ak-list-row"><dt>نام کامل</dt><dd>@Model.FullName</dd></div>
+                <div class="ak-list-row"><dt>شماره جواز</dt><dd>@(string.IsNullOrWhiteSpace(Model.LicenseNumber) ? "-" : Model.LicenseNumber)</dd></div>
+                <div class="ak-list-row"><dt>شناسه ملی</dt><dd>@(string.IsNullOrWhiteSpace(Model.NationalId) ? "-" : Model.NationalId)</dd></div>
+                <div class="ak-list-row"><dt>تلفن</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? "-" : Model.Phone)</dd></div>
+                <div class="ak-list-row"><dt>آدرس</dt><dd>@(string.IsNullOrWhiteSpace(Model.Address) ? "-" : Model.Address)</dd></div>
+                <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span></dd></div>
+                <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? "-" : Model.Notes)</dd></div>
+            </dl>
+        </section>
+    }
+    else
+    {
+        <section class="ak-form-section">
+            @await Html.PartialAsync("_TransportResourceTrips", profile)
+        </section>
+    }
+</div>

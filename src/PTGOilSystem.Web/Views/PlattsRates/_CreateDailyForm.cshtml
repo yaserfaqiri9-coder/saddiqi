@@ -1,0 +1,49 @@
+@model PTGOilSystem.Web.Models.PlattsRates.PlattsRatesPageViewModel
+@using PTGOilSystem.Web.Models.PlattsRates
+@Html.AntiForgeryToken()
+<div asp-validation-summary="ModelOnly" class="alert alert-danger mb-0"></div>
+
+<input asp-for="DailyForm.Id" type="hidden" />
+<input asp-for="ActiveTab" type="hidden" value="@PlattsRatesTabs.Daily" />
+<input asp-for="DailyFilter.ProductId" type="hidden" />
+<input asp-for="DailyFilter.BenchmarkCode" type="hidden" />
+<input asp-for="DailyFilter.From" type="hidden" />
+<input asp-for="DailyFilter.To" type="hidden" />
+<input asp-for="MonthlyFilter.ProductId" type="hidden" />
+<input asp-for="MonthlyFilter.BenchmarkCode" type="hidden" />
+<input asp-for="MonthlyFilter.Year" type="hidden" />
+<input asp-for="ManualFilter.ProductId" type="hidden" />
+<input asp-for="ManualFilter.BenchmarkCode" type="hidden" />
+
+<section class="form-section ak-form-section">
+    <h2 class="form-section-title">@(Model.DailyForm.Id.HasValue ? "ویرایش نرخ روزانه" : "ثبت نرخ روزانه")</h2>
+    <div class="ak-form-grid modal-form-grid">
+        <div class="ak-field">
+            <label asp-for="DailyForm.ProductId" class="ak-label"></label>
+            <select asp-for="DailyForm.ProductId" asp-items="(Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.Products" class="ak-input">
+                <option value="">انتخاب جنس</option>
+            </select>
+            <span asp-validation-for="DailyForm.ProductId" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="DailyForm.BenchmarkCode" class="ak-label"></label>
+            <input asp-for="DailyForm.BenchmarkCode" class="ak-input" />
+            <span asp-validation-for="DailyForm.BenchmarkCode" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="DailyForm.PriceDate" class="ak-label"></label>
+            <input asp-for="DailyForm.PriceDate" type="date" class="ak-input" value="@Model.DailyForm.PriceDate.ToHtmlDateInput()" />
+            <span asp-validation-for="DailyForm.PriceDate" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field">
+            <label asp-for="DailyForm.PriceUsdPerMt" class="ak-label"></label>
+            <input asp-for="DailyForm.PriceUsdPerMt" class="ak-input" />
+            <span asp-validation-for="DailyForm.PriceUsdPerMt" class="ak-field-error"></span>
+        </div>
+        <div class="ak-field ak-col-full">
+            <label asp-for="DailyForm.Source" class="ak-label"></label>
+            <input asp-for="DailyForm.Source" class="ak-input" />
+            <span asp-validation-for="DailyForm.Source" class="ak-field-error"></span>
+        </div>
+    </div>
+</section>
