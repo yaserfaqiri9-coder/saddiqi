@@ -1,69 +1,12 @@
-@using System.Text.Json
+@using PTGOilSystem.Web.Models.StatCards
 @model PTGOilSystem.Web.Models.DashboardViewModel
 @{
-    ViewData["Title"] = UiText.T(Context,"داشبورد","Dashboard");
+    ViewData["Title"] = UiText.T(Context, "داشبورد", "Dashboard");
     ViewData["HideSectionTabs"] = true;
-    ViewData["DashboardAssets"] = true;
 
     var dbWarning = ViewData["DbWarning"] as string;
 
-    string Trend(decimal v) => (v >= 0 ? "+" : "-") + Math.Abs(v).ToString("0.#") + "%";
-    string Short(decimal v) => Math.Abs(v) >= 1000 ? (v / 1000).ToString("0.##") + "k" : v.ToString("0");
-
-    // ---- Row 1: four compact operational KPI cards ----
-    var kpiCards = new[]
-    {
-        new { Art = "contract", Label = UiText.T(Context,"قراردادهای فعال","Active Contracts"),     Value = $"{Model.ActiveContractCount:N0}",       Meta = UiText.T(Context,"قرارداد فعال","Active"), Icon = "bi-dot" },
-        new { Art = "shipment", Label = UiText.T(Context,"بارهای در جریان","Shipments In Transit"), Value = $"{Model.ShipmentsInTransitCount:N0}",   Meta = UiText.T(Context,"در حال انتقال","In transit"), Icon = "bi-dot" },
-        new { Art = "stock",    Label = UiText.T(Context,"موجودی کل","Total Stock"),                Value = $"{Model.TerminalStockMt:N2}",          Meta = UiText.T(Context,"متریک تن","MT"), Icon = "bi-dot" },
-        new { Art = "sales",    Label = UiText.T(Context,"فروش امروز","Today's Sales"),             Value = $"${Model.TodaySalesUsd:N0}",           Meta = UiText.T(Context,"ثبت امروز","Today"), Icon = "bi-dot" }
-    };
-    // ---- Rings: 3-way sales breakdown ----
-    var ringSold     = Model.SalesCount;
-    var ringPending  = Model.SalesWithoutPaymentCount;
-    var ringShortage = Model.ShortageCount;
-    var ringTotal    = ringSold + ringPending + ringShortage;
-    var ringRows = new[]
-    {
-        new { Cls = "is-green", Label = UiText.T(Context,"فروش","Sold"),           Count = ringSold },
-        new { Cls = "is-amber", Label = UiText.T(Context,"در انتظار پرداخت","Pending"), Count = ringPending },
-        new { Cls = "is-red",   Label = UiText.T(Context,"کسری","Shortage"),        Count = ringShortage }
-    };
-
-    // ---- Area line: income vs expenses over the period ----
-    var areaLabels  = Model.MarketLabels.Count > 0 ? Model.MarketLabels.ToArray()
-        : Enumerable.Range(1, 10).Select(w => UiText.T(Context, $"هفته {w:00}", $"W{w:00}")).ToArray();
-    var areaIncome  = Model.MarketSalesSeries.Count == areaLabels.Length ? Model.MarketSalesSeries.ToArray()
-        : Enumerable.Repeat(0m, areaLabels.Length).ToArray();
-    var areaExpense = Model.MarketExpenseSeries.Count == areaLabels.Length ? Model.MarketExpenseSeries.ToArray()
-        : Enumerable.Repeat(0m, areaLabels.Length).ToArray();
-    var incomeTotal  = areaIncome.Sum();
-    var expenseTotal = areaExpense.Sum();
-
-    // ---- Sales overview ----
-    var profitUsd = Model.NetUsd;
-    var marginPct = Model.TotalSalesUsd > 0 ? Math.Round(Model.NetUsd * 100m / Model.TotalSalesUsd, 1) : 0m;
-    var marginBar = (int)Math.Clamp(marginPct, 0m, 100m);
-
-    // ---- Current balance ----
-    var currentBalance = Model.CustomerBalanceSummary.BaseBalanceUsd;
-    var supplierPayable = Model.SupplierBalanceSummary.BaseBalanceUsd;
-
-    var ringValuesJson  = JsonSerializer.Serialize(new[] { ringSold, ringPending, ringShortage });
-    var areaIncomeJson  = JsonSerializer.Serialize(areaIncome);
-    var areaExpenseJson = JsonSerializer.Serialize(areaExpense);
-    var areaLabelsJson  = JsonSerializer.Serialize(areaLabels);
-
-    // ---- Quick access bar: soft nav shortcuts + one primary create action ----
-    var quickLinks = new[]
-    {
-        new { Controller = "Contracts",  Action = "Index",  Label = UiText.T(Context,"قراردادها","Contracts"),   Icon = "nav-contracts" },
-        new { Controller = "Loading",    Action = "Index",  Label = UiText.T(Context,"عملیات","Operations"),      Icon = "nav-operations" },
-        new { Controller = "Sales",      Action = "Index",  Label = UiText.T(Context,"فروش","Sales"),             Icon = "nav-sales" },
-        new { Controller = "Payments",   Action = "Index",  Label = UiText.T(Context,"مالی","Finance"),           Icon = "nav-finance" },
-        new { Controller = "Reports",    Action = "Index",  Label = UiText.T(Context,"گزارشات","Reports"),        Icon = "nav-reports" },
-        new { Controller = "Suppliers",  Action = "Index",  Label = UiText.T(Context,"طرف حساب‌ها","Parties"),    Icon = "nav-parties" }
-    };
+    string Dir(decimal v) => v >= 0 ? "up" : "down";
 }
 
 <div class="ak-form-page ref-dashboard">
@@ -71,6 +14,7 @@
              model="@((ViewData["Title"]?.ToString() ?? "داشبورد", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
     @if (!string.IsNullOrWhiteSpace(dbWarning))
     {
         <div class="ak-note">
@@ -82,81 +26,55 @@
         </div>
     }
 
-    <!-- Row 1 : KPI cards -->
-    <section class="ref-kpi-row">
-        @foreach (var item in kpiCards)
-        {
-            <article class="ref-kpi">
-                <div class="ref-kpi-copy">
-                    <span class="ref-kpi-label">@item.Label</span>
-                    <strong class="ref-kpi-value"><bdi>@item.Value</bdi></strong>
-                    <span class="ref-kpi-trend is-neutral">
-                        <i class="bi @item.Icon" aria-hidden="true"></i>
-                        <bdi>@item.Meta</bdi>
-                    </span>
-                </div>
-                <span class="ref-kpi-art is-@item.Art" aria-hidden="true"></span>
-            </article>
-        }
+    @* 1) Shipment operations *@
+    <section class="ak-stat-section">
+        <h2 class="ak-stat-section__title"><i class="bi bi-boxes"></i>@UiText.T(Context, "عملیات محموله", "Shipment operations")</h2>
+        <div class="ak-stat-grid">
+            <vc:stat-card title="کل محموله‌ها" value="@StatCardFormatter.Count(Model.ShipmentCount)" unit="محموله" avatar="shipments"></vc:stat-card>
+            <vc:stat-card title="محموله‌های در حال انتقال" value="@StatCardFormatter.Count(Model.ShipmentsInTransitCount)" unit="محموله" avatar="transported"></vc:stat-card>
+            <vc:stat-card title="بارگیری‌ها" value="@StatCardFormatter.Count(Model.LoadingCount)" unit="بارگیری" avatar="loading"></vc:stat-card>
+        </div>
     </section>
 
-    <!-- Row 2 : rings + area line -->
-    <section class="ref-mid-row">
-        <article class="ref-card ref-rings-card">
-            <h2 class="ref-card-title">@UiText.T(Context,"ترکیب فروش","Sales breakdown")</h2>
-            <div class="ref-rings-wrap">
-                <div id="ptg-rings"
-                     data-values='@Html.Raw(ringValuesJson)'
-                     data-colors='["#8BB475","#7779A2","#FB7185"]'></div>
-                <div class="ref-rings-center">
-                    <span class="cap">@UiText.T(Context,"مجموع","Total")</span>
-                    <strong>@ringTotal.ToString("N0")</strong>
-                </div>
-            </div>
-            <ul class="ref-rings-legend">
-                @foreach (var row in ringRows)
-                {
-                    <li><span class="ref-dot @row.Cls"></span>@row.Label <strong>@row.Count.ToString("N0")</strong></li>
-                }
-            </ul>
-        </article>
-
-        <article class="ref-card ref-area-card">
-            <header class="ref-card-head">
-                <div>
-                    <h2 class="ref-card-title">@UiText.T(Context,"روند درآمد و مصارف","Income vs expenses")</h2>
-                    <p class="ref-area-sub">(@Trend(Model.TotalSalesWeekChangePercent)) @UiText.T(Context,"نسبت به دوره قبل","than last period")</p>
-                </div>
-            </header>
-            <div class="ref-area-legend">
-                <span><span class="ref-dot is-green"></span>@UiText.T(Context,"درآمد کل","Total income")</span>
-                <strong>$@Short(incomeTotal)</strong>
-                <span><span class="ref-dot is-amber"></span>@UiText.T(Context,"مصارف کل","Total expenses")</span>
-                <strong>$@Short(expenseTotal)</strong>
-            </div>
-            <div class="ref-area-chart">
-                <div id="ptg-area"
-                     data-income='@Html.Raw(areaIncomeJson)'
-                     data-expenses='@Html.Raw(areaExpenseJson)'
-                     data-labels='@Html.Raw(areaLabelsJson)'></div>
-            </div>
-        </article>
+    @* 2) Purchase & supply *@
+    <section class="ak-stat-section">
+        <h2 class="ak-stat-section__title"><i class="bi bi-cart3"></i>@UiText.T(Context, "تأمین و خرید", "Purchase & supply")</h2>
+        <div class="ak-stat-grid">
+            <vc:stat-card title="ارزش ذخیره خرید" value="@StatCardFormatter.Number(Model.PurchaseReserveUsd, 0)" unit="دلار" avatar="purchase-value"></vc:stat-card>
+            <vc:stat-card title="تأمین‌کنندگان دارای مانده" value="@StatCardFormatter.Count(Model.SupplierBalanceSummary.ItemCount)" unit="تأمین‌کننده" avatar="suppliers"></vc:stat-card>
+            <vc:stat-card title="قراردادهای فعال" value="@StatCardFormatter.Count(Model.ActiveContractCount)" unit="قرارداد" avatar="purchase-contracts"></vc:stat-card>
+        </div>
     </section>
 
-    <!-- Quick access bar -->
-    <section class="ref-quick" aria-label="@UiText.T(Context,"دسترسی سریع","Quick access")">
-        <div class="ref-quick-scroll">
-            @foreach (var q in quickLinks)
-            {
-                <a class="ref-quick-card" asp-controller="@q.Controller" asp-action="@q.Action">
-                    <span class="ref-quick-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#@q.Icon"></use></svg></span>
-                    <span class="ref-quick-label">@q.Label</span>
-                </a>
-            }
-            <a class="ref-quick-card is-primary" asp-controller="Sales" asp-action="Create">
-                <span class="ref-quick-ic"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
-                <span class="ref-quick-label">@UiText.T(Context,"ثبت فروش","New sale")</span>
-            </a>
+    @* 3) Sales & revenue *@
+    <section class="ak-stat-section">
+        <h2 class="ak-stat-section__title"><i class="bi bi-graph-up-arrow"></i>@UiText.T(Context, "فروش و درآمد", "Sales & revenue")</h2>
+        <div class="ak-stat-grid">
+            <vc:stat-card title="ارزش کل فروش" value="@StatCardFormatter.Number(Model.TotalSalesUsd, 0)" unit="دلار" avatar="sales-value"
+                          trend-value="@Model.TotalSalesWeekChangePercent" trend-direction="@Dir(Model.TotalSalesWeekChangePercent)"></vc:stat-card>
+            <vc:stat-card title="مشتریان دارای مانده" value="@StatCardFormatter.Count(Model.CustomerBalanceSummary.ItemCount)" unit="مشتری" avatar="customers"></vc:stat-card>
+            <vc:stat-card title="تعداد فروش‌ها" value="@StatCardFormatter.Count(Model.SalesCount)" unit="فروش" avatar="sold-quantity"></vc:stat-card>
+        </div>
+    </section>
+
+    @* 4) Finance & accounting *@
+    <section class="ak-stat-section">
+        <h2 class="ak-stat-section__title"><i class="bi bi-bank2"></i>@UiText.T(Context, "مالی و حسابداری", "Finance & accounting")</h2>
+        <div class="ak-stat-grid">
+            <vc:stat-card title="مانده حساب مشتریان" value="@StatCardFormatter.Number(Model.CustomerBalanceSummary.BaseBalanceUsd, 0)" unit="دلار" avatar="receivables"></vc:stat-card>
+            <vc:stat-card title="پرداختی‌های امروز" value="@StatCardFormatter.Number(Model.TodayPaymentsUsd, 0)" unit="دلار" avatar="payments"></vc:stat-card>
+            <vc:stat-card title="نتیجه خالص فروش و مصارف" value="@StatCardFormatter.Number(Model.NetUsd, 0)" unit="دلار" avatar="profit-loss"></vc:stat-card>
+        </div>
+    </section>
+
+    @* 5) Inventory & stock *@
+    <section class="ak-stat-section">
+        <h2 class="ak-stat-section__title"><i class="bi bi-archive"></i>@UiText.T(Context, "انبار و موجودی", "Inventory & stock")</h2>
+        <div class="ak-stat-grid">
+            <vc:stat-card title="موجودی کل پایانه‌ها" value="@StatCardFormatter.Number(Model.TerminalStockMt, 2)" unit="متریک تن" avatar="total-inventory"></vc:stat-card>
+            <vc:stat-card title="مصارف کل" value="@StatCardFormatter.Number(Model.TotalExpensesUsd, 0)" unit="دلار" avatar="expenses"
+                          trend-value="@Model.TotalExpensesWeekChangePercent" trend-direction="@Dir(Model.TotalExpensesWeekChangePercent)"></vc:stat-card>
+            <vc:stat-card title="رویدادهای کسری و ضایعات" value="@StatCardFormatter.Count(Model.ShortageCount)" unit="مورد" avatar="losses"></vc:stat-card>
         </div>
     </section>
 </div>

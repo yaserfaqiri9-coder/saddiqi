@@ -23,7 +23,7 @@
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"اعلامیه گمرکی #{Model.Id}", false,
                        canManageDocuments ? "ویرایش" : null, "bi-pencil-square",
@@ -53,7 +53,7 @@
         </div>
     </div>
 
-    <section class="ak-form-section ak-form-grid">
+    <section class="ak-form-section ak-detail-section ak-form-grid">
         <div class="ak-field">
             <span class="ak-label">تاریخ اعلامیه</span>
             <strong>@Model.DeclarationDate.ToDisplayDate()</strong>
@@ -76,7 +76,7 @@
         </div>
     </section>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات اعلامیه", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.DeclarationDate.ToDisplayDate()</dd></div>
@@ -93,10 +93,10 @@
         </dl>
     </section>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تفکیک اقلام مصارف گمرکی", (string?)null))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th class="ak-col-grow">نوع مصرف</th>
@@ -135,7 +135,7 @@
         </div>
     </section>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اسناد گمرکی این موتر", (string?)null))" />
 
         @if (TempData["ok"] is string okMsg)
@@ -148,7 +148,7 @@
         }
 
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th class="ak-col-grow">نام فایل</th>
@@ -200,7 +200,7 @@
                     {
                         <tr>
                             <td colspan="6">
-                                <div class="ak-empty">
+                                <div class="ak-empty ak-detail-empty-state">
                                     <i class="bi bi-paperclip"></i>
                                     هنوز سندی برای این موتر آپلود نشده است.
                                 </div>

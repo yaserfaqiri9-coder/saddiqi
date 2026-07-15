@@ -257,8 +257,6 @@ body.boltz-shell.app-shell-authenticated.action-details .boltz-content :is(
     --party-panel-text: #424242;
     --party-panel-accent: #1554c8;
     --party-panel-shadow: 0 14px 34px rgba(15, 23, 42, .06);
-    max-width: none;
-    margin-inline: 0;
     gap: 1rem;
 }
 

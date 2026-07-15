@@ -4,13 +4,13 @@
     ViewData["Title"] = UiText.T(Context,"جزئیات لاگ","Log Details");
 }
 
-<div class="ak-form-page">
-    <div class="ak-page-header">
-        <div class="ak-page-heading">
-<h1 class="ak-page-title">@UiText.T(Context,"جزئیات فعالیت","Activity Details")</h1>
-            <p class="ak-note">@Model.HumanSummary</p>
+<div class="ak-form-page ak-detail-page">
+    <div class="ak-page-header ak-detail-header">
+        <div class="ak-page-heading ak-detail-header-main">
+<h1 class="ak-page-title ak-detail-title">@UiText.T(Context,"جزئیات فعالیت","Activity Details")</h1>
+            <p class="ak-note ak-detail-subtitle">@Model.HumanSummary</p>
         </div>
-        <div class="ak-page-actions">
+        <div class="ak-page-actions ak-detail-actions">
             <a asp-action="Index" class="btn ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
             @if (!string.IsNullOrWhiteSpace(Model.RelatedController) && Model.RelatedId.HasValue)
             {
@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <section class="ak-summary" aria-label="@UiText.T(Context,"خلاصه جزئیات","Details summary")">
+    <section class="ak-summary ak-detail-summary" aria-label="@UiText.T(Context,"خلاصه جزئیات","Details summary")">
         <article class="ak-field">
             <span>@UiText.T(Context,"کاربر","User")</span>
             <strong>@Model.ActorDisplay</strong>
@@ -44,8 +44,8 @@
 
     <div class="ak-form-grid">
         <div class="ak-field">
-            <div class="ak-form-section">
-                <div class="ak-section-head">@UiText.T(Context,"کاربر و زمان","User & Time")</div>
+            <div class="ak-form-section ak-detail-section">
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"کاربر و زمان","User & Time")</div>
                 <div>
                     <dl class="ak-list">
                         <div class="ak-list-row"><dt>@UiText.T(Context,"کاربر","User")</dt><dd>@Model.ActorDisplay</dd></div>
@@ -58,8 +58,8 @@
             </div>
         </div>
         <div class="ak-field">
-            <div class="ak-form-section">
-                <div class="ak-section-head">@UiText.T(Context,"سند و نتیجه","Record & Result")</div>
+            <div class="ak-form-section ak-detail-section">
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"سند و نتیجه","Record & Result")</div>
                 <div>
                     <dl class="ak-list">
                         <div class="ak-list-row"><dt>Log ID</dt><dd>#@Model.Id</dd></div>
@@ -75,13 +75,13 @@
         </div>
 
         <div class="ak-field ak-col-full">
-            <div class="ak-form-section">
-                <div class="ak-section-head">@UiText.T(Context,"تغییرات Before / After","Before / After")</div>
+            <div class="ak-form-section ak-detail-section">
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"تغییرات Before / After","Before / After")</div>
                 <div>
                     @if (Model.Changes.Any())
                     {
                         <div class="ak-table-wrap">
-                            <table class="ak-table align-middle mb-0">
+                            <table class="ak-table ak-detail-table align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>@UiText.T(Context,"فیلد","Field")</th>
@@ -111,8 +111,8 @@
         </div>
 
         <div class="ak-field">
-            <div class="ak-form-section">
-                <div class="ak-section-head">@UiText.T(Context,"درخواست","Request")</div>
+            <div class="ak-form-section ak-detail-section">
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"درخواست","Request")</div>
                 <div>
                     <dl class="ak-list">
                         <div class="ak-list-row"><dt>HTTP</dt><dd>@(Model.HttpMethod ??"-")</dd></div>
@@ -124,8 +124,8 @@
             </div>
         </div>
         <div class="ak-field">
-            <div class="ak-form-section">
-                <div class="ak-section-head">@UiText.T(Context,"ردیابی","Trace")</div>
+            <div class="ak-form-section ak-detail-section">
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"ردیابی","Trace")</div>
                 <div>
                     <dl class="ak-list">
                         <div class="ak-list-row"><dt>@UiText.T(Context,"Correlation","Correlation")</dt><dd><code>@(Model.CorrelationId ??"-")</code></dd></div>
@@ -139,8 +139,8 @@
         @if (!string.IsNullOrWhiteSpace(Model.Diff) && !Model.Changes.Any())
         {
             <div class="ak-field ak-col-full">
-                <div class="ak-form-section">
-                    <div class="ak-section-head">Diff</div>
+                <div class="ak-form-section ak-detail-section">
+                    <div class="ak-section-head ak-detail-section-header">Diff</div>
                     <div>
                         <pre class="ak-note mb-0">@(Model.Diff)</pre>
                     </div>
@@ -151,8 +151,8 @@
         @if (!string.IsNullOrWhiteSpace(Model.MetadataJson))
         {
             <div class="ak-field ak-col-full">
-                <div class="ak-form-section">
-                    <div class="ak-section-head">Metadata</div>
+                <div class="ak-form-section ak-detail-section">
+                    <div class="ak-section-head ak-detail-section-header">Metadata</div>
                     <div>
                         <pre class="ak-note mb-0" dir="ltr">@Model.MetadataJson</pre>
                     </div>

@@ -111,7 +111,7 @@ public class ShellViewStructureTests
         Assert.Contains("class=\"ptg-tabs-rail\"", sectionTabs);
         Assert.Contains("class=\"ptg-tab-item ", sectionTabs);
         Assert.Contains("data-section-tabs-group", sectionTabs);
-        Assert.Contains("class=\"ptg-tabs-rail no-print\" data-shipment-file-tabs", shipmentTabs);
+        Assert.Contains("class=\"ptg-tabs-rail ak-detail-tabs no-print\" data-shipment-file-tabs", shipmentTabs);
         Assert.Contains("class=\"ptg-tab-item active\"", shipmentTabs);
         Assert.Contains("class=\"ptg-tabs-rail\"", journeyTabs);
         Assert.DoesNotContain("cj-tabs-card", journeyTabs);

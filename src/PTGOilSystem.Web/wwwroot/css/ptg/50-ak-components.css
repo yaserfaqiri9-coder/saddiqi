@@ -10,7 +10,7 @@
  */
 
 /* ============================================================= *
- * Page header — title hidden system-wide, actions stay opposite
+ * Page header — list/form titles stay quiet; detail titles remain visible
  * ============================================================= */
 .ak-page-header {
     display: flex;
@@ -20,15 +20,13 @@
     padding: 8px 0 16px;
 }
 
-/* The Persian page title is not rendered anywhere in the app: only the
-   action buttons remain in the header. An action-less header collapses. */
-.ak-page-heading,
-.ak-page-title,
-.ak-star {
+/* List/create/edit pages keep the compact title-less header. Detail pages
+   opt into the shared ak-detail header contract in 11-details.css. */
+.ak-page-header:not(.ak-detail-header) :is(.ak-page-heading, .ak-page-title, .ak-star) {
     display: none !important;
 }
 
-.ak-page-header:not(:has(.ak-page-actions)) {
+.ak-page-header:not(.ak-detail-header):not(:has(.ak-page-actions)) {
     display: none;
 }
 
@@ -919,6 +917,54 @@ textarea.ak-input {
 
 select.ak-input {
     cursor: pointer;
+}
+
+/* Shipment detail additions stay page-scoped; the shared detail shell owns
+   width, sections, tabs and table scrolling. */
+.sf-detail .ak-stat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.sf-detail .ak-stat-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sf-detail .ak-stat .ak-page-icon {
+    flex: none;
+    color: var(--ptg-muted);
+}
+
+.sf-detail .is-profit,
+.sf-detail .ak-num.is-profit,
+.sf-detail .ak-page-icon.is-profit {
+    color: var(--ptg-success-text);
+}
+
+.sf-detail .is-loss,
+.sf-detail .ak-num.is-loss,
+.sf-detail .ak-page-icon.is-loss {
+    color: var(--ptg-danger-text);
+}
+
+.sf-detail .sf-bar {
+    height: 6px;
+    overflow: hidden;
+    margin-top: 8px;
+    border-radius: 999px;
+    background: var(--ptg-surface-subtle, #f0f1f4);
+}
+
+.sf-detail .sf-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary-main);
 }
 
 .ak-input::placeholder {

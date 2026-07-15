@@ -7,13 +7,13 @@
     var docsReady = profile.Documents.Count > 0;
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (Model.PlateNumber, (string?)null))
         <dl class="ak-list">
             <div class="ak-list-row"><dt>اطلاعات جانبی</dt><dd>@(string.IsNullOrWhiteSpace(Model.Owner) ? "-" : Model.Owner)</dd></div>
@@ -25,13 +25,13 @@
         </dl>
     </section>
 
-    <nav class="ptg-tabs-rail" aria-label="بخش‌های جزئیات">
+    <nav class="ptg-tabs-rail ak-detail-tabs" aria-label="بخش‌های جزئیات">
         <a asp-route-id="@Model.Id" asp-route-tab="trips" class="ptg-tab-item @(activeTab =="trips" ? "is-active" : null)">سوابق سفرها</a>
         <a asp-route-id="@Model.Id" asp-route-tab="docs" class="ptg-tab-item @(activeTab =="docs" ? "is-active" : null)">اسناد و مدارک</a>
         <a asp-route-id="@Model.Id" asp-route-tab="info" class="ptg-tab-item @(activeTab =="info" ? "is-active" : null)">مشخصات پایه</a>
     </nav>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         @if (activeTab == "docs")
         {
             @await Html.PartialAsync("_TransportResourceDocs", profile)

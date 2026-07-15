@@ -29,7 +29,7 @@
     };
 }
 
-<div class="ak-form-page ak-party-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"سند مالی #{Model.Id}", false,
                        "سند چاپی", "bi-receipt-cutoff", voucherUrl, (string?)null,
@@ -46,9 +46,9 @@
 
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("تب‌های سند مالی", paymentTabs)" />
 
-    <section id="payment-main" class="ak-form-section">
+    <section id="payment-main" class="ak-form-section ak-detail-section">
         <div class="ak-form-grid">
-            <div class="ak-form-section">
+            <div class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی", (string?)null))" />
                 <dl class="ak-list">
                     <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.PaymentDate.ToDisplayDate()</dd></div>
@@ -59,7 +59,7 @@
                     <div class="ak-list-row"><dt>شرح</dt><dd>@(Model.Description ?? "-")</dd></div>
                 </dl>
             </div>
-            <div class="ak-form-section">
+            <div class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حساب نقد / بانک", (string?)null))" />
                 <dl class="ak-list">
                     <div class="ak-list-row"><dt>کد</dt><dd>@Model.CashAccountCode</dd></div>
@@ -70,7 +70,7 @@
         </div>
     </section>
 
-    <section id="payment-relations" class="ak-form-section">
+    <section id="payment-relations" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("روابط مالی", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>طرف حساب</dt><dd>@counterpartyName (@counterpartyType)</dd></div>
@@ -85,7 +85,7 @@
         </dl>
     </section>
 
-    <section id="payment-trace" class="ak-form-section">
+    <section id="payment-trace" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی عملیاتی", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>فروش</dt><dd>@(Model.SalesInvoiceNumber ?? "-")</dd></div>
@@ -113,7 +113,7 @@
                     <i class="bi bi-cash-coin"></i> مصرف پیش‌پرداخت برای قرارداد
                 </a>
             </div>
-            <dl class="ak-summary-list ak-summary">
+            <dl class="ak-summary-list ak-summary ak-detail-summary">
                 <div><dt>مبلغ پرداخت (USD)</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
                 <div><dt>مصرف‌شده برای قراردادها</dt><dd class="ak-num">@Model.AllocatedBookAmountUsd.ToString("N2")</dd></div>
                 <div><dt>مانده قابل تخصیص</dt><dd class="ak-num">@Model.AllocatableBalanceUsd.ToString("N2")</dd></div>
@@ -123,7 +123,7 @@
             @if (Model.Allocations.Any())
             {
                 <div class="ak-table-wrap">
-                    <table class="ak-table">
+                    <table class="ak-table ak-detail-table">
                         <thead>
                             <tr>
                                 <th>تاریخ تخصیص</th>
@@ -196,7 +196,7 @@
         }
     </section>
 
-    <section id="payment-audit" class="ak-form-section">
+    <section id="payment-audit" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("زمینه ثبت", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>

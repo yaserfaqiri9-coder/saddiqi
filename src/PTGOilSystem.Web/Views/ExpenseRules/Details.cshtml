@@ -4,7 +4,7 @@
     var isBaseCurrency = string.Equals(Model.Currency, "USD", StringComparison.OrdinalIgnoreCase);
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات Rule مصرف", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
@@ -12,7 +12,7 @@
 
     <div>
         <div>
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("خلاصه Rule", (string?)null))
                 <div>
                     <dl class="ak-list">
@@ -40,7 +40,7 @@
         </div>
 
         <div>
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <div>
                     @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("تولید مصرف از روی Rule", (string?)null))
 
@@ -133,10 +133,10 @@
         </div>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("مصارف تولیدشده از این Rule", (string?)"آخرین 20 مورد"))
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>#</th>

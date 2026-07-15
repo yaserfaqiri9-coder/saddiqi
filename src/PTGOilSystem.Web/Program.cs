@@ -10,6 +10,7 @@ using PTGOilSystem.Web.Infrastructure.ModelBinding;
 using PTGOilSystem.Web.Middleware;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
+using PTGOilSystem.Web.Services.Accounting;
 using PTGOilSystem.Web.Services.AutoCode;
 using PTGOilSystem.Web.Services.DeleteSafety;
 using PTGOilSystem.Web.Services.Employees;
@@ -57,6 +58,15 @@ builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =
 // ---- Domain services (business rules, system rules #3-#9, #11, #13) --------
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IStockService, StockService>();
+// ---- Independent accounting core (Stage 2; feature flag defaults to off). ----
+builder.Services.Configure<PTGOilSystem.Web.Configuration.AccountingOptions>(
+    builder.Configuration.GetSection(PTGOilSystem.Web.Configuration.AccountingOptions.SectionName));
+builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
+builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
+builder.Services.AddScoped<IAccountingPostingService, AccountingPostingService>();
+builder.Services.AddScoped<IAccountingChartSeeder, AccountingChartSeeder>();
+builder.Services.AddScoped<IAccountingJournalNumberGenerator, AccountingJournalNumberGenerator>();
+builder.Services.AddScoped<IContractBalanceTransferAccountingAdapter, ContractBalanceTransferAccountingAdapter>();
 // ---- Inventory Lineage (Phase 2). Feature flags + parallel reference-layer services. ----
 builder.Services.Configure<PTGOilSystem.Web.Configuration.LineageOptions>(
     builder.Configuration.GetSection(PTGOilSystem.Web.Configuration.LineageOptions.SectionName));
@@ -189,6 +199,7 @@ if (autoMigrate)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    DatabaseSafetyGuard.EnsureMigrationAllowed(db.Database.GetDbConnection().Database);
     db.Database.Migrate();
 }
 

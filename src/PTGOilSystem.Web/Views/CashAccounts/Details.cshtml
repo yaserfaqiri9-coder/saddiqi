@@ -21,7 +21,7 @@
     };
 }
 
-<div class="ak-form-page ak-party-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"حساب {Model.Code}", false,
                        UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", editUrl, (string?)null,
@@ -34,7 +34,7 @@
 
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های حساب", "Account Sections"), detailTabs)" />
 
-    <section id="account-info" class="ak-form-section">
+    <section id="account-info" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات حساب", "مشخصات مرجع حساب بدون تغییر در منطق پرداخت."))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>کد</dt><dd>@Model.Code</dd></div>
@@ -50,9 +50,9 @@
         </dl>
     </section>
 
-    <section id="account-ledger" class="ak-form-section">
+    <section id="account-ledger" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("گزارش صندوق/بانک", (string?)null))" />
-        <dl class="ak-summary-list ak-summary">
+        <dl class="ak-summary-list ak-summary ak-detail-summary">
             <div><dt>Opening</dt><dd class="ak-num">0.00 @Model.Currency</dd></div>
             <div><dt>دریافت‌ها</dt><dd class="ak-num">@totalIn.ToString("N2") @Model.Currency</dd></div>
             <div><dt>پرداخت‌ها</dt><dd class="ak-num">@totalOut.ToString("N2") @Model.Currency</dd></div>
@@ -60,7 +60,7 @@
         </dl>
 
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -99,7 +99,7 @@
                     @if (!transactions.Any())
                     {
                         <tr>
-                            <td colspan="8"><div class="ak-empty"><i class="bi bi-bank"></i> دریافت‌ها و پرداخت‌های رزنامچه برای این صندوق/بانک اینجا دیده می‌شود.</div></td>
+                            <td colspan="8"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-bank"></i> دریافت‌ها و پرداخت‌های رزنامچه برای این صندوق/بانک اینجا دیده می‌شود.</div></td>
                         </tr>
                     }
                 </tbody>

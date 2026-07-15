@@ -101,6 +101,7 @@
             return c.matches && c.matches(".ak-col-actions");
         });
         var menu = cell ? cell.querySelector(".ak-row-menu") : null;
+        if (menu && menu.hasAttribute("data-ak-static-row-menu")) return null;
         var items = menu
             ? Array.prototype.slice.call(menu.querySelectorAll(".dropdown-menu .dropdown-item"))
             : [];
@@ -469,13 +470,19 @@
         });
 
         // `.ak-table-wrap` scrolls horizontally, which makes it a clipping
-        // container on both axes, so an absolutely positioned dropdown gets cut
-        // off. Popper's fixed strategy escapes the clip; Bootstrap reads the
-        // attribute when it lazily instantiates the dropdown on first click.
+        // container on both axes. Instantiate Bootstrap with Popper's fixed
+        // strategy so the real three-dot menu stays outside that clip.
         document.querySelectorAll(".ak-row-menu [data-bs-toggle='dropdown']").forEach(function (toggle) {
-            if (toggle.getAttribute("data-bs-strategy")) return;
+            if (toggle.dataset.akFixedDropdownReady === "true") return;
             if (!toggle.closest(".ak-table-wrap, .table-responsive")) return;
-            toggle.setAttribute("data-bs-strategy", "fixed");
+            if (!window.bootstrap || !window.bootstrap.Dropdown) return;
+
+            toggle.dataset.akFixedDropdownReady = "true";
+            window.bootstrap.Dropdown.getOrCreateInstance(toggle, {
+                popperConfig: function (defaultConfig) {
+                    return Object.assign({}, defaultConfig, { strategy: "fixed" });
+                }
+            });
         });
     }
 

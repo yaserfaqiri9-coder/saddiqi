@@ -46,7 +46,7 @@
         : hasFileRub ? fileRubAmountText : isRubSettlement ? "در انتظار نرخ" : "-";
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"جزئیات بارگیری #{Model.Id}", false, "ویرایش", "bi-pencil-square",
                        Url.Action("Edit", new { id = Model.Id, returnUrl = currentPageReturnUrl }), (string?)null,
@@ -72,7 +72,7 @@
         <a class="btn btn-light ak-secondary-action" href="@loadingJourneyUrl"><i class="bi bi-diagram-3"></i><span>نمای قرارداد</span></a>
     </div>
 
-    <section class="ak-form-section ak-form-grid">
+    <section class="ak-form-section ak-detail-section ak-form-grid">
         <div class="ak-field">
             <span class="ak-label">تاریخ</span>
             <strong>@Model.LoadingDate.ToDisplayDate()</strong>
@@ -103,7 +103,7 @@
     </section>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>شماره</dt><dd class="ak-num">#@Model.Id</dd></div>
@@ -118,7 +118,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حمل و مسیر", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>نوع حمل</dt><dd>@Model.TransportTypeLabel</dd></div>
@@ -145,7 +145,7 @@
 
     @if (hasFileRub || isRubSettlement)
     {
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قیمت روبلی بارگیری", (string?)null))" />
             <div class="ak-form-grid">
                 @if (hasFileRub)
@@ -198,8 +198,8 @@
     }
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
-            <header class="ak-section-head"><h2 class="ak-section-title">رسیدها</h2><span class="ak-status">@Model.ReceiptItems.Count</span>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">رسیدها</h2><span class="ak-status">@Model.ReceiptItems.Count</span>
             </header>
             <div class="ak-list">
                 @foreach (var item in Model.ReceiptItems.Take(5))
@@ -217,13 +217,13 @@
                 }
                 @if (Model.ReceiptItems.Count == 0)
                 {
-                    <div class="ak-empty">هنوز رسید ثبت نشده است.</div>
+                    <div class="ak-empty ak-detail-empty-state">هنوز رسید ثبت نشده است.</div>
                 }
             </div>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><h2 class="ak-section-title">گمرکات</h2><span class="ak-status">@customsTotal.ToString("N2") USD</span>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">گمرکات</h2><span class="ak-status">@customsTotal.ToString("N2") USD</span>
             </header>
             <div class="ak-list">
                 @foreach (var cd in Model.CustomsItems.Take(5))
@@ -241,13 +241,13 @@
                 }
                 @if (Model.CustomsItems.Count == 0)
                 {
-                    <div class="ak-empty">هنوز سند گمرکی ثبت نشده است.</div>
+                    <div class="ak-empty ak-detail-empty-state">هنوز سند گمرکی ثبت نشده است.</div>
                 }
             </div>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><h2 class="ak-section-title">کسری</h2><span class="ak-status">@NumberDisplay.Quantity(lossChargeableTotal) MT</span>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">کسری</h2><span class="ak-status">@NumberDisplay.Quantity(lossChargeableTotal) MT</span>
             </header>
             <div class="ak-list">
                 @foreach (var loss in Model.LossItems.Take(5))
@@ -266,13 +266,13 @@
                 }
                 @if (Model.LossItems.Count == 0)
                 {
-                    <div class="ak-empty">کسری ثبت نشده است.</div>
+                    <div class="ak-empty ak-detail-empty-state">کسری ثبت نشده است.</div>
                 }
             </div>
         </section>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("یادداشت", (string?)null))" />
         <p class="ak-note">@(string.IsNullOrWhiteSpace(Model.Notes) ? "یادداشتی برای این بارگیری ثبت نشده است." : Model.Notes)</p>
     </section>

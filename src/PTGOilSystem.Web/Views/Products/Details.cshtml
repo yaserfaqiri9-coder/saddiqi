@@ -6,12 +6,12 @@
     var statusText = Model.IsActive ? "فعال" : "غیرفعال";
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
-    <section id="product-summary" class="ak-form-section">
+    <section id="product-summary" class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("مشخصات اصلی", (string?)"اطلاعاتی که برای شناسایی جنس در عملیات روزانه لازم است."))
         <dl class="ak-list">
             <div class="ak-list-row"><dt>کد</dt><dd><code>@Model.Code</code></dd></div>
@@ -21,7 +21,7 @@
         </dl>
     </section>
 
-    <section id="product-advanced" class="ak-form-section">
+    <section id="product-advanced" class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("جزئیات بیشتر", (string?)"اطلاعات تکمیلی برای آماده‌سازی تبدیل واحد و دسته‌بندی جنس."))
         <dl class="ak-list">
             <div class="ak-list-row"><dt>SecondaryUnit</dt><dd>@secondaryUnitText</dd></div>

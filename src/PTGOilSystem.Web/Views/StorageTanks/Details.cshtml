@@ -181,7 +181,7 @@
     };
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "جزئیات مخزن", "Tank Details") + " " + tankName, false,
                        UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
@@ -195,7 +195,7 @@
         <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">@UiText.T(Context, "چاپ", "Print")</button>
     </section>
 
-    <section id="tank-summary" class="ak-form-section">
+    <section id="tank-summary" class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "خلاصه مخزن", "Tank Summary"), (string?)null))
             <dl class="ak-list">
                 <div class="ak-list-row">
@@ -222,10 +222,10 @@
             </dl>
     </section>
 
-    <section id="tank-contracts" class="ak-form-section" data-ak-tab="tank-summary">
+    <section id="tank-contracts" class="ak-form-section ak-detail-section" data-ak-tab="tank-summary">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "قراردادهای دارای موجودی", "Contracts With Inventory"), (string?)UiText.T(Context, "برای مشاهده جزئیات حرکات، روی مقادیر کلیک کنید", "Click values to view movement details")))
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>@UiText.T(Context, "شماره قرارداد", "Contract No.")</th>
@@ -283,11 +283,11 @@
         </div>
     </section>
 
-    <section class="ak-form-section" id="tank-ledger">
+    <section class="ak-form-section ak-detail-section" id="tank-ledger">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "آخرین حرکات (دفتر ورود/خروج)", "Recent Movements"), (string?)null))
         <a href="@stockCardUrl" class="btn btn-light ak-secondary-action">@UiText.T(Context, "مشاهده همه", "View All")</a>
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>@UiText.T(Context, "تاریخ", "Date")</th>
@@ -370,7 +370,7 @@
                             @if (modalRows.Any())
                             {
                                 <div class="ak-table-wrap">
-                                    <table class="ak-table" data-st-modal-table>
+                                    <table class="ak-table ak-detail-table" data-st-modal-table>
                                         <thead>
                                             <tr>
                                                 <th>#</th>
@@ -422,7 +422,7 @@
                             }
                             else
                             {
-                                <div class="ak-empty">
+                                <div class="ak-empty ak-detail-empty-state">
                                     <span>@UiText.T(Context, "برای این بخش حرکتی ثبت نشده است.", "No movement is recorded for this section.")</span>
                                 </div>
                             }

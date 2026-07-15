@@ -6,7 +6,7 @@
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"ثبت دفتر کل #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -18,7 +18,7 @@
     </div>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی ثبت", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>شناسه Ledger</dt><dd class="ak-num">#@Model.Id</dd></div>
@@ -30,7 +30,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("relationهای متصل", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>قرارداد فروش</dt><dd>@(Model.Contract is null ? "-" : $"#{Model.Contract.Id} - {Model.Contract.Label}")</dd></div>
@@ -42,7 +42,7 @@
         </section>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی منبع ثبت", (string?)null))" />
         @if (Model.SourceTrace is null)
         {
@@ -69,7 +69,7 @@
         }
     </section>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("شرح ثبت", (string?)null))" />
         <p class="ak-note">@(string.IsNullOrWhiteSpace(Model.Description) ? "برای این ثبت توضیحی ذخیره نشده است." : Model.Description)</p>
     </section>

@@ -626,7 +626,7 @@ body.boltz-shell.app-shell-authenticated.controller-payments .boltz-content [dat
    Party profile (Customer + ServiceProvider Details) — پروفایل سادهٔ
    مشترک طرف‌حساب (scoped). تأمین‌کننده استایل inline خودش را دارد.
    =================================================================== */
-body.boltz-shell.app-shell-authenticated .boltz-content :is(.customer-details-page, .service-provider-details-page, .partner-profile-page, .employee-details-page, .companies-details-page, .supplier-details-page) {
+body.boltz-shell.app-shell-authenticated .boltz-content :is(.customer-details-page, .partner-profile-page, .employee-details-page, .companies-details-page, .supplier-details-page) {
     display: flex;
     flex-direction: column;
     gap: 1rem;

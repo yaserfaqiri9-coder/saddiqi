@@ -32,7 +32,7 @@
     };
 }
 
-<div class="ak-form-page ak-party-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.Name, false,
                        "ثبت پرداخت", "bi-cash-coin", newPaymentUrl, (string?)null,
@@ -53,7 +53,7 @@
 
     @* ===== اطلاعات هویتی + وضعیت حساب (تخت، بدون Hero/Avatar/KPI رنگی) ===== *@
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>کد</dt><dd>@(string.IsNullOrWhiteSpace(Model.Code) ? notRecorded : Model.Code)</dd></div>
@@ -65,7 +65,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", balanceLabel))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>مانده حساب</dt><dd class="ak-num @balanceClass">@NumberDisplay.Money(Math.Abs(endingUsd), "USD")</dd></div>
@@ -85,13 +85,13 @@
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل تأمین‌کننده", supplierTabs)" />
 
     @* ===== تب ۱: خلاصه — آخرین حرکت‌های حساب ===== *@
-    <section id="supplier-overview" class="ak-form-section">
+    <section id="supplier-overview" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حرکت‌های اخیر", "پنج سند آخر حساب این تأمین‌کننده."))" />
         @{
             var recent = Model.StatementRows.OrderByDescending(r => r.Date).Take(5).ToList();
         }
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -114,7 +114,7 @@
                 }
                 @if (recent.Count == 0)
                 {
-                    <tr><td colspan="5"><div class="ak-empty"><i class="bi bi-journal-text"></i> هنوز خرید یا پرداختی برای این تأمین‌کننده ثبت نشده است.</div></td></tr>
+                    <tr><td colspan="5"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> هنوز خرید یا پرداختی برای این تأمین‌کننده ثبت نشده است.</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -122,7 +122,7 @@
     </section>
 
     @* ===== تب ۲: قراردادها + پرداخت‌ها ===== *@
-    <section id="supplier-contracts" class="ak-form-section">
+    <section id="supplier-contracts" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("قراردادهای خرید", $"{Model.Contracts.Count:N0} قرارداد")) " />
         @{
             // گروه‌بندی پرداخت‌ها فقط نمایشی است؛ هیچ مبلغی دوباره محاسبه نمی‌شود.
@@ -135,7 +135,7 @@
                 .ToList();
         }
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th class="ak-col-grow">قرارداد</th>
@@ -207,7 +207,7 @@
                 }
                 @if (!Model.Contracts.Any())
                 {
-                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-file-earmark-text"></i> برای این تأمین‌کننده هنوز قرارداد خرید ثبت نشده است.</div></td></tr>
+                    <tr><td colspan="9"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-file-earmark-text"></i> برای این تأمین‌کننده هنوز قرارداد خرید ثبت نشده است.</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -217,7 +217,7 @@
         {
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پیش‌پرداخت آزاد / بدون قرارداد", $"جمع {NumberDisplay.Money(unallocatedPayments.Sum(x => x.AmountUsd), "USD")}"))" />
             <div class="ak-table-wrap">
-                <table class="ak-table">
+                <table class="ak-table ak-detail-table">
                     <thead>
                         <tr>
                             <th>تاریخ</th>
@@ -263,7 +263,7 @@
             @if (Model.AdvanceAllocations.Any())
             {
                 <div class="ak-table-wrap">
-                    <table class="ak-table">
+                    <table class="ak-table ak-detail-table">
                         <thead>
                             <tr>
                                 <th>تاریخ</th>
@@ -294,7 +294,7 @@
         {
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تسویه‌های صراف", (string?)null))" />
             <div class="ak-table-wrap">
-                <table class="ak-table">
+                <table class="ak-table ak-detail-table">
                     <thead>
                         <tr>
                             <th>تاریخ</th>
@@ -328,7 +328,7 @@
     </section>
 
     @* ===== تب ۳: صورت‌حساب ===== *@
-    <section id="supplier-statement" class="ak-form-section">
+    <section id="supplier-statement" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("صورت‌حساب", $"{Model.StatementRows.Count:N0} ردیف — داده‌شده / گرفته‌شده / مانده"))" />
 
         <form asp-action="Details" asp-route-id="@Model.SupplierId" method="get" class="ak-detail-toolbar">
@@ -351,7 +351,7 @@
         </form>
 
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -392,7 +392,7 @@
                 }
                 @if (!Model.StatementRows.Any())
                 {
-                    <tr><td colspan="8"><div class="ak-empty"><i class="bi bi-journal-text"></i> صورت‌حساب خالی است.</div></td></tr>
+                    <tr><td colspan="8"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> صورت‌حساب خالی است.</div></td></tr>
                 }
                 </tbody>
             </table>

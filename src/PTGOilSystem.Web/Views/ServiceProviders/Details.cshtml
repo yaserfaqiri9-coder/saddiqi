@@ -52,7 +52,7 @@
     };
 }
 
-<div class="ak-form-page ak-party-page service-provider-details-page" dir="rtl">
+<div class="ak-form-page ak-party-page service-provider-details-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.Name, false,
                        UiText.T(Context, "ثبت پرداخت", "Record payment"), "bi-cash-coin", spPaymentUrl, (string?)null,
@@ -73,7 +73,7 @@
     </div>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "اطلاعات هویتی", "Identity"), (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>@UiText.T(Context, "کد", "Code")</dt><dd>@(string.IsNullOrWhiteSpace(Model.Code) ? notRecorded : Model.Code)</dd></div>
@@ -87,7 +87,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "وضعیت حساب", "Account status"), balanceLabel))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>@UiText.T(Context, "مانده فعلی", "Current balance")</dt><dd class="ak-num @balanceClass">@Math.Abs(bal).ToString("N2") USD</dd></div>
@@ -101,10 +101,10 @@
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های پروفایل", "Profile sections"), providerTabs)" />
 
     @* ===== تب ۱: خلاصه — آخرین حرکت‌ها ===== *@
-    <section id="provider-overview" class="ak-form-section">
+    <section id="provider-overview" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "آخرین حرکت‌های حساب", "Recent activity"), (string?)null))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>@UiText.T(Context, "تاریخ", "Date")</th>
@@ -128,7 +128,7 @@
                 }
                 @if (recentStatement.Count == 0)
                 {
-                    <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-journal-text"></i> @UiText.T(Context, "هنوز هیچ مصرف یا پرداختی برای این شرکت ثبت نشده است.", "No expense or payment recorded yet.")</div></td></tr>
+                    <tr><td colspan="4"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> @UiText.T(Context, "هنوز هیچ مصرف یا پرداختی برای این شرکت ثبت نشده است.", "No expense or payment recorded yet.")</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -136,7 +136,7 @@
     </section>
 
     @* ===== تب ۲: صورت‌حساب ===== *@
-    <section id="provider-statement" class="ak-form-section">
+    <section id="provider-statement" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "صورت‌حساب کامل", "Full statement"), UiText.T(Context, "داده‌شده = پرداخت ما؛ گرفته‌شده = خدمت/مصرف. مانده مثبت = پیش‌پرداخت/طلب ما؛ مانده منفی = قابل پرداخت.", "Credit = our payment; Debit = service. Positive = prepaid; negative = payable.")))" />
         @{
             // قاعدهٔ یک‌دست «داده/گرفته»: پرداخت شرکت = داده‌شده (Credit)، خدمت/مصرف = گرفته‌شده (Debit). مانده = Σ(داده − گرفته).
@@ -185,10 +185,10 @@
     </section>
 
     @* ===== تب ۳: مصارف و پرداخت‌ها ===== *@
-    <section id="provider-documents" class="ak-form-section">
+    <section id="provider-documents" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "مصارف و کرایه‌ها", "Expenses & Charges"), $"{Model.Expenses.Count:N0}"))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>@UiText.T(Context, "تاریخ", "Date")</th>
@@ -213,7 +213,7 @@
                 }
                 @if (!Model.Expenses.Any())
                 {
-                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-receipt"></i> @UiText.T(Context, "مصرف یا کرایه‌ای به این شرکت خدماتی وصل نیست.", "No expense is linked to this provider.")</div></td></tr>
+                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-receipt"></i> @UiText.T(Context, "مصرف یا کرایه‌ای به این شرکت خدماتی وصل نیست.", "No expense is linked to this provider.")</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -221,7 +221,7 @@
 
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "پرداخت‌ها", "Payments"), $"{Model.Payments.Count:N0}"))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>@UiText.T(Context, "تاریخ", "Date")</th>
@@ -246,7 +246,7 @@
                 }
                 @if (!Model.Payments.Any())
                 {
-                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-cash-coin"></i> @UiText.T(Context, "پرداختی به این شرکت خدماتی وصل نیست.", "No payment is linked to this provider.")</div></td></tr>
+                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-cash-coin"></i> @UiText.T(Context, "پرداختی به این شرکت خدماتی وصل نیست.", "No payment is linked to this provider.")</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -256,7 +256,7 @@
         {
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "قراردادهای مرتبط", "Related Contracts"), $"{Model.RelatedContracts.Count:N0}"))" />
             <div class="ak-table-wrap">
-                <table class="ak-table">
+                <table class="ak-table ak-detail-table">
                     <thead>
                         <tr>
                             <th class="ak-col-grow">@UiText.T(Context, "قرارداد", "Contract")</th>

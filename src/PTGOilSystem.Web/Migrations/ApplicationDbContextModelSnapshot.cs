@@ -22,6 +22,219 @@ namespace PTGOilSystem.Web.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.Account", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("AllowManualPosting")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsControlAccount")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("NormalBalance")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ParentAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ParentAccountId");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "IsActive");
+
+                    b.ToTable("Accounts", (string)null);
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.AccountingSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountsPayableAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AccountsReceivableAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AccruedExpenseAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CashBankControlAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CommissionPayableAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CostOfGoodsSoldAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CurrentYearProfitLossAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CustomerAdvanceAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EmployeeAdvanceAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EmployeePayableAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ExchangeGainAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ExchangeLossAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FreightPayableAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FunctionalCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("GeneralExpenseAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("InventoryAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("InventoryInTransitAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("InventoryLossAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RetainedEarningsAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int>("SalesRevenueAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SupplierPrepaymentAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountsPayableAccountId");
+
+                    b.HasIndex("AccountsReceivableAccountId");
+
+                    b.HasIndex("AccruedExpenseAccountId");
+
+                    b.HasIndex("CashBankControlAccountId");
+
+                    b.HasIndex("CommissionPayableAccountId");
+
+                    b.HasIndex("CompanyId")
+                        .IsUnique();
+
+                    b.HasIndex("CostOfGoodsSoldAccountId");
+
+                    b.HasIndex("CurrentYearProfitLossAccountId");
+
+                    b.HasIndex("CustomerAdvanceAccountId");
+
+                    b.HasIndex("EmployeeAdvanceAccountId");
+
+                    b.HasIndex("EmployeePayableAccountId");
+
+                    b.HasIndex("ExchangeGainAccountId");
+
+                    b.HasIndex("ExchangeLossAccountId");
+
+                    b.HasIndex("FreightPayableAccountId");
+
+                    b.HasIndex("GeneralExpenseAccountId");
+
+                    b.HasIndex("InventoryAccountId");
+
+                    b.HasIndex("InventoryInTransitAccountId");
+
+                    b.HasIndex("InventoryLossAccountId");
+
+                    b.HasIndex("RetainedEarningsAccountId");
+
+                    b.HasIndex("SalesRevenueAccountId");
+
+                    b.HasIndex("SupplierPrepaymentAccountId");
+
+                    b.ToTable("AccountingSettings", (string)null);
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.AssetOwnershipShare", b =>
                 {
                     b.Property<int>("Id")
@@ -1971,6 +2184,300 @@ namespace PTGOilSystem.Web.Migrations
                     b.ToTable("ExpenseTypes");
                 });
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("FiscalYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("LockedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("PeriodNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("FiscalYearId");
+
+                    b.HasIndex("LockedByUserId");
+
+                    b.HasIndex("CompanyId", "Status");
+
+                    b.HasIndex("FiscalYearId", "PeriodNumber")
+                        .IsUnique();
+
+                    b.ToTable("FiscalPeriods", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FiscalPeriods_DateRange", "\"StartDate\" <= \"EndDate\"");
+
+                            t.HasCheckConstraint("CK_FiscalPeriods_PeriodNumber", "\"PeriodNumber\" BETWEEN 1 AND 12");
+                        });
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYear", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ClosedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ClosingJournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("OpenedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OpeningJournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreviousFiscalYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosedByUserId");
+
+                    b.HasIndex("ClosingJournalEntryId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("OpenedByUserId");
+
+                    b.HasIndex("OpeningJournalEntryId");
+
+                    b.HasIndex("PreviousFiscalYearId");
+
+                    b.HasIndex("CompanyId", "IsCurrent")
+                        .IsUnique()
+                        .HasFilter("\"IsCurrent\" = TRUE");
+
+                    b.HasIndex("CompanyId", "Status");
+
+                    b.ToTable("FiscalYears", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FiscalYears_DateRange", "\"StartDate\" <= \"EndDate\"");
+                        });
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYearCloseRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ClosingJournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CompletedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FailureMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("FiscalYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OpeningJournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("StartedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosingJournalEntryId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("CompletedByUserId");
+
+                    b.HasIndex("FiscalYearId");
+
+                    b.HasIndex("OpeningJournalEntryId");
+
+                    b.HasIndex("StartedByUserId");
+
+                    b.HasIndex("FiscalYearId", "Status");
+
+                    b.ToTable("FiscalYearCloseRuns", (string)null);
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYearStatusHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ChangedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FiscalYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NewStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OldStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("FiscalYearId", "ChangedAt");
+
+                    b.ToTable("FiscalYearStatusHistories", (string)null);
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.InventoryBatch", b =>
                 {
                     b.Property<int>("Id")
@@ -2728,6 +3235,229 @@ namespace PTGOilSystem.Web.Migrations
                     b.HasIndex("ServiceProviderId");
 
                     b.ToTable("InventoryTransportReceipts", (string)null);
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.JournalEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AccountingDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("DocumentDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("FiscalPeriodId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FiscalYearId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAdjustment")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsClosing")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOpening")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsReversal")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("JournalNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("OperationDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("PostedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ReversalOfJournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int?>("SourceEntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceEntityType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SourceEventId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SourceModule")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountingDate");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("FiscalPeriodId");
+
+                    b.HasIndex("FiscalYearId");
+
+                    b.HasIndex("PostedByUserId");
+
+                    b.HasIndex("ReversalOfJournalEntryId")
+                        .IsUnique()
+                        .HasFilter("\"ReversalOfJournalEntryId\" IS NOT NULL AND \"Status\" = 1");
+
+                    b.HasIndex("SourceEventId");
+
+                    b.HasIndex("CompanyId", "JournalNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "SourceModule", "SourceEventId")
+                        .IsUnique()
+                        .HasFilter("\"SourceEventId\" IS NOT NULL AND \"SourceEventId\" <> ''");
+
+                    b.ToTable("JournalEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_JournalEntries_ReversalReference", "(\"IsReversal\" = TRUE AND \"ReversalOfJournalEntryId\" IS NOT NULL) OR (\"IsReversal\" = FALSE AND \"ReversalOfJournalEntryId\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.JournalEntryLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CashAccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ContractId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Credit")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("Debit")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal>("ExchangeRate")
+                        .HasColumnType("numeric(18,8)");
+
+                    b.Property<int>("JournalEntryId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PartyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PartyType")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ShipmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TankId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TransactionAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("TransactionCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CashAccountId");
+
+                    b.HasIndex("ContractId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("TankId");
+
+                    b.HasIndex("JournalEntryId", "LineNumber")
+                        .IsUnique();
+
+                    b.ToTable("JournalEntryLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_JournalEntryLines_DebitCredit", "\"Debit\" >= 0 AND \"Credit\" >= 0 AND ((\"Debit\" > 0 AND \"Credit\" = 0) OR (\"Credit\" > 0 AND \"Debit\" = 0))");
+
+                            t.HasCheckConstraint("CK_JournalEntryLines_Party", "(\"PartyType\" IS NULL AND \"PartyId\" IS NULL) OR (\"PartyType\" IS NOT NULL AND \"PartyId\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_JournalEntryLines_Transaction", "\"TransactionAmount\" >= 0 AND \"ExchangeRate\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.LedgerEntry", b =>
@@ -5521,6 +6251,195 @@ namespace PTGOilSystem.Web.Migrations
                     b.ToTable("Wagons");
                 });
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.Account", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "ParentAccount")
+                        .WithMany("ChildAccounts")
+                        .HasForeignKey("ParentAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("ParentAccount");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.AccountingSettings", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "AccountsPayableAccount")
+                        .WithMany()
+                        .HasForeignKey("AccountsPayableAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "AccountsReceivableAccount")
+                        .WithMany()
+                        .HasForeignKey("AccountsReceivableAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "AccruedExpenseAccount")
+                        .WithMany()
+                        .HasForeignKey("AccruedExpenseAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "CashBankControlAccount")
+                        .WithMany()
+                        .HasForeignKey("CashBankControlAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "CommissionPayableAccount")
+                        .WithMany()
+                        .HasForeignKey("CommissionPayableAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "CostOfGoodsSoldAccount")
+                        .WithMany()
+                        .HasForeignKey("CostOfGoodsSoldAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "CurrentYearProfitLossAccount")
+                        .WithMany()
+                        .HasForeignKey("CurrentYearProfitLossAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "CustomerAdvanceAccount")
+                        .WithMany()
+                        .HasForeignKey("CustomerAdvanceAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "EmployeeAdvanceAccount")
+                        .WithMany()
+                        .HasForeignKey("EmployeeAdvanceAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "EmployeePayableAccount")
+                        .WithMany()
+                        .HasForeignKey("EmployeePayableAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "ExchangeGainAccount")
+                        .WithMany()
+                        .HasForeignKey("ExchangeGainAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "ExchangeLossAccount")
+                        .WithMany()
+                        .HasForeignKey("ExchangeLossAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "FreightPayableAccount")
+                        .WithMany()
+                        .HasForeignKey("FreightPayableAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "GeneralExpenseAccount")
+                        .WithMany()
+                        .HasForeignKey("GeneralExpenseAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "InventoryAccount")
+                        .WithMany()
+                        .HasForeignKey("InventoryAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "InventoryInTransitAccount")
+                        .WithMany()
+                        .HasForeignKey("InventoryInTransitAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "InventoryLossAccount")
+                        .WithMany()
+                        .HasForeignKey("InventoryLossAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "RetainedEarningsAccount")
+                        .WithMany()
+                        .HasForeignKey("RetainedEarningsAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "SalesRevenueAccount")
+                        .WithMany()
+                        .HasForeignKey("SalesRevenueAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "SupplierPrepaymentAccount")
+                        .WithMany()
+                        .HasForeignKey("SupplierPrepaymentAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AccountsPayableAccount");
+
+                    b.Navigation("AccountsReceivableAccount");
+
+                    b.Navigation("AccruedExpenseAccount");
+
+                    b.Navigation("CashBankControlAccount");
+
+                    b.Navigation("CommissionPayableAccount");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("CostOfGoodsSoldAccount");
+
+                    b.Navigation("CurrentYearProfitLossAccount");
+
+                    b.Navigation("CustomerAdvanceAccount");
+
+                    b.Navigation("EmployeeAdvanceAccount");
+
+                    b.Navigation("EmployeePayableAccount");
+
+                    b.Navigation("ExchangeGainAccount");
+
+                    b.Navigation("ExchangeLossAccount");
+
+                    b.Navigation("FreightPayableAccount");
+
+                    b.Navigation("GeneralExpenseAccount");
+
+                    b.Navigation("InventoryAccount");
+
+                    b.Navigation("InventoryInTransitAccount");
+
+                    b.Navigation("InventoryLossAccount");
+
+                    b.Navigation("RetainedEarningsAccount");
+
+                    b.Navigation("SalesRevenueAccount");
+
+                    b.Navigation("SupplierPrepaymentAccount");
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.AssetOwnershipShare", b =>
                 {
                     b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
@@ -5992,6 +6911,143 @@ namespace PTGOilSystem.Web.Migrations
                     b.Navigation("TruckDispatch");
                 });
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalPeriod", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalYear", "FiscalYear")
+                        .WithMany("Periods")
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "LockedByUser")
+                        .WithMany()
+                        .HasForeignKey("LockedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("FiscalYear");
+
+                    b.Navigation("LockedByUser");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYear", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "ClosedByUser")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "ClosingJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("ClosingJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "OpenedByUser")
+                        .WithMany()
+                        .HasForeignKey("OpenedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "OpeningJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("OpeningJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalYear", "PreviousFiscalYear")
+                        .WithMany()
+                        .HasForeignKey("PreviousFiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ClosedByUser");
+
+                    b.Navigation("ClosingJournalEntry");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("OpenedByUser");
+
+                    b.Navigation("OpeningJournalEntry");
+
+                    b.Navigation("PreviousFiscalYear");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYearCloseRun", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "ClosingJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("ClosingJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "CompletedByUser")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalYear", "FiscalYear")
+                        .WithMany()
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "OpeningJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("OpeningJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "StartedByUser")
+                        .WithMany()
+                        .HasForeignKey("StartedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ClosingJournalEntry");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("CompletedByUser");
+
+                    b.Navigation("FiscalYear");
+
+                    b.Navigation("OpeningJournalEntry");
+
+                    b.Navigation("StartedByUser");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYearStatusHistory", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalYear", "FiscalYear")
+                        .WithMany()
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("FiscalYear");
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.InventoryBatch", b =>
                 {
                     b.HasOne("PTGOilSystem.Web.Models.Entities.Contract", "Contract")
@@ -6426,6 +7482,101 @@ namespace PTGOilSystem.Web.Migrations
                     b.Navigation("SalesTransaction");
 
                     b.Navigation("ServiceProvider");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.JournalEntry", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalPeriod", "FiscalPeriod")
+                        .WithMany()
+                        .HasForeignKey("FiscalPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.FiscalYear", "FiscalYear")
+                        .WithMany()
+                        .HasForeignKey("FiscalYearId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.User", "PostedByUser")
+                        .WithMany()
+                        .HasForeignKey("PostedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "ReversalOfJournalEntry")
+                        .WithMany("Reversals")
+                        .HasForeignKey("ReversalOfJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("FiscalPeriod");
+
+                    b.Navigation("FiscalYear");
+
+                    b.Navigation("PostedByUser");
+
+                    b.Navigation("ReversalOfJournalEntry");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.JournalEntryLine", b =>
+                {
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.CashAccount", "CashAccount")
+                        .WithMany()
+                        .HasForeignKey("CashAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Contract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("Lines")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PTGOilSystem.Web.Models.Entities.StorageTank", "Tank")
+                        .WithMany()
+                        .HasForeignKey("TankId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Account");
+
+                    b.Navigation("CashAccount");
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("JournalEntry");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("Tank");
                 });
 
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.LedgerEntry", b =>
@@ -7300,6 +8451,11 @@ namespace PTGOilSystem.Web.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.Account", b =>
+                {
+                    b.Navigation("ChildAccounts");
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.AssetRentTransaction", b =>
                 {
                     b.Navigation("RentShares");
@@ -7331,6 +8487,11 @@ namespace PTGOilSystem.Web.Migrations
                     b.Navigation("Expenses");
                 });
 
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.FiscalYear", b =>
+                {
+                    b.Navigation("Periods");
+                });
+
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.InventoryLot", b =>
                 {
                     b.Navigation("Children");
@@ -7349,6 +8510,13 @@ namespace PTGOilSystem.Web.Migrations
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.InventoryTransportReceipt", b =>
                 {
                     b.Navigation("DirectTruckDispatches");
+                });
+
+            modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Reversals");
                 });
 
             modelBuilder.Entity("PTGOilSystem.Web.Models.Entities.LoadingReceipt", b =>

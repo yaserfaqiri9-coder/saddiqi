@@ -20,8 +20,8 @@ public class ShipmentPnlControllerTests
 
         Assert.Contains("ak-form-page", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
-        Assert.Contains("ptg-tabs-rail no-print", view);
-        Assert.Contains("tab-content ak-tab-content", view);
+        Assert.Contains("ptg-tabs-rail ak-detail-tabs no-print", view);
+        Assert.Contains("tab-content ak-detail-content ak-tab-content", view);
         Assert.Contains("ak-summary", view);
         Assert.Contains("بار داخل کشتی", view);
         Assert.Contains("باقی‌مانده", view);
@@ -39,8 +39,9 @@ public class ShipmentPnlControllerTests
         Assert.Contains("فروش‌ها", view);
         Assert.Contains("سود و زیان", view);
         Assert.Contains("سفره‌های موتر/واگن", view);
-        Assert.Contains("data-shipment-batch-bar", view);
-        Assert.Contains("data-shipment-trip-select", view);
+        // طراحی تأییدشده: نوار عملیات گروهی disabled و چک‌باکس‌های انتخاب سفر حذف شدند.
+        Assert.DoesNotContain("data-shipment-batch-bar", view);
+        Assert.DoesNotContain("data-shipment-trip-select", view);
         Assert.Contains("dropdown-menu", view);
         Assert.Contains("ثبت گمرک", view);
         Assert.Contains("ثبت مصرف", view);
@@ -62,13 +63,18 @@ public class ShipmentPnlControllerTests
     {
         var view = ReadRepoFile("src/PTGOilSystem.Web/Views/ShipmentPnl/Details.cshtml");
 
-        Assert.Contains("class=\"ak-detail-toolbar\" data-shipment-batch-bar", view);
-        Assert.Contains("class=\"ak-table align-middle mb-0\"", view);
+        // نوار ابزار فقط جستجو دارد؛ نوار عملیات گروهی disabled و چک‌باکس‌ها حذف شدند.
+        Assert.Contains("data-shipment-trip-search", view);
+        Assert.DoesNotContain("data-shipment-batch-bar", view);
+        Assert.Contains("class=\"ak-table ak-detail-table align-middle mb-0\"", view);
         Assert.Contains("ak-col-actions", view);
         Assert.Contains("ak-status @statusClass", view);
         Assert.Contains("ak-num", view);
-        Assert.Contains("class=\"form-check-input\"", view);
-        Assert.Contains("dropdown ak-row-menu", view);
+        Assert.DoesNotContain("class=\"form-check-input\"", view);
+        Assert.Contains("class=\"d-inline-flex align-items-center gap-2\"", view);
+        Assert.Contains("class=\"dropdown ak-row-menu\" data-ak-static-row-menu", view);
+        Assert.DoesNotContain("class=\"ak-row-actions\"", view);
+        Assert.Contains("menu.hasAttribute(\"data-ak-static-row-menu\")", ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/tables.js"));
         Assert.DoesNotContain("shipment-file-actions-col", view);
     }
 
@@ -1828,9 +1834,9 @@ public class ShipmentPnlControllerTests
     {
         var view = ReadRepoFile("src/PTGOilSystem.Web/Views/ShipmentPnl/Details.cshtml");
 
-        // نتیجهٔ واحد و واضح + ساختار سادهٔ موردنظر.
-        Assert.Contains("سود خالص", view);
-        Assert.Contains("زیان خالص", view);
+        // نتیجهٔ واحد و واضح + ساختار سادهٔ موردنظر. عنوان رسمی: «سود/زیان تحقق‌یافته».
+        Assert.Contains("سود تحقق‌یافته", view);
+        Assert.Contains("زیان تحقق‌یافته", view);
         Assert.Contains("− بهای خرید مقدار فروخته‌شده", view);
         Assert.Contains("مجموع هزینه‌های مسیر و عملیات", view);
         Assert.Contains("جزئیات هزینه‌ها بر اساس دسته", view);

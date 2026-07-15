@@ -21,14 +21,14 @@
     var isNetPositive = Model.NetResultUsd >= 0;
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.Name, false,
                        UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
-    <section class="ak-form-section" aria-label="@UiText.T(Context, "پرونده دارایی عملیاتی", "Operational asset profile")">
+    <section class="ak-form-section ak-detail-section" aria-label="@UiText.T(Context, "پرونده دارایی عملیاتی", "Operational asset profile")">
         <div>
-            <ul class="ptg-tabs-rail" role="tablist">
+            <ul class="ptg-tabs-rail ak-detail-tabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="ptg-tab-item active" data-ptg-tab-target="#asset-overview" type="button" role="tab">
                         <span>@UiText.T(Context, "خلاصه وضعیت", "Status Summary")</span>
@@ -62,9 +62,9 @@
             </ul>
         </div>
 
-        <div class="tab-content">
+        <div class="tab-content ak-detail-content">
             <div class="tab-pane fade show active" id="asset-overview" role="tabpanel">
-                <div class="ak-section-head">
+                <div class="ak-section-head ak-detail-section-header">
                     <h3><i class="bi bi-clipboard-data"></i> @UiText.T(Context, "مشخصات پایه دارایی", "Asset Basic Details")</h3>
                 </div>
                 <div class="ak-list" aria-label="@UiText.T(Context, "خلاصه دارایی", "Asset summary")">
@@ -132,8 +132,8 @@
             </div>
 
             <div class="tab-pane fade" id="asset-profit" role="tabpanel">
-                <div class="ak-form-section" aria-label="@UiText.T(Context, "گزارش عملکرد مالی دارایی", "Asset financial performance report")">
-                    <div class="ak-section-head">
+                <div class="ak-form-section ak-detail-section" aria-label="@UiText.T(Context, "گزارش عملکرد مالی دارایی", "Asset financial performance report")">
+                    <div class="ak-section-head ak-detail-section-header">
                         <form method="get" class="ak-detail-toolbar" aria-label="@UiText.T(Context, "فیلتر دوره", "Period filter")">
                             <input name="tab" value="profit" type="hidden" />
                             <button class="btn btn-light ak-secondary-action" type="submit" title="@UiText.T(Context, "اعمال فیلتر", "Apply Filter")">
@@ -206,7 +206,7 @@
                     </div>
 
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th>@UiText.T(Context, "شرح", "Description")</th>
@@ -265,10 +265,10 @@
                 </div>
 
                 <div class="ak-form-grid" data-oa-split>
-                    <form asp-action="AddOwnershipShare" method="post" class="ak-form-section ak-form" data-oa-owner-form>
+                    <form asp-action="AddOwnershipShare" method="post" class="ak-form-section ak-detail-section ak-form" data-oa-owner-form>
                         @Html.AntiForgeryToken()
                         <input name="OperationalAssetId" value="@Model.Id" type="hidden" />
-                        <div class="ak-section-head">
+                        <div class="ak-section-head ak-detail-section-header">
                             <span>@UiText.T(Context, "افزودن سهم جدید", "Add New Share")</span>
                             <div >
                                 <button type="button" class="btn btn-light ak-secondary-action" data-oa-collapse title="@UiText.T(Context, "جمع/باز کردن فرم", "Toggle form")">
@@ -324,7 +324,7 @@
 
                     <div>
                         <div class="ak-table-wrap">
-                            <table class="ak-table">
+                            <table class="ak-table ak-detail-table">
                                 <thead>
                                     <tr>
                                         <th>@UiText.T(Context, "نام مالک / شرکت", "Owner / Company")</th>
@@ -383,14 +383,14 @@
                 </div>
 
                 <div class="ak-form-grid" data-oa-split>
-                    <form asp-action="CreateRent" method="post" class="ak-form-section ak-form" data-oa-rent-form="true">
+                    <form asp-action="CreateRent" method="post" class="ak-form-section ak-detail-section ak-form" data-oa-rent-form="true">
                         @Html.AntiForgeryToken()
                         <input name="OperationalAssetId" value="@Model.Id" type="hidden" />
                         <input name="ChargedToType" value="@((int)Model.NewRent.ChargedToType)" type="hidden" data-oa-charged-to-type />
                         <input name="Rate" value="@Model.NewRent.Rate" type="hidden" />
                         <input name="Currency" value="@Model.NewRent.Currency" type="hidden" />
                         <input name="FxRateToUsd" value="@Model.NewRent.FxRateToUsd" type="hidden" />
-                        <div class="ak-section-head">
+                        <div class="ak-section-head ak-detail-section-header">
                             <span>@UiText.T(Context, "ثبت کرایه جدید", "Record New Rent")</span>
                             <div >
                                 <button type="button" class="btn btn-light ak-secondary-action" data-oa-collapse title="@UiText.T(Context, "جمع/باز کردن فرم", "Toggle form")">
@@ -402,7 +402,7 @@
                         <small class="ak-note">@UiText.T(Context, "برای دارایی عملیاتی / شخصی شرکت که به مشتری بیرونی کرایه داده می‌شود و عواید ایجاد می‌کند.", "For a company operational/private asset rented to an external customer to generate income.")</small>
                         <div class="ak-field">
                             <label class="ak-label">@UiText.T(Context, "نوع کرایه", "Rent Type")</label>
-                            <div class="ptg-tabs-rail">
+                            <div class="ptg-tabs-rail ak-detail-tabs">
                                 <label>
                                     <input type="radio" name="UsageType" value="@((int)AssetRentUsageType.ExternalCustomerRental)" checked data-oa-rent-usage />
                                     <span>@UiText.T(Context, "مشتری بیرونی", "External Customer")</span>
@@ -493,14 +493,14 @@
                     </button>
 
                     <div>
-                        <div class="ak-section-head">
+                        <div class="ak-section-head ak-detail-section-header">
                             <h3><i class="bi bi-activity"></i> @UiText.T(Context, "تاریخچه کرایه‌ها", "Rent History")</h3>
                             <button class="btn btn-light ak-secondary-action" type="button" data-bs-toggle="collapse" data-bs-target="#operationalAssetDetailFilters" aria-expanded="false" aria-controls="operationalAssetDetailFilters">
                                 @UiText.T(Context, "فیلتر پیشرفته", "Advanced Filter")
                             </button>
                         </div>
                         <div class="ak-table-wrap">
-                            <table class="ak-table">
+                            <table class="ak-table ak-detail-table">
                                 <thead>
                                     <tr>
                                         <th>@UiText.T(Context, "شماره سند", "Document No.")</th>
@@ -537,7 +537,7 @@
             </div>
 
             <div class="tab-pane fade" id="asset-expenses" role="tabpanel">
-                <div class="ak-section-head">
+                <div class="ak-section-head ak-detail-section-header">
                     <h3>@UiText.T(Context, "تاریخچه مصارف و مصارف", "Expense History")</h3>
                 </div>
                 <div class="ak-list" aria-label="@UiText.T(Context, "آمار مصارف", "Expense statistics")">
@@ -563,13 +563,13 @@
                     </article>
                 </div>
                 <div class="ak-form-grid" data-oa-split>
-                    <form asp-controller="Expenses" asp-action="Create" method="post" class="ak-form-section ak-form">
+                    <form asp-controller="Expenses" asp-action="Create" method="post" class="ak-form-section ak-detail-section ak-form">
                         @Html.AntiForgeryToken()
                         <input name="OperationalAssetId" value="@Model.Id" type="hidden" />
                         <input name="Currency" value="USD" type="hidden" />
                         <input name="AppliedFxRateToUsd" value="1" type="hidden" />
                         <input name="ReturnUrl" value="@Context.Request.Path@Context.Request.QueryString" type="hidden" />
-                        <div class="ak-section-head">
+                        <div class="ak-section-head ak-detail-section-header">
                             <span>@UiText.T(Context, "ثبت مصرف جدید", "Record New Expense")</span>
                             <div >
                                 <button type="button" class="btn btn-light ak-secondary-action" data-oa-collapse title="@UiText.T(Context, "جمع/باز کردن فرم", "Toggle form")">
@@ -609,7 +609,7 @@
 
                     <div>
                         <div class="ak-table-wrap">
-                            <table class="ak-table">
+                            <table class="ak-table ak-detail-table">
                                 <thead>
                                     <tr>
                                         <th>@UiText.T(Context, "شماره سند", "Document No.")</th>
@@ -661,7 +661,7 @@
             </div>
 
             <div class="tab-pane fade" id="asset-shares" role="tabpanel">
-                <div class="ak-section-head">
+                <div class="ak-section-head ak-detail-section-header">
                     <h3><i class="bi bi-pie-chart"></i> @UiText.T(Context, "توزیع سود مالکین", "Owner Profit Distribution")</h3>
                 </div>
                 <div class="ak-list" aria-label="@UiText.T(Context, "آمار توزیع سود مالکین", "Owner share distribution statistics")">
@@ -687,7 +687,7 @@
                     </article>
                 </div>
                 <div class="ak-table-wrap">
-                    <table class="ak-table">
+                    <table class="ak-table ak-detail-table">
                         <thead>
                             <tr>
                                 <th>@UiText.T(Context, "کرایه", "Rent")</th>

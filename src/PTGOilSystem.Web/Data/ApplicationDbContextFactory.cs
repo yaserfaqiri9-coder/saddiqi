@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Npgsql;
 
 namespace PTGOilSystem.Web.Data;
 
@@ -12,8 +13,12 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
             ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=ptg_oil_system;SSL Mode=Prefer;Trust Server Certificate=true";
 
+        var connectionString = BuildPostgresConnectionString(rawConnectionString);
+        var databaseName = new NpgsqlConnectionStringBuilder(connectionString).Database;
+        DatabaseSafetyGuard.EnsureMigrationAllowed(databaseName);
+
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-        optionsBuilder.UseNpgsql(BuildPostgresConnectionString(rawConnectionString));
+        optionsBuilder.UseNpgsql(connectionString);
         return new ApplicationDbContext(optionsBuilder.Options);
     }
 

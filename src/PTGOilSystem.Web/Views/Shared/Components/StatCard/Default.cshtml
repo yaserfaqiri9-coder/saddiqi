@@ -1,0 +1,70 @@
+@model PTGOilSystem.Web.Models.StatCards.StatCardViewModel
+@using PTGOilSystem.Web.Models.StatCards
+@{
+    var rootClasses = "ak-stat-card";
+    if (Model.IsWarning) rootClasses += " ak-stat-card--warning";
+    if (Model.IsLoading) rootClasses += " ak-stat-card--loading";
+    if (Model.IsEmpty)   rootClasses += " ak-stat-card--empty";
+    if (!string.IsNullOrWhiteSpace(Model.CssClass)) rootClasses += " " + Model.CssClass;
+
+    var trendClass = Model.TrendTone switch
+    {
+        StatCardTrendTone.Positive => "ak-stat-card__trend--positive",
+        StatCardTrendTone.Negative => "ak-stat-card__trend--negative",
+        _ => "ak-stat-card__trend--neutral"
+    };
+
+    var avatarPath = Model.ResolvedAvatarPath;
+    var displayValue = Model.IsEmpty || string.IsNullOrWhiteSpace(Model.Value)
+        ? StatCardFormatter.EmptyGlyph
+        : Model.Value;
+}
+
+<article class="@rootClasses" role="group" aria-label="@Model.EffectiveAriaLabel">
+    @if (Model.IsLoading)
+    {
+        <div class="ak-stat-card__content" aria-hidden="true">
+            <span class="ak-stat-card__skeleton ak-stat-card__skeleton--title"></span>
+            <span class="ak-stat-card__skeleton ak-stat-card__skeleton--value"></span>
+            <span class="ak-stat-card__skeleton ak-stat-card__skeleton--unit"></span>
+        </div>
+        <div class="ak-stat-card__visual ak-stat-card__visual--skeleton" aria-hidden="true"></div>
+    }
+    else
+    {
+        <div class="ak-stat-card__content">
+            <span class="ak-stat-card__title">@Model.Title</span>
+            <strong class="ak-stat-card__value"><bdi>@displayValue</bdi></strong>
+            @if (!string.IsNullOrWhiteSpace(Model.Unit))
+            {
+                <span class="ak-stat-card__unit">@Model.Unit</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.TrendValue) && Model.TrendDirection != StatCardTrendDirection.None)
+            {
+                <span class="ak-stat-card__trend @trendClass">
+                    @if (Model.TrendDirection == StatCardTrendDirection.Up)
+                    {
+                        <svg class="ak-stat-card__trend-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                            <path d="M6 2.5 10 7H8v3H4V7H2z" fill="currentColor" />
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg class="ak-stat-card__trend-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                            <path d="M6 9.5 2 5h2V2h4v3h2z" fill="currentColor" />
+                        </svg>
+                    }
+                    <bdi>@Model.TrendValue</bdi>
+                </span>
+            }
+        </div>
+
+        <div class="ak-stat-card__visual @(Model.IsWarning ? "ak-stat-card__visual--warning" : "")">
+            @if (!string.IsNullOrWhiteSpace(avatarPath))
+            {
+                <img class="ak-stat-card__image" src="@avatarPath" alt="" loading="lazy" decoding="async" />
+            }
+            @* else: empty green halo placeholder until the real asset is supplied *@
+        </div>
+    }
+</article>

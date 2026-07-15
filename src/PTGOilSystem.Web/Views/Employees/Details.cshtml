@@ -28,7 +28,7 @@
     };
 }
 
-<div class="ak-form-page ak-party-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.FullName, false,
                        "ثبت تراکنش معاش", "bi-plus-lg", salaryUrl, (string?)null,
@@ -48,7 +48,7 @@
     </div>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>کد کارمند</dt><dd>@Model.EmployeeCode</dd></div>
@@ -64,7 +64,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت حساب", balanceLabel))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>معاش پایه</dt><dd class="ak-num">@Model.BaseSalaryAmount.ToString("N2") @Model.SalaryCurrency</dd></div>
@@ -83,10 +83,10 @@
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل کارمند", employeeTabs)" />
 
     @* ===== تب ۱: خلاصه — آخرین تراکنش‌ها ===== *@
-    <section id="employee-overview" class="ak-form-section">
+    <section id="employee-overview" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("آخرین تراکنش‌های معاش", "پنج تراکنش آخر."))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -111,7 +111,7 @@
                 }
                 @if (recentTx.Count == 0)
                 {
-                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
+                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -119,10 +119,10 @@
     </section>
 
     @* ===== تب ۲: معاش و پرداخت‌ها ===== *@
-    <section id="employee-finance" class="ak-form-section">
+    <section id="employee-finance" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تراکنش‌های معاش", $"{Model.Transactions.Count:N0}"))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -181,7 +181,7 @@
                 }
                 @if (!Model.Transactions.Any())
                 {
-                    <tr><td colspan="9"><div class="ak-empty"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت، کسر یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
+                    <tr><td colspan="9"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-cash-stack"></i> معاش، پرداخت، برداشت، کسر یا بونس از دکمهٔ «ثبت تراکنش معاش» ثبت می‌شود.</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -189,7 +189,7 @@
 
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("پرداخت‌ها و برگشت‌های نقدی", $"{Model.RoznamchaPayments.Count:N0}"))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -216,7 +216,7 @@
                 }
                 @if (!Model.RoznamchaPayments.Any())
                 {
-                    <tr><td colspan="7"><div class="ak-empty"><i class="bi bi-wallet2"></i> پرداخت معاش یا برگشت پول کارمند از حساب نقد/بانک اینجا دیده می‌شود.</div></td></tr>
+                    <tr><td colspan="7"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-wallet2"></i> پرداخت معاش یا برگشت پول کارمند از حساب نقد/بانک اینجا دیده می‌شود.</div></td></tr>
                 }
                 </tbody>
             </table>
@@ -224,10 +224,10 @@
     </section>
 
     @* ===== تب ۳: فعالیت و یادداشت ===== *@
-    <section id="employee-activity" class="ak-form-section">
+    <section id="employee-activity" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("فعالیت‌های ثبت‌شده", $"{Model.AuditItems.Count:N0}"))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead><tr><th>زمان</th><th class="ak-col-grow">عمل</th><th>کاربر</th><th>جزئیات</th></tr></thead>
                 <tbody>
                 @foreach (var audit in Model.AuditItems)
@@ -241,7 +241,7 @@
                 }
                 @if (!Model.AuditItems.Any())
                 {
-                    <tr><td colspan="4"><div class="ak-empty"><i class="bi bi-clock-history"></i> پس از ثبت یا ویرایش، ردپای فعالیت اینجا دیده می‌شود.</div></td></tr>
+                    <tr><td colspan="4"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-clock-history"></i> پس از ثبت یا ویرایش، ردپای فعالیت اینجا دیده می‌شود.</div></td></tr>
                 }
                 </tbody>
             </table>

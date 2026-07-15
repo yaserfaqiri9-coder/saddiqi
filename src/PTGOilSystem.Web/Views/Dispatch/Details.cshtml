@@ -63,11 +63,11 @@
     ViewData["LoadingExpenseEditorAssets"] = true;
 }
 
-<div class="page-stack ak-form-page" dir="rtl" data-transport-details>
+<div class="page-stack ak-form-page ak-detail-page" dir="rtl" data-transport-details>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات ارسال با موتر", "Truck dispatch details"), false, (string?)null, (string?)null, (string?)null, (string?)null, T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <div class="ak-form-grid">
             <div class="ak-field">
                 <span class="ak-page-icon"><i class="bi bi-truck-front" aria-hidden="true"></i></span>
@@ -106,7 +106,7 @@
         </div>
     </section>
 
-    <section class="ak-summary">
+    <section class="ak-summary ak-detail-summary">
         <article class="ak-field is-loaded">
             <div class="ak-field">
                 <span class="ak-label">@T("بارگیری‌شده", "Loaded")</span>
@@ -149,7 +149,7 @@
         var hasCustomsOrShortage = customsCount > 0 || shortageQty > 0.0001m;
     }
     <section data-ptcd-tabs>
-        <div class="ptg-tabs-rail" role="tablist" aria-label="@T("بخش‌های مالی ارسال موتر", "Dispatch financial sections")">
+        <div class="ptg-tabs-rail ak-detail-tabs" role="tablist" aria-label="@T("بخش‌های مالی ارسال موتر", "Dispatch financial sections")">
             <button type="button" class="ptg-tab-item is-active" role="tab" aria-selected="true" data-ptcd-tab="sales">
                 <i class="bi bi-cart-check" aria-hidden="true"></i>
                 <span>@T("فروشات", "Sales")</span>
@@ -198,7 +198,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("فروشی به این ارسال وصل نیست.", "No sale linked to this dispatch.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("فروشی به این ارسال وصل نیست.", "No sale linked to this dispatch.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -267,7 +267,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("گمرک یا کسری ثبت نشده است.", "No customs or shortage recorded.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("گمرک یا کسری ثبت نشده است.", "No customs or shortage recorded.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -315,7 +315,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("مصرفی برای این موتر ثبت نشده است.", "No expense recorded for this truck.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("مصرفی برای این موتر ثبت نشده است.", "No expense recorded for this truck.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -329,8 +329,8 @@
 
     @if (Model.DeliveryReceipts.Any())
     {
-        <section class="ak-form-section">
-            <article class="ak-form-section is-receipt">
+        <section class="ak-form-section ak-detail-section">
+            <article class="ak-form-section ak-detail-section is-receipt">
                 <header>
                     <h2>@T("رسیدهای تحویل / تخلیه", "Delivery receipts")</h2>
                     <span class="ak-page-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
@@ -363,8 +363,8 @@
         </section>
     }
 
-    <section class="ak-form-section">
-        <article class="ak-form-section is-source">
+    <section class="ak-form-section ak-detail-section">
+        <article class="ak-form-section ak-detail-section is-source">
             <header>
                 <h2>@T("منبع، مسیر و موتر", "Source, route & truck")</h2>
                 <span class="ak-page-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>

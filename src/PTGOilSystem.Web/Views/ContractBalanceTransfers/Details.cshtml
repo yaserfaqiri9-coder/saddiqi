@@ -6,7 +6,7 @@
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"انتقال مانده #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -14,7 +14,7 @@
 
     <p class="ak-note">این سند انتقال مانده داخلی بین قراردادها است و پرداخت بانکی محسوب نمی‌شود.</p>
 
-    <dl class="ak-summary-list ak-summary">
+    <dl class="ak-summary-list ak-summary ak-detail-summary">
         <div><dt>از قرارداد</dt><dd>@Model.FromContractNumber</dd></div>
         <div><dt>به قرارداد</dt><dd>@Model.ToContractNumber</dd></div>
         <div><dt>مبلغ اصلی</dt><dd class="ak-num">@Model.AmountOriginal.ToString("N2") @Model.CurrencyCode</dd></div>
@@ -22,7 +22,7 @@
     </dl>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات انتقال", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.TransferDate.ToDisplayDate()</dd></div>
@@ -32,7 +32,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("FX trace", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>FX به USD</dt><dd class="ak-num">@Model.FxRateToUsd.ToString("N6")</dd></div>
@@ -44,10 +44,10 @@
         </section>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Ledger posting", (string?)null))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th>تاریخ</th>
@@ -72,7 +72,7 @@
                 }
                 @if (!Model.LedgerEntries.Any())
                 {
-                    <tr><td colspan="6"><div class="ak-empty"><i class="bi bi-journal-text"></i> LedgerEntry مرتبط پیدا نشد.</div></td></tr>
+                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> LedgerEntry مرتبط پیدا نشد.</div></td></tr>
                 }
                 </tbody>
             </table>

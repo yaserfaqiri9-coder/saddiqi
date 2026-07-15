@@ -4,12 +4,12 @@
     var statusText = Model.IsActive ? "فعال" : "غیرفعال";
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-detail-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)Url.Action("Index")))" />
-<section id="expense-type-info" class="ak-form-section">
+<section id="expense-type-info" class="ak-form-section ak-detail-section">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", ("اطلاعات نوع مصرف", (string?)"کد، دسته و وضعیت این نوع مصرف."))
         <dl class="ak-list">
             <div class="ak-list-row"><dt>کد</dt><dd><code>@Model.Code</code></dd></div>

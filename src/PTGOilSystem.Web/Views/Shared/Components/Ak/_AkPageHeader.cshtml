@@ -14,10 +14,14 @@
         && (!string.IsNullOrWhiteSpace(Model.ActionModalTarget) || !string.IsNullOrWhiteSpace(Model.ActionHref));
     var hasSecondary = !string.IsNullOrWhiteSpace(Model.SecondaryLabel) && !string.IsNullOrWhiteSpace(Model.SecondaryHref);
     var secIcon = string.IsNullOrWhiteSpace(Model.SecondaryIcon) ? "bi-arrow-right" : Model.SecondaryIcon;
+    var isDetailPage = string.Equals(
+        ViewContext.RouteData.Values["action"]?.ToString(),
+        "Details",
+        StringComparison.OrdinalIgnoreCase);
 }
-<header class="ak-page-header">
-    <div class="ak-page-heading">
-        <h1 class="ak-page-title">@Model.Title</h1>
+<header class="ak-page-header@(isDetailPage ? " ak-detail-header" : string.Empty)">
+    <div class="ak-page-heading@(isDetailPage ? " ak-detail-header-main" : string.Empty)">
+        <h1 class="ak-page-title@(isDetailPage ? " ak-detail-title" : string.Empty)">@Model.Title</h1>
         @if (Model.Star)
         {
             <i class="bi bi-star ak-star" aria-hidden="true"></i>
@@ -25,7 +29,7 @@
     </div>
     @if (hasPrimary || hasSecondary)
     {
-        <div class="ak-page-actions">
+        <div class="ak-page-actions@(isDetailPage ? " ak-detail-actions" : string.Empty)">
             @if (hasSecondary)
             {
                 <a href="@Model.SecondaryHref" class="btn btn-light ak-secondary-action">

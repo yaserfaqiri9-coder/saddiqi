@@ -10,7 +10,7 @@
     var statusState = Model.Status == ThreeWaySettlementStatus.Cancelled ? "is-inactive" : "is-active";
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(("جزئیات تسویه سه‌طرفه / حواله", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -25,7 +25,7 @@
 
     <div asp-validation-summary="All" class="ak-form-alert"></div>
 
-    <dl class="ak-summary-list ak-summary">
+    <dl class="ak-summary-list ak-summary ak-detail-summary">
         <div><dt>مشتری</dt><dd>@Model.Customer?.Name</dd></div>
         <div><dt>تأمین‌کننده</dt><dd>@Model.Supplier?.Name</dd></div>
         <div><dt>صندوق / بانک شرکت</dt><dd class="ak-num">0.00 USD</dd></div>
@@ -45,7 +45,7 @@
         <p class="ak-note"><strong>تفاوت مبلغ: @DifferenceReasonPolicy.Label(Model.DifferenceReason).</strong> @DifferenceReasonPolicy.PolicyText(Model.DifferenceReason) — @DifferenceReasonPolicy.TraceOnlyNote در مصرف ثبت نشده است.</p>
     }
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات حواله", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.SettlementDate.ToString("yyyy-MM-dd")</dd></div>
@@ -60,10 +60,10 @@
         </dl>
     </section>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اثر روی حساب‌ها و Ledgerهای اصلی", (string?)null))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead>
                     <tr>
                         <th class="ak-col-grow">حساب</th>
@@ -133,10 +133,10 @@
 
     @if (cancellationLedgerEntries.Count > 0)
     {
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Ledgerهای برگشت لغو", (string?)null))" />
             <div class="ak-table-wrap">
-                <table class="ak-table">
+                <table class="ak-table ak-detail-table">
                     <thead>
                         <tr>
                             <th>LedgerEntry</th>
@@ -171,7 +171,7 @@
     {
         <form asp-action="Cancel" method="post" class="ak-form" onsubmit="return confirm('آیا از لغو این تسویه مطمئن هستید؟ Ledger اصلی حذف نمی‌شود و فقط سند معکوس ساخته می‌شود.');">
             <input type="hidden" name="id" value="@Model.Id" />
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("لغو تسویه", (string?)null))" />
                 <div class="ak-form-grid">
                     <div class="ak-field ak-col-full">

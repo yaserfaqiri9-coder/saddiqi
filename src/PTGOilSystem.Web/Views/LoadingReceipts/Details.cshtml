@@ -108,7 +108,7 @@
     ViewData["ModalDesignSystemAssets"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
 
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
          model="@((pageTitle, false,
@@ -133,7 +133,7 @@
         }
     </div>
 
-    <section class="ak-form-section ak-form-grid">
+    <section class="ak-form-section ak-detail-section ak-form-grid">
         <div class="ak-field">
             <span class="ak-section-desc">مقدار این رسید</span>
             <strong class="ak-num">@NumberDisplay.Quantity(Model.ReceivedQuantityMt) MT</strong>
@@ -183,8 +183,8 @@
     </section>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-truck"></i> <h2>خلاصه بارگیری</h2></header>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-truck"></i> <h2>خلاصه بارگیری</h2></header>
             <dl class="ak-form-grid">
                 <div><dt>ثبت بارگیری</dt><dd>#@Model.LoadingRegisterId</dd></div>
                 <div><dt>تاریخ بارگیری</dt><dd>@Model.LoadingDate.ToDisplayDate()</dd></div>
@@ -198,8 +198,8 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-box-arrow-in-down"></i> <h2>مشخصات رسید</h2></header>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-box-arrow-in-down"></i> <h2>مشخصات رسید</h2></header>
             <dl class="ak-form-grid">
                 <div><dt>مقصد رسید</dt><dd>@receiptDestinationText</dd></div>
                 <div><dt>تاریخ رسید</dt><dd>@Model.ReceiptDate.ToDisplayDate()</dd></div>
@@ -224,8 +224,8 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-diagram-3"></i> <h2>تخصیص و وضعیت</h2></header>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-diagram-3"></i> <h2>تخصیص و وضعیت</h2></header>
             <dl class="ak-form-grid">
                 <div><dt>جمع تخصیص</dt><dd>@NumberDisplay.Quantity(Model.TotalAllocatedQuantityMt) MT</dd></div>
                 <div><dt>ورود به موجودی</dt><dd>@NumberDisplay.Quantity(qtyToInventory) MT</dd></div>
@@ -241,8 +241,8 @@
     </div>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-list-check"></i> <h2>ردیف‌های رسید</h2>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-list-check"></i> <h2>ردیف‌های رسید</h2>
                 <span class="ak-status">@Model.Allocations.Count</span>
             </header>
             <div class="ak-list">
@@ -273,13 +273,13 @@
                 }
                 @if (Model.Allocations.Count == 0)
                 {
-                    <div class="ak-empty">هیچ تخصیصی برای این رسید ثبت نشده است.</div>
+                    <div class="ak-empty ak-detail-empty-state">هیچ تخصیصی برای این رسید ثبت نشده است.</div>
                 }
             </div>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-exclamation-diamond"></i> <h2>ضایعات / اختلاف</h2>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-exclamation-diamond"></i> <h2>ضایعات / اختلاف</h2>
                 <span class="ak-status">@NumberDisplay.Quantity(lossDifferenceTotal) MT</span>
             </header>
             <div class="ak-list">
@@ -299,13 +299,13 @@
                 }
                 @if (Model.LossItems.Count == 0)
                 {
-                    <div class="ak-empty">برای این رسید کسری ثبت نشده است.</div>
+                    <div class="ak-empty ak-detail-empty-state">برای این رسید کسری ثبت نشده است.</div>
                 }
             </div>
         </section>
 
-        <section class="ak-form-section">
-            <header class="ak-section-head"><i class="bi bi-signpost-split"></i> <h2>ردیابی و سندها</h2>
+        <section class="ak-form-section ak-detail-section">
+            <header class="ak-section-head ak-detail-section-header"><i class="bi bi-signpost-split"></i> <h2>ردیابی و سندها</h2>
                 <span class="ak-status @(pendingDispatchTrace ?"ak-status-amber" : "ak-status-mint")">@(pendingDispatchTrace ? "در انتظار" : "تکمیل")</span>
             </header>
             <div class="ak-list">

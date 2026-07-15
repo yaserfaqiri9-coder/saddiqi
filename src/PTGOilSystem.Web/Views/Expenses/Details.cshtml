@@ -20,7 +20,7 @@
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات مصرف", "Expense details") + $" #{Model.Id}", false,
                        T("ویرایش", "Edit"), "bi-pencil-square",
@@ -43,7 +43,7 @@
         </div>
     </div>
 
-    <section class="ak-form-section ak-form-grid">
+    <section class="ak-form-section ak-detail-section ak-form-grid">
         <div class="ak-field">
             <span class="ak-label">@T("تاریخ مصرف", "Expense date")</span>
             <strong>@Model.ExpenseDate.ToDisplayDate()</strong>
@@ -67,7 +67,7 @@
     </section>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("مشخصات مصرف", "Expense overview"), (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>@T("شماره داخلی", "Internal id")</dt><dd class="ak-num">#@Model.Id</dd></div>
@@ -87,7 +87,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("مبلغ و ارز", "Amount & currency"), (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>@T("مبلغ سند", "Document amount")</dt><dd class="ak-num">@Model.Amount.ToString("N2") @Model.Currency</dd></div>
@@ -98,7 +98,7 @@
     </div>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("دفتر کل", "Ledger"), (string?)null))" />
             @if (!ledgerRecorded)
             {
@@ -116,7 +116,7 @@
             }
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((T("ارتباط عملیاتی", "Operational relationship"), (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>@T("وضعیت ارتباط", "Relation")</dt><dd>@relationStatus</dd></div>

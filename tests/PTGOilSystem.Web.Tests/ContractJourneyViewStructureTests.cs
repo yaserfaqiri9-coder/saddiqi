@@ -68,10 +68,10 @@ public class ContractJourneyViewStructureTests
     {
         var view = ReadContractJourneyDetailsMarkup();
 
-        Assert.Contains("class=\"ak-form-page\" data-contract-journey-page", view);
+        Assert.Contains("class=\"ak-form-page ak-detail-page\" data-contract-journey-page", view);
         Assert.Contains("class=\"ptg-tabs-rail\"", view);
         Assert.Contains("class=\"ptg-tab-item ", view);
-        Assert.Contains("class=\"ak-tab-content\"", view);
+        Assert.Contains("class=\"ak-tab-content ak-detail-content\"", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
         Assert.Contains("asp-action=\"Details\"", view);
         Assert.Contains("data-contract-journey-tab=\"@tab.Key\"", view);
@@ -107,7 +107,7 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("class=\"ak-summary-page\"", summaryBlock);
         Assert.Contains("ak-form-section", summaryBlock);
         Assert.Contains("_AkSectionHead.cshtml", summaryBlock);
-        Assert.Contains("class=\"ak-table\"", summaryBlock);
+        Assert.Contains("class=\"ak-table ak-detail-table\"", summaryBlock);
         Assert.Contains("ak-num", summaryBlock);
         Assert.Contains("ak-status", contents);
         Assert.Contains("ak-row-menu", contents);
@@ -515,8 +515,8 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("ak-form-page", view);
         Assert.Contains("data-transport-details", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
-        Assert.Contains("class=\"ak-summary\"", view);
-        Assert.Contains("class=\"ptg-tabs-rail\"", view);
+        Assert.Contains("class=\"ak-summary ak-detail-summary\"", view);
+        Assert.Contains("class=\"ptg-tabs-rail ak-detail-tabs\"", view);
         Assert.Contains("class=\"ak-tab-panel is-active\"", view);
         Assert.Contains("class=\"ak-list\" data-ptcd-list", view);
         Assert.Contains("class=\"ak-pager\" data-ptcd-pager", view);
@@ -772,7 +772,7 @@ public class ContractJourneyViewStructureTests
             "case ContractJourneyTabs.Details.InventoryTransport:",
             "case ContractJourneyTabs.Details.Inventory:");
 
-        Assert.Contains("class=\"ak-table\"", block);
+        Assert.Contains("class=\"ak-table ak-detail-table\"", block);
         Assert.Contains("ak-row-menu", block);
         Assert.Contains("ak-status", block);
         Assert.Contains("ak-num", block);
@@ -981,7 +981,7 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("id=\"loadingReceiptModal\"", view);
         Assert.Contains("_ReceiptCreateForm.cshtml", view);
         Assert.Contains("var loadingExpenseTotal = expenseLines.Count > 0", view);
-        Assert.Contains("class=\"ak-form-page\"", view);
+        Assert.Contains("class=\"ak-form-page ak-detail-page\"", view);
         Assert.Contains("_AkPageHeader", view);
         Assert.Contains("_AkSectionHead", view);
         Assert.Contains("class=\"ak-form-section", view);
@@ -1028,7 +1028,7 @@ public class ContractJourneyViewStructureTests
         var view = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
         var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
 
-        Assert.Contains("class=\"ak-form-page\"", view);
+        Assert.Contains("class=\"ak-form-page ak-detail-page\"", view);
         Assert.Contains("_AkPageHeader", view);
         Assert.Contains("_AkSectionHead", view);
         Assert.Contains("class=\"ak-form-grid", view);

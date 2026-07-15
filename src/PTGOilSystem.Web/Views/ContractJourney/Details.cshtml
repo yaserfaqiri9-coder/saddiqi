@@ -629,7 +629,7 @@
     };
 }
 
-<div class="ak-form-page" data-contract-journey-page dir="@pageDirection">
+<div class="ak-form-page ak-detail-page" data-contract-journey-page dir="@pageDirection">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"{T("قرارداد", "Contract")} {Model.ContractNumber}", false,
                        string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? T("انتقال از موجودی", "Inventory transfer") : Model.NextRecommendedActionTitle,
@@ -652,7 +652,7 @@
         </div>
     </div>
 
-    <section class="ak-form-section" aria-label="@T("خلاصه اطلاعات قرارداد", "Contract information summary")">
+    <section class="ak-form-section ak-detail-section" aria-label="@T("خلاصه اطلاعات قرارداد", "Contract information summary")">
         <dl class="ak-list" data-contract-journey-facts>
             <div class="ak-list-row"><dt>@partnerLabel</dt><dd>@partnerName</dd></div>
             <div class="ak-list-row"><dt>@T("جنس", "Product")</dt><dd>@TextOrDash(Model.ProductName)</dd></div>
@@ -670,7 +670,7 @@
 
     <partial name="_ContractJourneyDetailTabsRail" model="detailTabsRailModel" />
 
-    <div class="ak-tab-content"
+    <div class="ak-tab-content ak-detail-content"
          data-contract-journey-tab-content="true"
          data-active-tab="@activeTab"
          data-loading-text="@T("در حال بارگذاری...", "Loading...")"
@@ -679,7 +679,7 @@
     @if (activeTab == ContractJourneyTabs.Details.Summary)
     {
         <div id="journey-tab-lists" class="ak-summary-page">
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                          model="@((T("قیمت و ارزش قرارداد", "Contract price and value"), (string?)(rubSettlement.IsRubSettlement ? rubPendingStatusText : null)))" />
                 <dl class="ak-list">
@@ -715,11 +715,11 @@
                 }
             </section>
 
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                          model="@((T("چرخه قرارداد", "Contract lifecycle"), (string?)T("مقدار و ارزش هر مرحله", "Quantity and value per stage")))" />
                 <div class="ak-table-wrap">
-                    <table class="ak-table">
+                    <table class="ak-table ak-detail-table">
                         <thead>
                             <tr>
                                 <th class="ak-col-grow">@T("مرحله", "Stage")</th>
@@ -777,7 +777,7 @@
                 </p>
             </section>
 
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                          model="@((contractNetLabel, (string?)T("سود و زیان عملیاتی قرارداد", "Contract operational profit and loss")))" />
                 <dl class="ak-list">
@@ -793,11 +793,11 @@
 
             @if (Model.ShipmentScenarios.Any())
             {
-                <section class="ak-form-section">
+                <section class="ak-form-section ak-detail-section">
                     <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                              model="@((T("کشتی‌های مرتبط", "Related shipments"), (string?)null))" />
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th class="ak-col-grow">@T("کشتی", "Shipment")</th>
@@ -844,8 +844,8 @@
 
         case ContractJourneyTabs.Details.InventoryTransport:
             <div id="journey-tab-lists" class="ak-tab-panel">
-                <section class="ak-form-section">
-                    <div class="ak-section-head">
+                <section class="ak-form-section ak-detail-section">
+                    <div class="ak-section-head ak-detail-section-header">
                         <div>
                             <h2 class="ak-section-title">@T("زنجیره حمل موجودی", "Inventory Journey")</h2>
                             <p class="ak-section-desc">@TextOrDash(Model.ContractNumber) · @TextOrDash(Model.ProductName) · @T("مقدار کل مرتبط", "Related total"): @FormatMt(transportLegQuantityMt)</p>
@@ -856,7 +856,7 @@
                         </a>
                     </div>
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th class="ak-col-grow">@T("سند / وسیله", "Document / vehicle")</th>
@@ -905,7 +905,7 @@
                             {
                                 <tr>
                                     <td colspan="9">
-                                        <div class="ak-empty">
+                                        <div class="ak-empty ak-detail-empty-state">
                                             <i class="bi bi-truck-front"></i>
                                             @T("هنوز حملی از موجودی برای این قرارداد ثبت نشده است.", "No inventory transport has been recorded for this contract yet.")
                                         </div>
@@ -934,8 +934,8 @@
 
         case ContractJourneyTabs.Details.Costs:
             <div id="journey-tab-lists" class="ak-tab-panel">
-                <section class="ak-form-section">
-                    <div class="ak-section-head">
+                <section class="ak-form-section ak-detail-section">
+                    <div class="ak-section-head ak-detail-section-header">
                         <div>
                             <h2 class="ak-section-title">@T("خزینه", "Expenses")</h2>
                             <p class="ak-section-desc">@T("مصارف عملیاتی و مصارف مرتبط قرارداد", "Operational and contract-related expenses")</p>
@@ -956,7 +956,7 @@
                         </div>
                     </div>
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th class="ak-col-grow">@T("نوع", "Type")</th>
@@ -989,7 +989,7 @@
                             {
                                 <tr>
                                     <td colspan="4">
-                                        <div class="ak-empty">
+                                        <div class="ak-empty ak-detail-empty-state">
                                             <i class="bi bi-receipt-cutoff"></i>
                                             @T("داده‌ای ثبت نشده است.", "No records yet.")
                                         </div>
@@ -1008,11 +1008,11 @@
                     </p>
                 </section>
 
-                <section class="ak-form-section">
+                <section class="ak-form-section ak-detail-section">
                     <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                              model="@((T("تخصیص مصارف جریان حمل بار", "Cargo flow expense allocation"), (string?)null))" />
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th class="ak-col-grow">@T("حمل", "Transport")</th>
@@ -1043,7 +1043,7 @@
                             {
                                 <tr>
                                     <td colspan="7">
-                                        <div class="ak-empty">
+                                        <div class="ak-empty ak-detail-empty-state">
                                             <i class="bi bi-truck-front"></i>
                                             @T("جریان حمل بار برای این قرارداد ثبت نشده است.", "No cargo flow has been recorded for this contract.")
                                         </div>
@@ -1056,8 +1056,8 @@
                 </section>
 
                 @* ─── بخش کسری و ضایعات (ادغام‌شده با تب خزینه) ─── *@
-                <section class="ak-form-section">
-                    <div class="ak-section-head">
+                <section class="ak-form-section ak-detail-section">
+                    <div class="ak-section-head ak-detail-section-header">
                         <div>
                             <h2 class="ak-section-title">@T("کسری و ضایعات", "Losses and wastage")</h2>
                             <p class="ak-section-desc">@T("تلفات، کسری اندازه‌گیری و ضایعات", "Measured shortages and wastage")</p>
@@ -1072,7 +1072,7 @@
                         </a>
                     </div>
                     <div class="ak-table-wrap">
-                        <table class="ak-table">
+                        <table class="ak-table ak-detail-table">
                             <thead>
                                 <tr>
                                     <th class="ak-col-grow">@T("شماره", "ID")</th>
@@ -1141,7 +1141,7 @@
                             {
                                 <tr>
                                     <td colspan="8">
-                                        <div class="ak-empty">
+                                        <div class="ak-empty ak-detail-empty-state">
                                             <i class="bi bi-exclamation-diamond"></i>
                                             @T("داده‌ای ثبت نشده است.", "No records yet.")
                                         </div>

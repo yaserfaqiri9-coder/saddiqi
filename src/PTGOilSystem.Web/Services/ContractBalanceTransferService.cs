@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Models.Entities;
+using PTGOilSystem.Web.Services.Accounting;
 using PTGOilSystem.Web.Services.Exceptions;
 
 namespace PTGOilSystem.Web.Services;
@@ -34,9 +35,15 @@ public sealed class ContractBalanceTransferService : IContractBalanceTransferSer
     public const string LedgerSourceType = "ContractBalanceTransfer";
 
     private readonly ApplicationDbContext _db;
+    private readonly IContractBalanceTransferAccountingAdapter? _accountingAdapter;
 
-    public ContractBalanceTransferService(ApplicationDbContext db)
-        => _db = db;
+    public ContractBalanceTransferService(
+        ApplicationDbContext db,
+        IContractBalanceTransferAccountingAdapter? accountingAdapter = null)
+    {
+        _db = db;
+        _accountingAdapter = accountingAdapter;
+    }
 
     public async Task<ContractBalanceTransfer> CreateAsync(
         ContractBalanceTransferCreateRequest request,
@@ -103,6 +110,15 @@ public sealed class ContractBalanceTransferService : IContractBalanceTransferSer
                     $"Transfer from contract {fromContract.ContractNumber}"));
 
             await _db.SaveChangesAsync(ct);
+
+            if (_accountingAdapter is not null)
+            {
+                await _accountingAdapter.TryPostAsync(
+                    transfer,
+                    fromContract,
+                    toContract,
+                    ct);
+            }
 
             if (transaction is not null)
             {

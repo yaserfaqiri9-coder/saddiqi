@@ -76,11 +76,11 @@
     ViewData["LoadingCreateAssets"] = true;
 }
 
-<div class="ak-form-page" dir="rtl" data-transport-details>
+<div class="ak-form-page ak-detail-page" dir="rtl" data-transport-details>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات حمل از موجودی", "Inventory transport details"), false, (string?)null, (string?)null, (string?)null, (string?)null, T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <div class="ak-form-grid">
             <div class="ak-field">
                 <span class="ak-page-icon"><i class="bi bi-truck-front" aria-hidden="true"></i></span>
@@ -121,7 +121,7 @@
         </div>
     </section>
 
-    <section class="ak-summary">
+    <section class="ak-summary ak-detail-summary">
         <article class="ak-field is-loaded">
             <div class="ak-field">
                 <span class="ak-label">@T("بارگیری‌شده", "Loaded")</span>
@@ -157,7 +157,7 @@
     </section>
 
     <section data-ptcd-tabs>
-        <div class="ptg-tabs-rail" role="tablist" aria-label="@T("بخش‌های مالی حمل", "Transport financial sections")">
+        <div class="ptg-tabs-rail ak-detail-tabs" role="tablist" aria-label="@T("بخش‌های مالی حمل", "Transport financial sections")">
             <button type="button" class="ptg-tab-item is-active" role="tab" aria-selected="true" data-ptcd-tab="sales">
                 <i class="bi bi-cart-check" aria-hidden="true"></i>
                 <span>@T("فروشات", "Sales")</span>
@@ -209,7 +209,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("فروشی ثبت نشده است.", "No sale recorded.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("فروشی ثبت نشده است.", "No sale recorded.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -278,7 +278,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("گمرک یا کسری ثبت نشده است.", "No customs or shortage recorded.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("گمرک یا کسری ثبت نشده است.", "No customs or shortage recorded.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -357,7 +357,7 @@
                     }
                     else
                     {
-                        <p class="ak-empty">@T("مصرفی ثبت نشده است.", "No expense recorded.")</p>
+                        <p class="ak-empty ak-detail-empty-state">@T("مصرفی ثبت نشده است.", "No expense recorded.")</p>
                     }
                 </div>
                 <div class="ak-pager" data-ptcd-pager hidden>
@@ -371,8 +371,8 @@
 
     @if (Model.DestinationReceipts.Any())
     {
-        <section class="ak-form-section">
-            <article class="ak-form-section is-receipt">
+        <section class="ak-form-section ak-detail-section">
+            <article class="ak-form-section ak-detail-section is-receipt">
                 <header>
                     <h2>@T("رسیدهای تخلیه / مقصد", "Destination receipts")</h2>
                     <span class="ak-page-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
@@ -518,7 +518,7 @@
                     <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="@T("بستن", "Close")"></button>
                 </div>
                 <div class="ak-modal-body" data-loading-expense-remote-body>
-                    <div class="ak-empty">
+                    <div class="ak-empty ak-detail-empty-state">
                         <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
                         <span>@T("در حال بارگذاری فرم مصارف...", "Loading expense form...")</span>
                     </div>

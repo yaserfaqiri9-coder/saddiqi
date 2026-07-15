@@ -4,20 +4,20 @@
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"استیتمنت دو ارزی #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", Url.Action("Index")))" />
 
-    <dl class="ak-summary-list ak-summary">
+    <dl class="ak-summary-list ak-summary ak-detail-summary">
         <div><dt>مبلغ منبع</dt><dd class="ak-num">@Model.SourceAmount.ToString("N2") @Model.SourceCurrencyCode</dd></div>
         <div><dt>مبلغ USD</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
         <div><dt>Running balance</dt><dd class="ak-num @(Model.RunningBalanceUsd >= 0 ?"ak-num" : "ak-num")">@Model.RunningBalanceUsd.ToString("N2") USD</dd></div>
     </dl>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات مالی", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.EntryDate.ToDisplayDate()</dd></div>
@@ -30,7 +30,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Trace", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>SourceType</dt><dd>@Model.SourceType</dd></div>
@@ -44,7 +44,7 @@
         </section>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("شرح", (string?)null))" />
         <p class="ak-note">@(string.IsNullOrWhiteSpace(Model.Description) ? "-" : Model.Description)</p>
     </section>

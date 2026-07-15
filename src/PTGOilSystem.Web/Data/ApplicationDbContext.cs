@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PTGOilSystem.Web.Data.Configurations;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Security;
 using ServiceProviderEntity = PTGOilSystem.Web.Models.Entities.ServiceProvider;
@@ -95,6 +96,16 @@ public class ApplicationDbContext : DbContext
     public DbSet<SupplierPaymentAllocation> SupplierPaymentAllocations => Set<SupplierPaymentAllocation>();
     public DbSet<EmployeeSalaryTransaction> EmployeeSalaryTransactions => Set<EmployeeSalaryTransaction>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    // --- Independent Accounting Core (not connected to operational posting) ---
+    public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountingSettings> AccountingSettings => Set<AccountingSettings>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
+    public DbSet<FiscalYearStatusHistory> FiscalYearStatusHistories => Set<FiscalYearStatusHistory>();
+    public DbSet<FiscalYearCloseRun> FiscalYearCloseRuns => Set<FiscalYearCloseRun>();
 
     // --- Idempotency (duplicate-submit guard; no business logic) ---
     public DbSet<ProcessedFormToken> ProcessedFormTokens => Set<ProcessedFormToken>();
@@ -1493,6 +1504,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<CustomsDeclarationDocument>()
             .HasIndex(d => d.CustomsDeclarationId);
 
+        modelBuilder.ConfigureAccountingCore();
         ConfigureInventoryLineage(modelBuilder);
     }
 

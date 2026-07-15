@@ -6,7 +6,7 @@
     var backUrl = returnUrl ?? Url.Action("Index") ?? "/SarrafSettlements";
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"تسویه صراف #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -25,7 +25,7 @@
         }
     </div>
 
-    <dl class="ak-summary-list ak-summary">
+    <dl class="ak-summary-list ak-summary ak-detail-summary">
         <div><dt>درخواست شرکت</dt><dd class="ak-num">@Model.RequestedAmountUsd.ToString("N2") USD</dd></div>
         <div><dt>طلب صراف</dt><dd class="ak-num">@Model.SarrafChargedAmountUsd.ToString("N2") USD</dd></div>
         <div><dt>قبول‌شده تأمین‌کننده</dt><dd class="ak-num">@Model.SupplierAcceptedAmountUsd.ToString("N2") USD</dd></div>
@@ -33,7 +33,7 @@
     </dl>
 
     <div class="ak-form-grid">
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ارتباطات", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.SettlementDate.ToDisplayDate()</dd></div>
@@ -45,7 +45,7 @@
             </dl>
         </section>
 
-        <section class="ak-form-section">
+        <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("وضعیت و دفتر کل", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.Status == SarrafSettlementStatus.Posted ?"is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@Model.StatusName</span></dd></div>
@@ -59,10 +59,10 @@
         </section>
     </div>
 
-    <section class="ak-form-section">
+    <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("جزئیات نرخ‌ها", (string?)null))" />
         <div class="ak-table-wrap">
-            <table class="ak-table">
+            <table class="ak-table ak-detail-table">
                 <thead><tr><th class="ak-col-grow">بخش</th><th class="ak-col-num">مبلغ</th><th>ارز</th><th class="ak-col-num">نرخ به USD</th><th class="ak-col-num">USD</th></tr></thead>
                 <tbody>
                     <tr><td class="ak-col-grow">درخواست شرکت</td><td class="ak-col-num ak-num">@Model.RequestedAmount.ToString("N2")</td><td>@Model.RequestedCurrency</td><td class="ak-col-num ak-num">@Model.RequestedFxRateToUsd.ToString("0.######")</td><td class="ak-col-num ak-num">@Model.RequestedAmountUsd.ToString("N2")</td></tr>
@@ -78,7 +78,7 @@
         <form asp-action="Cancel" asp-route-id="@Model.Id" method="post" class="ak-form">
             @Html.AntiForgeryToken()
             <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-            <section class="ak-form-section">
+            <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("لغو تسویه", (string?)null))" />
                 <div class="ak-form-grid">
                     <div class="ak-field ak-col-full">
