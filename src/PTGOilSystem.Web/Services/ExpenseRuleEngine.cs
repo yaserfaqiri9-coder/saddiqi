@@ -13,15 +13,19 @@ public sealed class ExpenseRuleEngine : IExpenseRuleEngine
     private readonly ApplicationDbContext _db;
     private readonly ICurrencyConversionService _currencyConversion;
     private readonly IAuditService _audit;
+    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Accounting.IExpenseAccountingAdapter? _expenseAccounting;
 
     public ExpenseRuleEngine(
         ApplicationDbContext db,
         ICurrencyConversionService currencyConversion,
-        IAuditService audit)
+        IAuditService audit,
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
         _audit = audit;
+        _expenseAccounting = expenseAccounting;
     }
 
     public ExpenseRuleEngine(ApplicationDbContext db, IAuditService audit)
@@ -100,6 +104,12 @@ public sealed class ExpenseRuleEngine : IExpenseRuleEngine
 
             _db.ExpenseTransactions.Add(expense);
             await _db.SaveChangesAsync(ct);
+
+            // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+            if (_expenseAccounting is not null)
+            {
+                await _expenseAccounting.TryPostExpenseAsync(expense, ct);
+            }
 
             var ledgerEntry = new LedgerEntry
             {

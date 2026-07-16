@@ -41,7 +41,8 @@ public class DispatchController : Controller
         IAuditService audit,
         ILogger<DispatchController> logger,
         ILossEventWorkflowService? lossWorkflow = null,
-        ICurrencyConversionService? currencyConversion = null)
+        ICurrencyConversionService? currencyConversion = null,
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _db = db;
         _stock = stock;
@@ -49,7 +50,11 @@ public class DispatchController : Controller
         _audit = audit;
         _lossWorkflow = lossWorkflow ?? new LossEventWorkflowService(db, stock, audit);
         _logger = logger;
+        _expenseAccounting = expenseAccounting;
     }
+
+    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Services.Accounting.IExpenseAccountingAdapter? _expenseAccounting;
 
     private bool HasFieldError(string key)
         => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0;
@@ -2232,13 +2237,13 @@ public class DispatchController : Controller
     // بدنهٔ اصلی به Services/DispatchFreightExpenseSync منتقل شد تا فرم جدید
     // «رسید/تسویه/تخلیه وسایط» همان رکوردهای مالی را بسازد (بدون منطق موازی).
     private Task SyncDispatchFreightExpenseAsync(TruckDispatch dispatch)
-        => DispatchFreightExpenseSync.SyncAsync(_db, dispatch);
+        => DispatchFreightExpenseSync.SyncAsync(_db, dispatch, _expenseAccounting);
 
     private Task CancelDispatchFreightExpenseAsync(ExpenseTransaction expense)
-        => DispatchFreightExpenseSync.CancelExpenseAsync(_db, expense);
+        => DispatchFreightExpenseSync.CancelExpenseAsync(_db, expense, _expenseAccounting);
 
     private Task CancelDispatchFreightExpenseAsync(int dispatchId)
-        => DispatchFreightExpenseSync.CancelByDispatchIdAsync(_db, dispatchId);
+        => DispatchFreightExpenseSync.CancelByDispatchIdAsync(_db, dispatchId, _expenseAccounting);
 
     private static decimal GetFreightExpenseAmountUsd(decimal? payableUsd, decimal? grossUsd)
         => DispatchFreightExpenseSync.GetFreightExpenseAmountUsd(payableUsd, grossUsd);
@@ -2434,6 +2439,12 @@ public class DispatchController : Controller
                 };
                 _db.ExpenseTransactions.Add(expense);
                 await _db.SaveChangesAsync();
+
+                // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+                if (_expenseAccounting is not null)
+                {
+                    await _expenseAccounting.TryPostExpenseAsync(expense);
+                }
 
                 var ledgerEntry = new LedgerEntry
                 {

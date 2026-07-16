@@ -12,7 +12,12 @@ public static class DispatchFreightExpenseSync
 {
     public const string DispatchFreightExpenseCode = "TRUCK-DISPATCH-FREIGHT";
 
-    public static async Task SyncAsync(ApplicationDbContext db, TruckDispatch dispatch)
+    // مرحله ۵ — Dual-write اختیاری. کلاس static است، پس Adapter به‌جای تزریق، پارامتر اختیاری
+    // است؛ اگر پاس داده نشود مسیر قدیمی هیچ تغییری نمی‌کند.
+    public static async Task SyncAsync(
+        ApplicationDbContext db,
+        TruckDispatch dispatch,
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         // دیسپچِ وصل‌به‌رسید (مثل انتقال گروهی واگن→موتر) هم می‌تواند کرایه داشته باشد.
         // فقط وقتی اینجا چیزی نمی‌سازیم که خودِ رسید کرایه دارد؛ آن کرایه جداگانه به‌عنوان
@@ -106,9 +111,19 @@ public static class DispatchFreightExpenseSync
         }
 
         await UpsertLedgerAsync(db, primaryExpense);
+
+        // مرحله ۵ — Dual-write داخل همان Transaction قدیمی. برای مسیر به‌روزرسانی هم صدا زده
+        // می‌شود: Adapter مبلغِ تغییرنکرده را Duplicate می‌گیرد و بی‌اثر است.
+        if (expenseAccounting is not null)
+        {
+            await expenseAccounting.TryPostExpenseAsync(primaryExpense);
+        }
     }
 
-    public static async Task CancelByDispatchIdAsync(ApplicationDbContext db, int dispatchId)
+    public static async Task CancelByDispatchIdAsync(
+        ApplicationDbContext db,
+        int dispatchId,
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         var expenses = await db.ExpenseTransactions
             .Include(e => e.ExpenseType)
@@ -120,15 +135,25 @@ public static class DispatchFreightExpenseSync
 
         foreach (var expense in expenses)
         {
-            await CancelExpenseAsync(db, expense);
+            await CancelExpenseAsync(db, expense, expenseAccounting);
         }
     }
 
-    public static async Task CancelExpenseAsync(ApplicationDbContext db, ExpenseTransaction expense)
+    public static async Task CancelExpenseAsync(
+        ApplicationDbContext db,
+        ExpenseTransaction expense,
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         if (expense.IsCancelled)
         {
             return;
+        }
+
+        // مرحله ۵ — Reversal قبل از علامت‌خوردن IsCancelled صدا زده می‌شود تا Adapter بتواند
+        // شرکت را از همان روابط قبلی حل کند. Idempotent است.
+        if (expenseAccounting is not null)
+        {
+            await expenseAccounting.TryPostExpenseReversalAsync(expense);
         }
 
         expense.IsCancelled = true;

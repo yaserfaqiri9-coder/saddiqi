@@ -26,6 +26,22 @@ public interface IPurchaseAccountingAdapter
     Task<PurchaseAccountingResult> TryPostInventoryReceiptAsync(
         LoadingReceipt receipt,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reverses every posted revision of a loading's purchase, for when the legacy loading is
+    /// cancelled. Idempotent: revisions already reversed are left alone.
+    /// </summary>
+    Task<PurchaseAccountingResult> TryPostPurchaseReversalAsync(
+        LoadingRegister loading,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reverses an inventory receipt, putting the goods back into in-transit.
+    /// Idempotent: a second call returns the existing reversal.
+    /// </summary>
+    Task<PurchaseAccountingResult> TryPostInventoryReceiptReversalAsync(
+        LoadingReceipt receipt,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -273,8 +289,137 @@ public sealed class PurchaseAccountingAdapter(
         }
     }
 
+    public async Task<PurchaseAccountingResult> TryPostPurchaseReversalAsync(
+        LoadingRegister loading,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(loading);
+
+        if (!_options.Enabled)
+            return Skipped(loading.Id, "ACCOUNTING_DISABLED");
+        if (!_options.Pilots.Purchase)
+            return Skipped(loading.Id, "PILOT_DISABLED");
+
+        // The company must resolve the same way it did when the purchase was posted; the
+        // price guard is irrelevant here because we only reverse what already exists.
+        var companyId = await db.Contracts
+            .AsNoTracking()
+            .Where(x => x.Id == loading.ContractId)
+            .Select(x => (int?)x.CompanyId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (companyId is null)
+            return Skipped(loading.Id, "CONTRACT_NOT_FOUND");
+
+        var posted = await LoadPostedRevisionsAsync(companyId.Value, loading.Id, cancellationToken);
+        if (posted.Count == 0)
+            return Skipped(loading.Id, "ORIGINAL_JOURNAL_NOT_POSTED");
+
+        // A receipt that already moved these goods on must be reversed before the purchase is,
+        // otherwise in-transit would be left holding a credit with nothing behind it.
+        var hasLiveReceipt = await db.JournalEntries.AsNoTracking().AnyAsync(
+            x => x.CompanyId == companyId.Value
+                && x.SourceModule == SourceModule
+                && x.SourceEntityType == ReceiptSourceEntityType
+                && x.Status == JournalEntryStatus.Posted
+                && !x.IsReversal
+                && db.LoadingReceipts.Any(r => r.Id == x.SourceEntityId && r.LoadingRegisterId == loading.Id)
+                && !db.JournalEntries.Any(r => r.ReversalOfJournalEntryId == x.Id
+                    && r.Status == JournalEntryStatus.Posted),
+            cancellationToken);
+        if (hasLiveReceipt)
+            return Skipped(loading.Id, "RECEIPT_STILL_POSTED");
+
+        JournalEntry? lastReversal = null;
+        var reversedCount = 0;
+        for (var revision = 0; revision < posted.Count; revision++)
+        {
+            var journal = posted[revision];
+            var reversedEventId = BuildReversedSourceEventId(loading.Id, revision);
+            if (await FindJournalAsync(companyId.Value, reversedEventId, cancellationToken) is not null)
+                continue;
+
+            lastReversal = await postingService.ReverseAsync(
+                new AccountingReversalRequest(
+                    journal.Id,
+                    journalNumberGenerator.ForPurchaseReversal(companyId.Value, loading.Id, revision),
+                    DateTime.UtcNow.Date,
+                    SourceModule,
+                    reversedEventId,
+                    $"Reversal of purchase #{loading.Id} revision {revision}"),
+                cancellationToken);
+            reversedCount++;
+        }
+
+        if (reversedCount == 0)
+        {
+            LogOutcome(loading.Id, "PurchaseReversal", companyId.Value, 0m, 0m,
+                PaymentPostingStatus.Duplicate, "DUPLICATE_SOURCE_EVENT");
+            return new PurchaseAccountingResult(
+                PaymentPostingStatus.Duplicate, null, "DUPLICATE_SOURCE_EVENT");
+        }
+
+        LogOutcome(loading.Id, "PurchaseReversal", companyId.Value, 0m,
+            lastReversal!.Lines.Sum(x => x.Debit), PaymentPostingStatus.Posted, null);
+        return new PurchaseAccountingResult(PaymentPostingStatus.Posted, lastReversal, null);
+    }
+
+    public async Task<PurchaseAccountingResult> TryPostInventoryReceiptReversalAsync(
+        LoadingReceipt receipt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+
+        if (!_options.Enabled)
+            return Skipped(receipt.Id, "ACCOUNTING_DISABLED");
+        if (!_options.Pilots.InventoryReceipt)
+            return Skipped(receipt.Id, "PILOT_DISABLED");
+
+        var companyId = await db.LoadingRegisters
+            .AsNoTracking()
+            .Where(x => x.Id == receipt.LoadingRegisterId)
+            .Join(db.Contracts.AsNoTracking(), l => l.ContractId, c => c.Id, (_, c) => (int?)c.CompanyId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (companyId is null)
+            return Skipped(receipt.Id, "LOADING_NOT_FOUND");
+
+        var reversedEventId = BuildReceiptReversedSourceEventId(receipt.Id);
+        var existingReversal = await FindJournalAsync(companyId.Value, reversedEventId, cancellationToken);
+        if (existingReversal is not null)
+        {
+            LogOutcome(receipt.Id, "InventoryReceiptReversal", companyId.Value, 0m,
+                existingReversal.Lines.Sum(x => x.Debit), PaymentPostingStatus.Duplicate,
+                "DUPLICATE_SOURCE_EVENT");
+            return new PurchaseAccountingResult(
+                PaymentPostingStatus.Duplicate, existingReversal, "DUPLICATE_SOURCE_EVENT");
+        }
+
+        var original = await FindJournalAsync(
+            companyId.Value,
+            BuildReceiptSourceEventId(receipt.Id),
+            cancellationToken);
+        if (original is null)
+            return Skipped(receipt.Id, "ORIGINAL_JOURNAL_NOT_POSTED");
+
+        var journal = await postingService.ReverseAsync(
+            new AccountingReversalRequest(
+                original.Id,
+                journalNumberGenerator.ForInventoryReceiptReversal(companyId.Value, receipt.Id),
+                DateTime.UtcNow.Date,
+                SourceModule,
+                reversedEventId,
+                $"Reversal of inventory receipt #{receipt.Id}"),
+            cancellationToken);
+
+        LogOutcome(receipt.Id, "InventoryReceiptReversal", companyId.Value, 0m,
+            journal.Lines.Sum(x => x.Debit), PaymentPostingStatus.Posted, null);
+        return new PurchaseAccountingResult(PaymentPostingStatus.Posted, journal, null);
+    }
+
     public static string BuildCreatedSourceEventId(int loadingRegisterId, int revision)
         => $"Purchase:{loadingRegisterId}:Created:{revision}";
+
+    public static string BuildReceiptReversedSourceEventId(int loadingReceiptId)
+        => $"InventoryReceipt:{loadingReceiptId}:Reversed";
 
     public static string BuildReversedSourceEventId(int loadingRegisterId, int revision)
         => $"Purchase:{loadingRegisterId}:Reversed:{revision}";

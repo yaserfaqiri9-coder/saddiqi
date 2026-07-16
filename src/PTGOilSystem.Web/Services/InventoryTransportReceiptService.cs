@@ -26,14 +26,19 @@ public sealed class InventoryTransportReceiptService
     private readonly IInventoryLineageWriter _lineage;
 
     // writer اختیاری: call siteهای موجود بدون تغییر می‌مانند و در نبودِ آن writerِ خاموش (no-op) استفاده می‌شود.
+    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Accounting.IExpenseAccountingAdapter? _expenseAccounting;
+
     public InventoryTransportReceiptService(
         ApplicationDbContext db,
         ICurrencyConversionService currencyConversion,
-        IInventoryLineageWriter? lineage = null)
+        IInventoryLineageWriter? lineage = null,
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
         _lineage = lineage ?? InventoryLineageWriterFactory.Disabled(db);
+        _expenseAccounting = expenseAccounting;
     }
 
     public async Task<InventoryTransportLeg?> LoadLegAsync(int id, bool tracking)
@@ -669,6 +674,12 @@ public sealed class InventoryTransportReceiptService
 
         _db.ExpenseTransactions.Add(expense);
         await _db.SaveChangesAsync();
+
+        // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+        if (_expenseAccounting is not null)
+        {
+            await _expenseAccounting.TryPostExpenseAsync(expense);
+        }
 
         // کرایه بدهیِ ما به حمل‌کننده است ⇒ همیشه Credit روی حساب همان طرف (شرکت خدماتی یا راننده).
         _db.LedgerEntries.Add(new LedgerEntry

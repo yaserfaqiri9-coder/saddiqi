@@ -34,13 +34,18 @@ public class TruckSettlementsController : Controller
         ApplicationDbContext db,
         ICurrencyConversionService currencyConversion,
         IInventoryLineageWriter lineage,
-        ILossEventWorkflowService lossWorkflow)
+        ILossEventWorkflowService lossWorkflow,
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
         _lineage = lineage;
         _lossWorkflow = lossWorkflow;
+        _expenseAccounting = expenseAccounting;
     }
+
+    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Services.Accounting.IExpenseAccountingAdapter? _expenseAccounting;
 
     private const decimal QuantityEpsilon = 0.0001m;
     private const string ArrivalRefPrefix = "TRUCK-ARRIVAL:";
@@ -462,7 +467,7 @@ public class TruckSettlementsController : Controller
         }
 
         await _db.SaveChangesAsync();
-        await DispatchFreightExpenseSync.SyncAsync(_db, dispatch);
+        await DispatchFreightExpenseSync.SyncAsync(_db, dispatch, _expenseAccounting);
 
         if (party.OperationalAssetId.HasValue)
         {
@@ -603,7 +608,7 @@ public class TruckSettlementsController : Controller
             return;
         }
 
-        _db.ExpenseTransactions.Add(new ExpenseTransaction
+        var expense = new ExpenseTransaction
         {
             ExpenseTypeId = expenseType.Id,
             ContractId = contractId,
@@ -617,8 +622,15 @@ public class TruckSettlementsController : Controller
             AppliedFxRateToUsd = 1m,
             AmountUsd = amountUsd,
             Description = description
-        });
+        };
+        _db.ExpenseTransactions.Add(expense);
         await _db.SaveChangesAsync();
+
+        // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+        if (_expenseAccounting is not null)
+        {
+            await _expenseAccounting.TryPostExpenseAsync(expense);
+        }
     }
 
     // ── ساخت لیست وسایط دارای بار (حمل‌های موجودی + ارسال‌های موتر نهایی‌نشده) ──

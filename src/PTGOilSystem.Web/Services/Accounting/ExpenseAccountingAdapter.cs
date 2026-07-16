@@ -18,6 +18,14 @@ public interface IExpenseAccountingAdapter
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reverses the journal an expense raised, for when the legacy expense is cancelled.
+    /// Idempotent: a second call returns the existing reversal instead of writing another.
+    /// </summary>
+    Task<ExpenseAccountingResult> TryPostExpenseReversalAsync(
+        ExpenseTransaction expense,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// The liability an expense accrues to, so a later payment can debit exactly that account.
     /// Returns null when the expense type has no configured payable kind.
     /// </summary>
@@ -140,6 +148,77 @@ public sealed class ExpenseAccountingAdapter(
         }
     }
 
+    public async Task<ExpenseAccountingResult> TryPostExpenseReversalAsync(
+        ExpenseTransaction expense,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expense);
+
+        if (!_options.Enabled)
+            return Skipped(expense, 0, "ACCOUNTING_DISABLED");
+        if (!_options.Pilots.Expense)
+            return Skipped(expense, 0, "PILOT_DISABLED");
+
+        // Deliberately not the full posting guard: the expense is cancelled by now, and the
+        // company must still resolve the same way it did when the original was posted.
+        var companyId = await ExpenseCompanyResolver.ResolveAsync(db, expense, cancellationToken);
+        if (companyId is null)
+            return Skipped(expense, 0, "EXPENSE_COMPANY_UNKNOWN");
+
+        var reversedEventId = BuildReversedSourceEventId(expense.Id);
+        var existingReversal = await FindJournalAsync(companyId.Value, reversedEventId, cancellationToken);
+        if (existingReversal is not null)
+        {
+            LogOutcome(expense, companyId.Value, existingReversal.Lines.Sum(x => x.Debit),
+                PaymentPostingStatus.Duplicate, "DUPLICATE_SOURCE_EVENT");
+            return new ExpenseAccountingResult(
+                PaymentPostingStatus.Duplicate, existingReversal, "DUPLICATE_SOURCE_EVENT");
+        }
+
+        var original = await FindJournalAsync(
+            companyId.Value,
+            BuildCreatedSourceEventId(expense.Id),
+            cancellationToken);
+        if (original is null)
+        {
+            // The expense was created legacy-only (pilot off or skipped at the time), so the
+            // cancellation stays legacy-only too and both books remain internally consistent.
+            LogOutcome(expense, companyId.Value, 0m,
+                PaymentPostingStatus.Skipped, "ORIGINAL_JOURNAL_NOT_POSTED");
+            return new ExpenseAccountingResult(
+                PaymentPostingStatus.Skipped, null, "ORIGINAL_JOURNAL_NOT_POSTED");
+        }
+
+        // Legacy cancels an expense with a reversing ledger row dated today, so the journal
+        // reversal uses the same date rather than reopening the original period.
+        var request = new AccountingReversalRequest(
+            original.Id,
+            journalNumberGenerator.ForExpenseReversal(companyId.Value, expense.Id),
+            DateTime.UtcNow.Date,
+            SourceModule,
+            reversedEventId,
+            $"Reversal of expense #{expense.Id}");
+
+        try
+        {
+            var journal = await postingService.ReverseAsync(request, cancellationToken);
+            LogOutcome(expense, companyId.Value, journal.Lines.Sum(x => x.Debit),
+                PaymentPostingStatus.Posted, null);
+            return new ExpenseAccountingResult(PaymentPostingStatus.Posted, journal, null);
+        }
+        catch (Exception exception)
+        {
+            LogFailure(expense, exception);
+            throw;
+        }
+    }
+
+    private ExpenseAccountingResult Skipped(ExpenseTransaction expense, int companyId, string reason)
+    {
+        LogOutcome(expense, companyId, 0m, PaymentPostingStatus.Skipped, reason);
+        return new ExpenseAccountingResult(PaymentPostingStatus.Skipped, null, reason);
+    }
+
     public async Task<int?> ResolvePayableAccountIdAsync(
         ExpenseTransaction expense,
         int companyId,
@@ -172,6 +251,9 @@ public sealed class ExpenseAccountingAdapter(
 
     public static string BuildCreatedSourceEventId(int expenseId)
         => $"Expense:{expenseId}:Created";
+
+    public static string BuildReversedSourceEventId(int expenseId)
+        => $"Expense:{expenseId}:Reversed";
 
     /// <summary>
     /// The counterparty of an expense, when the legacy record proves one. Internal costs

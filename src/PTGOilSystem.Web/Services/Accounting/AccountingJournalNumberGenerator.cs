@@ -8,6 +8,8 @@ public interface IAccountingJournalNumberGenerator
     string ForPayment(int companyId, int paymentId);
     string ForViaSarrafSupplierPayment(int companyId, int supplierLedgerEntryId);
     string ForExpense(int companyId, int expenseId);
+    string ForExpenseReversal(int companyId, int expenseId);
+    string ForInventoryReceiptReversal(int companyId, int loadingReceiptId);
     string ForPurchase(int companyId, int loadingRegisterId, int revision);
     string ForPurchaseReversal(int companyId, int loadingRegisterId, int revision);
     string ForInventoryReceipt(int companyId, int loadingReceiptId);
@@ -77,6 +79,26 @@ public sealed class AccountingJournalNumberGenerator : IAccountingJournalNumberG
             throw new ArgumentOutOfRangeException(nameof(expenseId));
 
         return $"EXP-{companyId:D6}-{expenseId:D10}";
+    }
+
+    public string ForExpenseReversal(int companyId, int expenseId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (expenseId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(expenseId));
+
+        return $"EXPR-{companyId:D6}-{expenseId:D10}";
+    }
+
+    public string ForInventoryReceiptReversal(int companyId, int loadingReceiptId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (loadingReceiptId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(loadingReceiptId));
+
+        return $"INVR-{companyId:D6}-{loadingReceiptId:D10}";
     }
 
     // A loading can be repriced, so the purchase number carries a revision. Revision 0 is the

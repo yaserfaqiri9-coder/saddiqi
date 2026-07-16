@@ -28,6 +28,7 @@ public class LoadingController : Controller
     private readonly IMemoryCache? _cache;
     // مرحله ۶ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
     private readonly Services.Accounting.IPurchaseAccountingAdapter? _purchaseAccounting;
+    private readonly Services.Accounting.IExpenseAccountingAdapter? _expenseAccounting;
     private const int DefaultListLimit = 100;
     private const int LookupLimit = 200;
     private const int ReceiptAllocationEditorRows = 4;
@@ -56,9 +57,11 @@ public class LoadingController : Controller
         ILossEventWorkflowService? lossWorkflow = null,
         IPricingService? pricing = null,
         IMemoryCache? cache = null,
-        Services.Accounting.IPurchaseAccountingAdapter? purchaseAccounting = null)
+        Services.Accounting.IPurchaseAccountingAdapter? purchaseAccounting = null,
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _purchaseAccounting = purchaseAccounting;
+        _expenseAccounting = expenseAccounting;
         _db = db;
         _audit = audit;
         _logger = logger;
@@ -3137,6 +3140,12 @@ public class LoadingController : Controller
             _db.LedgerEntries.Add(ledger);
             await _db.SaveChangesAsync();
 
+            // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+            if (_expenseAccounting is not null)
+            {
+                await _expenseAccounting.TryPostExpenseAsync(expense);
+            }
+
             await _audit.LogAndSaveAsync(
                 nameof(ExpenseTransaction),
                 expense.Id,
@@ -3388,6 +3397,12 @@ public class LoadingController : Controller
                 var newLedger = BuildLoadingServiceExpenseLedger(expenseType, expense, loading);
                 _db.LedgerEntries.Add(newLedger);
                 await _db.SaveChangesAsync();
+
+                // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+                if (_expenseAccounting is not null)
+                {
+                    await _expenseAccounting.TryPostExpenseAsync(expense);
+                }
 
                 await _audit.LogAndSaveAsync(
                     nameof(ExpenseTransaction),
@@ -3720,6 +3735,12 @@ public class LoadingController : Controller
             .Where(l => l.SourceType == "Expense" && l.SourceId == expense.Id)
             .OrderByDescending(l => l.Id)
             .FirstOrDefaultAsync();
+
+        // مرحله ۵ — Reversal قبل از علامت‌خوردن IsCancelled. Idempotent.
+        if (_expenseAccounting is not null)
+        {
+            await _expenseAccounting.TryPostExpenseReversalAsync(expense);
+        }
 
         expense.IsCancelled = true;
         if (originalLedger is not null)

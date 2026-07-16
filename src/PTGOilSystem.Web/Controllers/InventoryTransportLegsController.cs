@@ -56,7 +56,8 @@ public class InventoryTransportLegsController : Controller
         ICurrencyConversionService currencyConversion,
         IAuditService audit,
         ILogger<InventoryTransportLegsController> logger,
-        IInventoryLineageWriter lineage)
+        IInventoryLineageWriter lineage,
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
     {
         _db = db;
         _stock = stock;
@@ -66,7 +67,11 @@ public class InventoryTransportLegsController : Controller
         _audit = audit;
         _logger = logger;
         _lineage = lineage;
+        _expenseAccounting = expenseAccounting;
     }
+
+    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Services.Accounting.IExpenseAccountingAdapter? _expenseAccounting;
 
     public async Task<IActionResult> Index(InventoryTransportLegIndexFilterViewModel filter, int page = 1)
     {
@@ -2320,6 +2325,12 @@ public class InventoryTransportLegsController : Controller
                 _db.ExpenseTransactions.Add(expense);
                 await _db.SaveChangesAsync();
 
+                // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+                if (_expenseAccounting is not null)
+                {
+                    await _expenseAccounting.TryPostExpenseAsync(expense);
+                }
+
                 var ledgerEntry = new LedgerEntry
                 {
                     EntryDate = expense.ExpenseDate,
@@ -2660,6 +2671,12 @@ public class InventoryTransportLegsController : Controller
                     };
                     _db.ExpenseTransactions.Add(expense);
                     await _db.SaveChangesAsync();
+
+                    // مرحله ۵ — Dual-write داخل همان Transaction قدیمی.
+                    if (_expenseAccounting is not null)
+                    {
+                        await _expenseAccounting.TryPostExpenseAsync(expense);
+                    }
 
                     var ledgerEntry = new LedgerEntry
                     {

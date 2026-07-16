@@ -515,6 +515,13 @@ public class ExpensesController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        // مرحله ۵ — Reversal قبل از علامت‌خوردن IsCancelled، تا Adapter شرکت را از همان
+        // روابط قبلی حل کند. Idempotent است و اگر سند اصلی پست نشده باشد بی‌اثر می‌ماند.
+        if (_expenseAccounting is not null)
+        {
+            await _expenseAccounting.TryPostExpenseReversalAsync(expense);
+        }
+
         expense.IsCancelled = true;
 
         var reversal = new LedgerEntry
@@ -2907,6 +2914,12 @@ public class ExpensesController : Controller
             if (!ledgerBySource.TryGetValue(expense.Id, out var originalLedger))
             {
                 continue; // بدون سند مالی؛ الگوی لغو تکی هم در این حالت لغو نمی‌کند.
+            }
+
+            // مرحله ۵ — Reversal قبل از علامت‌خوردن IsCancelled (مانند مسیر لغو تکی).
+            if (_expenseAccounting is not null)
+            {
+                await _expenseAccounting.TryPostExpenseReversalAsync(expense);
             }
 
             expense.IsCancelled = true;
