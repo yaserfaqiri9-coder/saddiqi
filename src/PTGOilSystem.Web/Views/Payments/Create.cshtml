@@ -31,7 +31,8 @@
         || Model.ShipmentId.HasValue
         || !string.IsNullOrWhiteSpace(Model.Reference)
         || isSarrafSettlement
-        || Model.IsAdvancePayment == true;
+        || Model.IsAdvancePayment == true
+        || Model.IsCustomerAdvance == true;
     ViewData["SectionTabsActionUrl"] = cancelUrl;
     ViewData["SectionTabsActionLabel"] = "بازگشت";
     ViewData["SectionTabsActionIcon"] = "bi-arrow-right";
@@ -325,6 +326,15 @@
                                     <label for="IsAdvancePayment" class="form-check-label"><i class="bi bi-cash-coin"></i> پیش‌پرداخت است</label>
                                 </div>
                                 <small class="text-muted">اگر این پول قبل از رسیدن جنس به تأمین‌کننده داده شده، این گزینه را فعال کنید.</small>
+                            </div>
+
+                            <div class="ak-field ak-form-full">
+                                <div class="form-check">
+                                    @* IsCustomerAdvance از نوع bool? است؛ مانند IsAdvancePayment دستی bind می‌شود. *@
+                                    <input type="checkbox" name="IsCustomerAdvance" value="true" checked="@(Model.IsCustomerAdvance == true)" class="form-check-input" id="IsCustomerAdvance" />
+                                    <label for="IsCustomerAdvance" class="form-check-label"><i class="bi bi-cash-coin"></i> پیش‌دریافت است</label>
+                                </div>
+                                <small class="text-muted">اگر این پول را قبل از تحویل جنس از مشتری گرفته‌اید، این گزینه را فعال کنید.</small>
                             </div>
                         </div>
                     </div>

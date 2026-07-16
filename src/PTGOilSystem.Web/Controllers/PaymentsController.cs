@@ -31,6 +31,10 @@ public class PaymentsController : Controller
     private readonly IPurchaseAggregationService _purchaseAggregation;
     private readonly IMemoryCache? _summaryCache;
     private readonly IFormTokenGuard _formTokens;
+    // مرحله ۴ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe: اگر تزریق
+    // نشود یا خاموش باشد، مسیر قدیمی هیچ تغییری نمی‌کند.
+    private readonly Services.Accounting.IPaymentAccountingAdapter? _paymentAccounting;
+    private readonly Services.Accounting.IViaSarrafAccountingAdapter? _viaSarrafAccounting;
     private const int IndexPageSize = 20;
     private const int LookupLimit = 200;
     public const string ViaSarrafSupplierLedgerSourceType = "SupplierViaSarrafPayment";
@@ -50,7 +54,9 @@ public class PaymentsController : Controller
         ILogger<PaymentsController> logger,
         IPurchaseAggregationService? purchaseAggregation = null,
         IMemoryCache? summaryCache = null,
-        IFormTokenGuard? formTokens = null)
+        IFormTokenGuard? formTokens = null,
+        Services.Accounting.IPaymentAccountingAdapter? paymentAccounting = null,
+        Services.Accounting.IViaSarrafAccountingAdapter? viaSarrafAccounting = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
@@ -61,6 +67,8 @@ public class PaymentsController : Controller
         _purchaseAggregation = purchaseAggregation ?? new PurchaseAggregationService(db);
         _summaryCache = summaryCache;
         _formTokens = formTokens ?? new FormTokenGuard(db);
+        _paymentAccounting = paymentAccounting;
+        _viaSarrafAccounting = viaSarrafAccounting;
     }
 
     public PaymentsController(
@@ -498,6 +506,11 @@ public class PaymentsController : Controller
                     model.PaymentKind = PaymentKind.SupplierPayment;
                     model.IsAdvancePayment = true;
                     break;
+                case "customer-advance":
+                    model.Direction = PaymentDirection.In;
+                    model.PaymentKind = PaymentKind.CustomerReceipt;
+                    model.IsCustomerAdvance = true;
+                    break;
             }
         }
 
@@ -597,7 +610,9 @@ public class PaymentsController : Controller
             Reference = model.Reference,
             Description = model.Description,
             // Phase 1 — نشانهٔ پیش‌پرداخت (فقط ثبت/نمایش، به Ledger اثر ندارد).
-            IsAdvancePayment = model.IsAdvancePayment
+            IsAdvancePayment = model.IsAdvancePayment,
+            // مرحله ۴ — نشانهٔ پیش‌دریافت مشتری (فقط ثبت/نمایش، به Ledger اثر ندارد).
+            IsCustomerAdvance = model.IsCustomerAdvance
         };
 
         var ledgerEntry = new LedgerEntry
@@ -646,6 +661,13 @@ public class PaymentsController : Controller
             if (commission is not null && commissionType is not null)
             {
                 await PostCashCommissionAsync(payment, commission, commissionCashAccountId, commissionType);
+            }
+
+            // مرحله ۴ — Dual-write به دفتر کل جدید داخل همان Transaction قدیمی. خاموش/Skip
+            // بودن Pilot هیچ اثری روی مسیر قدیمی ندارد؛ خطای واقعی همان Rollback را می‌گیرد.
+            if (_paymentAccounting is not null)
+            {
+                await _paymentAccounting.TryPostPaymentAsync(payment);
             }
 
             await _audit.LogAsync(
@@ -771,6 +793,7 @@ public class PaymentsController : Controller
             Reference = payment.Reference,
             Description = payment.Description,
             IsAdvancePayment = payment.IsAdvancePayment,
+            IsCustomerAdvance = payment.IsCustomerAdvance,
             ReturnUrl = returnUrl
         };
 
@@ -968,6 +991,7 @@ public class PaymentsController : Controller
         payment.Reference = model.Reference;
         payment.Description = model.Description;
         payment.IsAdvancePayment = model.IsAdvancePayment;
+        payment.IsCustomerAdvance = model.IsCustomerAdvance;
 
         ledgerEntry.EntryDate = payment.PaymentDate;
         ledgerEntry.Side = GetLedgerSide(payment.PaymentKind);
@@ -3019,6 +3043,24 @@ public class PaymentsController : Controller
                 await PostViaSarrafCommissionAsync(
                     commission, context.SarrafId, context.SupplierId, context.ContractId,
                     model.PaymentDate.Date, reference, commissionType);
+            }
+
+            // مرحله ۴ — Dual-write به دفتر کل جدید داخل همان Transaction قدیمی. این جریان
+            // PaymentTransaction نمی‌سازد، بنابراین هویت رویداد همان سطر Ledger تأمین‌کننده است
+            // (بعد از SaveChanges بالا Id گرفته است).
+            if (_viaSarrafAccounting is not null)
+            {
+                await _viaSarrafAccounting.TryPostSupplierPaymentAsync(
+                    new Services.Accounting.ViaSarrafSupplierPaymentEvent(
+                        supplierLedger.Id,
+                        context.SupplierId,
+                        context.SarrafId,
+                        context.ContractId,
+                        model.PaymentDate.Date,
+                        context.Currency,
+                        amount,
+                        context.AmountUsd,
+                        context.FxRateToUsd));
             }
 
             if (transaction is not null)

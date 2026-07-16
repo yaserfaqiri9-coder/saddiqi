@@ -148,6 +148,13 @@ public class PaymentTransaction : BaseEntity
     // منطق Ledger و مانده تغییری نمی‌کند؛ فقط در صورت‌حساب جدا نشان داده می‌شود.
     public bool? IsAdvancePayment { get; set; }
 
+    // مرحله ۴ — نشانهٔ «پیش‌دریافت» برای دریافت از مشتری (فقط ثبت/نمایش، nullable).
+    // معادلِ سمتِ مشتریِ IsAdvancePayment است و عمداً از آن جدا نگه داشته شده تا معنای
+    // فیلد تأمین‌کننده تغییر نکند. منطق Ledger و مانده تغییری نمی‌کند؛ فقط دفتر کل جدید
+    // با آن بین «تسویهٔ مطالبات» و «پیش‌دریافت مشتری» تفکیک می‌کند. رکوردهای قدیمی null
+    // می‌مانند و هرگز حدس زده نمی‌شوند.
+    public bool? IsCustomerAdvance { get; set; }
+
     public int? LedgerEntryId { get; set; }
     public LedgerEntry? LedgerEntry { get; set; }
 

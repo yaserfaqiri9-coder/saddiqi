@@ -69,6 +69,9 @@ builder.Services.AddScoped<IAccountingJournalNumberGenerator, AccountingJournalN
 builder.Services.AddScoped<IContractBalanceTransferAccountingAdapter, ContractBalanceTransferAccountingAdapter>();
 builder.Services.AddScoped<ISupplierPaymentAllocationAccountingAdapter, SupplierPaymentAllocationAccountingAdapter>();
 builder.Services.AddScoped<ICompanyOwnershipReportService, CompanyOwnershipReportService>();
+builder.Services.AddScoped<IPaymentCompanyResolver, PaymentCompanyResolver>();
+builder.Services.AddScoped<IPaymentAccountingAdapter, PaymentAccountingAdapter>();
+builder.Services.AddScoped<IViaSarrafAccountingAdapter, ViaSarrafAccountingAdapter>();
 // ---- Inventory Lineage (Phase 2). Feature flags + parallel reference-layer services. ----
 builder.Services.Configure<PTGOilSystem.Web.Configuration.LineageOptions>(
     builder.Configuration.GetSection(PTGOilSystem.Web.Configuration.LineageOptions.SectionName));

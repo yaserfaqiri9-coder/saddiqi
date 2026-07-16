@@ -5,6 +5,8 @@ public interface IAccountingJournalNumberGenerator
     string ForContractBalanceTransfer(int companyId, int transferId);
     string ForSupplierPaymentAllocation(int companyId, int allocationId);
     string ForSupplierPaymentAllocationReversal(int companyId, int allocationId);
+    string ForPayment(int companyId, int paymentId);
+    string ForViaSarrafSupplierPayment(int companyId, int supplierLedgerEntryId);
 }
 
 public sealed class AccountingJournalNumberGenerator : IAccountingJournalNumberGenerator
@@ -39,5 +41,27 @@ public sealed class AccountingJournalNumberGenerator : IAccountingJournalNumberG
             throw new ArgumentOutOfRangeException(nameof(allocationId));
 
         return $"SPAR-{companyId:D6}-{allocationId:D10}";
+    }
+
+    public string ForPayment(int companyId, int paymentId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (paymentId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(paymentId));
+
+        return $"PAY-{companyId:D6}-{paymentId:D10}";
+    }
+
+    public string ForViaSarrafSupplierPayment(int companyId, int supplierLedgerEntryId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (supplierLedgerEntryId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(supplierLedgerEntryId));
+
+        // The via-sarraf flow writes no PaymentTransaction, so the supplier ledger row is the
+        // only stable, database-generated identity for the event.
+        return $"VSS-{companyId:D6}-{supplierLedgerEntryId:D10}";
     }
 }

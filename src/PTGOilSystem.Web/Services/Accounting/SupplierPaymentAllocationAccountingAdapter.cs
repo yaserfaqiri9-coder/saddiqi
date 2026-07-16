@@ -42,10 +42,10 @@ public interface ISupplierPaymentAllocationAccountingAdapter
 ///   Credit Supplier Prepayment — PartyType=Supplier, ContractId = null (free prepayment pool,
 ///                                matching the legacy credit row exactly)
 ///
-/// Company ownership: PaymentTransaction/CashAccount carry no CompanyId today, so the
-/// company is only definite when the payment itself is bound to a contract whose company
-/// equals the destination contract's company. Otherwise the pilot skips and legacy
-/// behaviour continues unchanged (Stage 3 adds provable company ownership).
+/// Company ownership: the payment's own CompanyId (Stage 3) is the primary source, falling
+/// back to the payment's contract for rows the backfill could not prove. The company must
+/// equal the destination contract's company; otherwise the pilot skips and legacy behaviour
+/// continues unchanged.
 ///
 /// Both journal lines use the payment-currency pair (AllocatedPaymentAmount ×
 /// PaymentFxRateToUsd) because AllocatedBookAmountUsd is rounded from exactly that
@@ -261,17 +261,24 @@ public sealed class SupplierPaymentAllocationAccountingAdapter(
             && allocation.PaymentFxRateToUsd != 1m)
             return (0, "INVALID_PAYMENT_FX");
 
-        // Company is only provable through the payment's own contract today.
-        if (!payment.ContractId.HasValue)
-            return (0, "PAYMENT_COMPANY_UNKNOWN");
-        var paymentContractCompanyId = await db.Contracts
-            .AsNoTracking()
-            .Where(x => x.Id == payment.ContractId.Value)
-            .Select(x => (int?)x.CompanyId)
-            .SingleOrDefaultAsync(cancellationToken);
-        if (paymentContractCompanyId is null)
-            return (0, "PAYMENT_CONTRACT_NOT_FOUND");
-        if (paymentContractCompanyId.Value != contract.CompanyId)
+        // Stage 3 gave PaymentTransaction its own provable CompanyId, so it is the primary
+        // source now. Payments predating that column (or left ambiguous by the backfill) still
+        // fall back to the payment's own contract, which was the Stage 2 rule.
+        int? paymentCompanyId = payment.CompanyId;
+        if (paymentCompanyId is null)
+        {
+            if (!payment.ContractId.HasValue)
+                return (0, "PAYMENT_COMPANY_UNKNOWN");
+            paymentCompanyId = await db.Contracts
+                .AsNoTracking()
+                .Where(x => x.Id == payment.ContractId.Value)
+                .Select(x => (int?)x.CompanyId)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (paymentCompanyId is null)
+                return (0, "PAYMENT_CONTRACT_NOT_FOUND");
+        }
+
+        if (paymentCompanyId.Value != contract.CompanyId)
             return (0, "COMPANY_MISMATCH");
 
         var companyId = contract.CompanyId;

@@ -178,6 +178,10 @@ public sealed class PaymentCreateViewModel
     [Display(Name = "پیش‌پرداخت است")]
     public bool? IsAdvancePayment { get; set; }
 
+    // مرحله ۴ — نشانهٔ پیش‌دریافت (فقط برای دریافت از مشتری؛ ثبت/نمایش، بدون اثر روی Ledger).
+    [Display(Name = "پیش‌دریافت است")]
+    public bool? IsCustomerAdvance { get; set; }
+
     [StringLength(1000)]
     public string? ReturnUrl { get; set; }
 

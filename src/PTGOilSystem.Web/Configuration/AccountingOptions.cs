@@ -14,4 +14,12 @@ public sealed class AccountingPilotOptions
 {
     public bool ContractBalanceTransfer { get; set; }
     public bool SupplierPaymentAllocation { get; set; }
+
+    // Stage 4 — receipts and payments. Each cash sub-module owns an independent flag so a
+    // single mapping can be piloted without exposing the others.
+    public bool CustomerReceipt { get; set; }
+    public bool CustomerAdvance { get; set; }
+    public bool SupplierPayment { get; set; }
+    public bool SupplierPrepayment { get; set; }
+    public bool SarrafPayment { get; set; }
 }
