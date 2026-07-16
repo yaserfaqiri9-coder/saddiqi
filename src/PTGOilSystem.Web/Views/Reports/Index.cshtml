@@ -1,107 +1,45 @@
 @model PTGOilSystem.Web.Models.Reports.ReportHubViewModel
 @{
-    ViewData["Title"] = UiText.T(Context, "گزارش‌ها", "Reports");
+    ViewData["Title"] = UiText.T(Context, "گزارش‌های مالی", "Financial Reports");
 
-    var reportGroups = new[]
+    var reports = new[]
     {
-        new
-        {
-            Slug = "finance",
-            TitleFa = "مالی",
-            TitleEn = "Finance",
-            Keys = new[] { "Reports.CompanyOverview", "Reports.CashFlow", "Reports.ReceivablesPayables" },
-            IncludeUngrouped = false
-        },
-        new
-        {
-            Slug = "income-expense",
-            TitleFa = "درآمد و مصارف",
-            TitleEn = "Income & Expense",
-            Keys = new[] { "Reports.ContractPnl" },
-            IncludeUngrouped = false
-        },
-        new
-        {
-            Slug = "inventory",
-            TitleFa = "موجودی",
-            TitleEn = "Inventory",
-            Keys = new[] { "Inventory.Index", "Reports.InventoryOperations" },
-            IncludeUngrouped = false
-        },
-        new
-        {
-            Slug = "other",
-            TitleFa = "سایر گزارش‌ها",
-            TitleEn = "Other Reports",
-            Keys = new[] { "Reports.Warnings" },
-            IncludeUngrouped = true
-        }
+        new { Controller = "Reports", Action = "CompanyOverview", TitleFa = "سود و زیان شرکت", TitleEn = "Company Profit & Loss", DescriptionFa = "درآمد، قیمت خرید، مصارف، ضایعات، اختلاف ارز و سود یا زیان خالص.", DescriptionEn = "Revenue, purchase cost, expenses, losses, exchange difference and net result.", Icon = "bi-graph-up-arrow" },
+        new { Controller = "Reports", Action = "CashFlow", TitleFa = "جریان نقدی", TitleEn = "Cash Flow", DescriptionFa = "ورودی و خروجی واقعی پول بر اساس روزنامه و حساب‌های نقدی/بانکی.", DescriptionEn = "Actual cash inflow and outflow from journal and cash or bank accounts.", Icon = "bi-cash-stack" },
+        new { Controller = "Reports", Action = "ReceivablesPayables", TitleFa = "دریافتنی‌ها و پرداختنی‌ها", TitleEn = "Receivables & Payables", DescriptionFa = "طلب مشتریان و بدهی تأمین‌کنندگان در یک گزارش هماهنگ.", DescriptionEn = "Customer receivables and supplier payables in one coordinated report.", Icon = "bi-people" },
+        new { Controller = "Reports", Action = "InventoryOperations", TitleFa = "موجودی و عملیات", TitleEn = "Inventory & Operations", DescriptionFa = "مقدار موجودی، گردش‌ها و موارد عملیاتی نیازمند بررسی.", DescriptionEn = "Inventory quantities, movements and operational items requiring attention.", Icon = "bi-box-seam" },
+        new { Controller = "Reports", Action = "ContractPnl", TitleFa = "سود و زیان قرارداد و محموله", TitleEn = "Contract & Shipment P&L", DescriptionFa = "درآمد، بهای خرید، مصارف، ضایعات، صراف و اختلاف ارز هر قرارداد.", DescriptionEn = "Revenue, purchase cost, expenses, losses, sarraf and exchange difference by contract.", Icon = "bi-file-earmark-spreadsheet" }
     };
-
-    var reportIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["Reports.CompanyOverview"] = "bi-clipboard-data",
-        ["Reports.ContractPnl"] = "bi-graph-up-arrow",
-        ["Reports.CashFlow"] = "bi-wallet2",
-        ["Reports.ReceivablesPayables"] = "bi-people",
-        ["Inventory.Index"] = "bi-box-seam",
-        ["Reports.InventoryOperations"] = "bi-diagram-3",
-        ["Reports.Warnings"] = "bi-exclamation-triangle"
-    };
-
-    string ControllerFor(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
-        => string.IsNullOrWhiteSpace(card.Controller) ? "Reports" : card.Controller;
-
-    string CardKey(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
-        => $"{ControllerFor(card)}.{card.Action}";
-
-    string IconFor(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
-        => reportIcons.TryGetValue(CardKey(card), out var icon)
-            ? icon
-            : card.Icon.Replace("-fill", "", StringComparison.OrdinalIgnoreCase);
-
-    bool CanOpenCard(PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel card)
-        => PTGOilSystem.Web.Security.RoleAccessRules.CanAccessController(User, ControllerFor(card));
-
-    var visibleCards = Model.Cards.Where(CanOpenCard).ToList();
-    var groupedKeys = reportGroups.SelectMany(group => group.Keys).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-    IReadOnlyList<PTGOilSystem.Web.Models.Reports.ReportHubCardViewModel> CardsFor(string[] keys, bool includeUngrouped)
-    {
-        var keySet = keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var cards = visibleCards.Where(card => keySet.Contains(CardKey(card))).ToList();
-
-        if (includeUngrouped)
-        {
-            cards.AddRange(visibleCards.Where(card => !groupedKeys.Contains(CardKey(card))));
-        }
-
-        return cards;
-    }
-
-    var orderedCards = reportGroups
-        .SelectMany(group => CardsFor(group.Keys, group.IncludeUngrouped))
-        .Distinct()
-        .ToList();
 }
 
-<div class="ak-reports-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
-    <header class="ak-reports-header">
-        <h1 class="ak-reports-title">@UiText.T(Context, "گزارش‌ها", "Reports")</h1>
+<div class="ak-reports-page finance-workspace-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+    <header class="finance-report-header">
+        <div>
+            <h1 class="ak-reports-title">@UiText.T(Context, "گزارش‌های مالی", "Financial Reports")</h1>
+            <p class="finance-page-lead">@UiText.T(Context, "گزارش‌های اصلی بر پایه داده ثبت‌شده؛ هر موضوع فقط یک مسیر روشن دارد.", "Core reports based on posted data, with one clear route per topic.")</p>
+        </div>
+        <a class="btn btn-light ak-secondary-action" asp-controller="Reconciliation" asp-action="Index">
+            <i class="bi bi-check2-square" aria-hidden="true"></i>
+            <span>@UiText.T(Context, "کنترل مغایرت‌ها", "Reconciliation checks")</span>
+        </a>
     </header>
 
-    <div class="ak-reports-grid">
-        @foreach (var card in orderedCards)
+    <section class="finance-report-list" aria-label="@UiText.T(Context, "گزارش‌های موجود", "Available reports")">
+        @foreach (var report in reports)
         {
-            <a class="ak-report-row" asp-controller="@ControllerFor(card)" asp-action="@card.Action" aria-label="@UiText.T(Context, card.TitleFa, card.TitleEn)">
-                <span class="ak-report-icon" aria-hidden="true">
-                    <i class="bi @IconFor(card)"></i>
+            <a class="finance-report-link" asp-controller="@report.Controller" asp-action="@report.Action">
+                <span class="finance-report-link-icon" aria-hidden="true"><i class="bi @report.Icon"></i></span>
+                <span class="finance-report-link-copy">
+                    <strong>@UiText.T(Context, report.TitleFa, report.TitleEn)</strong>
+                    <small>@UiText.T(Context, report.DescriptionFa, report.DescriptionEn)</small>
                 </span>
-                <span class="ak-report-copy">
-                    <span class="ak-report-title">@UiText.T(Context, card.TitleFa, card.TitleEn)</span>
-                    <span class="ak-report-desc">@UiText.T(Context, card.DescriptionFa, card.DescriptionEn)</span>
-                </span>
+                <i class="bi bi-chevron-left finance-report-link-arrow" aria-hidden="true"></i>
             </a>
         }
-    </div>
+    </section>
+
+    <p class="finance-source-note">
+        <i class="bi bi-shield-check" aria-hidden="true"></i>
+        @UiText.T(Context, "اعداد این مسیرها از اسناد و گردش‌های موجود سیستم خوانده می‌شوند؛ این صفحه محاسبه تازه‌ای ایجاد نمی‌کند.", "These routes read existing documents and movements; this page creates no new calculation.")
+    </p>
 </div>

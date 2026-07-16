@@ -132,18 +132,25 @@
     };
     var transportControllers = transportItems.Select(item => item.Controller).ToArray();
 
-    var reportItems = new (string Controller, string Action, string Label, string Icon)[]
+    var financeMenuItems = new (string Controller, string Action, string Label, string Icon)[]
     {
-        ("Reports", "CompanyOverview",      T("نمای کلی مالی",       "Financial Overview"),      "bi-speedometer2"),
-        ("Reports", "ContractPnl",          T("سود و زیان قراردادها", "Contract P&L"),            "bi-graph-up-arrow"),
-        ("Reports", "CashFlow",             T("جریان نقدی",          "Cash Flow"),               "bi-cash-stack"),
-        ("Reports", "ReceivablesPayables",  T("بدهی‌ها و طلب‌ها",    "Receivables & Payables"),  "bi-people"),
-        ("Reports", "InventoryOperations",  T("موجودی و عملیات",     "Inventory & Operations"),  "bi-box-seam"),
-        ("Reports", "Warnings",             T("مغایرت‌ها",           "Warnings"),                "bi-exclamation-triangle"),
-        ("Inventory", "Index",              T("موجودی",              "Inventory"),               "bi-box-seam-fill")
+        ("Reports",     "CompanyOverview", T("نمای کلی مالی",       "Financial Overview"),       "bi-speedometer2"),
+        ("Payments",    "Index",           T("روزنامه و اسناد",     "Journal & Documents"),      "bi-journal-text"),
+        ("Ledger",      "Index",           T("حساب‌ها و دفتر کل",   "Accounts & General Ledger"), "bi-bank"),
+        ("Reports",     "Index",           T("گزارش‌های مالی",      "Financial Reports"),        "bi-file-earmark-bar-graph"),
+        ("FiscalYears", "Index",           T("سال مالی و بستن سال", "Fiscal Year & Closing"),     "bi-calendar-check")
     };
 
-    var reportControllers = reportItems.Select(item => item.Controller).Distinct().ToArray();
+    var journalControllers = new[] { "Payments", "SarrafSettlements", "ThreeWaySettlement", "ContractBalanceTransfers", "Reconciliation" };
+    var accountControllers = new[] { "CashAccounts", "AccountStatements", "Ledger", "Sarrafs" };
+    var fiscalYearControllers = new[] { "FiscalYears", "AccountingReadiness", "ClosingChecklist", "TrialClose", "FinalClose", "ReopenFiscalYear" };
+    var financeWorkspaceControllers = journalControllers
+        .Concat(accountControllers)
+        .Concat(fiscalYearControllers)
+        .Append("Reports")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var isFinanceWorkspace = financeWorkspaceControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase);
 
     var coreDataItems = foundationItems.Select(i => (i.Controller, i.Action, i.Label, i.Icon, (string?)null))
         .Concat(operationalResourceItems.Select(i => (i.Controller, i.Action, i.Label, i.Icon, (string?)null)))
@@ -176,14 +183,8 @@
         operationsSidebarItem,
         SidebarItem("OperationalAssets", "Index", T("دارایی‌ها", "Assets"), "nav-assets"),
         SidebarItem("Sales", "Index", T("فروش", "Sales"), "nav-sales"),
-        SidebarItem(
-            "Payments",
-            "Index",
-            T("مالی", "Finance"),
-            "nav-finance",
-            activeControllers: new[] { "CashAccounts", "Payments", "AccountStatements", "SarrafSettlements", "Ledger" })
+        SidebarItem("Reports", "CompanyOverview", T("مالی و گزارش‌ها", "Finance & Reports"), "nav-finance", activeControllers: financeWorkspaceControllers)
     };
-    primarySidebarItems.Add(SidebarItem("Reports", "Index", T("گزارشات", "Reports"), "nav-reports", activeControllers: reportControllers));
 
     if (adminSettingItems.Length > 0)
     {
@@ -255,9 +256,8 @@
         NavNode("Contracts", "Index", T("قراردادها", "Contracts"), "nav-contracts", active: contractControllers),
         NavNode("Loading", "Index", T("عملیات", "Operations"), "nav-operations", active: operationTabControllers),
         NavNode("OperationalAssets", "Index", T("دارایی‌ها", "Assets"), "nav-assets"),
-        NavNode("Payments", "Index", T("مالی", "Finance"), "nav-finance",
-            active: new[] { "CashAccounts", "Payments", "AccountStatements", "SarrafSettlements", "Ledger" }),
-        NavNode("Reports", "Index", T("گزارشات", "Reports"), "nav-reports", active: reportControllers, children: reportItems),
+        NavNode("Reports", "CompanyOverview", T("مالی و گزارش‌ها", "Finance & Reports"), "nav-finance",
+            active: financeWorkspaceControllers, children: financeMenuItems),
         NavNode("Suppliers", "Index", T("طرف حساب‌ها", "Parties"), "nav-parties", active: businessPartyGroupControllers, children: businessPartyItems),
         NavNode("Trucks", "Index", T("حمل و نقل", "Transport"), "nav-truck", active: transportControllers, children: transportItems),
         NavNode("StorageTanks", "Index", T("تعاریف پایه", "Base Definitions"), "nav-settings", active: coreDataControllers, children: baseDefinitionChildren)
@@ -283,10 +283,30 @@
         (string Controller, string Action, string Label, string Icon) child,
         bool controllersAreUnique)
     {
+        if (string.Equals(child.Controller, "Payments", StringComparison.OrdinalIgnoreCase)
+            && journalControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        if (string.Equals(child.Controller, "Ledger", StringComparison.OrdinalIgnoreCase)
+            && accountControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        if (string.Equals(child.Controller, "FiscalYears", StringComparison.OrdinalIgnoreCase)
+            && fiscalYearControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase))
+            return true;
+
         if (!string.Equals(currentController, child.Controller, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
+
+        if (string.Equals(child.Controller, "Reports", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(child.Action, "CompanyOverview", StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(currentAction, "CompanyOverview", StringComparison.OrdinalIgnoreCase)
+                : !string.Equals(currentAction, "CompanyOverview", StringComparison.OrdinalIgnoreCase);
+        }
+
         return controllersAreUnique || string.Equals(currentAction, child.Action, StringComparison.OrdinalIgnoreCase);
     }
 }
@@ -366,6 +386,10 @@
         <link rel="stylesheet" href="~/css/ptg/45-akaunting.css" asp-append-version="true" />
         <link rel="stylesheet" href="~/css/ptg/50-ak-components.css" asp-append-version="true" />
         <link rel="stylesheet" href="~/css/ptg/52-stat-card.css" asp-append-version="true" />
+        @if (isFinanceWorkspace)
+        {
+            <link rel="stylesheet" href="~/css/ptg/61-finance-workspace.css" asp-append-version="true" />
+        }
     }
     @* لودر برند صدیقی — استایل و رفتار در فایل‌های مستقل (60-loader.css / ptg-loader.js) *@
     @if (renderShellChrome)
@@ -373,7 +397,7 @@
         <link rel="stylesheet" href="~/css/ptg/60-loader.css" asp-append-version="true" />
     }
 </head>
-<body class="app-body boltz-shell @(isAuthenticated ?"app-shell-authenticated" : "app-shell-public") @(isEnglishUi ? "boltz-ltr" : "boltz-rtl") @foundationCompactClass @masterDataCompactClass @routeBodyClass"
+<body class="app-body boltz-shell @(isAuthenticated ?"app-shell-authenticated" : "app-shell-public") @(isEnglishUi ? "boltz-ltr" : "boltz-rtl") @foundationCompactClass @masterDataCompactClass @(isFinanceWorkspace ? "is-finance-workspace" : null) @routeBodyClass"
       data-ui-language="@htmlLanguage"
       data-theme-version="light"
       data-layout="vertical"
@@ -506,6 +530,18 @@
                         <button type="button" class="ptg-hsearch ptg-hsearch-trigger" data-search-open aria-haspopup="dialog" aria-controls="ptgSearchDialog" aria-label="@T("جستجو", "Search")">
                             <i class="bi bi-search ptg-hsearch-ico" aria-hidden="true"></i>
                         </button>
+
+                        @if (isFinanceWorkspace)
+                        {
+                            <button type="button"
+                                    class="ptg-h3d"
+                                    data-finance-theme-toggle
+                                    aria-pressed="false"
+                                    aria-label="@T("فعال‌کردن حالت تیره", "Enable dark mode")"
+                                    title="@T("حالت روشن یا تیره", "Light or dark mode")">
+                                <i class="bi bi-moon-stars" data-finance-theme-icon aria-hidden="true"></i>
+                            </button>
+                        }
 
                         @* Language selector (UK flag) *@
                         <div class="dropdown boltz-language-menu ptg-hflag-wrap">
@@ -733,6 +769,10 @@
         <script src="~/js/core.js" asp-append-version="true" defer></script>
         <script src="~/js/ptg-toasts.js" asp-append-version="true" defer></script>
         <script src="~/js/language.js" asp-append-version="true" defer></script>
+        @if (isFinanceWorkspace)
+        {
+            <script src="~/js/finance-theme.js" asp-append-version="true" defer></script>
+        }
         <script src="~/js/auto-code-fields.js" asp-append-version="true" defer></script>
         <script src="~/js/clone-entity.js" asp-append-version="true" defer></script>
         <script src="~/js/navigation.js" asp-append-version="true" defer></script>

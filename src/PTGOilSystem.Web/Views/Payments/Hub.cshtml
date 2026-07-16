@@ -1,64 +1,45 @@
 @model PTGOilSystem.Web.Models.Payments.TreasuryHubViewModel
 @{
-    ViewData["Title"] = "مرکز رزنامچه و تسویه‌ها";
+    ViewData["Title"] = "راهنمای دریافت، پرداخت و تسویه";
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page finance-workspace-page" dir="rtl">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@(("مرکز رزنامچه و تسویه‌ها", false,
+             model="@(("راهنمای دریافت، پرداخت و تسویه", false,
                        "ثبت دریافت/پرداخت", "bi-plus-lg", Url.Action("Create"), (string?)null,
-                       "همه اسناد رزنامچه", "bi-list-ul", Url.Action("Index")))" />
+                       "روزنامه و اسناد", "bi-arrow-right", Url.Action("Index")))" />
 
-    <p class="ak-note">همه عملیات پولی از یک‌جا: دریافت، پرداخت، پیشکی، حواله، انتقال مانده، صراف و بررسی پول‌های معلق. این صفحه فقط راهنما و خلاصه است و خودش هیچ سندی ثبت نمی‌کند.</p>
+    <p class="finance-page-lead">کار موردنظر را انتخاب کنید؛ ثبت‌ها از مسیرهای رسمی فعلی انجام می‌شوند و این صفحه خودش سندی نمی‌سازد.</p>
 
-    <section class="ak-stat-grid" aria-label="آمار مرکز روزنامچه">
-        <vc:stat-card title="جمع دریافتی" value="@Model.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
-        <vc:stat-card title="جمع پرداختی" value="@Model.TodayPaymentUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
-        <vc:stat-card title="پول‌های معلق" value="@Model.SuspenseCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
-        <vc:stat-card title="حواله‌های ثبت‌شده" value="@Model.PostedHawalaCount.ToString("N0")" unit="حواله" avatar="purchase-contracts"></vc:stat-card>
-        <vc:stat-card title="نیازمند بررسی" value="@Model.NeedsReviewCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
-    </section>
+    <dl class="finance-status-strip" aria-label="وضعیت روزنامه">
+        <div><dt>دریافتی امروز</dt><dd class="ak-num">@Model.TodayReceiptUsd.ToString("N2") USD</dd></div>
+        <div><dt>پرداختی امروز</dt><dd class="ak-num">@Model.TodayPaymentUsd.ToString("N2") USD</dd></div>
+        <div><dt>پول معلق</dt><dd class="ak-num">@Model.SuspenseCount.ToString("N0") مورد</dd></div>
+        <div><dt>حواله ثبت‌شده</dt><dd class="ak-num">@Model.PostedHawalaCount.ToString("N0") مورد</dd></div>
+        <div><dt>نیازمند بررسی</dt><dd class="ak-num">@Model.NeedsReviewCount.ToString("N0") مورد</dd></div>
+    </dl>
 
-    <div class="ak-hub-grid">
-        <a asp-action="Create" asp-route-kind="customer-receipt" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-arrow-down-left"></i> دریافت از مشتری</span>
-            <span class="ak-hub-tile-desc">پولی که از مشتری می‌گیرید را ثبت کنید؛ طلب ما از مشتری کم می‌شود.</span>
-        </a>
-        <a asp-action="Create" asp-route-kind="supplier-payment" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-arrow-up-right"></i> پرداخت به تأمین‌کننده</span>
-            <span class="ak-hub-tile-desc">پولی که به تأمین‌کننده می‌دهید را ثبت کنید؛ بدهی ما به تأمین‌کننده کم می‌شود.</span>
-        </a>
-        <a asp-action="Create" asp-route-kind="supplier-advance" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-wallet2"></i> پیشکی تأمین‌کننده</span>
-            <span class="ak-hub-tile-desc">پیش‌پرداخت (پیشکی) به تأمین‌کننده پیش از تحویل؛ به‌عنوان پیشکی ثبت می‌شود.</span>
-        </a>
-        <a asp-controller="ThreeWaySettlement" asp-action="Index" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-diagram-3"></i> تسویه سه‌طرفه / حواله</span>
-            <span class="ak-hub-tile-desc">وقتی مشتری مستقیم یا از طریق صراف به تأمین‌کننده حواله می‌کند.</span>
-        </a>
-        <a asp-controller="ContractBalanceTransfers" asp-action="Index" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-shuffle"></i> انتقال مانده بین قراردادها</span>
-            <span class="ak-hub-tile-desc">انتقال مانده پول از یک قرارداد به قرارداد دیگر.</span>
-        </a>
-        <a asp-action="Create" asp-route-method="sarraf" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-currency-exchange"></i> پرداخت از طریق صراف</span>
-            <span class="ak-hub-tile-desc">صراف از طرف شرکت به تأمین‌کننده پول می‌دهد؛ در همان فرم با «روش پرداخت: از طریق صراف».</span>
-        </a>
-        <a asp-controller="Reconciliation" asp-action="SuspenseMoney" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-exclamation-octagon"></i> پول‌های معلق</span>
-            <span class="ak-hub-tile-desc">پول‌هایی که طرف‌حساب یا سند ندارند و باید «وصل» شوند.</span>
-        </a>
-        <a asp-controller="Customers" asp-action="Index" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-person-lines-fill"></i> صورت‌حساب مشتری</span>
-            <span class="ak-hub-tile-desc">مانده و گردش حساب هر مشتری.</span>
-        </a>
-        <a asp-controller="Suppliers" asp-action="Index" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-truck"></i> صورت‌حساب تأمین‌کننده</span>
-            <span class="ak-hub-tile-desc">مانده و گردش حساب هر تأمین‌کننده.</span>
-        </a>
-        <a asp-controller="Sarrafs" asp-action="Index" class="ak-hub-tile">
-            <span class="ak-hub-tile-title"><i class="bi bi-bank"></i> صراف‌ها</span>
-            <span class="ak-hub-tile-desc">فهرست صراف‌ها، مانده و حواله‌های مرتبط.</span>
-        </a>
+    <div class="finance-action-groups">
+        <section class="finance-action-group">
+            <header><h2>ثبت پول</h2><p>دریافت یا پرداخت روزمره</p></header>
+            <a asp-action="Create" asp-route-kind="customer-receipt"><strong>دریافت از مشتری</strong><small>کاهش طلب مشتری</small></a>
+            <a asp-action="Create" asp-route-kind="supplier-payment"><strong>پرداخت به تأمین‌کننده</strong><small>کاهش بدهی تأمین‌کننده</small></a>
+            <a asp-action="Create" asp-route-kind="supplier-advance"><strong>پیشکی تأمین‌کننده</strong><small>ثبت پیش‌پرداخت رسمی</small></a>
+            <a asp-action="Create" asp-route-method="sarraf"><strong>پرداخت از طریق صراف</strong><small>همان فرم رسمی با روش صراف</small></a>
+        </section>
+
+        <section class="finance-action-group">
+            <header><h2>تسویه و انتقال</h2><p>عملیات میان چند طرف یا قرارداد</p></header>
+            <a asp-controller="ThreeWaySettlement" asp-action="Index"><strong>تسویه سه‌طرفه / حواله</strong><small>مشتری، صراف و تأمین‌کننده</small></a>
+            <a asp-controller="ContractBalanceTransfers" asp-action="Index"><strong>انتقال مانده قرارداد</strong><small>انتقال کنترل‌شده بین قراردادها</small></a>
+            <a asp-controller="Sarrafs" asp-action="Index"><strong>صراف‌ها</strong><small>مانده و حواله‌های مرتبط</small></a>
+        </section>
+
+        <section class="finance-action-group">
+            <header><h2>بررسی مانده‌ها</h2><p>پیگیری موارد نیازمند توجه</p></header>
+            <a asp-controller="Reconciliation" asp-action="SuspenseMoney"><strong>پول‌های معلق</strong><small>سندهایی که باید به طرف حساب وصل شوند</small></a>
+            <a asp-controller="Customers" asp-action="Index"><strong>صورت‌حساب مشتریان</strong><small>مانده و گردش هر مشتری</small></a>
+            <a asp-controller="Suppliers" asp-action="Index"><strong>صورت‌حساب تأمین‌کنندگان</strong><small>مانده و گردش هر تأمین‌کننده</small></a>
+        </section>
     </div>
 </div>

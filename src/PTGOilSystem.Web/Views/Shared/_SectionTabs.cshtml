@@ -93,24 +93,21 @@
     // پرداخت از طریق صراف اکنون داخل همان فرم روزنامچه (Payments/Create) با «روش پرداخت» ثبت می‌شود.
     // کنترلر/سرویس SarrafSettlements و AccountStatements حذف نشده‌اند؛ فقط از تب‌ها کنار رفتند.
     // «رزنامچه» (Payments) دیگر گروه خزانه‌داری جدا ندارد و اکنون تبی داخل گروه تب‌های مالی است.
-    var financeTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
+    var financeWorkspaceTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
     {
-        ("Payments",     "Index",     T("رزنامچه",                "Roznamcha"),            "bi-journal-bookmark-fill",   null),
-        ("CashAccounts", "Index",     T("حساب‌های نقد / بانک",   "Cash / Bank Accounts"), "bi-bank2",           null),
-        ("Ledger",       "Index",     T("دفتر کل",                "General Ledger"),       "bi-journal-bookmark-fill",   null)
+        ("Reports",     "CompanyOverview", T("نمای کلی مالی",       "Financial Overview"),       "bi-speedometer2", null),
+        ("Payments",    "Index",           T("روزنامه و اسناد",     "Journal & Documents"),      "bi-journal-text", null),
+        ("Ledger",      "Index",           T("حساب‌ها و دفتر کل",   "Accounts & General Ledger"), "bi-bank", null),
+        ("Reports",     "Index",           T("گزارش‌های مالی",      "Financial Reports"),        "bi-file-earmark-bar-graph", null),
+        ("FiscalYears", "Index",           T("سال مالی و بستن سال", "Fiscal Year & Closing"),     "bi-calendar-check", null)
     };
-
-    var reportTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
-    {
-        ("Reports", "Index",               T("همه گزارش‌ها",        "All Reports"),             "bi-grid-fill",                  null),
-        ("Reports", "CompanyOverview",     T("نمای مالی",           "Financial Overview"),      "bi-speedometer2",          null),
-        ("Reports", "ContractPnl",         T("سود و زیان",          "Contract P&L"),            "bi-graph-up-arrow",        null),
-        ("Reports", "CashFlow",            T("جریان نقدی",          "Cash Flow"),              "bi-cash-stack",            null),
-        ("Reports", "ReceivablesPayables", T("بدهی و طلب",          "Receivables & Payables"),  "bi-people-fill",                null),
-        ("Reports", "InventoryOperations", T("موجودی",              "Inventory"),               "bi-box-seam-fill",              null),
-        ("Reports", "Warnings",            T("کنترل",               "Control"),                 "bi-exclamation-triangle-fill",  null),
-        ("CustomsPermitTurnover", "Index", T("گزارش جواز",          "Permit Report"),           "bi-file-earmark-ruled-fill",    null)
-    };
+    var journalControllers = new[] { "Payments", "SarrafSettlements", "ThreeWaySettlement", "ContractBalanceTransfers", "Reconciliation" };
+    var accountControllers = new[] { "CashAccounts", "AccountStatements", "Ledger", "Sarrafs" };
+    var fiscalYearControllers = new[] { "FiscalYears", "AccountingReadiness", "ClosingChecklist", "TrialClose", "FinalClose", "ReopenFiscalYear" };
+    var isFinanceWorkspaceController = journalControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase)
+        || accountControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase)
+        || fiscalYearControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Reports", StringComparison.OrdinalIgnoreCase);
 
     var managementTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
     {
@@ -118,13 +115,6 @@
         ("Roles", "Index", T("نقش‌ها",  "Roles"), "bi-shield-lock-fill", null),
         ("AuditLogs", "Index", T("لاگ‌ها", "Logs"), "bi-journal-bookmark-fill", null)
     };
-
-    reportTabs = reportTabs
-        .Concat(new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]
-        {
-            ("InventoryTransportLegs", "Active", T("حمل‌های در جریان", "Active transports"), "bi-signpost-split", null)
-        })
-        .ToArray();
 
     var tabs = Array.Empty<(string Controller, string Action, string Label, string Icon, string? RouteKey)>();
     var navLabel = string.Empty;
@@ -137,6 +127,21 @@
 
     bool IsTabActive((string Controller, string Action, string Label, string Icon, string? RouteKey) tab)
     {
+        if (tabs == financeWorkspaceTabs)
+        {
+            if (string.Equals(tab.Controller, "Payments", StringComparison.OrdinalIgnoreCase))
+                return journalControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase);
+            if (string.Equals(tab.Controller, "Ledger", StringComparison.OrdinalIgnoreCase))
+                return accountControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase);
+            if (string.Equals(tab.Controller, "FiscalYears", StringComparison.OrdinalIgnoreCase))
+                return fiscalYearControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase);
+            if (string.Equals(tab.Controller, "Reports", StringComparison.OrdinalIgnoreCase))
+                return string.Equals(currentController, "Reports", StringComparison.OrdinalIgnoreCase)
+                    && (string.Equals(tab.Action, "CompanyOverview", StringComparison.OrdinalIgnoreCase)
+                        ? string.Equals(currentAction, "CompanyOverview", StringComparison.OrdinalIgnoreCase)
+                        : !string.Equals(currentAction, "CompanyOverview", StringComparison.OrdinalIgnoreCase));
+        }
+
         if (!string.Equals(tab.Controller, currentController, StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -187,13 +192,6 @@
         tabs = transportTabs;
         navLabel = T("تب‌های حمل و نقل", "Transport Tabs");
     }
-    else if (string.Equals(currentController, "InventoryTransportLegs", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(currentAction, "Active", StringComparison.OrdinalIgnoreCase))
-    {
-        tabs = reportTabs;
-        navLabel = T("تب‌های گزارش‌ها", "Reports Tabs");
-        isSelectedReportGroup = true;
-    }
     else if (IsCurrentGroup(operationTabs))
     {
         tabs = operationTabs;
@@ -225,17 +223,11 @@
         tabs = ratesPlattsTabs;
         navLabel = T("تب‌های نرخ‌ها و قواعد", "Rates & Rules Tabs");
     }
-    else if (IsCurrentGroup(financeTabs))
+    else if (isFinanceWorkspaceController)
     {
-        tabs = financeTabs;
-        navLabel = T("تب‌های مالی", "Finance Tabs");
+        tabs = financeWorkspaceTabs;
+        navLabel = T("مسیرهای اصلی مالی و گزارش‌ها", "Finance & Reports Sections");
         isSelectedFinanceGroup = true;
-    }
-    else if (IsCurrentGroup(reportTabs))
-    {
-        tabs = reportTabs;
-        navLabel = T("تب‌های گزارش‌ها", "Reports Tabs");
-        isSelectedReportGroup = true;
     }
     else if (IsCurrentGroup(managementTabs))
     {

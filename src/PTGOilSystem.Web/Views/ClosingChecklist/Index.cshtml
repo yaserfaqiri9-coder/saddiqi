@@ -3,6 +3,9 @@
 @model ClosingChecklistPageViewModel
 @{
     ViewData["Title"] = "چک‌لیست بستن سال";
+    ViewData["FiscalCloseStep"] = 4;
+    ViewData["FiscalCloseCompanyId"] = Model.SelectedCompanyId;
+    ViewData["FiscalCloseYearId"] = Model.SelectedFiscalYearId;
 
     static string StatusCss(ClosingCheckStatus s) => s switch
     {
@@ -20,11 +23,15 @@
     };
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(("چک‌لیست بستن سال", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <partial name="~/Views/Shared/_FiscalCloseFlow.cshtml" />
+
+    <p class="finance-page-lead">این بررسی فقط‌خواندنی است: مانع‌های قطعی، هشدارها و اقدام لازم را پیش از بستن سال نشان می‌دهد.</p>
 
     <form method="get" asp-action="Index" class="ak-form">
         <div class="ak-field">

@@ -3,13 +3,20 @@
 @{
     ViewData["Title"] = "Trial Close و تسعیر پایان دوره";
     var p = Model.Preview;
+    ViewData["FiscalCloseStep"] = 5;
+    ViewData["FiscalCloseCompanyId"] = Model.SelectedCompanyId;
+    ViewData["FiscalCloseYearId"] = Model.SelectedFiscalYearId;
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@(("Trial Close و تسعیر پایان دوره", false,
+             model="@(("بستن آزمایشی و تسعیر پایان دوره", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <partial name="~/Views/Shared/_FiscalCloseFlow.cshtml" />
+
+    <p class="finance-page-lead">بستن آزمایشی سال را نمی‌بندد؛ نتیجه و اختلاف ارز را پیش‌نمایش می‌کند تا مانع‌ها پیش از اقدام نهایی رفع شوند.</p>
 
     @if (TempData["ok"] is string ok) { <div class="alert alert-success">@ok</div> }
     @if (TempData["err"] is string err) { <div class="alert alert-danger">@err</div> }
@@ -78,11 +85,11 @@
             <form method="post" asp-action="RunTrialClose" asp-route-companyId="@p.CompanyId" asp-route-fiscalYearId="@p.FiscalYearId">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="acknowledgeWarnings" value="true" />
-                <button type="submit" class="btn btn-primary" @(p.ChecklistBlocked ? "disabled" : "")>ثبت Trial Close (با تأیید هشدارها)</button>
+                <button type="submit" class="btn btn-primary" @(p.ChecklistBlocked ? "disabled" : "") title="@(p.ChecklistBlocked ? "تا رفع مانع‌های چک‌لیست این اقدام مجاز نیست." : null)">ثبت بستن آزمایشی (با تأیید هشدارها)</button>
             </form>
             <form method="post" asp-action="ApplyRevaluation" asp-route-companyId="@p.CompanyId" asp-route-fiscalYearId="@p.FiscalYearId">
                 @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-warning" @(p.CanApply ? "" : "disabled")>اعمال تسعیر پایان دوره</button>
+                <button type="submit" class="btn btn-warning" @(p.CanApply ? "" : "disabled") title="@(p.CanApply ? null : p.BlockingReason ?? "پیش‌شرط‌های تسعیر کامل نیست.")">اعمال تسعیر پایان دوره</button>
             </form>
         </div>
 

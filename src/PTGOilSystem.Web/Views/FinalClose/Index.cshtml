@@ -3,13 +3,20 @@
 @{
     ViewData["Title"] = "Final Close — بستن نهایی سال";
     var pc = Model.Precheck;
+    ViewData["FiscalCloseStep"] = 6;
+    ViewData["FiscalCloseCompanyId"] = Model.SelectedCompanyId;
+    ViewData["FiscalCloseYearId"] = Model.SelectedFiscalYearId;
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@(("Final Close — بستن نهایی سال", false,
+             model="@(("بستن نهایی سال", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <partial name="~/Views/Shared/_FiscalCloseFlow.cshtml" />
+
+    <p class="finance-page-lead">این اقدام سال را قفل و سندهای نهایی را ثبت می‌کند. فقط پس از سبزشدن همه پیش‌شرط‌ها ادامه دهید.</p>
 
     @if (TempData["ok"] is string ok) { <div class="alert alert-success">@ok</div> }
     @if (TempData["err"] is string err) { <div class="alert alert-danger">@err</div> }
@@ -81,6 +88,7 @@
                     }
                 </ul>
             </div>
+            <button type="button" class="btn btn-danger" disabled title="ابتدا تمام مانع‌های بالا را رفع کنید.">بستن نهایی سال</button>
         }
     }
 </div>

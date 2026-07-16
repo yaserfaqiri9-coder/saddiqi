@@ -3,13 +3,20 @@
 @{
     ViewData["Title"] = "بازگشایی کنترل‌شده سال";
     var pc = Model.Precheck;
+    ViewData["FiscalCloseStep"] = 6;
+    ViewData["FiscalCloseCompanyId"] = Model.SelectedCompanyId;
+    ViewData["FiscalCloseYearId"] = Model.SelectedFiscalYearId;
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(("بازگشایی کنترل‌شده سال", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <partial name="~/Views/Shared/_FiscalCloseFlow.cshtml" />
+
+    <p class="finance-page-lead">عملیات مدیریتی و پرخطر؛ دلیل، مجوز صریح و عبارت تأیید لازم است و آثار بستن با سند برگشت رسمی برگردانده می‌شود.</p>
 
     @if (TempData["ok"] is string ok) { <div class="alert alert-success">@ok</div> }
     @if (TempData["err"] is string err) { <div class="alert alert-danger">@err</div> }

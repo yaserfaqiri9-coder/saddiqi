@@ -9,11 +9,13 @@
     var fm = Model.FinanceMetrics;
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@((UiText.T(Context, "دفتر کل", "General Ledger"), false,
-                       (string?)null, (string?)null, (string?)null, (string?)null,
-                       (string?)null, (string?)null, (string?)null))" />
+             model="@((UiText.T(Context, "حساب‌ها و دفتر کل", "Accounts & General Ledger"), false,
+                       UiText.T(Context, "حساب‌های نقد / بانک", "Cash / Bank Accounts"), "bi-bank", Url.Action("Index", "CashAccounts"), (string?)null,
+                       UiText.T(Context, "استیتمنت ارزی", "Currency Statements"), "bi-currency-exchange", Url.Action("Index", "AccountStatements")))" />
+
+    <p class="finance-page-lead">@UiText.T(Context, "حساب یا طرف حساب را از فیلتر انتخاب کنید؛ سپس بدهکار، بستانکار و مسیر سند اصلی را در همان گردش ببینید.", "Choose an account or party from the filter, then review debit, credit and the source document in one flow.")</p>
 
     <section class="ak-stat-grid" aria-label="@fm.AriaLabel">
         <vc:stat-card title="@UiText.T(Context,"جمع دریافتی","Total receipts")" value="@fm.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>

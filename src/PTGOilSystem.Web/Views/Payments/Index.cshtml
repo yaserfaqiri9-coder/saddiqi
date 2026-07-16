@@ -7,17 +7,22 @@
     var items = Model.Items.ToList();
     var directions = ViewBag.Directions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
     var paymentKinds = ViewBag.PaymentKinds as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var counterpartyTypes = ViewBag.CounterpartyTypes as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
     var cashAccounts = ViewBag.CashAccounts as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var customers = ViewBag.Customers as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
+    var suppliers = ViewBag.Suppliers as SelectList ?? new SelectList(Enumerable.Empty<SelectListItem>());
     var query = Context.Request.Query;
     bool HasQ(string key) => !string.IsNullOrWhiteSpace(query[key]);
     var hasAdvancedFilter = f.FromDate.HasValue || f.ToDate.HasValue || HasQ("Direction") || HasQ("PaymentKind") || HasQ("CashAccountId");
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@(("رزنامچه", false,
+             model="@(("روزنامه و اسناد", false,
                        "ثبت دریافت/پرداخت", "bi-plus-lg", Url.Action("Create"), (string?)null,
-                       "مرکز رزنامچه و تسویه‌ها", "bi-grid-1x2", Url.Action("Hub")))" />
+                       "راهنمای دریافت و پرداخت", "bi-grid-1x2", Url.Action("Hub")))" />
+
+    <p class="finance-page-lead">همه دریافت‌ها، پرداخت‌ها، حواله‌ها و سندهای مرتبط در یک مسیر؛ برای دیدن جزئیات مالی روی هر ردیف کلیک کنید.</p>
 
     <section class="ak-stat-grid" aria-label="خلاصهٔ مالی">
         <vc:stat-card title="جمع دریافتی" value="@Model.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
@@ -40,6 +45,13 @@
                     new("PaymentKind", "بابت", "select",
                         paymentKinds.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
                         f.PaymentKind.HasValue ? ((int)f.PaymentKind.Value).ToString() : null),
+                    new("CounterpartyType", "نوع طرف حساب", "select",
+                        counterpartyTypes.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
+                        f.CounterpartyType.HasValue ? ((int)f.CounterpartyType.Value).ToString() : null),
+                    new("CustomerId", "مشتری", "select",
+                        customers.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(), f.CustomerId?.ToString()),
+                    new("SupplierId", "تأمین‌کننده", "select",
+                        suppliers.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(), f.SupplierId?.ToString()),
                     new("CashAccountId", "حساب نقدی/بانکی", "select",
                         cashAccounts.Select(i => new AkFilterOption(i.Value, i.Text)).ToList(),
                         f.CashAccountId?.ToString())

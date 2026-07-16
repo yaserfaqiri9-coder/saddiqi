@@ -8,11 +8,11 @@
         || Model.Filter.CustomerId.HasValue || Model.Filter.SupplierId.HasValue || !string.IsNullOrWhiteSpace(Model.Filter.Reference);
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(("استیتمنت‌های ارزی", false,
                        "ثبت Opening / Adjustment", "bi-plus-lg", Url.Action("Create"), (string?)null,
-                       (string?)null, (string?)null, (string?)null))" />
+                       "بازگشت به دفتر کل", "bi-arrow-right", Url.Action("Index", "Ledger")))" />
 
     <section class="ak-stat-grid" aria-label="آمار استیتمنت‌های ارزی">
         <vc:stat-card title="تعداد استیتمنت" value="@Model.Items.Count().ToString("N0")" unit="استیتمنت" avatar="purchase-contracts"></vc:stat-card>

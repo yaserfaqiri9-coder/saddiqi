@@ -3,16 +3,21 @@
 @{
     ViewData["Title"] = $"سال مالی {Model.Year.Name}";
     var year = Model.Year;
+    ViewData["FiscalCloseStep"] = 2;
+    ViewData["FiscalCloseCompanyId"] = year.CompanyId;
+    ViewData["FiscalCloseYearId"] = year.FiscalYearId;
 }
 
-<div class="ak-list-page">
+<div class="ak-list-page finance-workspace-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"سال مالی {year.Name}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)"بازگشت", (string?)"bi-arrow-right",
                        (string?)Url.Action("Index", new { companyId = year.CompanyId })))" />
 
-    <div class="ak-table-wrap">
+    <partial name="~/Views/Shared/_FiscalCloseFlow.cshtml" />
+
+    <div class="ak-table-wrap" id="accounting-readiness">
         <table class="ak-table" aria-label="اطلاعات سال مالی">
             <tbody>
                 <tr><th class="ak-col-grow">شرکت</th><td>@year.CompanyName</td></tr>
@@ -36,7 +41,7 @@
         </table>
     </div>
 
-    <div class="ak-table-wrap">
+    <div class="ak-table-wrap" id="fiscal-periods">
         <table class="ak-table" aria-label="دوره‌های مالی">
             <thead>
                 <tr>

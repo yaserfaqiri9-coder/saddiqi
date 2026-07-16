@@ -1,0 +1,73 @@
+@using PTGOilSystem.Web.Security
+@{
+    var currentStep = ViewData["FiscalCloseStep"] as int? ?? 1;
+    var companyId = ViewData["FiscalCloseCompanyId"] as int?;
+    var fiscalYearId = ViewData["FiscalCloseYearId"] as int?;
+    var steps = new[]
+    {
+        (Number: 1, Title: "سال مالی جاری", Hint: "بازه و وضعیت سال"),
+        (Number: 2, Title: "دوره‌های مالی", Hint: "قفل و گردش هر دوره"),
+        (Number: 3, Title: "بررسی آمادگی", Hint: "کنترل پیش‌نیازها"),
+        (Number: 4, Title: "چک‌لیست بستن", Hint: "مانع‌ها و هشدارها"),
+        (Number: 5, Title: "بستن آزمایشی", Hint: "پیش‌نمایش بدون بستن سال"),
+        (Number: 6, Title: "بستن نهایی", Hint: "ثبت نهایی و قفل سال")
+    };
+}
+
+<section class="finance-close-flow" aria-label="مراحل بستن سال مالی">
+    <header>
+        <div>
+            <h2>مسیر بستن سال</h2>
+            <p>هر مرحله را بررسی کنید؛ اقدام‌های نوشتنی فقط وقتی پیش‌شرط‌ها برقرار باشد فعال می‌شوند.</p>
+        </div>
+        @if (User.IsInRole(AuthRoles.Admin))
+        {
+            <details class="finance-more-actions">
+                <summary>عملیات بیشتر</summary>
+                <a asp-controller="ReopenFiscalYear" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                    بازگشایی کنترل‌شده سال بسته
+                </a>
+                <small>فقط برای مدیر دارای مجوز صریح؛ آثار بستن با سند برگشت رسمی برگردانده می‌شود.</small>
+            </details>
+        }
+    </header>
+
+    <ol class="finance-close-steps">
+        @foreach (var step in steps)
+        {
+            var css = step.Number == currentStep ? "is-current" : step.Number < currentStep ? "is-visited" : null;
+            <li class="@css">
+                @if (step.Number == 1)
+                {
+                    <a asp-controller="FiscalYears" asp-action="Index" asp-route-companyId="@companyId">
+                        <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
+                    </a>
+                }
+                else if (step.Number is 2 or 3)
+                {
+                    <a asp-controller="FiscalYears" asp-action="Details" asp-route-id="@fiscalYearId" asp-fragment="@(step.Number == 2 ? "fiscal-periods" : "accounting-readiness")" aria-disabled="@(!fiscalYearId.HasValue)">
+                        <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
+                    </a>
+                }
+                else if (step.Number == 4)
+                {
+                    <a asp-controller="ClosingChecklist" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                        <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
+                    </a>
+                }
+                else if (step.Number == 5)
+                {
+                    <a asp-controller="TrialClose" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                        <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="FinalClose" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                        <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
+                    </a>
+                }
+            </li>
+        }
+    </ol>
+</section>
