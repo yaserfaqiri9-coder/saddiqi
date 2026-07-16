@@ -1,0 +1,91 @@
+@using PTGOilSystem.Web.Models.Accounting
+@model ReopenPageViewModel
+@{
+    ViewData["Title"] = "بازگشایی کنترل‌شده سال";
+    var pc = Model.Precheck;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("بازگشایی کنترل‌شده سال", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @if (TempData["ok"] is string ok) { <div class="alert alert-success">@ok</div> }
+    @if (TempData["err"] is string err) { <div class="alert alert-danger">@err</div> }
+
+    <form method="get" asp-action="Index" class="ak-form">
+        <div class="ak-field">
+            <label class="ak-label" for="companyId">شرکت</label>
+            <select class="form-select" id="companyId" name="companyId" onchange="this.form.submit()">
+                @foreach (var c in Model.Companies)
+                {
+                    <option value="@c.CompanyId" selected="@c.IsSelected">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="ak-field">
+            <label class="ak-label" for="fiscalYearId">سال بسته</label>
+            <select class="form-select" id="fiscalYearId" name="fiscalYearId" onchange="this.form.submit()">
+                @foreach (var y in Model.Years)
+                {
+                    <option value="@y.FiscalYearId" selected="@y.IsSelected">@y.Name</option>
+                }
+            </select>
+        </div>
+    </form>
+
+    @if (Model.Years.Count == 0)
+    {
+        <div class="ak-empty"><i class="bi bi-unlock" aria-hidden="true"></i>هیچ سالِ بسته‌ای برای این شرکت وجود ندارد</div>
+    }
+    else if (pc is null)
+    {
+        <div class="ak-empty"><i class="bi bi-unlock" aria-hidden="true"></i>سال بسته‌ای انتخاب نشده است</div>
+    }
+    else
+    {
+        @if (!Model.HasReopenPermission)
+        {
+            <div class="alert alert-warning">برای بازگشایی به Permissionِ صریح <code>ReopenFiscalYear</code> نیاز دارید.</div>
+        }
+
+        @if (pc.CanReopen && Model.HasReopenPermission)
+        {
+            <div class="alert alert-info">
+                بازگشایی، سندهای Final Close را با Reversal رسمی برمی‌گرداند (بدون حذف). فقط آخرین دورهٔ
+                سال باز می‌شود؛ دوره‌های قبلی HardLocked می‌مانند. سال بعد در صورت نبودِ Posting عملیاتی
+                به Draft برمی‌گردد.
+            </div>
+            <form method="post" asp-action="Reopen">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="companyId" value="@Model.SelectedCompanyId" />
+                <input type="hidden" name="fiscalYearId" value="@Model.SelectedFiscalYearId" />
+                <div class="ak-field">
+                    <label class="ak-label" for="reason">دلیل بازگشایی (اجباری)</label>
+                    <input class="form-control" id="reason" name="reason" required />
+                </div>
+                <div class="ak-field">
+                    <label class="ak-label" for="confirmation">عبارت تأیید (کد سال: <code>@Model.SelectedFiscalYearName</code>)</label>
+                    <input class="form-control" id="confirmation" name="confirmation" autocomplete="off" required />
+                </div>
+                <button type="submit" class="btn btn-danger mt-2"
+                        onclick="return confirm('بازگشایی سال بسته آثار Final Close را برمی‌گرداند. ادامه؟');">
+                    بازگشایی سال
+                </button>
+            </form>
+        }
+        else if (Model.HasReopenPermission)
+        {
+            <div class="alert alert-danger">
+                <strong>بازگشایی مجاز نیست:</strong>
+                <ul class="mb-0">
+                    @foreach (var b in pc.Blockers)
+                    {
+                        <li>@b</li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+</div>

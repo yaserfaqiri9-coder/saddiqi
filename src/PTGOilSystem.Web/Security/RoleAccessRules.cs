@@ -14,6 +14,12 @@ public static class AppPermissions
     /// قفلِ سخت با این Permission هم باز نمی‌شود.
     /// </summary>
     public const string PostToSoftLockedPeriod = "PostToSoftLockedPeriod";
+
+    /// <summary>
+    /// مرحله ۱۵ — اجازهٔ بازگشاییِ کنترل‌شدهٔ سالِ بسته. مثل PostToSoftLockedPeriod عمداً از نقش
+    /// استنتاج نمی‌شود؛ بدون این Claim حتی Admin هم نمی‌تواند سال را بازگشایی کند.
+    /// </summary>
+    public const string ReopenFiscalYear = "ReopenFiscalYear";
 }
 
 public sealed record RoleNavigationItem(

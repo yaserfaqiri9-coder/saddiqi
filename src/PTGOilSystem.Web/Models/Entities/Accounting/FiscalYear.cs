@@ -30,6 +30,14 @@ public class FiscalYear : BaseEntity
     public int? ClosedByUserId { get; set; }
     public User? ClosedByUser { get; set; }
 
+    // ---- مرحله ۱۵ — بازگشاییِ کنترل‌شده. تاریخچهٔ ClosedAt/ClosedBy پاک نمی‌شود. ----
+    public DateTime? ReopenedAt { get; set; }
+    public int? ReopenedByUserId { get; set; }
+    public User? ReopenedByUser { get; set; }
+
+    [MaxLength(1000)]
+    public string? ReopenReason { get; set; }
+
     public ICollection<FiscalPeriod> Periods { get; set; } = [];
     public uint RowVersion { get; set; }
 }

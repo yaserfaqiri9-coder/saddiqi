@@ -80,6 +80,8 @@ builder.Services.AddScoped<IClosingChecklistService, ClosingChecklistService>();
 builder.Services.AddScoped<ITrialCloseService, TrialCloseService>();
 // مرحله ۱۴ — Final Close اتمیک. بستنِ P&L به Equity، HardLock دوره‌ها و بستنِ سال در یک Transaction.
 builder.Services.AddScoped<IFinalCloseService, FinalCloseService>();
+// مرحله ۱۵ — بازگشاییِ کنترل‌شده. آثارِ Final Close فقط با Reversal رسمی برمی‌گردند؛ هیچ سندی حذف نمی‌شود.
+builder.Services.AddScoped<IReopenFiscalYearService, ReopenFiscalYearService>();
 // مرحله ۱۱ — تنها مسیر نوشتنِ وضعیت قفلِ دوره. قفل سخت از اینجا هم برگشت‌ناپذیر است.
 builder.Services.AddScoped<IFiscalPeriodLockService, FiscalPeriodLockService>();
 builder.Services.AddScoped<IPaymentCompanyResolver, PaymentCompanyResolver>();
