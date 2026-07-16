@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using PTGOilSystem.Web.Controllers;
 using PTGOilSystem.Web.Data;
+using PTGOilSystem.Web.Helpers;
 using PTGOilSystem.Web.Models.ContractJourney;
 using PTGOilSystem.Web.Models.Contracts;
 using PTGOilSystem.Web.Models.Entities;
@@ -586,6 +587,67 @@ public class ContractsControllerTests
         Assert.IsType<RedirectToActionResult>(result);
         var loading = await db.LoadingRegisters.SingleAsync(l => l.Id == 10);
         Assert.Equal(700m, loading.LoadingPriceUsd);
+    }
+
+    [Fact]
+    public async Task Edit_Post_Does_Not_Reprice_Or_Relock_Finalized_Loading()
+    {
+        var options = NewDbOptions();
+
+        await using var db = new ApplicationDbContext(options);
+        SeedContractContext(db);
+        var contract = db.Contracts.Single();
+        contract.PricingMethod = PricingMethod.ManualFinalPrice;
+        contract.ManualFinalPriceUsd = 500m;
+        contract.SettlementCurrencyCode = "RUB";
+        contract.RubRatePolicy = RubSettlementRatePolicy.FixedContractRate;
+        contract.ContractRubPerUsdRate = 90m;
+        db.LoadingRegisters.Add(new LoadingRegister
+        {
+            Id = 12,
+            ContractId = 1,
+            ProductId = 1,
+            LoadingDate = new DateTime(2026, 5, 6),
+            LoadedQuantityMt = 10m,
+            LoadingPriceUsd = 500m,
+            SettlementCurrencyCode = "RUB",
+            RubPerUsdRate = 90m,
+            RubRateStatus = RubSettlementRateStatus.Locked,
+            AmountUsdAtRubLock = 5_000m,
+            AmountRubAtRubLock = 450_000m
+        });
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+
+        // قاعدهٔ #9: ویرایش عمومی قرارداد هم مسیر عمومی است — نرخ جدید نباید بارگیریِ قطعی‌شده را عوض کند.
+        var result = await controller.Edit(1, new ContractFormViewModel
+        {
+            Id = 1,
+            ContractNumber = "PUR-001",
+            ContractType = ContractType.Purchase,
+            Status = ContractStatus.Active,
+            CompanyId = 1,
+            ProductId = 1,
+            UnitId = 1,
+            SupplierId = 1,
+            OwnershipType = ContractOwnershipType.Personal,
+            ContractDate = new DateTime(2026, 4, 23),
+            PricingMethod = PricingMethod.ManualFinalPrice,
+            QuantityMt = 100m,
+            Currency = "USD",
+            ManualFinalPriceUsd = 600m,
+            SettlementCurrencyCode = "RUB",
+            RubRatePolicy = RubSettlementRatePolicy.FixedContractRate,
+            ContractRubPerUsdRate = 90m
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var loading = await db.LoadingRegisters.SingleAsync(l => l.Id == 12);
+        Assert.Equal(500m, loading.LoadingPriceUsd);
+        Assert.Equal(5_000m, loading.AmountUsdAtRubLock);
+        Assert.Equal(450_000m, loading.AmountRubAtRubLock);
+        Assert.Equal(90m, loading.RubPerUsdRate);
     }
 
     [Fact]
@@ -1236,6 +1298,90 @@ public class ContractsControllerTests
         Assert.Equal(RubSettlementRateStatus.Locked, loading.RubRateStatus);
         Assert.Equal(6_000m, loading.AmountUsdAtRubLock);
         Assert.Equal(540_000m, loading.AmountRubAtRubLock); // 10*600*90
+    }
+
+    [Fact]
+    public async Task EditPricing_Post_Keeps_Legacy_Ledger_Row_Of_Finalized_Loading_Untouched()
+    {
+        var options = NewDbOptions();
+
+        await using var db = new ApplicationDbContext(options);
+        SeedContractContext(db);
+        SeedRubFinalizedLoadingWithLegacyLedger(db, loadingId: 26, ledgerEntryId: 500);
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+
+        // نرخ قرارداد از ۵۰۰ به ۶۰۰ می‌رود؛ سطر Legacy دفتر قدیمی نباید بی‌صدا عوض شود.
+        var result = await controller.EditPricing(1, new EditPricingViewModel
+        {
+            Id = 1,
+            UiPricingType = UiPricingType.Agreed,
+            FinalPriceUsdPerMt = 600m
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var entry = await db.LedgerEntries.SingleAsync(l => l.Id == 500);
+        Assert.Equal(5_000m, entry.AmountUsd);
+        Assert.Equal(450_000m, entry.SourceAmount);
+    }
+
+    [Fact]
+    public async Task RepricePurchaseLoadings_Syncs_Legacy_Ledger_Row_Of_Finalized_Loading()
+    {
+        var options = NewDbOptions();
+
+        await using var db = new ApplicationDbContext(options);
+        SeedContractContext(db);
+        SeedRubFinalizedLoadingWithLegacyLedger(db, loadingId: 27, ledgerEntryId: 501);
+        db.Contracts.Single().ManualFinalPriceUsd = 600m;
+        await db.SaveChangesAsync();
+
+        var controller = BuildController(db);
+
+        // مسیر صریحِ «اصلاح قیمت» باید هم بارگیری را بازقفل کند هم سطر Legacy را هماهنگ کند.
+        var result = await controller.RepricePurchaseLoadings(1);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var loading = await db.LoadingRegisters.SingleAsync(l => l.Id == 27);
+        Assert.Equal(600m, loading.LoadingPriceUsd);
+        Assert.Equal(6_000m, loading.AmountUsdAtRubLock);
+        Assert.Equal(540_000m, loading.AmountRubAtRubLock);
+
+        var entry = await db.LedgerEntries.SingleAsync(l => l.Id == 501);
+        Assert.Equal(6_000m, entry.AmountUsd);
+        Assert.Equal(540_000m, entry.SourceAmount);
+    }
+
+    // بارگیریِ روبلیِ قطعی‌شده (۱۰ MT × ۵۰۰ USD × ۹۰ RUB) به‌همراه سطر Legacy متناظرش.
+    private static void SeedRubFinalizedLoadingWithLegacyLedger(ApplicationDbContext db, int loadingId, int ledgerEntryId)
+    {
+        var contract = db.Contracts.Single();
+        contract.PricingMethod = PricingMethod.ManualFinalPrice;
+        contract.ManualFinalPriceUsd = 500m;
+        contract.SettlementCurrencyCode = "RUB";
+        contract.RubRatePolicy = RubSettlementRatePolicy.FixedContractRate;
+        contract.ContractRubPerUsdRate = 90m;
+
+        var loading = new LoadingRegister
+        {
+            Id = loadingId,
+            ContractId = 1,
+            ProductId = 1,
+            LoadingDate = new DateTime(2026, 5, 6),
+            LoadedQuantityMt = 10m,
+            LoadingPriceUsd = 500m,
+            SettlementCurrencyCode = "RUB",
+            RubPerUsdRate = 90m,
+            RubRateStatus = RubSettlementRateStatus.Locked,
+            AmountUsdAtRubLock = 5_000m,
+            AmountRubAtRubLock = 450_000m
+        };
+        db.LoadingRegisters.Add(loading);
+
+        var entry = SupplierLoadingLedger.Create(loading, contract);
+        entry.Id = ledgerEntryId;
+        db.LedgerEntries.Add(entry);
     }
 
     [Fact]

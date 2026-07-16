@@ -48,10 +48,14 @@ SupplierPaymentAllocation + PaymentCompanyOwnership + مرحله ۴ (۴۳ تست
 
 ---
 
-## Baseline شکست‌های قدیمی (۱۸ عدد — پیش از این کار وجود داشتند)
+## Baseline شکست‌های قدیمی (۱۶ عدد — پیش از این کار وجود داشتند)
 
 این‌ها **قبل از** شروع حسابداری دوطرفه هم شکست بودند و به این تغییرات ربط ندارند
 (همگی UI/View یا Loading/Freight هستند). هرگز نباید با شکست جدید اشتباه گرفته شوند:
+
+> ۲ شکست از این فهرست (`EditPricing_Post_Finalizes_Only_Pending_Loadings_And_Keeps_Finalized` و
+> `EditPricing_Post_Does_Not_Reprice_Or_Relock_Finalized_Loading`) **باگ واقعی بودند، نه تست کهنه**،
+> و در «اصلاح قاعدهٔ #9» پایین‌تر برطرف شدند. باقی‌ماندهٔ Baseline اکنون ۱۶ عدد است.
 
 ```
 ContractJourneyViewStructureTests.InventoryTransport_Active_Flow_Views_Use_Shared_Ak_Components
@@ -59,8 +63,6 @@ SarrafsControllerTests.Details_View_Uses_Two_Clear_Sarraf_Flow_Actions_And_Tabs
 SuppliersControllerTests.Details_SarrafSettlement_FallsBack_To_LoadingRubRate_When_Ledger_Has_No_Exact_Rub
 SuppliersControllerTests.Details_Separates_Actual_Rub_Paid_From_Rub_Applied_To_Supplier_Claim
 InventoryTransportBatchServiceTests.Create_Rejects_Standalone_Operational_Asset_Without_Any_Capacity
-ContractsControllerTests.EditPricing_Post_Finalizes_Only_Pending_Loadings_And_Keeps_Finalized
-ContractsControllerTests.EditPricing_Post_Does_Not_Reprice_Or_Relock_Finalized_Loading
 AuditLogsControllerTests.Index_Default_Request_Returns_Recent_Logs
 MasterDataCleanupTests.Sidebar_Exposes_Primary_Items_And_Goods_Logistics_Group
 UserManagementTests.Roles_Create_Adds_Custom_Role_And_User_Index_Lists_It
@@ -656,6 +658,51 @@ Flag جدید: `Accounting:Pilots:InventoryTransfer` (پیش‌فرض `false`).
 **واگرایی همچنان عمدی و مورد انتظار است:** سند `Charged − طرف‌حساب` را می‌سنجد، legacy
 `Requested − SupplierAccepted` را. **این عدد هنوز روی داده‌ی واقعی تأیید نشده** — Flag تا آن
 موقع خاموش می‌ماند.
+
+---
+
+## اصلاح قاعدهٔ #9 — بازقیمت‌گذاریِ بی‌صدای بارگیریِ قطعی‌شده ✅
+
+**بعد از مرحله ۹، پیش از مرحله ۱۰.** دو شکست Baseline بررسی عمیق شد و معلوم شد **باگ واقعی
+بودند، نه تست کهنه**. تست‌ها درست بودند و کد قاعدهٔ #9 را نقض می‌کرد.
+
+**ریشه:** `ContractsController.EditPricing` (و `Edit`) با هر تغییرِ نرخ نهاییِ قرارداد
+`repriceFinalized: contractPriceChanged` می‌فرستادند. آن Flag دو کار می‌کرد: کوئری را به
+بارگیری‌های از پیش قیمت‌دار هم باز می‌کرد، و `forceRelock: true` به
+`LoadingRubSettlement.TryLockFinalizedRub` می‌داد. نتیجه: مسیر عمومی، بارگیریِ قطعی‌شده را
+بی‌صدا Reprice و Relock می‌کرد و `AmountUsdAtRubLock` و سطر Legacy Ledger و سند دفتر کل جدید
+را بدون Reversal صریح کهنه/عوض می‌کرد.
+
+**اثبات اینکه کد اشتباه بود، نه تست:** خودِ قاعدهٔ #9 در سه جای Source مستند بود و هر سه با
+خط فراخوان تناقض داشتند —
+`ContractsController.SyncPurchaseLoadingPricesAsync` (کامنت «فقط در انتظار قیمت … مگر
+`repriceFinalized=true`»)، `LoadingRubSettlement.TryLockFinalizedRub` (کامنت «فقط مسیر صریحِ
+اصلاح قیمت با `forceRelock=true`»)، و وجودِ خودِ `RepricePurchaseLoadings` به‌عنوان مسیر صریحِ
+POST + ضدجعل + لاگ که تستش (`RepricePurchaseLoadings_Overwrites_Finalized_Price_And_Relocks_Rub`)
+از قبل سبز بود. کد و تست هر دو در همان Commit اولیهٔ Squash‌شده (`d6a96ac`) آمده بودند، پس
+History تفکیک نمی‌کرد؛ قاعدهٔ مستند و مسیر محافظت‌شده تعیین‌کننده بود.
+
+**اصلاح (حداقلی، فقط همین مسیر):**
+
+- `EditPricing` و `Edit` → `SyncPurchaseLoadingPricesAsync(contract)` بدون `repriceFinalized`.
+  بارگیریِ قطعی‌شده فقط از `RepricePurchaseLoadings` عوض می‌شود (Reversal + Revision).
+- `CountFinalizedPurchaseLoadingsAsync` — قبل از Sync شمرده می‌شود (بعدش، بارگیریِ در انتظار
+  قیمتِ تازه‌قطعی‌شده هم اشتباهاً شمرده می‌شد).
+- پیام هشدار در همان `TempData["ok"]` تجمیع شد تا کاربر بداند نرخ عوض شد ولی N بارگیریِ
+  قطعی‌شده دست‌نخورده ماند و باید از «اصلاح قیمت» استفاده کند. **کلید TempData جدید ساخته نشد و
+  هیچ View‌ای دست نخورد** (`_FlashAlerts` فقط `ok`/`err` را می‌شناسد).
+- `SkippedFinalizedLoadingCount` به Audit diff هر دو مسیر اضافه شد.
+
+**تست‌های افزوده (۴):** `Edit_Post_Does_Not_Reprice_Or_Relock_Finalized_Loading`،
+`EditPricing_Post_Keeps_Legacy_Ledger_Row_Of_Finalized_Loading_Untouched`،
+`RepricePurchaseLoadings_Syncs_Legacy_Ledger_Row_Of_Finalized_Loading`، و Helper مشترک
+`SeedRubFinalizedLoadingWithLegacyLedger`. Reversal + Revision سند در سطح Adapter از قبل با
+`Repricing_Reverses_The_Old_Revision_And_Posts_A_New_One` و
+`Reposting_An_Unchanged_Purchase_Does_Nothing` پوشش داشت، پس تکرار نشد.
+
+**نتیجه روی Worktree تمیز (فقط همین دو فایل روی HEAD):** Build سبز (۰ خطا، ۴ هشدارِ از پیش
+موجود). Full Suite: **۱۱۳۱ سبز / ۱۶ شکست** — دقیقاً Baseline منهای همین ۲. **۰ شکست جدید.**
+هیچ Flag روشن نشد و هیچ Migration اجرا نشد.
 
 ---
 

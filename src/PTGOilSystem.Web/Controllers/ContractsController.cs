@@ -181,7 +181,17 @@ public class ContractsController : Controller
         if (type.HasValue) query = query.Where(c => c.ContractType == type.Value);
         if (status.HasValue) query = query.Where(c => c.Status == status.Value);
 
-        var totalCount = await query.CountAsync();
+        var stats = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                TotalCount = group.Count(),
+                ActiveCount = group.Count(contract => contract.Status == ContractStatus.Active),
+                PurchaseCount = group.Count(contract => contract.ContractType == ContractType.Purchase),
+                SaleCount = group.Count(contract => contract.ContractType == ContractType.Sale)
+            })
+            .SingleOrDefaultAsync();
+        var totalCount = stats?.TotalCount ?? 0;
         var pageCount = page <= 0
             ? 1
             : Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
@@ -204,7 +214,10 @@ public class ContractsController : Controller
             Items = items,
             CurrentPage = currentPage,
             PageCount = pageCount,
-            TotalCount = totalCount
+            TotalCount = totalCount,
+            ActiveCount = stats?.ActiveCount ?? 0,
+            PurchaseCount = stats?.PurchaseCount ?? 0,
+            SaleCount = stats?.SaleCount ?? 0
         });
     }
 
@@ -573,19 +586,24 @@ public class ContractsController : Controller
             });
         }
 
-        // اگر نرخ نهاییِ قرارداد عوض شده باشد، همهٔ بارگیری‌ها (شامل قطعی‌شده‌ها) با نرخ جدید بازقیمت‌گذاری
-        // و مبلغ روبل بازقفل می‌شود تا حساب طلب تأمین‌کننده و همهٔ بخش‌ها هماهنگ بمانند.
+        // قاعدهٔ #9: ویرایش عمومی قرارداد هم مانند EditPricing فقط بارگیری‌های «در انتظار قیمت» را قطعی
+        // می‌کند. تغییر نرخ قرارداد، بارگیریِ از پیش قطعی‌شده را بازقیمت‌گذاری/بازقفل نمی‌کند.
         var newCanonicalFinalPrice = ContractPricingAdapter.GetCanonicalFinalPrice(existing);
         var contractPriceChanged = newCanonicalFinalPrice.HasValue
             && newCanonicalFinalPrice != previousCanonicalFinalPrice;
 
-        var syncedLoadingCount = await SyncPurchaseLoadingPricesAsync(existing, repriceFinalized: contractPriceChanged);
+        var skippedFinalizedCount = contractPriceChanged
+            ? await CountFinalizedPurchaseLoadingsAsync(existing)
+            : 0;
+        var syncedLoadingCount = await SyncPurchaseLoadingPricesAsync(existing);
         await _db.SaveChangesAsync();
         await PostRepricedPurchasesAsync(existing.Id);
         await _audit.LogAndSaveAsync(nameof(Contract), existing.Id, AuditAction.Update, diff: diff);
-        TempData["ok"] = syncedLoadingCount > 0
-            ? $"تغییرات قرارداد اعمال شد و قیمت خرید {syncedLoadingCount:N0} بارگیری هماهنگ شد."
-            : "تغییرات قرارداد اعمال شد.";
+        TempData["ok"] = BuildPricingSyncMessage(
+            syncedLoadingCount > 0
+                ? $"تغییرات قرارداد اعمال شد و قیمت خرید {syncedLoadingCount:N0} بارگیری هماهنگ شد."
+                : "تغییرات قرارداد اعمال شد.",
+            skippedFinalizedCount);
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -786,13 +804,17 @@ public class ContractsController : Controller
             contract.SettlementCurrencyCode = "RUB";
         }
 
-        // اگر نرخ نهاییِ قرارداد عوض شده باشد، همهٔ بارگیری‌ها (شامل قطعی‌شده‌ها) با نرخ جدید بازقیمت‌گذاری
-        // می‌شوند تا حساب طلب تأمین‌کننده و همهٔ بخش‌ها هماهنگ بمانند.
+        // قاعدهٔ #9: این مسیر عمومی است، پس حتی با تغییر نرخ نهاییِ قرارداد فقط بارگیری‌های «در انتظار قیمت»
+        // قطعی می‌شوند. بارگیریِ قطعی‌شده دست‌نخورده می‌ماند تا Legacy Ledger و AmountUsdAtRubLock و سند
+        // دفتر کل جدید بی‌صدا عوض نشوند؛ اصلاح آن‌ها فقط از مسیر صریحِ «اصلاح قیمت» ممکن است.
         var newCanonicalFinalPrice = ContractPricingAdapter.GetCanonicalFinalPrice(contract);
         var contractPriceChanged = newCanonicalFinalPrice.HasValue
             && newCanonicalFinalPrice != previousCanonicalFinalPrice;
 
-        var syncedLoadingCount = await SyncPurchaseLoadingPricesAsync(contract, repriceFinalized: contractPriceChanged);
+        var skippedFinalizedCount = contractPriceChanged
+            ? await CountFinalizedPurchaseLoadingsAsync(contract)
+            : 0;
+        var syncedLoadingCount = await SyncPurchaseLoadingPricesAsync(contract);
         await _db.SaveChangesAsync();
         await PostRepricedPurchasesAsync(contract.Id);
 
@@ -808,16 +830,21 @@ public class ContractsController : Controller
             ("ContractRubPerUsdRate", prevContractRubPerUsdRate, contract.ContractRubPerUsdRate),
             ("ContractRubRateDate", prevContractRubRateDate, contract.ContractRubRateDate),
             ("ContractRubRateSource", prevContractRubRateSource, contract.ContractRubRateSource),
-            ("SyncedLoadingPriceCount", 0, syncedLoadingCount));
+            ("SyncedLoadingPriceCount", 0, syncedLoadingCount),
+            ("SkippedFinalizedLoadingCount", 0, skippedFinalizedCount));
         await _audit.LogAndSaveAsync(nameof(Contract), contract.Id, AuditAction.Update, diff: diff);
+
+        TempData["ok"] = BuildPricingSyncMessage(
+            syncedLoadingCount > 0
+                ? $"نرخ قرارداد با موفقیت تکمیل شد و قیمت خرید {syncedLoadingCount:N0} بارگیری هماهنگ شد."
+                : "نرخ قرارداد با موفقیت تکمیل شد.",
+            skippedFinalizedCount);
+
         if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url?.IsLocalUrl(model.ReturnUrl) == true)
         {
             return Redirect(model.ReturnUrl);
         }
 
-        TempData["ok"] = syncedLoadingCount > 0
-            ? $"نرخ قرارداد با موفقیت تکمیل شد و قیمت خرید {syncedLoadingCount:N0} بارگیری هماهنگ شد."
-            : "نرخ قرارداد با موفقیت تکمیل شد.";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -882,6 +909,28 @@ public class ContractsController : Controller
             await _purchaseAccounting.TryPostPurchaseAsync(loading);
         }
     }
+
+    // شمارشِ بارگیری‌های از پیش قطعی‌شده‌ای که مسیر عمومی عمداً دست نمی‌زند، تا به کاربر اطلاع داده شود
+    // نرخ قرارداد عوض شده ولی این بارگیری‌ها با نرخ قبلی مانده‌اند.
+    // باید *قبل از* SyncPurchaseLoadingPricesAsync فراخوانی شود، وگرنه بارگیری‌های در انتظار قیمت که
+    // همان لحظه قطعی شده‌اند هم به اشتباه «قطعی‌شدهٔ دست‌نخورده» شمرده می‌شوند.
+    private async Task<int> CountFinalizedPurchaseLoadingsAsync(Contract contract)
+    {
+        if (contract.ContractType != ContractType.Purchase)
+        {
+            return 0;
+        }
+
+        return await _db.LoadingRegisters
+            .CountAsync(l => l.ContractId == contract.Id
+                && l.LoadingPriceUsd.HasValue
+                && l.LoadingPriceUsd.Value > 0m);
+    }
+
+    private static string BuildPricingSyncMessage(string baseMessage, int skippedFinalizedCount)
+        => skippedFinalizedCount > 0
+            ? $"{baseMessage} نرخ قرارداد عوض شد ولی قیمت {skippedFinalizedCount:N0} بارگیریِ قطعی‌شده دست‌نخورده ماند؛ برای اصلاح آن‌ها از «اصلاح قیمت» استفاده کنید."
+            : baseMessage;
 
     private async Task<int> SyncPurchaseLoadingPricesAsync(Contract contract, bool repriceFinalized = false)
     {
