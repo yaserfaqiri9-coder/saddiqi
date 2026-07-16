@@ -738,15 +738,52 @@ Regression، و یکی بودن قانون گردکردن).
 عملیاتی می‌خواهد** — در repo هیچ رشتهٔ اتصالی نیست (`DefaultConnection` در هر دو `appsettings`
 خالی است). باید روی محیط واقعی با Flag روشن + بررسی لاگ انجام شود.
 
-### مرحله ۹ — Cutover و AccountingReadiness
-1. **قبل از هر کاری، دو تصمیم بالا گرفته شوند.** Flagهای `Purchase` و `SarrafSettlement`
-   بدون آن‌ها روشن نمی‌شوند. `Cogs` و `InventoryTransfer` باید **با هم** روشن شوند.
-2. سه Migration اجرانشده باید با تصمیم صریح کاربر روی دیتابیس عملیاتی اجرا شوند
-   (فهرست در «نقطه‌ی دقیق توقف»). **هرگز خودکار اجرا نشوند.**
-3. `AccountingReadiness` باید بگوید هر شرکت آمادهٔ Cutover هست یا نه: تنظیمات کامل،
-   حساب‌های فعال، دورهٔ مالی باز، و مهم‌تر از همه **مقایسهٔ دفتر کل جدید با legacy** روی همان
-   بازه. لاگ‌های `... pilot comparison` هر Adapter دقیقاً برای همین نوشته شده‌اند.
-4. اگر تصمیم حسابداری مبهم شد، **توقف و سؤال دقیق**.
+### مرحله ۹ — Cutover و AccountingReadiness — ✅ زیرساخت ساخته شد
+
+`AccountingReadinessService` (فقط‌خواندنی) آمادگی را **برای هر شرکت جداگانه** گزارش می‌کند، چون
+تنظیمات، حساب‌ها، سال مالی و مالکیت رکوردها همه per-company هستند.
+
+چهار وضعیت: `Ready`، `Warning`، `OperationalDataValidationRequired`، `Blocked`. تفاوت دو تای آخر
+عمدی است: `Blocked` یعنی چیزی در همین repo اثبات‌پذیر خراب است؛
+`OperationalDataValidationRequired` یعنی کد آماده است ولی قضاوت به داده‌ی عملیاتی نیاز دارد که در
+repo نیست — **و این هرگز نباید با حدس به Ready تبدیل شود.**
+
+هر Blocker این‌ها را دارد: `Code`، `Title`، `Description`، `Severity`، `CompanyId`،
+`RecordCount`، `SampleRecords` (حداکثر ۱۰)، `RequiredAction`، `FeatureFlag`.
+
+بررسی‌های اثبات‌پذیر از دیتابیس: `ACCOUNTING_SETTINGS_MISSING`،
+`UNSUPPORTED_FUNCTIONAL_CURRENCY`، `REQUIRED_ACCOUNT_MISSING/INACTIVE/WRONG_COMPANY` (هر ۲۰
+حساب)، `NO_OPEN_FISCAL_YEAR`، `NO_OPEN_FISCAL_PERIOD`، `MULTIPLE_CURRENT_FISCAL_YEARS`،
+`CASH_ACCOUNT_WITHOUT_COMPANY`، `PAYMENT_WITHOUT_COMPANY`،
+`EXPENSE_TYPE_PAYABLE_KIND_MISSING`، `CUSTOMER_ADVANCE_MARKER_UNKNOWN`،
+`INVENTORY_POOL_EMPTY`، `INVENTORY_QUANTITY_WITHOUT_VALUE`، `INVENTORY_POOL_NEGATIVE`،
+`SALES_COST_NOT_EVALUATED` / `SALE_WITHOUT_COGS_JOURNAL`، `TRANSFER_COST_NOT_MOVED` /
+`TRANSFER_LEG_WITHOUT_COST_JOURNAL`، `UNBALANCED_JOURNAL`، `POSTED_JOURNAL_WITHOUT_LINES`،
+`POSTED_JOURNAL_WITHOUT_POSTED_AT`، `DRAFT_JOURNAL_WITH_POSTED_AT`،
+`DUPLICATE_SOURCE_EVENT_ID`، `MIGRATIONS_PENDING`.
+
+**دو چیزی که عمداً از دیتابیس اثبات نمی‌شوند** و به‌جای ادعای دروغ،
+`OperationalDataValidationRequired` می‌گیرند:
+- `FULL_SUITE_EXTERNAL_EVIDENCE` — نتیجهٔ تست حالتِ Runtime نیست. معیار عبور: Build بدون خطا و
+  همان ۱۸ شکست baseline روی Worktree تمیز.
+- `SKIP_COUNTS_REQUIRE_LOG_HARVEST` — **هیچ Adapter دلیل Skip را ذخیره نمی‌کند**؛ فقط لاگ
+  می‌کند. پس شمارش دقیق به تفکیک Reason Code فقط از لاگِ یک اجرای واقعی به‌دست می‌آید. آنچه
+  اثبات‌پذیر است در فهرست `Adapters` می‌آید: وضعیت Flag، تعداد رکورد نامزد، تعداد سند پست‌شده، و
+  دلیلِ Skipِ قطعی وقتی Flag خاموش است (`ACCOUNTING_DISABLED` یا `PILOT_DISABLED` — این حدس
+  نیست، خودِ گاردِ Adapter است).
+
+مسیر اجرا: `GET /accounting/readiness` (فقط `AdminOnly`، فقط GET، بدون هیچ مسیر نوشتنی).
+برای اجرای روی **Backup** دیتابیس عملیاتی ساخته شده؛ رشتهٔ اتصال را اجراکننده از بیرون می‌دهد و
+**در repo هیچ رشتهٔ اتصال عملیاتی ساخته یا فرض نشده است.**
+
+تست: `AccountingReadinessServiceTests` — ۱۶ تست، همه سبز؛ از جمله `Report_Writes_Nothing` که
+اثبات می‌کند گزارش هیچ چیزی نمی‌نویسد.
+
+باقی‌مانده برای Cutover:
+1. Flagهای `Purchase` و `SarrafSettlement` هنوز اعتبارسنجیِ داده‌ی عملیاتی می‌خواهند.
+   `Cogs` و `InventoryTransfer` باید **با هم** روشن شوند.
+2. Migrationهای اجرانشده با تصمیم صریح کاربر و روی Backup تأییدشده. **هرگز خودکار.**
+3. اگر تصمیم حسابداری مبهم شد، **توقف و سؤال دقیق**.
 
 ### مرحله ۱۳ — تسعیر پایان‌دوره (تصمیمِ ثبت‌شدهٔ مرحله ۸)
 هیچ مسیر legacy وجود ندارد: نه Entity، نه سرویس، نه Migration، و `4200`/`5300` هرگز پست
