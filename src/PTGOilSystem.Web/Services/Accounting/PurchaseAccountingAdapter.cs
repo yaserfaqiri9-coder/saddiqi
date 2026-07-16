@@ -70,6 +70,7 @@ public sealed class PurchaseAccountingAdapter(
     IAccountingPostingService postingService,
     IAccountingJournalNumberGenerator journalNumberGenerator,
     IPricingService pricingService,
+    IInventoryValuationService valuation,
     IOptions<AccountingOptions> options,
     ILogger<PurchaseAccountingAdapter> logger)
     : IPurchaseAccountingAdapter
@@ -278,6 +279,17 @@ public sealed class PurchaseAccountingAdapter(
         try
         {
             var journal = await postingService.PostAsync(request, cancellationToken);
+
+            // The journal records the money; the pool records the money and the tonnes, which is
+            // what a later sale needs to know a unit cost. Both move together or neither does.
+            await valuation.ApplyReceiptAsync(
+                companyId,
+                loading.ProductId,
+                receipt.TerminalId,
+                receipt.ReceivedQuantityMt,
+                amountUsd,
+                cancellationToken);
+
             LogOutcome(receipt.Id, "InventoryReceipt", companyId, amountUsd,
                 journal.Lines.Sum(x => x.Debit), PaymentPostingStatus.Posted, null);
             return new PurchaseAccountingResult(PaymentPostingStatus.Posted, journal, null);
@@ -399,6 +411,24 @@ public sealed class PurchaseAccountingAdapter(
             cancellationToken);
         if (original is null)
             return Skipped(receipt.Id, "ORIGINAL_JOURNAL_NOT_POSTED");
+
+        // The pool must give the goods back before the journal does. If they have already been
+        // sold on, the receipt cannot be undone: reversing it would leave the pool holding
+        // tonnes it never had and misprice every sale after it.
+        var loadingProductId = await db.LoadingRegisters
+            .AsNoTracking()
+            .Where(x => x.Id == receipt.LoadingRegisterId)
+            .Select(x => x.ProductId)
+            .SingleAsync(cancellationToken);
+        var poolReversal = await valuation.TryReverseReceiptAsync(
+            companyId.Value,
+            loadingProductId,
+            receipt.TerminalId,
+            receipt.ReceivedQuantityMt,
+            original.Lines.Sum(x => x.Debit),
+            cancellationToken);
+        if (!poolReversal.Succeeded)
+            return Skipped(receipt.Id, poolReversal.Reason!);
 
         var journal = await postingService.ReverseAsync(
             new AccountingReversalRequest(

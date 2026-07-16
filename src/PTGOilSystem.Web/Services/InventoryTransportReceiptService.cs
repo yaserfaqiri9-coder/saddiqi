@@ -26,19 +26,22 @@ public sealed class InventoryTransportReceiptService
     private readonly IInventoryLineageWriter _lineage;
 
     // writer اختیاری: call siteهای موجود بدون تغییر می‌مانند و در نبودِ آن writerِ خاموش (no-op) استفاده می‌شود.
-    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    // مراحل ۵ و ۷ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
     private readonly Accounting.IExpenseAccountingAdapter? _expenseAccounting;
+    private readonly Accounting.ISalesAccountingAdapter? _salesAccounting;
 
     public InventoryTransportReceiptService(
         ApplicationDbContext db,
         ICurrencyConversionService currencyConversion,
         IInventoryLineageWriter? lineage = null,
-        Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
+        Accounting.IExpenseAccountingAdapter? expenseAccounting = null,
+        Accounting.ISalesAccountingAdapter? salesAccounting = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
         _lineage = lineage ?? InventoryLineageWriterFactory.Disabled(db);
         _expenseAccounting = expenseAccounting;
+        _salesAccounting = salesAccounting;
     }
 
     public async Task<InventoryTransportLeg?> LoadLegAsync(int id, bool tracking)
@@ -285,6 +288,13 @@ public sealed class InventoryTransportReceiptService
 
             _db.LedgerEntries.Add(BuildDirectSaleLedgerEntry(directSale, leg.SourcePurchaseContractId, saleConversion!));
             await _db.SaveChangesAsync();
+
+            // مرحله ۷ — Dual-write داخل همان Transaction قدیمی.
+            if (_salesAccounting is not null)
+            {
+                await _salesAccounting.TryPostSaleAsync(directSale);
+                await _salesAccounting.TryPostCogsAsync(directSale);
+            }
         }
         else if (model.ReceiptDestination == InventoryTransportReceiptDestination.DirectDispatch)
         {

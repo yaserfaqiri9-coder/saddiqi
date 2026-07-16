@@ -106,6 +106,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<FiscalYearStatusHistory> FiscalYearStatusHistories => Set<FiscalYearStatusHistory>();
     public DbSet<FiscalYearCloseRun> FiscalYearCloseRuns => Set<FiscalYearCloseRun>();
+    public DbSet<InventoryAverageCost> InventoryAverageCosts => Set<InventoryAverageCost>();
 
     // --- Idempotency (duplicate-submit guard; no business logic) ---
     public DbSet<ProcessedFormToken> ProcessedFormTokens => Set<ProcessedFormToken>();

@@ -34,4 +34,9 @@ public sealed class AccountingPilotOptions
     // are normally enabled together.
     public bool Purchase { get; set; }
     public bool InventoryReceipt { get; set; }
+
+    // Stage 7 — sales and cost of goods sold. Sale posts the revenue; Cogs values what left
+    // inventory. Cogs depends on InventoryReceipt having filled the valuation pool.
+    public bool Sale { get; set; }
+    public bool Cogs { get; set; }
 }

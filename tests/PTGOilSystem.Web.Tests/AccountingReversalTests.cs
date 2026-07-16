@@ -368,6 +368,7 @@ public sealed class AccountingReversalTests(AccountingPostgreSqlFixture fixture)
             new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
             new AccountingJournalNumberGenerator(),
             new PricingService(db),
+            new InventoryValuationService(db),
             options,
             NullLogger<PurchaseAccountingAdapter>.Instance);
     }

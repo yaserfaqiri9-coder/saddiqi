@@ -42,8 +42,10 @@ public class DispatchController : Controller
         ILogger<DispatchController> logger,
         ILossEventWorkflowService? lossWorkflow = null,
         ICurrencyConversionService? currencyConversion = null,
-        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null,
+        Services.Accounting.ISalesAccountingAdapter? salesAccounting = null)
     {
+        _salesAccounting = salesAccounting;
         _db = db;
         _stock = stock;
         _currencyConversion = currencyConversion ?? new CurrencyConversionService(new PricingService(db));
@@ -53,8 +55,9 @@ public class DispatchController : Controller
         _expenseAccounting = expenseAccounting;
     }
 
-    // مرحله ۵ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    // مراحل ۵ و ۷ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
     private readonly Services.Accounting.IExpenseAccountingAdapter? _expenseAccounting;
+    private readonly Services.Accounting.ISalesAccountingAdapter? _salesAccounting;
 
     private bool HasFieldError(string key)
         => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0;
@@ -1837,6 +1840,13 @@ public class DispatchController : Controller
 
             _db.LedgerEntries.Add(ledgerEntry);
             await _db.SaveChangesAsync();
+
+            // مرحله ۷ — Dual-write داخل همان Transaction قدیمی.
+            if (_salesAccounting is not null)
+            {
+                await _salesAccounting.TryPostSaleAsync(sale);
+                await _salesAccounting.TryPostCogsAsync(sale);
+            }
 
             await _audit.LogAsync(
                 nameof(SalesTransaction),

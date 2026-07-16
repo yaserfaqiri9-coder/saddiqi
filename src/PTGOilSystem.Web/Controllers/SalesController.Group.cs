@@ -594,6 +594,8 @@ public partial class SalesController
         _db.LedgerEntries.Add(ledger);
         await _db.SaveChangesAsync();
 
+        await PostSaleAccountingAsync(sale);
+
         return sale;
     }
 
@@ -655,6 +657,8 @@ public partial class SalesController
         var ledger = SaleLedgerFactory.BuildSaleLedgerEntry(sale, conversion, contractId: sourceContract.Id);
         _db.LedgerEntries.Add(ledger);
         await _db.SaveChangesAsync();
+
+        await PostSaleAccountingAsync(sale);
 
         return sale;
     }

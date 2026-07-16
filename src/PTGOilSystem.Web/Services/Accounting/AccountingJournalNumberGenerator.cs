@@ -13,6 +13,8 @@ public interface IAccountingJournalNumberGenerator
     string ForPurchase(int companyId, int loadingRegisterId, int revision);
     string ForPurchaseReversal(int companyId, int loadingRegisterId, int revision);
     string ForInventoryReceipt(int companyId, int loadingReceiptId);
+    string ForSale(int companyId, int salesTransactionId);
+    string ForCogs(int companyId, int salesTransactionId);
 }
 
 public sealed class AccountingJournalNumberGenerator : IAccountingJournalNumberGenerator
@@ -117,6 +119,26 @@ public sealed class AccountingJournalNumberGenerator : IAccountingJournalNumberG
             throw new ArgumentOutOfRangeException(nameof(loadingReceiptId));
 
         return $"INV-{companyId:D6}-{loadingReceiptId:D10}";
+    }
+
+    public string ForSale(int companyId, int salesTransactionId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (salesTransactionId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(salesTransactionId));
+
+        return $"SAL-{companyId:D6}-{salesTransactionId:D10}";
+    }
+
+    public string ForCogs(int companyId, int salesTransactionId)
+    {
+        if (companyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(companyId));
+        if (salesTransactionId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(salesTransactionId));
+
+        return $"COGS-{companyId:D6}-{salesTransactionId:D10}";
     }
 
     private static string ValidatePurchaseKey(int companyId, int loadingRegisterId, int revision)

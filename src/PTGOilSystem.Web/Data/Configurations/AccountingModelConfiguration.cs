@@ -12,6 +12,31 @@ public static class AccountingModelConfiguration
         ConfigureFiscalCalendar(modelBuilder);
         ConfigureJournal(modelBuilder);
         ConfigureCloseRun(modelBuilder);
+        ConfigureInventoryAverageCost(modelBuilder);
+    }
+
+    private static void ConfigureInventoryAverageCost(ModelBuilder modelBuilder)
+    {
+        var entity = modelBuilder.Entity<InventoryAverageCost>();
+        entity.ToTable("InventoryAverageCosts", table =>
+        {
+            // The pool may reach zero but must never go negative: a sale that would overdraw it
+            // is skipped rather than valued against stock that is not there.
+            table.HasCheckConstraint(
+                "CK_InventoryAverageCosts_NonNegative",
+                "\"QuantityMt\" >= 0 AND \"TotalValueUsd\" >= 0");
+        });
+        entity.Ignore(x => x.AverageUnitCostUsd);
+        entity.Property(x => x.QuantityMt).HasColumnType("numeric(18,4)");
+        entity.Property(x => x.TotalValueUsd).HasColumnType("numeric(18,4)");
+        entity.Property(x => x.RowVersion).IsRowVersion();
+        entity.HasIndex(x => new { x.CompanyId, x.ProductId, x.TerminalId }).IsUnique();
+        entity.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId)
+            .OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(x => x.Terminal).WithMany().HasForeignKey(x => x.TerminalId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureAccount(ModelBuilder modelBuilder)

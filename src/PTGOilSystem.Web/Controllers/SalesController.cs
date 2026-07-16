@@ -30,8 +30,24 @@ public partial class SalesController : Controller
     private readonly IMemoryCache? _cache;
     private readonly IInventoryLineageWriter _lineage;
     private readonly IFormTokenGuard _formTokens;
+    // مرحله ۷ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    private readonly Services.Accounting.ISalesAccountingAdapter? _salesAccounting;
     private const int DefaultListLimit = 100;
     private const int LookupLimit = 200;
+
+    // مرحله ۷ — Dual-write داخل همان Transaction قدیمی. باید بعد از ذخیرهٔ حرکات خروجِ موجودی
+    // صدا زده شود: COGS مقدار و ترمینال را از همان سطرهای InventoryMovement می‌خواند.
+    // درآمد و COGS دو Flag جدا دارند، پس هر کدام مستقل Skip می‌شود.
+    private async Task PostSaleAccountingAsync(SalesTransaction sale)
+    {
+        if (_salesAccounting is null)
+        {
+            return;
+        }
+
+        await _salesAccounting.TryPostSaleAsync(sale);
+        await _salesAccounting.TryPostCogsAsync(sale);
+    }
 
     private sealed record LookupOption(int Id, string Name);
     private sealed record TankLookupOption(int Id, string Display);
@@ -56,8 +72,10 @@ public partial class SalesController : Controller
         ILossEventWorkflowService? lossWorkflow = null,
         IMemoryCache? cache = null,
         IInventoryLineageWriter? lineage = null,
-        IFormTokenGuard? formTokens = null)
+        IFormTokenGuard? formTokens = null,
+        Services.Accounting.ISalesAccountingAdapter? salesAccounting = null)
     {
+        _salesAccounting = salesAccounting;
         _db = db;
         _stock = stock;
         _pricing = pricing ?? new PricingService(db);
@@ -929,6 +947,8 @@ public partial class SalesController : Controller
             _db.LedgerEntries.Add(ledgerEntry);
             await _db.SaveChangesAsync();
 
+            await PostSaleAccountingAsync(sale);
+
             await _audit.LogAsync(
                 nameof(SalesTransaction),
                 sale.Id,
@@ -1572,6 +1592,8 @@ public partial class SalesController : Controller
 
                 _db.LedgerEntries.Add(ledgerEntry);
                 await _db.SaveChangesAsync();
+
+                await PostSaleAccountingAsync(sale);
 
                 await _audit.LogAsync(
                     nameof(SalesTransaction),

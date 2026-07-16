@@ -43,8 +43,9 @@ public class LoadingReceiptsController : Controller
     private readonly ILossEventWorkflowService _lossWorkflow;
     private readonly ICurrencyConversionService _currencyConversion;
     private readonly ILogger<LoadingReceiptsController> _logger;
-    // مرحله ۶ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
+    // مراحل ۶ و ۷ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe.
     private readonly Services.Accounting.IPurchaseAccountingAdapter? _purchaseAccounting;
+    private readonly Services.Accounting.ISalesAccountingAdapter? _salesAccounting;
 
     public LoadingReceiptsController(
         ApplicationDbContext db,
@@ -52,9 +53,11 @@ public class LoadingReceiptsController : Controller
         ILogger<LoadingReceiptsController> logger,
         ILossEventWorkflowService? lossWorkflow = null,
         ICurrencyConversionService? currencyConversion = null,
-        Services.Accounting.IPurchaseAccountingAdapter? purchaseAccounting = null)
+        Services.Accounting.IPurchaseAccountingAdapter? purchaseAccounting = null,
+        Services.Accounting.ISalesAccountingAdapter? salesAccounting = null)
     {
         _purchaseAccounting = purchaseAccounting;
+        _salesAccounting = salesAccounting;
         _db = db;
         _audit = audit;
         _lossWorkflow = lossWorkflow ?? new LossEventWorkflowService(db, new StockService(db), audit);
@@ -1756,6 +1759,17 @@ public class LoadingReceiptsController : Controller
                 if (_purchaseAccounting is not null)
                 {
                     await _purchaseAccounting.TryPostInventoryReceiptAsync(receipt);
+                }
+
+                // مرحله ۷ — فروش مستقیمِ همین رسید. بعد از رسید صدا زده می‌شود تا کالا اول
+                // ارزش‌گذاری شده باشد و COGS بتواند از همان کاسه بردارد.
+                if (_salesAccounting is not null)
+                {
+                    foreach (var directSale in directSaleDrafts.Select(d => d.Draft.Sale))
+                    {
+                        await _salesAccounting.TryPostSaleAsync(directSale);
+                        await _salesAccounting.TryPostCogsAsync(directSale);
+                    }
                 }
 
                 foreach (var allocation in allocations)
