@@ -14,13 +14,11 @@
 
     <p class="ak-note">@UiText.T(Context, "ورودی و خروجی واقعی از روزنامچه و حساب‌های نقدی.", "Actual inflow and outflow from roznamcha and cash accounts.")</p>
 
-    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار جریان نقدی", "Cash flow metrics")">
-        <dl class="ak-summary-list">
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "آمار جریان نقدی", "Cash flow metrics")">
             @foreach (var metric in Model.Metrics.Take(4))
             {
                 @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
             }
-        </dl>
     </section>
 
     <div class="ak-list">

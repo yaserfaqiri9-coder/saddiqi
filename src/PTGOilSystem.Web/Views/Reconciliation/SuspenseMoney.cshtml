@@ -36,12 +36,10 @@
         <a asp-action="SuspenseMoney" class="btn btn-light">پاک‌سازی</a>
     </form>
 
-    <section class="ak-form-section ak-summary">
-        <dl class="ak-summary-list">
-            <div><dt>نیاز به بررسی فوری</dt><dd class="ak-num">@Model.CriticalCount.ToString("N0")</dd></div>
-            <div><dt>نیاز به بررسی</dt><dd class="ak-num">@Model.WarningCount.ToString("N0")</dd></div>
-            <div><dt>جمع مبلغ معلق USD</dt><dd class="ak-num">@Model.TotalAmountUsd.ToString("N2")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="آمار پول‌های معلق">
+        <vc:stat-card title="نیاز به بررسی فوری" value="@Model.CriticalCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="نیاز به بررسی" value="@Model.WarningCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="جمع مبلغ معلق" value="@Model.TotalAmountUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
     </section>
 
     <div class="ak-list">

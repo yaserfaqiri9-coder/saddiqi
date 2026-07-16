@@ -14,13 +14,11 @@
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
 
-    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار بیلانس قراردادها", "Contract balance metrics")">
-        <dl class="ak-summary-list">
-            <div><dt>@UiText.T(Context,"قراردادها","Contracts")</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
-            <div><dt>@UiText.T(Context,"جمع فروش","Total Sales")</dt><dd class="ak-num">@totalSalesUsd.ToString("N2")</dd></div>
-            <div><dt>@UiText.T(Context,"جمع مصرف","Total Expenses")</dt><dd class="ak-num">@totalExpensesUsd.ToString("N2")</dd></div>
-            <div><dt>@UiText.T(Context,"تراز پایه","Base Balance")</dt><dd class="ak-num @(totalBaseBalanceUsd >= 0 ?"ak-num" : "ak-num")">@totalBaseBalanceUsd.ToString("N2")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "آمار بیلانس قراردادها", "Contract balance metrics")">
+        <vc:stat-card title="@UiText.T(Context,"قراردادها","Contracts")" value="@Model.TotalCount.ToString("N0")" unit="@UiText.T(Context,"قرارداد","contracts")" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"جمع فروش","Total Sales")" value="@totalSalesUsd.ToString("N2")" unit="USD" avatar="sales-value"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"جمع مصرف","Total Expenses")" value="@totalExpensesUsd.ToString("N2")" unit="USD" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"تراز پایه","Base Balance")" value="@totalBaseBalanceUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
     </section>
 
     <div class="ak-list">

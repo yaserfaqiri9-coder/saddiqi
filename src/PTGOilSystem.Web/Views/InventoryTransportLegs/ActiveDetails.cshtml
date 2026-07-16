@@ -71,13 +71,12 @@
         </div>
     </section>
 
-    @* نوار خلاصه — فقط ۵ شاخص اصلی؛ شمارش‌ها (قراردادها/ردیف‌ها/ردیف مصرف) در جدول‌های پایین دیده می‌شوند. *@
-    <section class="ak-summary ak-form-grid" aria-label="شاخص‌های حمل">
-        <article><span>تخصیص کل</span><strong>@Model.TotalAllocatedQuantityMt.ToString("N2") MT</strong></article>
-        <article><span>بارگیری‌شده</span><strong>@Model.LoadedQuantityMt.ToString("N2") MT</strong></article>
-        <article><span>رسید مقصد</span><strong>@Model.ReceivedQuantityMt.ToString("N2") MT</strong></article>
-        <article><span>ضایعات ثبت‌شده</span><strong>@Model.ShortageQuantityMt.ToString("N2") MT</strong></article>
-        <article><span>کل مصرف ثبت‌شده</span><strong>@Model.TotalExpenseUsd.ToString("N2") USD</strong></article>
+    <section class="ak-stat-grid" aria-label="شاخص‌های حمل">
+        <vc:stat-card title="تخصیص کل" value="@Model.TotalAllocatedQuantityMt.ToString("N2")" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="بارگیری‌شده" value="@Model.LoadedQuantityMt.ToString("N2")" unit="MT" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="رسید مقصد" value="@Model.ReceivedQuantityMt.ToString("N2")" unit="MT" avatar="shipments"></vc:stat-card>
+        <vc:stat-card title="ضایعات ثبت‌شده" value="@Model.ShortageQuantityMt.ToString("N2")" unit="MT" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="کل مصرف ثبت‌شده" value="@Model.TotalExpenseUsd.ToString("N2")" unit="USD" avatar="expenses"></vc:stat-card>
     </section>
 
     @if (Model.ExpenseCount > 0)

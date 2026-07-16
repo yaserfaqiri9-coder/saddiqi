@@ -52,12 +52,12 @@
 
     <section id="account-ledger" class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("گزارش صندوق/بانک", (string?)null))" />
-        <dl class="ak-summary-list ak-summary ak-detail-summary">
-            <div><dt>Opening</dt><dd class="ak-num">0.00 @Model.Currency</dd></div>
-            <div><dt>دریافت‌ها</dt><dd class="ak-num">@totalIn.ToString("N2") @Model.Currency</dd></div>
-            <div><dt>پرداخت‌ها</dt><dd class="ak-num">@totalOut.ToString("N2") @Model.Currency</dd></div>
-            <div><dt>Closing</dt><dd class="ak-num @(closingBalance < 0 ?"ak-num" : "ak-num")">@closingBalance.ToString("N2") @Model.Currency</dd></div>
-        </dl>
+        <div class="ak-stat-grid" aria-label="گزارش صندوق یا بانک">
+            <vc:stat-card title="Opening" value="0.00" unit="@Model.Currency" avatar="payments"></vc:stat-card>
+            <vc:stat-card title="دریافت‌ها" value="@totalIn.ToString("N2")" unit="@Model.Currency" avatar="receivables"></vc:stat-card>
+            <vc:stat-card title="پرداخت‌ها" value="@totalOut.ToString("N2")" unit="@Model.Currency" avatar="payments"></vc:stat-card>
+            <vc:stat-card title="Closing" value="@closingBalance.ToString("N2")" unit="@Model.Currency" avatar="profit-loss"></vc:stat-card>
+        </div>
 
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">

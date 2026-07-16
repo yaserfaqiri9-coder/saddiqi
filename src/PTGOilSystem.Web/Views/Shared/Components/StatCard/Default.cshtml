@@ -18,6 +18,13 @@
     var displayValue = Model.IsEmpty || string.IsNullOrWhiteSpace(Model.Value)
         ? StatCardFormatter.EmptyGlyph
         : Model.Value;
+    var valueDensityClass = displayValue.Length switch
+    {
+        >= 18 => "ak-stat-card__value--ultra",
+        >= 14 => "ak-stat-card__value--dense",
+        >= 8 => "ak-stat-card__value--compact",
+        _ => string.Empty
+    };
 }
 
 <article class="@rootClasses" role="group" aria-label="@Model.EffectiveAriaLabel">
@@ -33,8 +40,8 @@
     else
     {
         <div class="ak-stat-card__content">
-            <span class="ak-stat-card__title">@Model.Title</span>
-            <strong class="ak-stat-card__value"><bdi>@displayValue</bdi></strong>
+            <span class="ak-stat-card__title" title="@Model.Title">@Model.Title</span>
+            <strong class="ak-stat-card__value @valueDensityClass" title="@displayValue"><bdi>@displayValue</bdi></strong>
             @if (!string.IsNullOrWhiteSpace(Model.Unit))
             {
                 <span class="ak-stat-card__unit">@Model.Unit</span>
@@ -64,7 +71,7 @@
             {
                 <img class="ak-stat-card__image" src="@avatarPath" alt="" loading="lazy" decoding="async" />
             }
-            @* else: empty green halo placeholder until the real asset is supplied *@
+            @* Unknown/missing avatars intentionally leave a transparent visual area. *@
         </div>
     }
 </article>

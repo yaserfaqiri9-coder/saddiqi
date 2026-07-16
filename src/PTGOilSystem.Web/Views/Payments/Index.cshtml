@@ -19,13 +19,11 @@
                        "ثبت دریافت/پرداخت", "bi-plus-lg", Url.Action("Create"), (string?)null,
                        "مرکز رزنامچه و تسویه‌ها", "bi-grid-1x2", Url.Action("Hub")))" />
 
-    <section class="ak-form-section ak-summary" aria-label="خلاصهٔ مالی">
-        <dl class="ak-summary-list">
-            <div><dt>جمع دریافتی</dt><dd class="ak-num">@Model.TodayReceiptUsd.ToString("N2") USD</dd></div>
-            <div><dt>جمع پرداختی</dt><dd class="ak-num">@Model.TodayPaymentUsd.ToString("N2") USD</dd></div>
-            <div><dt>مانده نقدی</dt><dd class="ak-num">@Model.CashAccountsBalanceUsd.ToString("N2") USD</dd></div>
-            <div><dt>تعداد تراکنش‌ها</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="خلاصهٔ مالی">
+        <vc:stat-card title="جمع دریافتی" value="@Model.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="جمع پرداختی" value="@Model.TodayPaymentUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="مانده نقدی" value="@Model.CashAccountsBalanceUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="تعداد تراکنش‌ها" value="@Model.TotalCount.ToString("N0")" unit="مورد" avatar="purchase-contracts"></vc:stat-card>
     </section>
 
     <div class="ak-list">

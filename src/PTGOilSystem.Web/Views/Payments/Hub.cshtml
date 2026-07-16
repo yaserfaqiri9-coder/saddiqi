@@ -1,8 +1,6 @@
 @model PTGOilSystem.Web.Models.Payments.TreasuryHubViewModel
 @{
     ViewData["Title"] = "مرکز رزنامچه و تسویه‌ها";
-    var suspenseTone = Model.SuspenseCount > 0 ? "ak-num" : "";
-    var reviewTone = Model.NeedsReviewCount > 0 ? "ak-num" : "";
 }
 
 <div class="ak-form-page" dir="rtl">
@@ -13,14 +11,12 @@
 
     <p class="ak-note">همه عملیات پولی از یک‌جا: دریافت، پرداخت، پیشکی، حواله، انتقال مانده، صراف و بررسی پول‌های معلق. این صفحه فقط راهنما و خلاصه است و خودش هیچ سندی ثبت نمی‌کند.</p>
 
-    <section class="ak-form-section ak-summary" aria-label="آمار مرکز روزنامچه">
-        <dl class="ak-summary-list">
-            <div><dt>جمع دریافتی</dt><dd class="ak-num">@Model.TodayReceiptUsd.ToString("N2") USD</dd></div>
-            <div><dt>جمع پرداختی</dt><dd class="ak-num">@Model.TodayPaymentUsd.ToString("N2") USD</dd></div>
-            <div><dt>پول‌های معلق</dt><dd class="ak-num @suspenseTone">@Model.SuspenseCount</dd></div>
-            <div><dt>حواله‌های ثبت‌شده</dt><dd class="ak-num">@Model.PostedHawalaCount</dd></div>
-            <div><dt>نیازمند بررسی</dt><dd class="ak-num @reviewTone">@Model.NeedsReviewCount</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="آمار مرکز روزنامچه">
+        <vc:stat-card title="جمع دریافتی" value="@Model.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="جمع پرداختی" value="@Model.TodayPaymentUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="پول‌های معلق" value="@Model.SuspenseCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="حواله‌های ثبت‌شده" value="@Model.PostedHawalaCount.ToString("N0")" unit="حواله" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="نیازمند بررسی" value="@Model.NeedsReviewCount.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
     </section>
 
     <div class="ak-hub-grid">

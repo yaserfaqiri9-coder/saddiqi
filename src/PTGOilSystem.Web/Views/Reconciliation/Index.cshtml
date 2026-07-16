@@ -15,13 +15,13 @@
         <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
     </div>
 
-    <section class="ak-form-section ak-summary" aria-label="خلاصهٔ مغایرت‌ها">
-        <dl class="ak-summary-list">
-            <div><dt>@UiText.T(Context,"قراردادهای باز","Open Contracts")</dt><dd class="ak-num">@Model.OpenContractsCount.ToString("N0")</dd></div>
-            <div><dt>@UiText.T(Context,"حمل باز / ناتمام","Open Shipments / Incomplete")</dt><dd class="ak-num">@openShipmentIssues.ToString("N0") / @Model.IncompleteAfterReceiptCount.ToString("N0")</dd></div>
-            <div><dt>@UiText.T(Context,"ثبت مالی / مانده باز","Ledger / Balance Issues")</dt><dd class="ak-num">@financeIssueCount.ToString("N0")</dd></div>
-            <div><dt>@UiText.T(Context,"ریسک کارمندان / رزنامچه","Employee / Roznamcha")</dt><dd class="ak-num">@Model.EmployeeIssueCount.ToString("N0") / @Model.RoznamchaIssueCount.ToString("N0")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="خلاصهٔ مغایرت‌ها">
+        <vc:stat-card title="@UiText.T(Context,"قراردادهای باز","Open Contracts")" value="@Model.OpenContractsCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"حمل باز","Open Shipments")" value="@openShipmentIssues.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="transported"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"ناتمام پس از رسید","Incomplete After Receipt")" value="@Model.IncompleteAfterReceiptCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"ثبت مالی / مانده باز","Ledger / Balance Issues")" value="@financeIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"ریسک کارمندان","Employee Issues")" value="@Model.EmployeeIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context,"ریسک رزنامچه","Roznamcha Issues")" value="@Model.RoznamchaIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="payments"></vc:stat-card>
     </section>
 
     <div class="ak-hub-grid">

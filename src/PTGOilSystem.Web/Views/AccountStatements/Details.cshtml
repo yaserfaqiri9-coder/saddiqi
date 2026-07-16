@@ -10,11 +10,11 @@
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", Url.Action("Index")))" />
 
-    <dl class="ak-summary-list ak-summary ak-detail-summary">
-        <div><dt>مبلغ منبع</dt><dd class="ak-num">@Model.SourceAmount.ToString("N2") @Model.SourceCurrencyCode</dd></div>
-        <div><dt>مبلغ USD</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
-        <div><dt>Running balance</dt><dd class="ak-num @(Model.RunningBalanceUsd >= 0 ?"ak-num" : "ak-num")">@Model.RunningBalanceUsd.ToString("N2") USD</dd></div>
-    </dl>
+    <div class="ak-stat-grid" aria-label="آمار استیتمنت">
+        <vc:stat-card title="مبلغ منبع" value="@Model.SourceAmount.ToString("N2")" unit="@Model.SourceCurrencyCode" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="مبلغ USD" value="@Model.AmountUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="Running balance" value="@Model.RunningBalanceUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
+    </div>
 
     <div class="ak-form-grid">
         <section class="ak-form-section ak-detail-section">

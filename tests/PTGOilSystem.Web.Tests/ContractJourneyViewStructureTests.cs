@@ -515,7 +515,8 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("ak-form-page", view);
         Assert.Contains("data-transport-details", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
-        Assert.Contains("class=\"ak-summary ak-detail-summary\"", view);
+        Assert.Contains("class=\"ak-stat-grid\"", view);
+        Assert.Contains("<vc:stat-card", view);
         Assert.Contains("class=\"ptg-tabs-rail ak-detail-tabs\"", view);
         Assert.Contains("class=\"ak-tab-panel is-active\"", view);
         Assert.Contains("class=\"ak-list\" data-ptcd-list", view);
@@ -576,17 +577,19 @@ public class ContractJourneyViewStructureTests
 
         Assert.Contains("ak-list-page", active);
         Assert.Contains("_AkPageHeader.cshtml", active);
-        Assert.Contains("class=\"ak-summary\"", active);
+        Assert.Contains("class=\"ak-stat-grid\"", active);
+        Assert.Contains("<vc:stat-card", active);
         Assert.Contains("class=\"ak-form-grid\"", active);
         Assert.Contains("class=\"ak-table\"", active);
         Assert.Contains("asp-action=\"Details\"", active);
         Assert.Contains("ak-form-page", activeDetails);
         Assert.Contains("class=\"ak-page-header\"", activeDetails);
-        Assert.Contains("class=\"ak-summary", activeDetails);
+        Assert.Contains("class=\"ak-stat-grid\"", activeDetails);
+        Assert.Contains("<vc:stat-card", activeDetails);
         Assert.Contains("class=\"ak-table", activeDetails);
         Assert.Contains("data-href=\"@Url.Action(\"Details\"", index);
-        Assert.Contains("asp-action=\"GroupTransfer\"", index);
-        Assert.Contains("asp-action=\"CreateFromInventory\"", index);
+        Assert.Contains("Url.Action(\"GroupTransfer\")", index);
+        Assert.Contains("Url.Action(\"CreateFromInventory\")", index);
         Assert.DoesNotContain("asp-action=\"CreateBatch\"", index);
         Assert.DoesNotContain("inventory-transport-active.css", active);
         Assert.DoesNotContain("class=\"inventory-flow-", active);

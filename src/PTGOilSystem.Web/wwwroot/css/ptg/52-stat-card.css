@@ -5,12 +5,16 @@
    ===================================================================== */
 
 .ak-stat-grid {
-    --ak-stat-gap-x: 30px;
-    --ak-stat-gap-y: 32px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--ak-stat-gap-y) var(--ak-stat-gap-x);
+    grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+    gap: clamp(10px, 1vw, 14px);
+    width: 100%;
     align-items: stretch;
+    justify-content: stretch;
+}
+
+.ak-stat-grid > * {
+    min-width: 0;
 }
 
 /* Section heading above each card grid (RTL, right-aligned) */
@@ -38,122 +42,187 @@
     --ak-stat-title: #424242;
     --ak-stat-unit: #7B7B7B;
     --ak-stat-border: #EDF0F3;
-    --ak-stat-halo: #E9F4EE;   /* soft light-green disc behind the illustration */
 
-    display: flex;
-    flex-direction: row-reverse;  /* RTL: illustration on the RIGHT, text on the LEFT */
-    align-items: center;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 55%) minmax(0, 45%);
+    align-items: stretch;
+    gap: 0;
+    direction: ltr;
 
-    min-height: 160px;
-    padding: 24px 30px;
+    width: 100%;
+    min-width: 0;
+    height: 112px;
+    min-height: 108px;
+    max-height: 116px;
+    padding: 5px 8px;
     box-sizing: border-box;
 
     background: #FFFFFF;
     border: 1px solid var(--ak-stat-border);
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(31, 41, 55, 0.045);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(31, 41, 55, 0.045);
 
     font-family: "Vazirmatn", system-ui, sans-serif;
-    transition: transform .18s ease, box-shadow .18s ease;
+    transition: box-shadow .18s ease, border-color .18s ease;
 }
 
 .ak-stat-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 28px rgba(31, 41, 55, 0.07);
+    border-color: #E2E7EC;
+    box-shadow: 0 6px 18px rgba(31, 41, 55, 0.06);
 }
 
-/* ---- Text block (≈60–65% width, right in RTL) ----------------------- */
+/* ---- Text block: physically fixed on the left ----------------------- */
 .ak-stat-card__content {
-    flex: 1 1 62%;
+    grid-column: 1;
+    width: 100%;
+    height: 100%;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;   /* RTL: flex-start = right edge */
-    text-align: right;
+    align-items: stretch;
+    justify-content: center;
+    gap: 4px;
+    padding-block: 7px;
+    box-sizing: border-box;
+    text-align: left;
     direction: rtl;
+    overflow: hidden;
 }
 
 .ak-stat-card__title {
-    font-size: 14.5px;
-    font-weight: 500;
-    line-height: 1.5;
-    color: var(--ak-stat-title);
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
-    white-space: nowrap;
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--ak-stat-title);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
 }
 
 .ak-stat-card__value {
-    margin-top: 2px;
-    font-size: 36px;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: clamp(22px, 1.6vw, 26px);
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1;
     letter-spacing: -0.01em;
     color: var(--ak-stat-fg);
-    font-variant-numeric: tabular-nums;
+    direction: ltr;
+    text-align: left;
+    font-variant-numeric: tabular-nums lining-nums;
     white-space: nowrap;
+}
+
+/* Keep the complete prepared value visible. Long N2/N4 strings retain Latin,
+   tabular digits and shrink only as much as their shared card needs. */
+.ak-stat-card__value--compact {
+    font-size: 14px;
+    letter-spacing: -0.035em;
+}
+
+.ak-stat-card__value--dense {
+    font-size: 12px;
+    letter-spacing: -0.045em;
+}
+
+.ak-stat-card__value--ultra {
+    font-size: 9px;
+    letter-spacing: -0.055em;
+}
+
+@media (min-width: 1500px) {
+    .ak-stat-card__value:not(.ak-stat-card__value--compact):not(.ak-stat-card__value--dense):not(.ak-stat-card__value--ultra) {
+        font-size: 24px;
+    }
 }
 
 .ak-stat-card__unit {
-    margin-top: 5px;
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.4;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 0;
+    overflow: visible;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.3;
     color: var(--ak-stat-unit);
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
 }
 
 .ak-stat-card__trend {
-    margin-top: 12px;
+    margin-top: 2px;
+    margin-right: auto;
+    margin-left: 0;
+    align-self: flex-start;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 13px;
+    gap: 5px;
+    font-size: 11px;
     font-weight: 600;
     line-height: 1;
     direction: ltr;            /* "↑ +8.4%" reads left-to-right */
 }
 
 .ak-stat-card__trend-arrow {
-    width: 11px;
-    height: 11px;
+    width: 16px;
+    height: 16px;
     flex: none;
+    padding: 3px;
+    border-radius: 50%;
 }
 
 .ak-stat-card__trend--positive { color: #18A957; }
 .ak-stat-card__trend--negative { color: #EF5350; }
 .ak-stat-card__trend--neutral  { color: var(--ak-stat-unit); }
+.ak-stat-card__trend--positive .ak-stat-card__trend-arrow { background: #EAF8F0; }
+.ak-stat-card__trend--negative .ak-stat-card__trend-arrow { background: #FDEEEE; }
+.ak-stat-card__trend--neutral .ak-stat-card__trend-arrow { background: #F0F2F4; }
 
-/* ---- Illustration (≈35–40% width, left in RTL) ---------------------- */
+/* ---- Illustration: physically fixed on the right -------------------- */
 .ak-stat-card__visual {
-    flex: 0 0 40%;
-    max-width: 40%;
-    height: 120px;
+    grid-column: 2;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* soft light-green halo disc behind the illustration */
-    background:
-        radial-gradient(ellipse 62% 82% at center,
-            var(--ak-stat-halo) 0%,
-            var(--ak-stat-halo) 52%,
-            rgba(233, 244, 238, 0) 74%);
+    overflow: hidden;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 
 .ak-stat-card__image {
-    max-width: 100%;
-    max-height: 130px;
+    width: 124%;
+    height: 124%;
+    max-width: none;
+    max-height: none;
     object-fit: contain;
+    object-position: center;
     display: block;
+    filter: none;
+    opacity: 1;
+    mix-blend-mode: normal;
 }
 
 /* ---- Warning state -------------------------------------------------- */
 .ak-stat-card--warning .ak-stat-card__visual--warning {
-    background:
-        radial-gradient(ellipse at center,
-            #FDECEC 0%, #FDECEC 55%, rgba(253, 236, 236, 0) 72%);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
 }
 
 /* ---- Empty state ---------------------------------------------------- */
@@ -190,25 +259,33 @@
    Responsive
    ===================================================================== */
 
-/* Laptop → 2 columns, ratio preserved */
-@media (max-width: 1400px) {
-    .ak-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1179px) {
+    .ak-stat-card { height: 110px; }
+    .ak-stat-card__value--compact { font-size: 16px; }
+    .ak-stat-card__value--dense { font-size: 13px; }
+    .ak-stat-card__value--ultra { font-size: 10px; }
 }
 
-/* Tablet → 2 columns, smaller illustration */
-@media (max-width: 992px) {
-    .ak-stat-card { padding: 22px 24px; }
-    .ak-stat-card__visual { flex-basis: 34%; max-width: 34%; height: 100px; }
-    .ak-stat-card__value { font-size: 32px; }
+@media (max-width: 899px) {
+    .ak-stat-card__value--compact { font-size: 20px; }
+    .ak-stat-card__value--dense { font-size: 17px; }
+    .ak-stat-card__value--ultra { font-size: 14px; }
 }
 
-/* Mobile → 1 column, illustration stays on the left */
-@media (max-width: 576px) {
-    .ak-stat-grid { grid-template-columns: 1fr; }
-    .ak-stat-card { min-height: 140px; padding: 20px 22px; gap: 12px; }
-    .ak-stat-card__visual { flex-basis: 36%; max-width: 36%; height: 92px; }
-    .ak-stat-card__value { font-size: 30px; }
-    .ak-stat-card__title { font-size: 14px; }
+@media (max-width: 599px) {
+    .ak-stat-grid { grid-template-columns: minmax(0, 1fr); }
+    .ak-stat-card {
+        height: 110px;
+        min-height: 106px;
+        max-height: 114px;
+        padding: 5px 8px;
+    }
+    .ak-stat-card__value:not(.ak-stat-card__value--compact):not(.ak-stat-card__value--dense):not(.ak-stat-card__value--ultra) {
+        font-size: 26px;
+    }
+    .ak-stat-card__value--compact { font-size: 22px; }
+    .ak-stat-card__value--dense { font-size: 18px; }
+    .ak-stat-card__value--ultra { font-size: 15px; }
 }
 
 /* =====================================================================
@@ -219,7 +296,6 @@
     --ak-stat-title: #C4CBD4;
     --ak-stat-unit: #9AA3AE;
     --ak-stat-border: #2A313B;
-    --ak-stat-halo: #1E262F;
     background: #161B22;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }

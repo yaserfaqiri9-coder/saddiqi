@@ -14,13 +14,11 @@
                        "ثبت Opening / Adjustment", "bi-plus-lg", Url.Action("Create"), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
 
-    <section class="ak-form-section ak-summary" aria-label="آمار استیتمنت‌های ارزی">
-        <dl class="ak-summary-list">
-            <div><dt>تعداد استیتمنت</dt><dd class="ak-num">@Model.Items.Count().ToString("N0")</dd></div>
-            <div><dt>مانده ابتدایی</dt><dd class="ak-num">@Model.OpeningBalanceUsd.ToString("N2") USD</dd></div>
-            <div><dt>مانده اختتامی</dt><dd class="ak-num">@Model.ClosingBalanceUsd.ToString("N2") USD</dd></div>
-            <div><dt>خالص تغییرات</dt><dd class="ak-num @(netChangeUsd < 0 ?"ak-num" : "ak-num")">@netChangeUsd.ToString("N2") USD</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="آمار استیتمنت‌های ارزی">
+        <vc:stat-card title="تعداد استیتمنت" value="@Model.Items.Count().ToString("N0")" unit="استیتمنت" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="مانده ابتدایی" value="@Model.OpeningBalanceUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="مانده اختتامی" value="@Model.ClosingBalanceUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="خالص تغییرات" value="@netChangeUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
     </section>
 
     <div class="ak-list">

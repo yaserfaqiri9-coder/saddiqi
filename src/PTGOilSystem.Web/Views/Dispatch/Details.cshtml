@@ -106,39 +106,11 @@
         </div>
     </section>
 
-    <section class="ak-summary ak-detail-summary">
-        <article class="ak-field is-loaded">
-            <div class="ak-field">
-                <span class="ak-label">@T("بارگیری‌شده", "Loaded")</span>
-                <span class="ak-page-icon"><i class="bi bi-box-arrow-up" aria-hidden="true"></i></span>
-            </div>
-            <strong class="ak-num">@Q(loadedQty)</strong>
-            <span class="ak-section-desc">@T("تن", "MT")</span>
-        </article>
-        <article class="ak-field is-unloaded">
-            <div class="ak-field">
-                <span class="ak-label">@(isDirectSale ? T("فروخته‌شده", "Sold") : T("تخلیه‌شده", "Unloaded"))</span>
-                <span class="ak-page-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
-            </div>
-            <strong class="ak-num">@Q(unloadedQty)</strong>
-            <span class="ak-section-desc">@T("تن", "MT")</span>
-        </article>
-        <article class="ak-field is-shortage">
-            <div class="ak-field">
-                <span class="ak-label">@T("کسری", "Shortage")</span>
-                <span class="ak-page-icon"><i class="bi bi-exclamation-lg" aria-hidden="true"></i></span>
-            </div>
-            <strong class="ak-num">@Q(shortageQty)</strong>
-            <span class="ak-section-desc">@T("تن", "MT")</span>
-        </article>
-        <article class="ak-field is-result">
-            <div class="ak-field">
-                <span class="ak-label">@T("کرایه", "Freight")</span>
-                <span class="ak-page-icon"><i class="bi bi-currency-dollar" aria-hidden="true"></i></span>
-            </div>
-            <strong class="ak-num">@M(freightUsd)</strong>
-            <span class="ak-section-desc">USD</span>
-        </article>
+    <section class="ak-stat-grid" aria-label="@T("شاخص‌های ارسال", "Dispatch metrics")">
+        <vc:stat-card title="@T("بارگیری‌شده", "Loaded")" value="@Q(loadedQty)" unit="@T("تن", "MT")" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@(isDirectSale ? T("فروخته‌شده", "Sold") : T("تخلیه‌شده", "Unloaded"))" value="@Q(unloadedQty)" unit="@T("تن", "MT")" avatar="sold-quantity"></vc:stat-card>
+        <vc:stat-card title="@T("کسری", "Shortage")" value="@Q(shortageQty)" unit="@T("تن", "MT")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@T("کرایه", "Freight")" value="@M(freightUsd)" unit="USD" avatar="transported"></vc:stat-card>
     </section>
 
     @{

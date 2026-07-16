@@ -15,13 +15,11 @@
 
     <p class="ak-note">@UiText.T(Context, "مواردی که برای کنترل دفتر کل، قیمت‌گذاری یا اسناد نیاز به بررسی دارند.", "Items that need ledger, valuation or document review.")</p>
 
-    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار مغایرت‌ها", "Warning metrics")">
-        <dl class="ak-summary-list">
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "آمار مغایرت‌ها", "Warning metrics")">
             @foreach (var metric in Model.Metrics.Take(4))
             {
                 @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
             }
-        </dl>
     </section>
 
     <section class="ak-form-section">

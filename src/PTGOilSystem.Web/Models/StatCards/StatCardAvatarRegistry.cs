@@ -6,8 +6,7 @@ namespace PTGOilSystem.Web.Models.StatCards;
 /// knows illustration filenames, so pages reference concepts, not paths.
 ///
 /// NOTE: the physical asset files are supplied separately (see the Asset Spec).
-/// Until a file exists the component renders an empty green halo — never a
-/// substitute illustration.
+/// Until a file exists the component keeps the illustration area transparent.
 /// </summary>
 public static class StatCardAvatarRegistry
 {
@@ -66,7 +65,7 @@ public static class StatCardAvatarRegistry
 
     /// <summary>
     /// Resolve a web path for the given key, or <c>null</c> when the key is
-    /// unknown/blank. Returning null lets the component fall back to the halo.
+    /// unknown/blank. Returning null keeps the component visual area transparent.
     /// </summary>
     public static string? ResolvePath(string? key)
     {

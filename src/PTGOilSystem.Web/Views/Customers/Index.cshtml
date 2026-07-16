@@ -3,6 +3,8 @@
 @{
     ViewData["Title"] = UiText.T(Context,"مشتریان","Customers");
     var items = Model.ToList();
+    var activeCount = items.Count(item => item.IsActive);
+    var countryCount = items.Select(item => item.Country).Where(country => !string.IsNullOrWhiteSpace(country)).Distinct(StringComparer.OrdinalIgnoreCase).Count();
     var q = ViewData["q"]?.ToString();
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 }
@@ -14,6 +16,13 @@
                        UiText.T(Context, "مشتری جدید", "New customer"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار مشتریان", "Customer statistics")">
+        <vc:stat-card title="@UiText.T(Context, "کل مشتریان", "Total customers")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "مشتری", "customers")" avatar="customers"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مشتریان فعال", "Active customers")" value="@activeCount.ToString("N0")" unit="@UiText.T(Context, "مشتری", "customers")" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مشتریان غیرفعال", "Inactive customers")" value="@((items.Count - activeCount).ToString("N0"))" unit="@UiText.T(Context, "مشتری", "customers")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "کشورها", "Countries")" value="@countryCount.ToString("N0")" unit="@UiText.T(Context, "کشور", "countries")" avatar="shipments"></vc:stat-card>
+    </section>
 
     <partial name="~/Views/Shared/_AkSearchFilter.cshtml"
              model="@AkSearchFilterModel.SearchOnly("q", q, UiText.T(Context, "جستجو یا فیلتر نتایج...", "Search or filter results..."))" />

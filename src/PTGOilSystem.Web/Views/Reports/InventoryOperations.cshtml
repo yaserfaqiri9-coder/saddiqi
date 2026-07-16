@@ -14,13 +14,11 @@
 
     <p class="ak-note">@UiText.T(Context, "خلاصه موجودی، مخزن‌ها و اخطارهای عملیاتی.", "Inventory, storage groups and operational warnings.")</p>
 
-    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "آمار موجودی و عملیات", "Inventory and operations metrics")">
-        <dl class="ak-summary-list">
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "آمار موجودی و عملیات", "Inventory and operations metrics")">
             @foreach (var metric in Model.Metrics.Take(4))
             {
                 @await Html.PartialAsync("_ReferenceMetricCard", ("", metric.Icon, metric.Label, metric.Value, metric.Detail ?? "", metric.ToneClass))
             }
-        </dl>
     </section>
 
     <div class="ak-list">

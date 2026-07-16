@@ -40,15 +40,13 @@
 
     <p class="ak-note">این گزارش فقط خواندنی است. هیچ موجودی، فاکتور یا ثبت مالی با باز کردن این صفحه ساخته یا تغییر داده نمی‌شود.</p>
 
-    <section class="ak-form-section ak-summary">
-        <dl class="ak-summary-list">
-            <div><dt>بارگیری مستقیم بدون پایان</dt><dd class="ak-num">@Model.DirectDispatchesWithoutFinish.Count.ToString("N0")</dd></div>
-            <div><dt>انتقال در مسیر</dt><dd class="ak-num">@Model.TransfersInTransit.Count.ToString("N0")</dd></div>
-            <div><dt>تضاد فروش/تخلیه</dt><dd class="ak-num @(Model.DispatchSaleAndDeliveryConflicts.Count > 0 ?"ak-num" : "")">@Model.DispatchSaleAndDeliveryConflicts.Count.ToString("N0")</dd></div>
-            <div><dt>بارگیری ناتمام موتر</dt><dd class="ak-num">@Model.DirectDispatchPartialRemaining.Count.ToString("N0")</dd></div>
-            <div><dt>در انتظار تسویه مخزن</dt><dd class="ak-num">@Model.PendingTankSettlements.Count.ToString("N0")</dd></div>
-            <div><dt>جمع کل</dt><dd class="ak-num">@Model.TotalCount.ToString("N0")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="آمار عملیات ناتمام پس از رسید">
+        <vc:stat-card title="بارگیری مستقیم بدون پایان" value="@Model.DirectDispatchesWithoutFinish.Count.ToString("N0")" unit="مورد" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="انتقال در مسیر" value="@Model.TransfersInTransit.Count.ToString("N0")" unit="مورد" avatar="transported"></vc:stat-card>
+        <vc:stat-card title="تضاد فروش/تخلیه" value="@Model.DispatchSaleAndDeliveryConflicts.Count.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="بارگیری ناتمام موتر" value="@Model.DirectDispatchPartialRemaining.Count.ToString("N0")" unit="مورد" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="در انتظار تسویه مخزن" value="@Model.PendingTankSettlements.Count.ToString("N0")" unit="مورد" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="جمع کل" value="@Model.TotalCount.ToString("N0")" unit="مورد" avatar="purchase-contracts"></vc:stat-card>
     </section>
 
     @{

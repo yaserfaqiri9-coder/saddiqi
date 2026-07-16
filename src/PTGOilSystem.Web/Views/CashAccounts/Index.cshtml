@@ -21,13 +21,11 @@
                        "حساب جدید", "bi-plus-lg", (string?)null, "cashAccountsCreateModal",
                        (string?)null, (string?)null, (string?)null))" />
 
-    <section class="ak-form-section ak-summary" aria-label="@fm.AriaLabel">
-        <dl class="ak-summary-list">
-            <div><dt>جمع دریافتی</dt><dd class="ak-num">@fm.TodayReceiptUsd.ToString("N2") USD</dd></div>
-            <div><dt>جمع پرداختی</dt><dd class="ak-num">@fm.TodayPaymentUsd.ToString("N2") USD</dd></div>
-            <div><dt>مانده نقدی</dt><dd class="ak-num">@fm.CashAccountsBalanceUsd.ToString("N2") USD</dd></div>
-            <div><dt>تعداد تراکنش‌ها</dt><dd class="ak-num">@fm.TransactionCount.ToString("N0")</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="@fm.AriaLabel">
+        <vc:stat-card title="جمع دریافتی" value="@fm.TodayReceiptUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="جمع پرداختی" value="@fm.TodayPaymentUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="مانده نقدی" value="@fm.CashAccountsBalanceUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="تعداد تراکنش‌ها" value="@fm.TransactionCount.ToString("N0")" unit="مورد" avatar="purchase-contracts"></vc:stat-card>
     </section>
 
     <div class="ak-list">

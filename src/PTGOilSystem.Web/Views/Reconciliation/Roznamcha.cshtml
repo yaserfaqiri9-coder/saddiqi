@@ -15,15 +15,13 @@
 
     <p class="ak-note">این گزارش فقط خواندنی است و هیچ سند مالی را اصلاح نمی‌کند.</p>
 
-    <section class="ak-form-section ak-summary">
-        <dl class="ak-summary-list">
-            <div><dt>بدون طرف حساب</dt><dd class="ak-num">@Model.PaymentsWithoutCounterparty.Count</dd></div>
-            <div><dt>بدون حساب</dt><dd class="ak-num">@Model.PaymentsWithoutCashAccount.Count</dd></div>
-            <div><dt>اختلاف Ledger</dt><dd class="ak-num">@Model.LedgerAmountMismatches.Count</dd></div>
-            <div><dt>ریسک مصرف</dt><dd class="ak-num">@Model.ExpenseDoubleCountingRisks.Count</dd></div>
-            <div><dt>کارمند</dt><dd class="ak-num">@Model.EmployeePaymentsWithoutEmployeeLink.Count</dd></div>
-            <div><dt>مشتری/تأمین‌کننده</dt><dd class="ak-num">@Model.SupplierCustomerPaymentsWithoutProfileLink.Count</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="آمار مغایرت‌های رزنامچه">
+        <vc:stat-card title="بدون طرف حساب" value="@Model.PaymentsWithoutCounterparty.Count.ToString("N0")" unit="مورد" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="بدون حساب" value="@Model.PaymentsWithoutCashAccount.Count.ToString("N0")" unit="مورد" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="اختلاف Ledger" value="@Model.LedgerAmountMismatches.Count.ToString("N0")" unit="مورد" avatar="profit-loss"></vc:stat-card>
+        <vc:stat-card title="ریسک مصرف" value="@Model.ExpenseDoubleCountingRisks.Count.ToString("N0")" unit="مورد" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="کارمند" value="@Model.EmployeePaymentsWithoutEmployeeLink.Count.ToString("N0")" unit="مورد" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="مشتری/تأمین‌کننده" value="@Model.SupplierCustomerPaymentsWithoutProfileLink.Count.ToString("N0")" unit="مورد" avatar="suppliers"></vc:stat-card>
     </section>
 
     <section class="ak-form-section">

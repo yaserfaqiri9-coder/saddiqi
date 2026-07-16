@@ -1,17 +1,51 @@
 @model (string ToneClass, string IconClass, string Label, string Value, string Subtitle, string ValueClass)
 @*
-    Flat report metric tile (Akaunting migration). Renders one <div> inside an
-    <dl class="ak-summary-list">. Decorative tone/icon/sparkline dropped; real
-    numbers only, LTR tabular. Tuple shape kept for existing call sites.
+    Compatibility adapter for report metrics. The tuple shape stays unchanged,
+    but rendering is delegated to the single shared StatCard ViewComponent.
 *@
 @{
-    var valueClass = string.IsNullOrWhiteSpace(Model.ValueClass) ? string.Empty : Model.ValueClass;
-}
-<div>
-    <dt>@Model.Label</dt>
-    <dd class="ak-num @valueClass">@Model.Value</dd>
-    @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+    var value = (Model.Value ?? string.Empty).Trim();
+    var unit = Model.Subtitle;
+
+    foreach (var suffix in new[] { " USD", " MT", " RUB", " AFN" })
     {
-        <small>@Model.Subtitle</small>
+        if (!value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+        value = value[..^suffix.Length].TrimEnd();
+        unit = suffix.Trim();
+        break;
     }
-</div>
+
+    if (value.EndsWith('%'))
+    {
+        value = value[..^1].TrimEnd();
+        unit = "%";
+    }
+
+    var avatar = Model.IconClass switch
+    {
+        var icon when icon.Contains("cart", StringComparison.OrdinalIgnoreCase) => "sales-value",
+        var icon when icon.Contains("box-arrow", StringComparison.OrdinalIgnoreCase) => "purchase-value",
+        var icon when icon.Contains("receipt", StringComparison.OrdinalIgnoreCase) => "expenses",
+        var icon when icon.Contains("graph", StringComparison.OrdinalIgnoreCase) => "profit-loss",
+        var icon when icon.Contains("person", StringComparison.OrdinalIgnoreCase) => "customers",
+        var icon when icon.Contains("building-check", StringComparison.OrdinalIgnoreCase) => "suppliers",
+        var icon when icon.Contains("arrow-up-circle", StringComparison.OrdinalIgnoreCase) => "payments",
+        var icon when icon.Contains("arrow-down-circle", StringComparison.OrdinalIgnoreCase) => "receivables",
+        var icon when icon.Contains("cash", StringComparison.OrdinalIgnoreCase) => "payments",
+        var icon when icon.Contains("bank", StringComparison.OrdinalIgnoreCase) => "payments",
+        var icon when icon.Contains("database", StringComparison.OrdinalIgnoreCase) => "total-inventory",
+        var icon when icon.Contains("droplet", StringComparison.OrdinalIgnoreCase) => "total-inventory",
+        var icon when icon.Contains("box-seam", StringComparison.OrdinalIgnoreCase) => "total-inventory",
+        var icon when icon.Contains("exclamation", StringComparison.OrdinalIgnoreCase) => "losses",
+        var icon when icon.Contains("journal-x", StringComparison.OrdinalIgnoreCase) => "losses",
+        _ => "purchase-contracts"
+    };
+}
+@await Component.InvokeAsync("StatCard", new
+{
+    title = Model.Label,
+    value,
+    unit,
+    avatar,
+    ariaLabel = $"{Model.Label} {Model.Value} {Model.Subtitle}".Trim()
+})

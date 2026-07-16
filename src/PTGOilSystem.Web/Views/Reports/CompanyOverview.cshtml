@@ -5,7 +5,6 @@
         || Model.Filter.ProductId.HasValue || Model.Filter.ContractId.HasValue
         || Model.Filter.CustomerId.HasValue || Model.Filter.SupplierId.HasValue;
     var netClass = Model.NetProfitUsd >= 0m ? "ak-num" : "ak-num";
-    var cashClass = Model.NetCashMovementUsd >= 0m ? "ak-num" : "ak-num";
 }
 
 <div class="ak-list-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
@@ -16,13 +15,11 @@
 
     <p class="ak-note">@UiText.T(Context, "تصویر سریع از فروش، مصارف، نقدینگی و مانده‌های مهم شرکت.", "A focused view of sales, costs, cash movement and key balances.")</p>
 
-    <section class="ak-form-section ak-summary" aria-label="@UiText.T(Context, "خلاصهٔ مالی", "Financial summary")">
-        <dl class="ak-summary-list">
-            <div><dt>@UiText.T(Context, "فروش", "Sales")</dt><dd class="ak-num">@Model.RevenueUsd.ToString("N2") USD</dd></div>
-            <div><dt>@UiText.T(Context, "مصارف و ضایعات", "Expenses and Losses")</dt><dd class="ak-num">@((Model.ExpenseUsd + Model.LossCostUsd).ToString("N2")) USD</dd></div>
-            <div><dt>@UiText.T(Context, "سود خالص", "Net Profit")</dt><dd class="ak-num @netClass">@Model.NetProfitUsd.ToString("N2") USD</dd></div>
-            <div><dt>@UiText.T(Context, "حرکت نقدی", "Cash Movement")</dt><dd class="ak-num @cashClass">@Model.NetCashMovementUsd.ToString("N2") USD</dd></div>
-        </dl>
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "خلاصهٔ مالی", "Financial summary")">
+        <vc:stat-card title="@UiText.T(Context, "فروش", "Sales")" value="@Model.RevenueUsd.ToString("N2")" unit="USD" avatar="sales-value"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مصارف و ضایعات", "Expenses and Losses")" value="@((Model.ExpenseUsd + Model.LossCostUsd).ToString("N2"))" unit="USD" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "سود خالص", "Net Profit")" value="@Model.NetProfitUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "حرکت نقدی", "Cash Movement")" value="@Model.NetCashMovementUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
     </section>
 
     <div class="ak-list">

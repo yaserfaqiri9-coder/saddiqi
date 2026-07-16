@@ -113,12 +113,12 @@
                     <i class="bi bi-cash-coin"></i> مصرف پیش‌پرداخت برای قرارداد
                 </a>
             </div>
-            <dl class="ak-summary-list ak-summary ak-detail-summary">
-                <div><dt>مبلغ پرداخت (USD)</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
-                <div><dt>مصرف‌شده برای قراردادها</dt><dd class="ak-num">@Model.AllocatedBookAmountUsd.ToString("N2")</dd></div>
-                <div><dt>مانده قابل تخصیص</dt><dd class="ak-num">@Model.AllocatableBalanceUsd.ToString("N2")</dd></div>
-                <div><dt>تعداد تخصیص فعال</dt><dd class="ak-num">@Model.ActiveAllocationCount.ToString("N0")</dd></div>
-            </dl>
+            <div class="ak-stat-grid" aria-label="خلاصه تخصیص پرداخت">
+                <vc:stat-card title="مبلغ پرداخت" value="@Model.AmountUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+                <vc:stat-card title="مصرف‌شده برای قراردادها" value="@Model.AllocatedBookAmountUsd.ToString("N2")" unit="USD" avatar="purchase-value"></vc:stat-card>
+                <vc:stat-card title="مانده قابل تخصیص" value="@Model.AllocatableBalanceUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
+                <vc:stat-card title="تعداد تخصیص فعال" value="@Model.ActiveAllocationCount.ToString("N0")" unit="مورد" avatar="purchase-contracts"></vc:stat-card>
+            </div>
 
             @if (Model.Allocations.Any())
             {

@@ -39,47 +39,12 @@
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(("حمل‌های موجودی در جریان", true, "حمل جدید از موجودی", "bi-plus-lg", Url.Action("CreateFromInventory"), (string?)null, (string?)null, (string?)null, (string?)null))" />
 
-    <section class="ak-summary" aria-label="خلاصه حمل‌های در جریان">
-        <article class="ak-field is-blue">
-            <div class="ak-field">
-                <span>تعداد کل</span>
-                <strong>@Model.ActiveTransportCount.ToString("N0")</strong>
-                <small>حمل در جریان</small>
-            </div>
-            <span class="ak-page-icon"><i class="bi bi-truck"></i></span>
-        </article>
-        <article class="ak-field is-green">
-            <div class="ak-field">
-                <span>مقدار کل</span>
-                <strong>@Model.TotalAllocatedQuantityMt.ToString("N0")</strong>
-                <small>MT</small>
-            </div>
-            <span class="ak-page-icon"><i class="bi bi-database"></i></span>
-        </article>
-        <article class="ak-field is-amber">
-            <div class="ak-field">
-                <span>در حال بارگیری</span>
-                <strong>@loadingCount.ToString("N0")</strong>
-                <small>حمل</small>
-            </div>
-            <span class="ak-page-icon"><i class="bi bi-box-seam"></i></span>
-        </article>
-        <article class="ak-field is-blue">
-            <div class="ak-field">
-                <span>در حال انتقال</span>
-                <strong>@transitCount.ToString("N0")</strong>
-                <small>حمل</small>
-            </div>
-            <span class="ak-page-icon"><i class="bi bi-truck-front"></i></span>
-        </article>
-        <article class="ak-field is-purple">
-            <div class="ak-field">
-                <span>نزدیک به مقصد</span>
-                <strong>@nearCount.ToString("N0")</strong>
-                <small>حمل</small>
-            </div>
-            <span class="ak-page-icon"><i class="bi bi-geo-alt"></i></span>
-        </article>
+    <section class="ak-stat-grid" aria-label="خلاصه حمل‌های در جریان">
+        <vc:stat-card title="تعداد کل" value="@Model.ActiveTransportCount.ToString("N0")" unit="حمل در جریان" avatar="transported"></vc:stat-card>
+        <vc:stat-card title="مقدار کل" value="@Model.TotalAllocatedQuantityMt.ToString("N0")" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="در حال بارگیری" value="@loadingCount.ToString("N0")" unit="حمل" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="در حال انتقال" value="@transitCount.ToString("N0")" unit="حمل" avatar="transported"></vc:stat-card>
+        <vc:stat-card title="نزدیک به مقصد" value="@nearCount.ToString("N0")" unit="حمل" avatar="shipments"></vc:stat-card>
     </section>
 
     <section class="ak-form-section" aria-label="فیلترها">

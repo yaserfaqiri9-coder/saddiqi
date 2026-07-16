@@ -56,9 +56,10 @@ body.boltz-shell.app-shell-authenticated .page-stack.boltz-detail-page .summary-
 
 /* پروندهٔ کشتی/محموله (ShipmentPnl/Details) — کارت‌ها و جدول‌های داخل هر تب فاصلهٔ یکدست بگیرند.
    گرید .page-stack فقط به فرزندان مستقیم gap می‌داد؛ محتوای داخل tab-pane پراکنده می‌ماند. */
-body.boltz-shell.controller-shipmentpnl.action-details .boltz-detail-page .tab-content > .tab-pane.active {
+body.boltz-shell.controller-shipmentpnl.action-details .boltz-detail-page .tab-content > .tab-pane.active,
+body.boltz-shell.controller-shipmentpnl.action-details .ak-detail-page .tab-content > .tab-pane.active {
     display: grid;
-    gap: var(--ptg-space-gap);
+    gap: 20px;
     align-content: start;
 }
 
