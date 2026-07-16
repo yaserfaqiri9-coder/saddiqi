@@ -36,7 +36,7 @@ public class LoadingController : Controller
     private const string LoadingStorageExpenseCode = "LOAD-STORAGE";
     private const string LoadingWagonRentExpenseCode = "LOAD-WAGON-RENT";
     private const string LoadingOtherExpenseCode = "LOAD-OTHER";
-    private const string SupplierLoadingLedgerSourceType = "Loading";
+    private const string SupplierLoadingLedgerSourceType = SupplierLoadingLedger.SourceType;
     private const decimal PercentTolerance = 0.0001m;
 
     private sealed record PlattsReferenceSuggestion(
@@ -458,54 +458,38 @@ public class LoadingController : Controller
             await _purchaseAccounting.TryPostPurchaseAsync(loading);
         }
 
-        if (contract is null
-            || contract.ContractType != ContractType.Purchase
-            || !contract.SupplierId.HasValue
-            || !IsRubSettlement(loading.SettlementCurrencyCode)
-            || loading.RubRateStatus != RubSettlementRateStatus.Locked
-            || !loading.AmountUsdAtRubLock.HasValue
-            || loading.AmountUsdAtRubLock.Value <= 0m
-            || !loading.AmountRubAtRubLock.HasValue
-            || loading.AmountRubAtRubLock.Value <= 0m
-            || !loading.RubPerUsdRate.HasValue
-            || loading.RubPerUsdRate.Value <= 0m)
+        if (!SupplierLoadingLedger.IsPostable(loading, contract))
         {
             return;
         }
 
-        var alreadyPosted = await _db.LedgerEntries
-            .AnyAsync(l => l.SourceType == SupplierLoadingLedgerSourceType && l.SourceId == loading.Id);
-        if (alreadyPosted)
+        // سطر Legacy این بارگیری اگر از قبل هست همان به‌روزرسانی می‌شود، نه اینکه سطر دوم ساخته شود.
+        // بعد از «اصلاح قیمت»/بازقفل، AmountUsdAtRubLock عوض می‌شود و سطر قدیمی کهنه می‌ماند.
+        var existing = await _db.LedgerEntries
+            .SingleOrDefaultAsync(l => l.SourceType == SupplierLoadingLedgerSourceType && l.SourceId == loading.Id);
+        if (existing is not null)
         {
+            var previousAmountUsd = existing.AmountUsd;
+            var previousSourceAmount = existing.SourceAmount;
+            var previousFxRateToUsd = existing.AppliedFxRateToUsd;
+            if (!SupplierLoadingLedger.ApplySnapshot(existing, loading))
+            {
+                return;
+            }
+
+            await _db.SaveChangesAsync();
+            await _audit.LogAndSaveAsync(
+                nameof(LedgerEntry),
+                existing.Id,
+                AuditAction.Update,
+                diff: AuditDiffFormatter.ForUpdate(
+                    ("AmountUsd", previousAmountUsd, existing.AmountUsd),
+                    ("SourceAmount", previousSourceAmount, existing.SourceAmount),
+                    ("AppliedFxRateToUsd", previousFxRateToUsd, existing.AppliedFxRateToUsd)));
             return;
         }
 
-        var reference = string.IsNullOrWhiteSpace(loading.BillOfLadingNumber)
-            ? $"LOAD-{loading.Id}"
-            : loading.BillOfLadingNumber.Trim();
-        if (reference.Length > 200)
-        {
-            reference = reference[..200];
-        }
-
-        var ledger = new LedgerEntry
-        {
-            EntryDate = loading.LoadingDate.Date,
-            Side = LedgerSide.Credit,
-            AmountUsd = loading.AmountUsdAtRubLock.Value,
-            Currency = SystemCurrency.BaseCurrencyCode,
-            SourceAmount = loading.AmountRubAtRubLock.Value,
-            SourceCurrencyCode = "RUB",
-            AppliedFxRateToUsd = decimal.Round(1m / loading.RubPerUsdRate.Value, 6, MidpointRounding.AwayFromZero),
-            AppliedFxRateDate = loading.RubRateDate?.Date ?? loading.LoadingDate.Date,
-            AppliedFxRateSource = loading.RubRateSource ?? "Loading RUB settlement",
-            Description = $"بدهی تأمین‌کننده بابت بارگیری #{loading.Id}",
-            SourceType = SupplierLoadingLedgerSourceType,
-            SourceId = loading.Id,
-            Reference = reference,
-            ContractId = contract.Id,
-            SupplierId = contract.SupplierId.Value
-        };
+        var ledger = SupplierLoadingLedger.Create(loading, contract);
 
         _db.LedgerEntries.Add(ledger);
         await _db.SaveChangesAsync();

@@ -704,20 +704,34 @@ Flag جدید: `Accounting:Pilots:InventoryTransfer` (پیش‌فرض `false`).
 ۱۱۰۰ پاس / ۱۹ شکست = ۱۸ baseline + ۱ از کار UI ناتمامِ Working Tree. جزئیات و اثبات در
 «خلاصه‌ی وضعیت کلی» بالا.
 
-### دو تصمیمِ باز که کاربر باید بگیرد
+### تصمیم ۱ — اختلاف روبلی مرحله ۶ — ✅ بسته شد (گزینهٔ ب + ج، با اجازهٔ صریح کاربر)
 
-**تصمیم ۱ — اختلاف روبلی مرحله ۶ (مانع Flag `Purchase`).**
-ریشه پیدا شد: سطر لجر روبلیِ تأمین‌کننده یک‌بار نوشته می‌شود و بعد از بازقیمت‌گذاری **هرگز
-به‌روز نمی‌شود** (گاردِ `alreadyPosted`)، در حالی که سند جدید با Revision اصلاح می‌شود. یعنی
-**آداپتر درست است و سطر legacy کهنه است.** به‌علاوه `CalculateLoadingValueUsd` با `ToEven` گرد
-می‌کند و آداپتر با `AwayFromZero` (حداکثر ۰٫۰۰۰۱ اختلاف، فقط روی تساوی دقیق).
+ریشه: سطر لجر روبلیِ تأمین‌کننده یک‌بار نوشته می‌شد و بعد از بازقیمت‌گذاری **هرگز به‌روز
+نمی‌شد** (گاردِ `alreadyPosted`)، در حالی که سند جدید با Reversal + Revision اصلاح می‌شود.
+یعنی **آداپتر درست بود و سطر legacy کهنه می‌ماند.** اختلاف فرعی هم گردکردن بود:
+`CalculateLoadingValueUsd` با `ToEven` و آداپتر با `AwayFromZero` (حداکثر ۰٫۰۰۰۱).
 
-گزینه‌ها:
-- **الف)** واگرایی را به‌عنوان «legacy کهنه است، سند درست است» بپذیریم و مستند کنیم؛ Flag روشن
-  شود. هیچ کد legacy دست نمی‌خورد.
-- **ب)** legacy اصلاح شود تا بعد از بازقیمت‌گذاری سطر لجرش را به‌روز کند. **این تغییر منطق
-  Ledger است و CLAUDE.md آن را بدون درخواست صریح ممنوع کرده.**
-- **ج)** فقط حالتِ گرد کردن یکی شود (تغییر کوچک ولی باز هم در `Ledger`/`FX` legacy).
+اصلاح انجام‌شده (فقط همین رفتار، بدون Refactor عمومی):
+- `Helpers/SupplierLoadingLedger.cs` (جدید) — تنها سرچشمهٔ ساخت/هماهنگیِ سطر legacy بارگیری.
+  `ApplySnapshot` مبلغ/نرخ سطر موجود را با snapshot فعلی بارگیری هماهنگ می‌کند و اگر چیزی عوض
+  نشده باشد `false` برمی‌گرداند (بدون نوشتن بی‌مورد).
+- `LoadingController.PostSupplierLoadingLedgerIfReadyAsync` — به‌جای «اگر هست هیچ نکن»، همان
+  سطر را به‌روز می‌کند. کلید یکتا همچنان `(SourceType="Loading", SourceId=loading.Id)` است؛
+  **سطر دوم ساخته نمی‌شود.**
+- `ContractsController.SyncPurchaseLoadingPricesAsync` — بارگیری‌هایی که واقعاً بازقفل شدند
+  جمع می‌شوند و سطر legacy همان‌ها هماهنگ می‌شود. بدون `SaveChanges` مستقل و با `_audit.LogAsync`
+  (نه `LogAndSaveAsync`) تا **داخل همان تراکنشِ فراخوان** ثبت شود و Rollback کامل بماند.
+- `LoadingRubSettlement.RoundAmountUsd` — یگانه قانون گردکردن
+  (`decimal.Round(value, 4, MidpointRounding.AwayFromZero)`). هم مسیر legacy و هم
+  `PurchaseAccountingAdapter` از همین عبور می‌کنند.
+
+خارج از دامنه (دست‌نخورده): دفتر کل جدید همچنان Reversal + Revision است و رکورد Posted هرگز
+ویرایش نمی‌شود؛ مسیر بارگیری USD و بارگیری Pending بدون تغییر؛ هیچ Refactor در Ledger/FX/Loading.
+
+تست: `tests/PTGOilSystem.Web.Tests/SupplierLoadingLegacyLedgerTests.cs` — ۹ تست، همه سبز
+(یک سطر در بارگیری اول، به‌روزرسانیِ همان سطر در Repricing و forceRelock، نبودِ سطر دوم،
+برابریِ مبلغ legacy با `AmountUsdAtRubLock` جدید، بی‌اثر بودنِ اجرای دوباره، USD و Pending بدون
+Regression، و یکی بودن قانون گردکردن).
 
 **تصمیم ۲ — تأیید عدد صراف روی داده‌ی واقعی (مانع Flag `SarrafSettlement`).**
 لاگ حالا `LegacyDifferenceUsd` و `JournalGapUsd` را کنار هم چاپ می‌کند. این کار **داده‌ی

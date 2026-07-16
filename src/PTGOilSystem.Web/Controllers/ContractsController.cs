@@ -904,6 +904,7 @@ public class ContractsController : Controller
             .ToListAsync();
 
         var count = 0;
+        var relockedLoadings = new List<LoadingRegister>();
         foreach (var loading in loadings)
         {
             loading.LoadingPriceUsd = finalPrice.Value;
@@ -917,12 +918,72 @@ public class ContractsController : Controller
                 RubSettlementRatePolicy.PerLoadingRate => loading.RubPerUsdRate,
                 _ => null
             };
-            LoadingRubSettlement.TryLockFinalizedRub(loading, resolvedRubRate, forceRelock: repriceFinalized);
+            if (LoadingRubSettlement.TryLockFinalizedRub(loading, resolvedRubRate, forceRelock: repriceFinalized))
+            {
+                relockedLoadings.Add(loading);
+            }
 
             count++;
         }
 
+        await SyncSupplierLoadingLegacyLedgerAsync(contract, relockedLoadings);
+
         return count;
+    }
+
+    // بازقفلِ نرخ، AmountUsdAtRubLock را عوض می‌کند ولی سطر Legacy دفتر قدیمی که هنگام بارگیری ساخته شده
+    // با مبلغ قبلی می‌ماند و طلب تأمین‌کننده کهنه می‌شود. همان سطر با snapshot جدید هماهنگ می‌شود؛
+    // سطر تازه اینجا ساخته نمی‌شود (ساختِ سطر همچنان کارِ مسیر بارگیری است).
+    // بدون SaveChanges: با همان SaveChangesAsync فراخوان — یعنی داخل همان تراکنش — ثبت می‌شود.
+    private async Task SyncSupplierLoadingLegacyLedgerAsync(Contract contract, IReadOnlyList<LoadingRegister> relockedLoadings)
+    {
+        if (relockedLoadings.Count == 0)
+        {
+            return;
+        }
+
+        var postable = relockedLoadings
+            .Where(l => SupplierLoadingLedger.IsPostable(l, contract))
+            .ToList();
+        if (postable.Count == 0)
+        {
+            return;
+        }
+
+        var loadingIds = postable.Select(l => l.Id).ToList();
+        var entries = await _db.LedgerEntries
+            .Where(l => l.SourceType == SupplierLoadingLedger.SourceType && loadingIds.Contains(l.SourceId))
+            .ToListAsync();
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var entriesByLoadingId = entries.ToDictionary(l => l.SourceId);
+        foreach (var loading in postable)
+        {
+            if (!entriesByLoadingId.TryGetValue(loading.Id, out var entry))
+            {
+                continue;
+            }
+
+            var previousAmountUsd = entry.AmountUsd;
+            var previousSourceAmount = entry.SourceAmount;
+            var previousFxRateToUsd = entry.AppliedFxRateToUsd;
+            if (!SupplierLoadingLedger.ApplySnapshot(entry, loading))
+            {
+                continue;
+            }
+
+            await _audit.LogAsync(
+                nameof(LedgerEntry),
+                entry.Id,
+                AuditAction.Update,
+                diff: AuditDiffFormatter.ForUpdate(
+                    ("AmountUsd", previousAmountUsd, entry.AmountUsd),
+                    ("SourceAmount", previousSourceAmount, entry.SourceAmount),
+                    ("AppliedFxRateToUsd", previousFxRateToUsd, entry.AppliedFxRateToUsd)));
+        }
     }
 
     private static void NormalizeEditPricingModel(EditPricingViewModel model)

@@ -15,9 +15,16 @@ public static class LoadingRubSettlement
     public static bool IsRubSettlement(string? currencyCode)
         => string.Equals(SystemCurrency.Normalize(currencyCode), "RUB", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// یگانه قانون گردکردنِ مبلغ دالریِ بارگیری. مسیر قدیمی و Adapter دفتر کل جدید هر دو از همین‌جا
+    /// عبور می‌کنند تا مبلغشان با هم اختلاف گردکردن نداشته باشد (پیش‌تر قدیمی ToEven بود و جدید AwayFromZero).
+    /// </summary>
+    public static decimal RoundAmountUsd(decimal amountUsd)
+        => decimal.Round(amountUsd, 4, MidpointRounding.AwayFromZero);
+
     public static decimal? CalculateLoadingValueUsd(decimal loadedQuantityMt, decimal? loadingPriceUsd)
         => loadingPriceUsd.HasValue && loadingPriceUsd.Value > 0m
-            ? Math.Round(loadedQuantityMt * loadingPriceUsd.Value, 4)
+            ? RoundAmountUsd(loadedQuantityMt * loadingPriceUsd.Value)
             : null;
 
     public static decimal CalculateRubAmount(decimal amountUsd, decimal rubPerUsdRate)

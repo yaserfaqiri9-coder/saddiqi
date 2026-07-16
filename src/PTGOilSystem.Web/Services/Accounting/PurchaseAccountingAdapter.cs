@@ -488,10 +488,9 @@ public sealed class PurchaseAccountingAdapter(
         if (!IPurchaseAggregationService.HasValidLoadingPrice(effectivePrice))
             return Fail("PURCHASE_PRICE_PENDING");
 
-        var amountUsd = decimal.Round(
-            loading.LoadedQuantityMt * effectivePrice!.Value,
-            4,
-            MidpointRounding.AwayFromZero);
+        // همان قانون گردکردنی که مسیر قدیمی برای مبلغ بارگیری به کار می‌برد.
+        var amountUsd = Helpers.LoadingRubSettlement.RoundAmountUsd(
+            loading.LoadedQuantityMt * effectivePrice!.Value);
         if (amountUsd <= 0m)
             return Fail("INVALID_PURCHASE_AMOUNT");
 
