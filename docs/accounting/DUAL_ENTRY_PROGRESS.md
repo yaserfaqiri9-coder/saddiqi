@@ -25,7 +25,7 @@
 | ۱۱ | قفل دوره و AccountingDate | ✅ کامل |
 | ۱۲ | چک‌لیست بستن سال | ✅ کامل (فقط‌خواندنی + Export JSON/CSV) |
 | ۱۳ | Trial Close (+ تسعیر پایان‌دوره) | ✅ کامل (Migration ساخته‌شده، اجرانشده) |
-| ۱۴ | Final Close | ⛔ شروع‌نشده |
+| ۱۴ | Final Close | ✅ کامل (بدون Migration جدید — فیلدها موجود بودند) |
 | ۱۵ | بازگشایی کنترل‌شده | ⛔ شروع‌نشده |
 
 **Build فعلی:** ۰ خطا (۳ هشدار پیش‌موجود و نامرتبط: `_Layout.cshtml` ×۲، `MaintenanceController` EF1002).
@@ -1081,6 +1081,54 @@ Trial Close فقط یک `FiscalYearCloseRun` با `RunType=Trial` و Snapshot/Ha
 ```
 dotnet ef database update --project src/PTGOilSystem.Web   # فقط روی دیتابیس هدف درست
 ```
+
+---
+
+## مرحله ۱۴ — Final Close ✅
+
+عملیاتِ صریح، اتمیک و غیرقابل‌تکرارِ ناخواسته. **بدون Migration جدید** — حساب‌های
+`CurrentYearProfitLossAccountId`/`RetainedEarningsAccountId` از قبل در `AccountingSettings` بودند
+و فیلدهای `ClosedAt/ClosedByUserId/ClosingJournalEntryId/Status/IsCurrent` روی `FiscalYear` موجود
+بودند؛ جزئیاتِ اجرا در `FiscalYearCloseRun` (RunType=Final) ذخیره می‌شود.
+
+### فایل‌های جدید
+- `Services/Accounting/FinalCloseModels.cs`، `Services/Accounting/FinalCloseService.cs`
+- `Controllers/FinalCloseController.cs`، `Views/FinalClose/Index.cshtml`
+- `Models/Accounting/FinalClosePageViewModel.cs`
+- `tests/PTGOilSystem.Web.Tests/FinalCloseServiceTests.cs` (۱۲ تست، همه سبز)
+
+### ترتیب اتمیک (داخل یک DB Transaction)
+1. Precheckِ همهٔ پیش‌شرط‌ها (وضعیت سال Open/Reopened، چک‌لیست بدون Blocked، Trial Close موفق و
+   تازه، تسعیر Complete/NotApplicable، حساب‌های CYE/RE، وجود و اعتبارِ سال بعد).
+2. تأییدِ عبارتِ شاملِ کد سال مالی.
+3. پست سندِ **ProfitAndLoss**: هر حساب درآمد/هزینه با سطرِ معکوس صفر می‌شود و خالص به
+   `3100 Current Year Earnings` می‌رود.
+4. پست سندِ **RetainedEarnings**: انتقالِ `3100` به `3200 Retained Earnings`.
+5. HardLockِ همهٔ دوره‌های سال (بعد از پست‌شدنِ سندهای بستن).
+6. سال → Closed، `ClosedAt/ClosedByUserId/ClosingJournalEntryId`، `IsCurrent=false`.
+7. سال بعد `IsCurrent=true` (و در صورت Draft → Open) — فقط یک Current.
+8. ساختِ `FiscalYearCloseRun` نوع Final + Audit. هر شکستی کل عملیات را Rollback می‌کند.
+
+### حساب‌های بستن
+- درآمد: `AccountType.Revenue`؛ هزینه: `AccountType.Expense` — **از نوعِ صریحِ حساب، نه شماره**.
+- سود: `Cr 3100`؛ سپس `Dr 3100 / Cr 3200`. زیان: جهتِ عکس. سندها متوازن، `IsClosing=true`،
+  `AccountingDate = EndDate`، SourceEventId پایدار
+  (`FiscalYearClose:{fy}:ProfitAndLoss:{rev}` و `:RetainedEarnings:{rev}`)، فقط از مرحله ۱۵ قابل
+  Reverse.
+
+### تصمیمِ Opening Balance (از روی کد گزارش‌گیری — بدون سؤال)
+گزارش‌های موجود مانده را per-fiscal-year بازنشانی نمی‌کنند؛ دفتر کل جدید *پیوسته/تجمعی* است و
+مانده از جمعِ تجمعیِ سطرهای Posted می‌آید (`FiscalYearOverviewService` هم همین‌طور جمع می‌زند و
+هیچ سرویسِ گزارشی سطرهای دفترِ جدید را per-year جمع نمی‌کند). بنابراین **Opening Journal ساخته
+نمی‌شود** — ساختنش حساب‌های ترازنامه‌ای را دوبار می‌شمرد. فقط P&L به Equity بسته می‌شود و
+حساب‌های ترازنامه‌ای خودبه‌خود به سال بعد منتقل می‌شوند (تست‌شده: هیچ سندِ OpeningBalance ساخته
+نمی‌شود و P&L به سال بعد منتقل نمی‌شود).
+
+### ایمنی و Idempotency
+- سالِ از قبل بسته → `AlreadyClosed` بدون سند جدید (تست‌شده).
+- عبارتِ تأییدِ نادرست → رد، بدون تغییرِ وضعیت.
+- سندِ Posted هرگز ویرایش/حذف نمی‌شود.
+- مسیر: `GET` Precheck، `POST close` (antiforgery + AdminOnly + عبارت تأیید).
 
 ---
 

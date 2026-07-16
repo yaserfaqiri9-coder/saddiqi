@@ -1,0 +1,86 @@
+@using PTGOilSystem.Web.Models.Accounting
+@model FinalClosePageViewModel
+@{
+    ViewData["Title"] = "Final Close — بستن نهایی سال";
+    var pc = Model.Precheck;
+}
+
+<div class="ak-list-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@(("Final Close — بستن نهایی سال", false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    @if (TempData["ok"] is string ok) { <div class="alert alert-success">@ok</div> }
+    @if (TempData["err"] is string err) { <div class="alert alert-danger">@err</div> }
+
+    <form method="get" asp-action="Index" class="ak-form">
+        <div class="ak-field">
+            <label class="ak-label" for="companyId">شرکت</label>
+            <select class="form-select" id="companyId" name="companyId" onchange="this.form.submit()">
+                @foreach (var c in Model.Companies)
+                {
+                    <option value="@c.CompanyId" selected="@c.IsSelected">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="ak-field">
+            <label class="ak-label" for="fiscalYearId">سال مالی</label>
+            <select class="form-select" id="fiscalYearId" name="fiscalYearId" onchange="this.form.submit()">
+                @foreach (var y in Model.Years)
+                {
+                    <option value="@y.FiscalYearId" selected="@y.IsSelected">@y.Name</option>
+                }
+            </select>
+        </div>
+    </form>
+
+    @if (pc is null)
+    {
+        <div class="ak-empty"><i class="bi bi-lock" aria-hidden="true"></i>سال مالی‌ای برای بستن انتخاب نشده است</div>
+    }
+    else
+    {
+        <div class="ak-table-wrap my-3">
+            <table class="ak-table">
+                <tbody>
+                    <tr><th>وضعیت سال</th><td>@Model.SelectedFiscalYearStatus</td></tr>
+                    <tr><th>مجموع درآمد</th><td>@pc.RevenueUsd USD</td></tr>
+                    <tr><th>مجموع هزینه</th><td>@pc.ExpenseUsd USD</td></tr>
+                    <tr><th>سود/زیان خالص</th><td><strong>@pc.NetProfitUsd USD</strong></td></tr>
+                    <tr><th>سال بعد</th><td>@(pc.NextFiscalYearName ?? "—")</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        @if (pc.CanClose)
+        {
+            <div class="alert alert-success">همهٔ پیش‌شرط‌ها برقرارند. برای بستن، کد سال مالی را وارد کنید.</div>
+            <form method="post" asp-action="Close">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="companyId" value="@Model.SelectedCompanyId" />
+                <input type="hidden" name="fiscalYearId" value="@Model.SelectedFiscalYearId" />
+                <div class="ak-field">
+                    <label class="ak-label" for="confirmation">عبارت تأیید (کد سال مالی: <code>@Model.SelectedFiscalYearName</code>)</label>
+                    <input class="form-control" id="confirmation" name="confirmation" autocomplete="off" required />
+                </div>
+                <button type="submit" class="btn btn-danger mt-2"
+                        onclick="return confirm('بستن نهایی سال برگشت‌ناپذیر است (جز از طریق بازگشایی کنترل‌شده). ادامه؟');">
+                    بستن نهایی سال
+                </button>
+            </form>
+        }
+        else
+        {
+            <div class="alert alert-danger">
+                <strong>پیش‌شرط‌ها برقرار نیست:</strong>
+                <ul class="mb-0">
+                    @foreach (var b in pc.Blockers)
+                    {
+                        <li>@b</li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+</div>
