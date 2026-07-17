@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.ShipmentPnl;
 
 namespace PTGOilSystem.Web.Controllers;
 
 public partial class ShipmentPnlController
 {
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv()
     {
         var items = await BuildAllIndexItemsAsync();

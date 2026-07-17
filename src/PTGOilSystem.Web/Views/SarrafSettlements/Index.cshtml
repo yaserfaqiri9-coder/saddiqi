@@ -69,6 +69,7 @@
                 </tbody>
             </table>
         </div>
+        @await Html.PartialAsync("_Pagination", ((int)(ViewData["CurrentPage"] ?? 1), (int)(ViewData["PageCount"] ?? 1)))
     </div>
 </div>
 

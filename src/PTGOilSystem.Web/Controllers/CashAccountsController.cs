@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using PTGOilSystem.Web.Data;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Security;
@@ -135,6 +137,7 @@ public class CashAccountsController : Controller
         });
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv([FromQuery] CashAccountIndexFilterViewModel? filter = null)
     {
         var items = await ApplyIndexFilter(_db.CashAccounts.AsNoTracking(), filter ?? new CashAccountIndexFilterViewModel())

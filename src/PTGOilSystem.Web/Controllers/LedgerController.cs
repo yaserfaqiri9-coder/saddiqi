@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Helpers;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Ledger;
 using PTGOilSystem.Web.Models.Payments;
@@ -84,9 +86,29 @@ public partial class LedgerController : Controller
         });
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv([FromQuery] LedgerIndexFilterViewModel? filter = null)
     {
-        var rows = await BuildLedgerRowsAsync(filter ?? new LedgerIndexFilterViewModel());
+        filter ??= new LedgerIndexFilterViewModel();
+
+        // بازهٔ تاریخ الزامی است تا خروجی کل جدول دفتر کل گرفته نشود.
+        if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
+        {
+            TempData["error"] = "برای خروجی CSV، تعیین «از تاریخ» و «تا تاریخ» الزامی است.";
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        // شمارش پیش از بارگذاری: اگر از سقف بیشتر بود، هیچ ردیفی به حافظه نمی‌آید.
+        var totalCount = await ApplyLedgerFilter(_db.LedgerEntries.AsNoTracking(), filter).CountAsync();
+        if (totalCount > CsvExportSupport.MaxRows)
+        {
+            TempData["error"] =
+                $"این خروجی {totalCount:N0} ردیف دارد و از سقف مجاز {CsvExportSupport.MaxRows:N0} ردیف بیشتر است. " +
+                "بازهٔ تاریخ را کوتاه‌تر کنید یا فیلتر بیشتری اعمال کنید.";
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        var rows = await BuildLedgerRowsAsync(filter);
         return CsvExportSupport.File(this, "ledger.csv",
             ["Date", "Side", "AmountUsd", "Currency", "Description", "SourceType", "SourceId", "Reference", "Contract", "Customer", "Supplier", "Employee", "Shipment"],
             rows.Select(r => new[]

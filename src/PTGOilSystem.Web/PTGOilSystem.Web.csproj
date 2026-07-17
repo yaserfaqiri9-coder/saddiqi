@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- تست‌ها به سقف ردیف خروجی CSV (CsvExportSupport.MaxRows) نیاز دارند. -->
+    <InternalsVisibleTo Include="PTGOilSystem.Web.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Update="Views\**\*.cshtml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

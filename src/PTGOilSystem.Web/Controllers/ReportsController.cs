@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Helpers;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Models.Reports;
@@ -76,6 +78,7 @@ public class ReportsController : Controller
         });
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> CompanyOverview([FromQuery] ManagementReportFilterViewModel? filter = null)
     {
         filter ??= new ManagementReportFilterViewModel();
@@ -83,6 +86,7 @@ public class ReportsController : Controller
         return View(await BuildCompanyFinancialOverviewAsync(filter));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> CashFlow([FromQuery] ManagementReportFilterViewModel? filter = null)
     {
         filter ??= new ManagementReportFilterViewModel();
@@ -90,6 +94,7 @@ public class ReportsController : Controller
         return View(await BuildCashFlowReportAsync(filter));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> ReceivablesPayables([FromQuery] ManagementReportFilterViewModel? filter = null)
     {
         filter ??= new ManagementReportFilterViewModel();
@@ -97,6 +102,7 @@ public class ReportsController : Controller
         return View(await BuildReceivablesPayablesReportAsync(filter));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> InventoryOperations([FromQuery] ManagementReportFilterViewModel? filter = null)
     {
         filter ??= new ManagementReportFilterViewModel();
@@ -104,6 +110,7 @@ public class ReportsController : Controller
         return View(await BuildInventoryOperationsReportAsync(filter));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> Warnings()
     {
         return View(await BuildReportsWarningsAsync());
@@ -669,6 +676,7 @@ public class ReportsController : Controller
         };
     }
 
+    [EnableRateLimiting(RateLimitPolicies.HeavyReport)]
     public async Task<IActionResult> ContractPnl([FromQuery] ManagementReportFilterViewModel? filter = null)
     {
         filter ??= new ManagementReportFilterViewModel();

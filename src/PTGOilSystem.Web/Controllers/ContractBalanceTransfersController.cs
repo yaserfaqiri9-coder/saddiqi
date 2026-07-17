@@ -27,7 +27,9 @@ public class ContractBalanceTransfersController : Controller
         _transfers = transfers;
     }
 
-    public async Task<IActionResult> Index(int? contractId = null, string? search = null)
+    private const int IndexPageSize = 50;
+
+    public async Task<IActionResult> Index(int? contractId = null, string? search = null, int page = 1)
     {
         var query = _db.ContractBalanceTransfers
             .Include(t => t.FromContract)
@@ -57,10 +59,16 @@ public class ContractBalanceTransfersController : Controller
             query = query.Where(t => t.FromContractId == contractId.Value || t.ToContractId == contractId.Value);
         }
 
+        // صفحه‌بندی سمت SQL — جایگزین سقف ثابت Take(200) که ردیف‌های بعدی را نامرئی می‌کرد.
+        var totalCount = await query.CountAsync();
+        var pageCount = Math.Max(1, (int)Math.Ceiling(totalCount / (double)IndexPageSize));
+        page = Math.Clamp(page, 1, pageCount);
+
         var items = await query
             .OrderByDescending(t => t.TransferDate)
             .ThenByDescending(t => t.Id)
-            .Take(200)
+            .Skip((page - 1) * IndexPageSize)
+            .Take(IndexPageSize)
             .Select(t => new ContractBalanceTransferListItemViewModel
             {
                 Id = t.Id,
@@ -81,7 +89,10 @@ public class ContractBalanceTransfersController : Controller
         {
             ContractId = contractId,
             ContractNumber = selectedContract?.ContractNumber,
-            Items = items
+            Items = items,
+            CurrentPage = page,
+            PageCount = pageCount,
+            TotalCount = totalCount
         });
     }
 

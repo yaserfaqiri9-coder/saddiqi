@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.AccountStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
 public partial class AccountStatementsController
 {
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv([FromQuery] AccountStatementFilterViewModel? filter = null)
     {
         filter ??= new AccountStatementFilterViewModel();

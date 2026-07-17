@@ -79,6 +79,9 @@ public sealed class ContractBalanceTransferIndexViewModel
     public int? ContractId { get; init; }
     public string? ContractNumber { get; init; }
     public IReadOnlyList<ContractBalanceTransferListItemViewModel> Items { get; init; } = [];
+    public int CurrentPage { get; init; } = 1;
+    public int PageCount { get; init; } = 1;
+    public int TotalCount { get; init; }
 }
 
 public sealed class ContractBalanceTransferDetailsViewModel

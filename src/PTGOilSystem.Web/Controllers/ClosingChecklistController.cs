@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PTGOilSystem.Web.Data;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Accounting;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services.Accounting;
@@ -70,6 +72,7 @@ public class ClosingChecklistController(
     }
 
     [HttpGet("csv")]
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv(int companyId, int fiscalYearId, CancellationToken cancellationToken)
     {
         var report = await checklist.BuildAsync(companyId, fiscalYearId, cancellationToken);

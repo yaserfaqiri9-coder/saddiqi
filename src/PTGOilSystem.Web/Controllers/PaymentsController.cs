@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Helpers;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Security;
@@ -170,9 +172,30 @@ public class PaymentsController : Controller
         });
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> Csv([FromQuery] PaymentIndexFilterViewModel? filter = null)
     {
-        var (rows, _, _, _) = await BuildRowsAsync(filter ?? new PaymentIndexFilterViewModel(), page: 0);
+        filter ??= new PaymentIndexFilterViewModel();
+
+        // بازهٔ تاریخ الزامی است تا خروجی کل روزنامچه گرفته نشود.
+        if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
+        {
+            TempData["error"] = "برای خروجی CSV، تعیین «از تاریخ» و «تا تاریخ» الزامی است.";
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        var (rows, _, _, _) = await BuildRowsAsync(filter, page: 0);
+
+        // روزنامچه از ادغام دو منبع (پرداخت‌ها + حواله‌های صراف) در حافظه ساخته می‌شود، پس
+        // شمارش فقط پس از ادغام ممکن است؛ بازهٔ تاریخ بالا حجم را از قبل محدود می‌کند.
+        if (rows.Count > CsvExportSupport.MaxRows)
+        {
+            TempData["error"] =
+                $"این خروجی {rows.Count:N0} ردیف دارد و از سقف مجاز {CsvExportSupport.MaxRows:N0} ردیف بیشتر است. " +
+                "بازهٔ تاریخ را کوتاه‌تر کنید یا فیلتر بیشتری اعمال کنید.";
+            return RedirectToAction(nameof(Index), filter);
+        }
+
         return CsvExportSupport.File(this, "roznamcha.csv",
             ["Date", "Reference", "Direction", "Kind", "CounterpartyType", "Counterparty", "CashAccount", "Amount", "Currency", "AmountUsd", "RelatedTo", "Description", "CreatedBy", "LedgerEntryId"],
             rows.Select(r => new[]

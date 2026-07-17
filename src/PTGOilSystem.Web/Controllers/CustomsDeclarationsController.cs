@@ -844,9 +844,12 @@ public class CustomsDeclarationsController : Controller
                     && cd.TruckDispatch.Product.Name.Contains(normalizedQuery)));
         }
 
+        // دو Include مجموعه‌ای در یک کوئری = ضرب دکارتی (Items × Documents).
+        // AsSplitQuery هر مجموعه را در کوئری جدا می‌خواند؛ ردیف‌های بارگذاری‌شده تغییری نمی‌کنند.
         var toDelete = await query
             .Include(c => c.Items)
             .Include(c => c.Documents)
+            .AsSplitQuery()
             .ToListAsync();
 
         if (toDelete.Count == 0)

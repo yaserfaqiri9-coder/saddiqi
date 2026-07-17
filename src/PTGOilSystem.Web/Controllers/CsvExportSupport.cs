@@ -6,27 +6,20 @@ namespace PTGOilSystem.Web.Controllers;
 
 internal static class CsvExportSupport
 {
-    public static FileContentResult File(Controller controller, string filename, string[] headers, IEnumerable<string?[]> rows)
-    {
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Join(",", headers.Select(Escape)));
-        foreach (var row in rows)
-        {
-            builder.AppendLine(string.Join(",", row.Select(Escape)));
-        }
+    /// <summary>سقف ردیف مجاز برای خروجی CSV — جلوگیری از بارگذاری کل جدول در حافظه.</summary>
+    public const int MaxRows = 50_000;
 
-        var preamble = Encoding.UTF8.GetPreamble();
-        var content = Encoding.UTF8.GetBytes(builder.ToString());
-        var bytes = new byte[preamble.Length + content.Length];
-        Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
-        Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
-        return controller.File(bytes, "text/csv; charset=utf-8", filename);
-    }
+    /// <summary>
+    /// خروجی CSV را به‌صورت جریانی روی بدنهٔ پاسخ می‌نویسد؛ کل فایل هیچ‌گاه در حافظه ساخته نمی‌شود.
+    /// انکودینگ UTF-8 با BOM است تا Excel متن فارسی را درست بخواند.
+    /// </summary>
+    public static IActionResult File(Controller controller, string filename, string[] headers, IEnumerable<string?[]> rows)
+        => new CsvStreamResult(filename, headers, rows);
 
     public static string Date(DateTime? value) => DateDisplay.HtmlDateInput(value);
     public static string Decimal(decimal? value) => value?.ToString("0.####") ?? "";
 
-    private static string Escape(string? value)
+    internal static string Escape(string? value)
     {
         value ??= "";
         if (!value.Contains(',') && !value.Contains('"') && !value.Contains('\n') && !value.Contains('\r'))
@@ -35,5 +28,46 @@ internal static class CsvExportSupport
         }
 
         return "\"" + value.Replace("\"", "\"\"") + "\"";
+    }
+}
+
+/// <summary>
+/// نتیجهٔ جریانی CSV. ردیف‌ها یکی‌یکی روی <c>Response.Body</c> نوشته می‌شوند، پس برخلاف
+/// روش قبلی (StringBuilder → string → byte[]) کل خروجی سه بار در RAM کپی نمی‌شود.
+/// </summary>
+internal sealed class CsvStreamResult : IActionResult
+{
+    // encoderShouldEmitUTF8Identifier: true → StreamWriter پیش از اولین نوشتن، BOM را می‌نویسد.
+    private static readonly UTF8Encoding Utf8WithBom = new(encoderShouldEmitUTF8Identifier: true);
+
+    private readonly string _filename;
+    private readonly string[] _headers;
+    private readonly IEnumerable<string?[]> _rows;
+
+    public CsvStreamResult(string filename, string[] headers, IEnumerable<string?[]> rows)
+    {
+        _filename = filename;
+        _headers = headers;
+        _rows = rows;
+    }
+
+    public string ContentType => "text/csv; charset=utf-8";
+
+    public async Task ExecuteResultAsync(ActionContext context)
+    {
+        var response = context.HttpContext.Response;
+        response.ContentType = ContentType;
+        response.Headers.ContentDisposition = $"attachment; filename=\"{_filename}\"";
+
+        // leaveOpen: بدنهٔ پاسخ متعلق به میزبان است و نباید اینجا بسته شود.
+        await using var writer = new StreamWriter(response.Body, Utf8WithBom, bufferSize: 16 * 1024, leaveOpen: true);
+
+        await writer.WriteLineAsync(string.Join(",", _headers.Select(CsvExportSupport.Escape)));
+        foreach (var row in _rows)
+        {
+            await writer.WriteLineAsync(string.Join(",", row.Select(CsvExportSupport.Escape)));
+        }
+
+        await writer.FlushAsync();
     }
 }

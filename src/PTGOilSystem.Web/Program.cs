@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Diagnostics;
 using PTGOilSystem.Web.Infrastructure.ModelBinding;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Middleware;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
@@ -15,6 +17,7 @@ using PTGOilSystem.Web.Services.AutoCode;
 using PTGOilSystem.Web.Services.DeleteSafety;
 using PTGOilSystem.Web.Services.Employees;
 using System.IO.Compression;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,7 +51,12 @@ if (builder.Environment.IsDevelopment())
 
 builder.Services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
 {
-    options.UseNpgsql(BuildPostgresConnectionString(rawConnectionString!));
+    options.UseNpgsql(BuildPostgresConnectionString(rawConnectionString!), npgsql =>
+    {
+        // عمداً کوتاه: هدف این است که کوئری کند سریع شکست بخورد و دیده شود،
+        // نه اینکه با Timeout بلند پنهان بماند و اتصال را اشغال نگه دارد.
+        npgsql.CommandTimeout(30);
+    });
     if (builder.Environment.IsDevelopment())
     {
         options.AddInterceptors(serviceProvider.GetRequiredService<MvcQueryCountingInterceptor>());
@@ -65,6 +73,7 @@ builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<IAccountingPostingService, AccountingPostingService>();
 builder.Services.AddScoped<IAccountingChartSeeder, AccountingChartSeeder>();
+builder.Services.AddScoped<IChartOfAccountsReadService, ChartOfAccountsReadService>();
 builder.Services.AddScoped<IAccountingJournalNumberGenerator, AccountingJournalNumberGenerator>();
 builder.Services.AddScoped<IContractBalanceTransferAccountingAdapter, ContractBalanceTransferAccountingAdapter>();
 builder.Services.AddScoped<ISupplierPaymentAllocationAccountingAdapter, SupplierPaymentAllocationAccountingAdapter>();
@@ -162,6 +171,42 @@ builder.Services.AddResponseCompression(options =>
 builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddMemoryCache();
+
+// ---- Rate limiting (مسیرهای سنگین) -----------------------------------------
+// هدف: جلوگیری از تمام‌شدن Connection Pool وقتی کاربر روی «خروجی CSV» یا گزارش
+// سنگین پی‌درپی کلیک می‌کند. تفکیک بر اساس کاربر واردشده، و در نبود آن بر اساس IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy(RateLimitPolicies.CsvExport, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveRateLimitPartitionKey(httpContext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy(RateLimitPolicies.HeavyReport, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveRateLimitPartitionKey(httpContext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync(
+            "تعداد درخواست‌های شما برای این مسیر بیش از حد مجاز است. لطفاً کمی صبر کنید و دوباره تلاش کنید.",
+            cancellationToken);
+    };
+});
 
 // ---- Authentication / Authorization -----------------------------------------
 // Behind Replit's reverse proxy the app receives plain HTTP; trust the
@@ -275,6 +320,8 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRouting();
 app.UseAuthentication();
+// پس از UseAuthentication تا تفکیک بر اساس کاربر واردشده انجام شود، نه فقط IP.
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -291,6 +338,12 @@ app.MapControllerRoute(
 app.Run();
 
 // ---- Helpers ----------------------------------------------------------------
+// کلید تفکیک محدودسازی نرخ: کاربر واردشده، و در نبود آن IP مبدأ.
+static string ResolveRateLimitPartitionKey(HttpContext httpContext)
+    => httpContext.User?.Identity?.IsAuthenticated == true
+        ? $"user:{httpContext.User.Identity.Name}"
+        : $"ip:{httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+
 static async Task SeedAuthenticationAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();

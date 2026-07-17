@@ -897,14 +897,17 @@ public class PaymentsControllerTests
 
         var result = await controller.Csv(new PaymentIndexFilterViewModel
         {
+            // بازهٔ تاریخ برای خروجی CSV الزامی است.
+            FromDate = new DateTime(2026, 4, 20),
+            ToDate = new DateTime(2026, 4, 21),
             Direction = PaymentDirection.In,
             Reference = "RCPT"
         });
 
-        var file = Assert.IsType<FileContentResult>(result);
-        Assert.Equal("text/csv; charset=utf-8", file.ContentType);
-        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, file.FileContents.Take(3).ToArray());
-        var csv = Encoding.UTF8.GetString(file.FileContents);
+        var (bytes, contentType) = await CsvResultTestHelper.ExecuteAsync(result);
+        Assert.Equal("text/csv; charset=utf-8", contentType);
+        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes.Take(3).ToArray());
+        var csv = Encoding.UTF8.GetString(bytes);
         Assert.Contains("RCPT-CSV", csv);
         Assert.DoesNotContain("PAY-OTHER", csv);
     }

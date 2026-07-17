@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 
 namespace PTGOilSystem.Web.Controllers;
 
 public partial class ReconciliationController
 {
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> OpenContractsCsv()
     {
         var model = await BuildOpenContractsAsync();
@@ -17,6 +20,7 @@ public partial class ReconciliationController
             }));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> OpenShipmentsCsv()
     {
         var model = await BuildOpenShipmentsAsync();
@@ -38,6 +42,7 @@ public partial class ReconciliationController
             rows);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> MissingLedgerCsv()
     {
         var model = await BuildMissingLedgerAsync();
@@ -55,6 +60,7 @@ public partial class ReconciliationController
             rows);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> NonZeroBalancesCsv()
     {
         var model = await BuildNonZeroBalancesAsync();

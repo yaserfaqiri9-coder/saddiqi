@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Balance;
 
 namespace PTGOilSystem.Web.Controllers;
 
 public partial class BalanceController
 {
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> ContractsCsv([FromQuery] ContractsBalanceFilterViewModel? filter = null)
     {
         var model = await GetViewModelAsync<ContractsBalanceViewModel>(Contracts(filter, page: 0));
@@ -18,6 +21,7 @@ public partial class BalanceController
             }));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> CustomersCsv([FromQuery] CustomersBalanceFilterViewModel? filter = null)
     {
         var model = await GetViewModelAsync<CustomersBalanceViewModel>(Customers(filter, page: 0));
@@ -31,6 +35,7 @@ public partial class BalanceController
             }));
     }
 
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
     public async Task<IActionResult> SuppliersCsv([FromQuery] SuppliersBalanceFilterViewModel? filter = null)
     {
         var model = await GetViewModelAsync<SuppliersBalanceViewModel>(Suppliers(filter, page: 0));

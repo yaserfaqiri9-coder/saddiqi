@@ -21,7 +21,9 @@ public class SarrafSettlementsController : Controller
         _settlementService = settlementService;
     }
 
-    public async Task<IActionResult> Index(int? sarrafId = null, int? supplierId = null, int? contractId = null, string? search = null)
+    private const int IndexPageSize = 50;
+
+    public async Task<IActionResult> Index(int? sarrafId = null, int? supplierId = null, int? contractId = null, string? search = null, int page = 1)
     {
         var query = _db.SarrafSettlements
             .AsNoTracking()
@@ -56,10 +58,16 @@ public class SarrafSettlementsController : Controller
             query = query.Where(s => s.ContractId == contractId.Value);
         }
 
+        // صفحه‌بندی سمت SQL — جایگزین سقف ثابت Take(300) که ردیف‌های بعدی را نامرئی می‌کرد.
+        var totalCount = await query.CountAsync();
+        var pageCount = Math.Max(1, (int)Math.Ceiling(totalCount / (double)IndexPageSize));
+        page = Math.Clamp(page, 1, pageCount);
+
         var items = await query
             .OrderByDescending(s => s.SettlementDate)
             .ThenByDescending(s => s.Id)
-            .Take(300)
+            .Skip((page - 1) * IndexPageSize)
+            .Take(IndexPageSize)
             .Select(s => new SarrafSettlementListItemViewModel
             {
                 Id = s.Id,
@@ -95,6 +103,9 @@ public class SarrafSettlementsController : Controller
             .ToListAsync();
 
         ViewData["Search"] = search;
+        ViewData["CurrentPage"] = page;
+        ViewData["PageCount"] = pageCount;
+        ViewData["TotalCount"] = totalCount;
         return View(items);
     }
 
