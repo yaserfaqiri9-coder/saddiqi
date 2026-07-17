@@ -400,6 +400,93 @@ body.is-finance-workspace .finance-fiscal-actions {
     border-block-start: 1px solid var(--divider);
 }
 
+/* Chart of accounts: compact hierarchy and server-side filters. */
+body.is-finance-workspace .chart-of-accounts-page .coa-toolbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) minmax(260px, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    padding: 16px;
+    border-block-end: 1px solid var(--divider);
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-field {
+    display: grid;
+    gap: 6px;
+    min-inline-size: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-toolbar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-code,
+body.is-finance-workspace .chart-of-accounts-page .coa-parent-code {
+    color: var(--primary-main);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-account-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-inline-size: 0;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-child-row .coa-account-name {
+    padding-inline-start: 18px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-branch {
+    color: var(--text-disabled);
+    font-size: 16px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-parent-name {
+    display: block;
+    margin-block-start: 2px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-root-row {
+    background: var(--background-neutral);
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-empty {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    min-block-size: 210px;
+    align-content: center;
+    text-align: center;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-empty strong {
+    color: var(--text-primary);
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-empty span {
+    max-inline-size: 520px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+body.is-finance-workspace .chart-of-accounts-page .coa-list-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    border-block-start: 1px solid var(--divider);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
 @media (max-width: 991.98px) {
     body.is-finance-workspace .finance-overview-metrics,
     body.is-finance-workspace .finance-action-groups,
@@ -449,6 +536,20 @@ body.is-finance-workspace .finance-fiscal-actions {
 
     body.is-finance-workspace .finance-close-steps a {
         min-block-size: 64px;
+    }
+
+    body.is-finance-workspace .chart-of-accounts-page .coa-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    body.is-finance-workspace .chart-of-accounts-page .coa-toolbar-actions,
+    body.is-finance-workspace .chart-of-accounts-page .coa-toolbar-actions .btn {
+        inline-size: 100%;
+    }
+
+    body.is-finance-workspace .chart-of-accounts-page .coa-list-footer {
+        align-items: stretch;
+        flex-direction: column;
     }
 }
 

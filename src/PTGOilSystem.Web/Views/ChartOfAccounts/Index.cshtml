@@ -1,0 +1,156 @@
+@model PTGOilSystem.Web.Models.Accounting.ChartOfAccountsIndexViewModel
+@using PTGOilSystem.Web.Models.Entities
+@{
+    ViewData["Title"] = UiText.T(Context, "سرفصل حساب‌ها", "Chart of Accounts");
+
+    string AccountTypeLabel(AccountType type) => type switch
+    {
+        AccountType.Asset => UiText.T(Context, "دارایی", "Asset"),
+        AccountType.Liability => UiText.T(Context, "بدهی", "Liability"),
+        AccountType.Equity => UiText.T(Context, "سرمایه", "Equity"),
+        AccountType.Revenue => UiText.T(Context, "درآمد", "Revenue"),
+        AccountType.Expense => UiText.T(Context, "مصرف", "Expense"),
+        _ => "-"
+    };
+
+    string NormalBalanceLabel(NormalBalance balance) => balance switch
+    {
+        NormalBalance.Debit => UiText.T(Context, "بدهکار", "Debit"),
+        NormalBalance.Credit => UiText.T(Context, "بستانکار", "Credit"),
+        _ => "-"
+    };
+}
+
+<div class="ak-list-page finance-workspace-page chart-of-accounts-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "سرفصل حساب‌ها", "Chart of Accounts"), false,
+                       UiText.T(Context, "دفتر کل", "General Ledger"), "bi-journal-text", Url.Action("Index", "Ledger"), (string?)null,
+                       (string?)null, (string?)null, (string?)null))" />
+
+    <p class="finance-page-lead">
+        @UiText.T(Context,
+            "حساب‌های هسته حسابداری جدید را به تفکیک شرکت ببینید؛ حساب‌های زیرمجموعه همراه با والد خود مشخص شده‌اند.",
+            "Review the new accounting-core accounts by company, with each child clearly linked to its parent.")
+    </p>
+
+    <section class="ak-list" aria-label="@UiText.T(Context, "فهرست سرفصل حساب‌ها", "Chart of accounts list")">
+        <form method="get" class="coa-toolbar" role="search">
+            <label class="coa-field">
+                <span>@UiText.T(Context, "شرکت", "Company")</span>
+                <select class="form-select" name="companyId" disabled="@(!Model.Companies.Any() ? "disabled" : null)">
+                    @if (!Model.Companies.Any())
+                    {
+                        <option>@UiText.T(Context, "هیچ شرکتی دارای حساب نیست", "No company has accounts")</option>
+                    }
+                    @foreach (var company in Model.Companies)
+                    {
+                        <option value="@company.CompanyId" selected="@(company.IsSelected ? "selected" : null)">
+                            @UiText.T(Context, $"شرکت #{company.CompanyId}", $"Company #{company.CompanyId}")
+                        </option>
+                    }
+                </select>
+            </label>
+
+            <label class="coa-field coa-search-field">
+                <span>@UiText.T(Context, "جستجو", "Search")</span>
+                <input class="form-control"
+                       type="search"
+                       name="q"
+                       value="@Model.Search"
+                       autocomplete="off"
+                       placeholder="@UiText.T(Context, "کد، نام یا حساب والد…", "Code, name or parent account…")"
+                       disabled="@(!Model.Companies.Any() ? "disabled" : null)" />
+            </label>
+
+            <div class="coa-toolbar-actions">
+                <button type="submit" class="btn btn-primary" disabled="@(!Model.Companies.Any() ? "disabled" : null)">
+                    @UiText.T(Context, "نمایش", "Show")
+                </button>
+                @if (!string.IsNullOrWhiteSpace(Model.Search))
+                {
+                    <a class="btn btn-light" asp-action="Index" asp-route-companyId="@Model.SelectedCompanyId">
+                        @UiText.T(Context, "پاک‌کردن", "Clear")
+                    </a>
+                }
+            </div>
+        </form>
+
+        @if (!Model.Companies.Any())
+        {
+            <div class="ak-empty coa-empty">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                <strong>@UiText.T(Context, "هنوز سرفصل حسابی ثبت نشده است", "No chart of accounts exists yet")</strong>
+                <span>@UiText.T(Context, "برای نمایش، باید حسابی در هسته حسابداری جدید موجود باشد.", "An account must exist in the new accounting core before it can be displayed here.")</span>
+            </div>
+        }
+        else if (!Model.Items.Any())
+        {
+            <div class="ak-empty coa-empty">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <strong>@UiText.T(Context, "حسابی مطابق جستجو پیدا نشد", "No matching account found")</strong>
+                <span>@UiText.T(Context, "عبارت جستجو را کوتاه‌تر کنید یا شرکت دیگری را انتخاب کنید.", "Shorten the search term or select another company.")</span>
+            </div>
+        }
+        else
+        {
+            <div class="ak-table-wrap">
+                <table class="ak-table coa-table">
+                    <thead>
+                        <tr>
+                            <th>@UiText.T(Context, "کد", "Code")</th>
+                            <th class="ak-col-grow">@UiText.T(Context, "نام حساب", "Account name")</th>
+                            <th>@UiText.T(Context, "نوع حساب", "Account type")</th>
+                            <th>@UiText.T(Context, "مانده طبیعی", "Normal balance")</th>
+                            <th>@UiText.T(Context, "حساب والد", "Parent account")</th>
+                            <th>@UiText.T(Context, "وضعیت", "Status")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var account in Model.Items)
+                        {
+                            <tr class="@(account.ParentAccountId.HasValue ? "coa-child-row" : "coa-root-row")">
+                                <td class="ak-num coa-code">@account.Code</td>
+                                <td class="ak-col-grow">
+                                    <div class="coa-account-name">
+                                        @if (account.ParentAccountId.HasValue)
+                                        {
+                                            <span class="coa-branch" aria-hidden="true">↳</span>
+                                        }
+                                        <strong>@account.Name</strong>
+                                    </div>
+                                </td>
+                                <td>@AccountTypeLabel(account.AccountType)</td>
+                                <td>@NormalBalanceLabel(account.NormalBalance)</td>
+                                <td>
+                                    @if (account.ParentAccountId.HasValue)
+                                    {
+                                        <span class="coa-parent-code ak-num">@account.ParentCode</span>
+                                        <span class="coa-parent-name">@account.ParentName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">@UiText.T(Context, "حساب اصلی", "Root account")</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="ak-status @(account.IsActive ? "is-active" : "is-inactive")">
+                                        @(account.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive"))
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <footer class="coa-list-footer">
+                <span>
+                    @UiText.T(Context,
+                        $"{Model.TotalCount:N0} حساب برای شرکت #{Model.SelectedCompanyId}",
+                        $"{Model.TotalCount:N0} accounts for company #{Model.SelectedCompanyId}")
+                </span>
+                @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
+            </footer>
+        }
+    </section>
+</div>

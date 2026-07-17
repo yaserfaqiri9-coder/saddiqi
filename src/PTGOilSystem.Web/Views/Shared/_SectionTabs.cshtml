@@ -102,7 +102,7 @@
         ("FiscalYears", "Index",           T("سال مالی و بستن سال", "Fiscal Year & Closing"),     "bi-calendar-check", null)
     };
     var journalControllers = new[] { "Payments", "SarrafSettlements", "ThreeWaySettlement", "ContractBalanceTransfers", "Reconciliation" };
-    var accountControllers = new[] { "CashAccounts", "AccountStatements", "Ledger", "Sarrafs" };
+    var accountControllers = new[] { "ChartOfAccounts", "CashAccounts", "AccountStatements", "Ledger", "Sarrafs" };
     var fiscalYearControllers = new[] { "FiscalYears", "AccountingReadiness", "ClosingChecklist", "TrialClose", "FinalClose", "ReopenFiscalYear" };
     var isFinanceWorkspaceController = journalControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase)
         || accountControllers.Contains(currentController, StringComparer.OrdinalIgnoreCase)
