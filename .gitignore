@@ -190,3 +190,5 @@ BenchmarkDotNet.Artifacts/
 .claude.backup-*/
 # Stray local backup accidentally nested in repo
 /%USERPROFILE%/
+
+graphify-out/
