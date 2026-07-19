@@ -61,6 +61,10 @@
     activeShipmentTab = activeShipmentTab is "flow" or "compliance" or "balance" or "sales" or "finance" or "trips"
         ? activeShipmentTab
         : "summary";
+    // پنل فعال باید کلاس Bootstrap ‏`show active` بگیرد؛ وگرنه ‎.tab-pane بدون ‎.active
+    // با display:none پنهان می‌ماند و تب خالی نمایش داده می‌شود (تب‌ها server-link هستند).
+    string PaneClass(string slug, string? extra = null) =>
+        $"tab-pane fade{(activeShipmentTab == slug ? " show active" : "")}{(string.IsNullOrWhiteSpace(extra) ? "" : " " + extra)}";
     var shipmentTabs = new[]
     {
         $"summary|{T("خلاصه", "Summary")}|bi-grid-1x2|{(activeShipmentTab == "summary" ? "active" : "")}",
@@ -145,7 +149,7 @@
 
     <div class="tab-content ak-detail-content ak-tab-content">
 
-        <div class="tab-pane fade show active ak-form-section" id="shipment-summary" role="tabpanel" hidden="@(activeShipmentTab != "summary")">
+        <div class="@PaneClass("summary", "ak-form-section")" id="shipment-summary" role="tabpanel">
             @* شاخص‌های کلیدی فقط داخل تب خلاصه و هم‌ردیف با محتوای سایر تب‌ها. *@
             <div class="ak-stat-grid" aria-label="@T("شاخص‌های کلیدی محموله", "Shipment key indicators")">
                 <vc:stat-card title="@T("کل بار", "Total cargo")" value="@NumberDisplay.Quantity(Model.OriginalShipmentQuantityMt)" unit="@T("تن", "MT")" avatar="shipments"></vc:stat-card>
@@ -231,7 +235,7 @@
         </div>
 
         @* ============ تب: مسیر بار (داستان حرکت بار از کشتی تا فروش) ============ *@
-        <div class="tab-pane fade ak-form-section" id="shipment-flow" role="tabpanel" hidden="@(activeShipmentTab != "flow")">
+        <div class="@PaneClass("flow", "ak-form-section")" id="shipment-flow" role="tabpanel">
             <div class="ak-stat-grid" aria-label="@T("خلاصه رسیدها", "Receipt summary")">
                 <vc:stat-card title="@T("تعداد رسیدها", "Receipts")" value="@Model.RegisteredVesselReceipts.Count.ToString("N0")" unit="@T("رسید", "receipts")" avatar="purchase-contracts"></vc:stat-card>
                 <vc:stat-card title="@T("تخلیه‌شده", "Unloaded")" value="@NumberDisplay.Quantity(Model.RegisteredVesselReceiptQuantityMt)" unit="@T("تن", "MT")" avatar="total-inventory"></vc:stat-card>
@@ -335,7 +339,7 @@
         </div>
 
         @* ============ تب ۲: مصارف و کسورات ============ *@
-        <div class="tab-pane fade" id="shipment-compliance" role="tabpanel" hidden="@(activeShipmentTab != "compliance")">
+        <div class="@PaneClass("compliance")" id="shipment-compliance" role="tabpanel">
 
             @{
                 // گروه‌بندی از منبع واحد مدل می‌آید؛ اینجا فقط برچسب و آیکن نمایش تعیین می‌شود.
@@ -476,7 +480,7 @@
         </div>
 
         @* ============ تب: فروش‌ها ============ *@
-        <div class="tab-pane fade" id="shipment-sales" role="tabpanel" hidden="@(activeShipmentTab != "sales")">
+        <div class="@PaneClass("sales")" id="shipment-sales" role="tabpanel">
             @{
                 var salesCustomerCount = saleDisplayRows
                     .Select(s => s.CustomerName)
@@ -584,7 +588,7 @@
         </div>
 
         @* ============ تب: سود و زیان — یک منبع، یک عدد، ساده ============ *@
-        <div class="tab-pane fade" id="shipment-finance" role="tabpanel" hidden="@(activeShipmentTab != "finance")">
+        <div class="@PaneClass("finance")" id="shipment-finance" role="tabpanel">
             @{
                 var netResultClass = realizedResultClass;
                 var netResultLabel = realizedResultLabel;
@@ -690,7 +694,7 @@
 
         </div>
 
-        <div class="tab-pane fade" id="shipment-balance" role="tabpanel" hidden="@(activeShipmentTab != "balance")">
+        <div class="@PaneClass("balance")" id="shipment-balance" role="tabpanel">
             <div class="ak-stat-grid" aria-label="@T("خلاصه کسری‌ها", "Shortage summary")">
                 <vc:stat-card title="@T("کسری کل", "Total shortage")" value="@NumberDisplay.Quantity(Model.TotalLossAndShortageMt)" unit="@T("تن", "MT")" avatar="losses"></vc:stat-card>
                 <vc:stat-card title="@T("کسری تخلیه کشتی", "Vessel unloading shortage")" value="@NumberDisplay.Quantity(Model.VesselUnloadingShortageQuantityMt)" unit="@T("تن", "MT")" avatar="shipments"></vc:stat-card>
@@ -772,7 +776,7 @@
         </div>
 
         @* ============ تب: سفره‌های موتر/واگن ============ *@
-        <div class="tab-pane fade" id="shipment-trips" role="tabpanel" hidden="@(activeShipmentTab != "trips")">
+        <div class="@PaneClass("trips")" id="shipment-trips" role="tabpanel">
             <div class="ak-stat-grid" aria-label="@T("خلاصه موجودی و انتقالات", "Inventory and transfer summary")">
                 <vc:stat-card title="@T("تعداد سفرها", "Trips")" value="@inventoryTransportItems.Count.ToString("N0")" unit="@T("سفر", "trips")" avatar="transported"></vc:stat-card>
                 <vc:stat-card title="@T("حمل‌شده از موجودی", "Transported from stock")" value="@NumberDisplay.Quantity(Model.InventoryTransportedOutQuantityMt)" unit="@T("تن", "MT")" avatar="loading"></vc:stat-card>

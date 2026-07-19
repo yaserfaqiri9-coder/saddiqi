@@ -2559,8 +2559,8 @@ select.ak-input {
 }
 
 .ak-group-operation-page {
-    --ak-form-content-wide-max: 1760px;
-    --ak-form-page-gutter: clamp(10px, 1.25vw, 22px);
+    --ak-form-content-wide-max: 2040px;
+    --ak-form-page-gutter: clamp(10px, 1vw, 18px);
 }
 
 .ak-group-operation-page:has(> form.ak-form) > form.ak-form,
@@ -2601,7 +2601,7 @@ select.ak-input {
 }
 
 .ak-group-wizard-page > form.ak-form > [data-step-panel] {
-    padding-inline: clamp(14px, 1.4vw, 22px);
+    padding-inline: clamp(10px, 1vw, 16px);
 }
 
 .ak-group-wizard-workspace {

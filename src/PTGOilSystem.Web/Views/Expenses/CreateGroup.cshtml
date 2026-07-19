@@ -432,6 +432,38 @@
 
         // ---------- فیلترها ----------
         var $ = function (id) { return document.getElementById(id); };
+
+        // صفحه‌بندی هم‌شکل با کامپوننت مشترک سیستم (_Pagination.cshtml): پنجرهٔ ۵تایی،
+        // «/» ابتدا/انتها، «…» و صفحهٔ اول/آخر. کلاینت‌ساید چون داده در همین ویزارد است.
+        function renderPager(container, current, pageCount, go) {
+            container.innerHTML = '';
+            if (pageCount <= 1) { return; }
+            var ul = document.createElement('ul');
+            ul.className = 'pagination pagination-sm mb-0';
+            function li(label, page, active, disabled) {
+                var item = document.createElement('li');
+                item.className = 'page-item' + (active ? ' active' : '') + (disabled ? ' disabled' : '');
+                var link = document.createElement(disabled || active ? 'span' : 'a');
+                link.className = 'page-link';
+                link.textContent = label;
+                if (!disabled && !active && page) {
+                    link.href = '#';
+                    link.addEventListener('click', function (e) { e.preventDefault(); go(page); });
+                }
+                item.appendChild(link);
+                ul.appendChild(item);
+            }
+            var start = Math.max(1, current - 2);
+            var end = Math.min(pageCount, start + 4);
+            if (end - start < 4) { start = Math.max(1, end - 4); }
+            li('«', current - 1, false, current === 1);
+            if (start > 1) { li('1', 1, false, false); if (start > 2) { li('…', null, false, true); } }
+            for (var i = start; i <= end; i++) { li(String(i), i, i === current, false); }
+            if (end < pageCount) { if (end < pageCount - 1) { li('…', null, false, true); } li(String(pageCount), pageCount, false, false); }
+            li('»', current + 1, false, current === pageCount);
+            container.appendChild(ul);
+        }
+
         var selects = { fOperation: 'op', fVehicle: 'vehicle', fRoute: 'route', fStatus: 'status' };
         Object.keys(selects).forEach(function (selId) {
             var field = selects[selId];
@@ -509,18 +541,7 @@
             $('pageInfo').textContent = total === 0 ? '' :
                 'نمایش ' + (start + 1) + ' تا ' + Math.min(start + state.pageSize, total) + ' از ' + total + ' مورد';
 
-            var pager = $('pager');
-            pager.innerHTML = '';
-            for (var p = 1; p <= pages; p++) {
-                (function (pp) {
-                    var b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'page-link' + (pp === state.page ? ' is-active' : '');
-                    b.textContent = pp;
-                    b.addEventListener('click', function () { state.page = pp; renderTable(); });
-                    pager.appendChild(b);
-                })(p);
-            }
+            renderPager($('pager'), state.page, pages, function (pp) { state.page = pp; renderTable(); });
 
             var allChecked = slice.length > 0 && slice.every(function (o) { return state.selected.has(key(o)); });
             $('chkAll').checked = state.filtered.length > 0 && state.filtered.every(function (o) { return state.selected.has(key(o)); });
