@@ -27,7 +27,37 @@
         };
 
         document.addEventListener("click", onTabClick, true);
+        // Warm the cache before the click so tabs open instantly, but only for
+        // the tab the user is actually reaching for: hover / keyboard focus.
+        // NOTE: blanket idle warming of *every* tab was removed. Each tab is a
+        // full server render (~26 DB queries); pre-fetching all tabs on every
+        // contract open cost ~260 queries/visit and saturated the database,
+        // which slowed the whole app. Targeted prefetch keeps tabs snappy
+        // without the background load.
+        document.addEventListener("pointerover", onTabPrefetch);
+        document.addEventListener("focusin", onTabPrefetch);
         window.PTG.refreshContractJourneyTabs();
+    }
+
+    function prefetchUrlFromLink(link) {
+        if (!link || !document.querySelector("[data-contract-journey-page]")) return "";
+        var href = link.getAttribute("href") || "";
+        if (!href || href === "#" || href.indexOf("javascript:") === 0) return "";
+        try {
+            var url = new URL(href, location.href);
+            if (url.origin !== location.origin) return "";
+            return url.href;
+        } catch (_) {
+            return "";
+        }
+    }
+
+    function onTabPrefetch(event) {
+        var target = event.target;
+        var link = target && target.closest ? target.closest("[data-contract-journey-tab-link]") : null;
+        var href = prefetchUrlFromLink(link);
+        if (!href) return;
+        prefetchTab(href).catch(function () { /* click path will surface any error */ });
     }
 
     function onTabClick(event) {
@@ -118,7 +148,7 @@
         var key = cacheKey(location.href);
         if (!key || tabCache.has(key)) return;
 
-        var facts = document.querySelector("[data-contract-journey-facts]");
+        var factsHost = document.querySelector("[data-contract-journey-facts-host]");
 
         tabCache.set(key, {
             title: document.title,
@@ -126,7 +156,7 @@
             contentAttributes: readAttributes(content),
             navHtml: nav.innerHTML,
             pageClassName: page.className,
-            factsHtml: facts ? facts.innerHTML : null
+            factsHostHtml: factsHost ? factsHost.innerHTML : null
         });
     }
 
@@ -135,7 +165,7 @@
         var content = doc.querySelector("[data-contract-journey-tab-content]");
         var nav = doc.querySelector("[data-contract-journey-tab-nav]");
         var page = doc.querySelector("[data-contract-journey-page]");
-        var facts = doc.querySelector("[data-contract-journey-facts]");
+        var factsHost = doc.querySelector("[data-contract-journey-facts-host]");
 
         if (!content || !nav || !page) {
             throw new Error("Contract journey tab fragment not found");
@@ -147,7 +177,7 @@
             contentAttributes: readAttributes(content),
             navHtml: nav.innerHTML,
             pageClassName: page.className,
-            factsHtml: facts ? facts.innerHTML : null
+            factsHostHtml: factsHost ? factsHost.innerHTML : null
         };
     }
 
@@ -167,9 +197,9 @@
         page.className = parsed.pageClassName;
         document.title = parsed.title;
 
-        var facts = document.querySelector("[data-contract-journey-facts]");
-        if (facts && parsed.factsHtml != null) {
-            facts.innerHTML = parsed.factsHtml;
+        var factsHost = document.querySelector("[data-contract-journey-facts-host]");
+        if (factsHost && parsed.factsHostHtml != null) {
+            factsHost.innerHTML = parsed.factsHostHtml;
         }
 
         if (pushState) {

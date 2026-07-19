@@ -1,7 +1,8 @@
 @model PTGOilSystem.Web.Models.Loading.LoadingDetailsViewModel
 @{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
     var returnUrl = ViewBag.ReturnUrl as string;
-    ViewData["Title"] = "جزئیات بارگیری";
+    ViewData["Title"] = T("جزئیات بارگیری", "Loading details");
     ViewData["HideSectionTabs"] = true;
     ViewData["LoadingExpenseEditorAssets"] = true;
     var loadingListReturnUrl = Url.Action("Index", "Loading", new { contractId = Model.ContractId }) ?? "/Loading";
@@ -21,17 +22,49 @@
         ["CancelUrl"] = currentPageReturnUrl
     };
 
-    var expenseLines = Model.ExpenseEditor?.Lines ?? new List<PTGOilSystem.Web.Models.Loading.LoadingExpenseLineInputModel>();
-    var loadingExpenseTotal = expenseLines.Count > 0
-        ? expenseLines.Sum(l => l.AmountUsd)
-        : (Model.TransportExpenseUsd ?? 0m)
-            + (Model.WarehouseExpenseUsd ?? 0m)
-            + (Model.OtherExpenseUsd ?? 0m)
-            + (Model.RailwayExpenseUsd ?? 0m);
-    var customsTotal = Model.CustomsItems.Sum(c => c.TotalUsd);
-    var lossChargeableTotal = Model.LossItems.Sum(l => l.ChargeableLossMt);
-    var loadingCostsGrandTotal = loadingExpenseTotal + customsTotal;
+    var loadingExpenseTotal = Model.LoadingExpenseTotalUsd;
+    var customsTotal = Model.CustomsTotalUsd;
+    var lossChargeableTotal = Model.ChargeableLossTotalMt;
+    var loadingCostsGrandTotal = Model.LoadingCostsGrandTotalUsd;
     var loadingJourneyUrl = Url.Action("Index", "ContractJourney", new { contractId = Model.ContractId }) ?? "#";
+
+    // صفحه‌بندی سروری فهرست‌های داخلی؛ هیچ رکوردی نباید مثل Take(5) سابق بریده و مخفی شود.
+    const int detailListPageSize = 5;
+    int ReadPositivePage(string key)
+    {
+        if (Context.Request.Query.TryGetValue(key, out var raw)
+            && int.TryParse(raw.FirstOrDefault(), out var page)
+            && page > 0)
+        {
+            return page;
+        }
+
+        return 1;
+    }
+
+    int PageCountFor(int totalCount)
+        => Math.Max(1, (int)Math.Ceiling(totalCount / (double)detailListPageSize));
+
+    var receiptsPageCount = PageCountFor(Model.ReceiptItems.Count);
+    var receiptsPage = Math.Min(ReadPositivePage("receiptsPage"), receiptsPageCount);
+    var pagedReceiptItems = Model.ReceiptItems
+        .Skip((receiptsPage - 1) * detailListPageSize)
+        .Take(detailListPageSize)
+        .ToList();
+
+    var customsPageCount = PageCountFor(Model.CustomsItems.Count);
+    var customsPage = Math.Min(ReadPositivePage("customsPage"), customsPageCount);
+    var pagedCustomsItems = Model.CustomsItems
+        .Skip((customsPage - 1) * detailListPageSize)
+        .Take(detailListPageSize)
+        .ToList();
+
+    var lossesPageCount = PageCountFor(Model.LossItems.Count);
+    var lossesPage = Math.Min(ReadPositivePage("lossesPage"), lossesPageCount);
+    var pagedLossItems = Model.LossItems
+        .Skip((lossesPage - 1) * detailListPageSize)
+        .Take(detailListPageSize)
+        .ToList();
 
     var isRubSettlement = string.Equals(Model.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase);
     var rubRateEditor = Model.RubleRateEditor;
@@ -44,62 +77,78 @@
     var rubAmountText = Model.AmountRubAtRubLock.HasValue
         ? $"₽ {Model.AmountRubAtRubLock.Value:N2}"
         : hasFileRub ? fileRubAmountText : isRubSettlement ? "در انتظار نرخ" : "-";
+
+    var loadingComplete = Model.RemainingToReceiveMt <= 0m;
+    ViewData["AkHeaderStatus"] = loadingComplete ? T("تکمیل رسید", "Receipt completed") : T("در انتظار رسید", "Awaiting receipt");
+    ViewData["AkHeaderStatusState"] = loadingComplete ? "is-active" : "is-warning";
+    ViewData["AkHeaderContext"] = $"{Model.ContractNumber} · {Model.ProductName} · {Model.LoadingDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = Url.Action("Edit", new { id = Model.Id, returnUrl = currentPageReturnUrl }), Icon = "bi-pencil-square" },
+        new() { Label = T("نمای قرارداد", "Contract journey"), Href = loadingJourneyUrl, Icon = "bi-diagram-3" }
+    };
+
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("بارگیری ثبت شد", "Loading registered"), Date = Model.LoadingDate.ToDisplayDate(), Icon = "bi-box-arrow-up", State = "is-current", Meta = $"{NumberDisplay.Quantity(Model.LoadedQuantityMt)} MT" }
+    };
+    timelineItems.AddRange(Model.ReceiptItems.Select(item => new AkTimelineItem
+    {
+        Title = T("رسید بارگیری", "Loading receipt"), Date = item.ReceiptDate.ToDisplayDate(), Icon = "bi-box-arrow-in-down",
+        Href = Url.Action("Details", "LoadingReceipts", new { id = item.Id, returnUrl = currentPageReturnUrl }),
+        Meta = $"{NumberDisplay.Quantity(item.ReceivedQuantityMt)} MT"
+    }));
+    timelineItems.AddRange(Model.CustomsItems.Select(item => new AkTimelineItem
+    {
+        Title = T("سند گمرکی", "Customs declaration"), Date = item.DeclarationDate.ToDisplayDate(), Icon = "bi-shield-check",
+        Href = Url.Action("Details", "CustomsDeclarations", new { id = item.Id, returnUrl = currentPageReturnUrl }),
+        Meta = $"{item.TotalUsd:N2} USD"
+    }));
+    timelineItems.AddRange(Model.LossItems.Select(item => new AkTimelineItem
+    {
+        Title = T("کسری ثبت شد", "Loss recorded"), Date = item.EventDate.ToDisplayDate(), Icon = "bi-exclamation-diamond",
+        Href = Url.Action("Details", "LossEvents", new { id = item.Id, returnUrl = currentPageReturnUrl }),
+        Meta = $"{NumberDisplay.Quantity(item.ChargeableLossMt)} MT"
+    }));
+
+    var relatedRecords = new List<AkRelatedRecord>
+    {
+        new() { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, Href = loadingJourneyUrl, KeyValue = Model.ProductName, Icon = "bi-file-earmark-text" }
+    };
+    if (Model.LogisticsServiceProviderId.HasValue)
+    {
+        relatedRecords.Add(new AkRelatedRecord
+        {
+            TypeLabel = T("شرکت خدماتی", "Service provider"),
+            Label = Model.LogisticsCompanyName ?? $"#{Model.LogisticsServiceProviderId.Value}",
+            Href = Url.Action("Details", "ServiceProviders", new { id = Model.LogisticsServiceProviderId.Value, returnUrl = currentPageReturnUrl }),
+            Icon = "bi-building"
+        });
+    }
+
+    var nextActions = new List<AkHeaderMenuItem>();
+    if (Model.RemainingToReceiveMt > 0 && receiptEditor is not null)
+    {
+        nextActions.Add(new AkHeaderMenuItem { Label = T("ثبت رسید", "Register receipt"), ModalTarget = "loadingReceiptModal", Icon = "bi-box-arrow-in-down" });
+    }
+    nextActions.Add(new AkHeaderMenuItem { Label = T("ثبت مصارف", "Register expenses"), ModalTarget = "loadingExpensesModal", Icon = "bi-receipt-cutoff" });
+    nextActions.Add(new AkHeaderMenuItem { Label = T("ثبت گمرک", "Register customs"), Href = Url.Action("Create", "CustomsDeclarations", new { loadingRegisterId = Model.Id, returnUrl = currentPageReturnUrl }), Icon = "bi-shield-check" });
+    nextActions.Add(new AkHeaderMenuItem { Label = T("ثبت کسری", "Register loss"), Href = Url.Action("Create", "LossEvents", new { contractId = Model.ContractId, loadingRegisterId = Model.Id, returnUrl = currentPageReturnUrl }), Icon = "bi-exclamation-diamond" });
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@(($"جزئیات بارگیری #{Model.Id}", false, "ویرایش", "bi-pencil-square",
-                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentPageReturnUrl }), (string?)null,
-                       "بازگشت", "bi-arrow-right", (string?)effectiveReturnUrl))" />
-    <p class="ak-section-desc">@Model.ContractNumber · @Model.ProductName</p>
+             model="@(($"{T("بارگیری", "Loading")} LD-{Model.Id:0000}", false,
+                       receiptEditor is not null ? T("ثبت رسید", "Register receipt") : T("ثبت مصارف", "Register expenses"),
+                       receiptEditor is not null ? "bi-box-arrow-in-down" : "bi-receipt-cutoff",
+                       (string?)null, receiptEditor is not null ? "loadingReceiptModal" : "loadingExpensesModal",
+                       T("بازگشت", "Back"), "bi-arrow-right", (string?)effectiveReturnUrl))" />
 
-    <div class="ak-page-actions">
-        <button type="button" class="btn btn-light ak-secondary-action" data-bs-toggle="modal" data-bs-target="#loadingExpensesModal">
-            <i class="bi bi-receipt-cutoff"></i><span>مصارف</span>
-        </button>
-        @if (Model.RemainingToReceiveMt > 0 && receiptEditor is not null)
-        {
-            <button type="button" class="btn btn-primary ak-primary-action" data-bs-toggle="modal" data-bs-target="#loadingReceiptModal">
-                <i class="bi bi-box-arrow-in-down"></i><span>رسید</span>
-            </button>
-        }
-        <a class="btn btn-light ak-secondary-action" asp-controller="CustomsDeclarations" asp-action="Create" asp-route-loadingRegisterId="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
-            <i class="bi bi-shield-check"></i><span>ثبت گمرکات</span>
-        </a>
-        <a class="btn btn-light ak-secondary-action" asp-controller="LossEvents" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-loadingRegisterId="@Model.Id" asp-route-returnUrl="@currentPageReturnUrl">
-            <i class="bi bi-exclamation-diamond"></i><span>کسری</span>
-        </a>
-        <a class="btn btn-light ak-secondary-action" href="@loadingJourneyUrl"><i class="bi bi-diagram-3"></i><span>نمای قرارداد</span></a>
-    </div>
-
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-label">تاریخ</span>
-            <strong>@Model.LoadingDate.ToDisplayDate()</strong>
-            <span class="ak-section-desc">وسیله: @Model.VehicleSummary</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">وزن بارگیری</span>
-            <strong class="ak-num">@NumberDisplay.Quantity(Model.LoadedQuantityMt) MT</strong>
-            <span class="ak-section-desc">رسید شده: @NumberDisplay.Quantity(Model.TotalReceivedQuantityMt) MT</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">باقی‌مانده</span>
-            @if (Model.RemainingToReceiveMt > 0)
-            {
-                <span class="ak-status is-inactive"><i class="bi bi-hourglass-split"></i> @NumberDisplay.Quantity(Model.RemainingToReceiveMt) MT</span>
-            }
-            else
-            {
-                <span class="ak-status is-active"><i class="bi bi-check-circle"></i> تکمیل رسید</span>
-            }
-            <span class="ak-section-desc">مقصد: @(Model.DestinationName ?? "-")</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">جمع مصرف</span>
-            <strong class="ak-num">@loadingCostsGrandTotal.ToString("N2") USD</strong>
-            <span class="ak-section-desc">گمرکات: @customsTotal.ToString("N2") USD</span>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های بارگیری", "Loading metrics")">
+        <vc:stat-card title="@T("بارگیری‌شده", "Loaded")" value="@NumberDisplay.Quantity(Model.LoadedQuantityMt)" unit="MT" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@T("رسیدشده", "Received")" value="@NumberDisplay.Quantity(Model.TotalReceivedQuantityMt)" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@T("باقی‌مانده", "Remaining")" value="@NumberDisplay.Quantity(Model.RemainingToReceiveMt)" unit="MT" avatar="stock-shortage"></vc:stat-card>
+        <vc:stat-card title="@T("جمع مصرف", "Total cost")" value="@loadingCostsGrandTotal.ToString("N2")" unit="USD" avatar="expenses"></vc:stat-card>
     </section>
 
     <div class="ak-form-grid">
@@ -198,11 +247,11 @@
     }
 
     <div class="ak-form-grid">
-        <section class="ak-form-section ak-detail-section">
+        <section id="loading-receipts" class="ak-form-section ak-detail-section">
             <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">رسیدها</h2><span class="ak-status">@Model.ReceiptItems.Count</span>
             </header>
             <div class="ak-list">
-                @foreach (var item in Model.ReceiptItems.Take(5))
+                @foreach (var item in pagedReceiptItems)
                 {
                     <div class="ak-list-row">
                         <div class="ak-col-grow">
@@ -220,13 +269,14 @@
                     <div class="ak-empty ak-detail-empty-state">هنوز رسید ثبت نشده است.</div>
                 }
             </div>
+            <partial name="~/Views/Shared/Partials/_DetailPager.cshtml" model="@((receiptsPage, receiptsPageCount, "receiptsPage", (string?)"loading-receipts"))" />
         </section>
 
-        <section class="ak-form-section ak-detail-section">
+        <section id="loading-customs" class="ak-form-section ak-detail-section">
             <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">گمرکات</h2><span class="ak-status">@customsTotal.ToString("N2") USD</span>
             </header>
             <div class="ak-list">
-                @foreach (var cd in Model.CustomsItems.Take(5))
+                @foreach (var cd in pagedCustomsItems)
                 {
                     <div class="ak-list-row">
                         <div class="ak-col-grow">
@@ -244,13 +294,14 @@
                     <div class="ak-empty ak-detail-empty-state">هنوز سند گمرکی ثبت نشده است.</div>
                 }
             </div>
+            <partial name="~/Views/Shared/Partials/_DetailPager.cshtml" model="@((customsPage, customsPageCount, "customsPage", (string?)"loading-customs"))" />
         </section>
 
-        <section class="ak-form-section ak-detail-section">
+        <section id="loading-losses" class="ak-form-section ak-detail-section">
             <header class="ak-section-head ak-detail-section-header"><h2 class="ak-section-title">کسری</h2><span class="ak-status">@NumberDisplay.Quantity(lossChargeableTotal) MT</span>
             </header>
             <div class="ak-list">
-                @foreach (var loss in Model.LossItems.Take(5))
+                @foreach (var loss in pagedLossItems)
                 {
                     <div class="ak-list-row">
                         <div class="ak-col-grow">
@@ -269,6 +320,7 @@
                     <div class="ak-empty ak-detail-empty-state">کسری ثبت نشده است.</div>
                 }
             </div>
+            <partial name="~/Views/Shared/Partials/_DetailPager.cshtml" model="@((lossesPage, lossesPageCount, "lossesPage", (string?)"loading-losses"))" />
         </section>
     </div>
 
@@ -276,6 +328,21 @@
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("یادداشت", (string?)null))" />
         <p class="ak-note">@(string.IsNullOrWhiteSpace(Model.Notes) ? "یادداشتی برای این بارگیری ثبت نشده است." : Model.Notes)</p>
     </section>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="loading-timeline-title">
+        <h2 class="ak-section-title" id="loading-timeline-title">@T("روند بارگیری", "Loading timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+
+    @if (relatedRecords.Count > 0)
+    {
+        <section class="ak-form-section ak-detail-section" aria-labelledby="loading-related-title">
+            <h2 class="ak-section-title" id="loading-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+            <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+        </section>
+    }
+
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 
     <div class="modal fade" id="loadingExpensesModal" tabindex="-1" aria-labelledby="loadingExpensesModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

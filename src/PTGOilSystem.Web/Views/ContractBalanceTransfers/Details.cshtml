@@ -4,9 +4,12 @@
     var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : Url.Action("Index") ?? "/ContractBalanceTransfers";
     ViewData["Title"] = $"انتقال مانده #{Model.Id}";
     ViewData["HideSectionTabs"] = true;
+    ViewData["AkHeaderStatus"] = Model.IsCancelled ? "لغوشده" : "فعال";
+    ViewData["AkHeaderStatusState"] = Model.IsCancelled ? "is-inactive" : "is-active";
+    ViewData["AkHeaderContext"] = $"{Model.FromContractNumber} ← {Model.ToContractNumber}";
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"انتقال مانده #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -33,9 +36,9 @@
         </section>
 
         <section class="ak-form-section ak-detail-section">
-            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("FX trace", (string?)null))" />
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی نرخ ارز", (string?)null))" />
             <dl class="ak-list">
-                <div class="ak-list-row"><dt>FX به USD</dt><dd class="ak-num">@Model.FxRateToUsd.ToString("N6")</dd></div>
+                <div class="ak-list-row"><dt>نرخ ارز به دالر</dt><dd class="ak-num">@Model.FxRateToUsd.ToString("N6")</dd></div>
                 <div class="ak-list-row"><dt>تاریخ نرخ</dt><dd>@(Model.FxRateDate?.ToDisplayDate() ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>منبع نرخ</dt><dd>@(Model.FxRateSource ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>پرداخت اولیه</dt><dd>@(Model.OriginalPaymentTransactionId?.ToString() ?? "-")</dd></div>
@@ -45,7 +48,7 @@
     </div>
 
     <section class="ak-form-section ak-detail-section">
-        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Ledger posting", (string?)null))" />
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ثبت‌های دفتر کل", (string?)null))" />
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">
                 <thead>
@@ -55,7 +58,7 @@
                         <th class="ak-col-grow">قرارداد</th>
                         <th class="ak-col-num">مبلغ اصلی</th>
                         <th class="ak-col-num">USD</th>
-                        <th class="ak-col-actions">Ledger</th>
+                        <th class="ak-col-actions">دفتر کل</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,7 +66,7 @@
                 {
                     <tr>
                         <td>@entry.EntryDate.ToDisplayDate()</td>
-                        <td><span class="ak-status @(entry.Side =="Credit" ? "is-active" : "")">@entry.Side</span></td>
+                        <td><span class="ak-status @(entry.Side =="Credit" ? "is-active" : "")">@(entry.Side == "Credit" ? "بستانکار" : "بدهکار")</span></td>
                         <td class="ak-col-grow">@entry.ContractNumber</td>
                         <td class="ak-col-num ak-num">@((entry.SourceAmount ?? 0m).ToString("N2")) @(entry.SourceCurrencyCode ?? Model.CurrencyCode)</td>
                         <td class="ak-col-num ak-num">@entry.AmountUsd.ToString("N2") USD</td>
@@ -72,7 +75,7 @@
                 }
                 @if (!Model.LedgerEntries.Any())
                 {
-                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> LedgerEntry مرتبط پیدا نشد.</div></td></tr>
+                    <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> سند مرتبط دفتر کل پیدا نشد.</div></td></tr>
                 }
                 </tbody>
             </table>

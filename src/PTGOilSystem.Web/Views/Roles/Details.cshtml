@@ -5,7 +5,7 @@
     var allowedNavigationLabels = ViewBag.AllowedNavigationLabels as string[] ?? Array.Empty<string>();
 }
 
-<div class="ak-form-page ak-detail-page">
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "جزئیات نقش", "Role details"), false,
                        UiText.T(Context, "تنظیم دسترسی", "Edit access"), "bi-pencil",

@@ -8,7 +8,7 @@
     ViewData["FiscalCloseYearId"] = year.FiscalYearId;
 }
 
-<div class="ak-list-page finance-workspace-page">
+<div class="ak-form-page ak-detail-page finance-workspace-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"سال مالی {year.Name}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,

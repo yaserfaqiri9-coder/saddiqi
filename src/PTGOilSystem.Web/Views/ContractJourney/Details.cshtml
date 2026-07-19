@@ -252,6 +252,13 @@
     var returnOnInvestmentPercent = Model.MiniPnl.CostOfGoodsSoldUsd > 0m
         ? Math.Round((pnlOperationalMarginUsd / Model.MiniPnl.CostOfGoodsSoldUsd) * 100m, 2, MidpointRounding.AwayFromZero)
         : 0m;
+    // Row markers for the lifecycle cards (I, II, III, ...). Falls back to the
+    // plain number past the small set the cards actually need.
+    string RomanNumeral(int index)
+    {
+        string[] numerals = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" };
+        return index >= 1 && index <= numerals.Length ? numerals[index - 1] : index.ToString("N0");
+    }
     string FormatLifecycleQuantity(decimal value, int decimals = 3)
     {
         var absolute = Math.Abs(value).ToString($"N{decimals}");
@@ -297,6 +304,16 @@
     var contractStatementUrl = Url.Action("Contract", "AccountStatements", new { contractId = Model.ContractId }) ?? "#";
     var contractEditUrl = Url.Action("Edit", "Contracts", new { id = Model.ContractId }) ?? "#";
     var contractPricingUrl = Url.Action("EditPricing", "Contracts", new { id = Model.ContractId }) ?? "#";
+    ViewData["AkHeaderStatus"] = LocalizeDisplay(Model.StatusName);
+    ViewData["AkHeaderStatusState"] = contractStatusToneClass;
+    ViewData["AkHeaderContext"] = $"{partnerLabel}: {partnerName} · {T("جنس", "Product")}: {TextOrDash(Model.ProductName)}";
+    ViewData["AkHeaderKebab"] = new List<PTGOilSystem.Web.Models.Shared.AkHeaderMenuItem>
+    {
+        new() { Label = T("انتقال از موجودی", "Inventory transfer"), Href = inventoryTransferUrl, Icon = "bi-truck-front" },
+        new() { Label = T("دفتر حساب قرارداد", "Contract statement"), Href = contractStatementUrl, Icon = "bi-journal-text" },
+        new() { Label = T("قیمت‌گذاری قرارداد", "Contract pricing"), Href = contractPricingUrl, Icon = "bi-tag" },
+        new() { Label = T("ویرایش قرارداد", "Edit contract"), Href = contractEditUrl, Icon = "bi-pencil-square" }
+    };
 
     var detailTabsRailModel = new ContractJourneyDetailTabsRailViewModel
     {
@@ -328,66 +345,10 @@
     int PageCountFor(int totalCount, int pageSize = journeyListPageSize)
         => Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
 
-    string PageUrl(string pageKey, int pageNumber)
-    {
-        var queryParts = Context.Request.Query
-            .Where(kv => !string.Equals(kv.Key, pageKey, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(kv => kv.Value.Select(v => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(v ?? string.Empty)}"))
-            .ToList();
-
-        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "contractId", StringComparison.OrdinalIgnoreCase)))
-        {
-            queryParts.Add($"contractId={Model.ContractId}");
-        }
-
-        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "tab", StringComparison.OrdinalIgnoreCase)))
-        {
-            var pageTab = string.Equals(activeTab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase)
-                ? ContractJourneyTabs.Details.Costs
-                : activeTab;
-            queryParts.Add($"tab={Uri.EscapeDataString(pageTab)}");
-        }
-
-        if (string.Equals(activeTab, LossesPresentationTab, StringComparison.OrdinalIgnoreCase)
-            && !Context.Request.Query.Keys.Any(k => string.Equals(k, "lossesView", StringComparison.OrdinalIgnoreCase)))
-        {
-            queryParts.Add("lossesView=true");
-        }
-
-        if (!Context.Request.Query.Keys.Any(k => string.Equals(k, "lockContract", StringComparison.OrdinalIgnoreCase)))
-        {
-            queryParts.Add($"lockContract={Model.LockContract.ToString().ToLowerInvariant()}");
-        }
-
-        queryParts.Add($"{Uri.EscapeDataString(pageKey)}={pageNumber}");
-        return $"?{string.Join("&", queryParts)}#journey-tab-lists";
-    }
-
-    // صفحه‌بندی مشترک ak برای فهرست‌های داخلی سفر قرارداد.
-    Microsoft.AspNetCore.Html.IHtmlContent ListPager(string pageKey, int currentPage, int pageCount, string label)
-    {
-        if (pageCount <= 1)
-        {
-            return new Microsoft.AspNetCore.Html.HtmlString(string.Empty);
-        }
-
-        var isEnglish = UiText.IsEn(Context);
-        var prevIcon = isEnglish ? "bi-chevron-left" : "bi-chevron-right";
-        var nextIcon = isEnglish ? "bi-chevron-right" : "bi-chevron-left";
-        var encodedLabel = System.Net.WebUtility.HtmlEncode(label);
-
-        var html = new System.Text.StringBuilder();
-        html.Append($"""<nav class="ak-pager" aria-label="{encodedLabel}"><ul class="pagination pagination-sm mb-0">""");
-        html.Append(currentPage == 1
-            ? $"""<li class="page-item disabled" aria-hidden="true"><span class="page-link"><i class="bi {prevIcon}"></i></span></li>"""
-            : $"""<li class="page-item"><a class="page-link" href="{System.Net.WebUtility.HtmlEncode(PageUrl(pageKey, currentPage - 1))}" aria-label="{System.Net.WebUtility.HtmlEncode(T("صفحه قبلی", "Previous page"))}"><i class="bi {prevIcon}" aria-hidden="true"></i></a></li>""");
-        html.Append($"""<li class="page-item active"><span class="page-link"><bdi>{currentPage}</bdi> / <bdi>{pageCount}</bdi></span></li>""");
-        html.Append(currentPage == pageCount
-            ? $"""<li class="page-item disabled" aria-hidden="true"><span class="page-link"><i class="bi {nextIcon}"></i></span></li>"""
-            : $"""<li class="page-item"><a class="page-link" href="{System.Net.WebUtility.HtmlEncode(PageUrl(pageKey, currentPage + 1))}" aria-label="{System.Net.WebUtility.HtmlEncode(T("صفحه بعدی", "Next page"))}"><i class="bi {nextIcon}" aria-hidden="true"></i></a></li>""");
-        html.Append("</ul></nav>");
-        return new Microsoft.AspNetCore.Html.HtmlString(html.ToString());
-    }
+    async Task<Microsoft.AspNetCore.Html.IHtmlContent> DetailPager(string pageKey, int currentPage, int pageCount)
+        => await Html.PartialAsync(
+            "~/Views/Shared/Partials/_DetailPager.cshtml",
+            (currentPage, pageCount, pageKey, (string?)"journey-tab-lists"));
 
     var loadingPageCount = PageCountFor(loadingCount, loadingListPageSize);
     var loadingPage = Math.Min(ReadPositivePage("loadingsPage"), loadingPageCount);
@@ -477,7 +438,7 @@
         LockContract = Model.LockContract,
         PageDirection = pageDirection,
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("loadingsPage", loadingPage, loadingPageCount, T("صفحه‌بندی بارگیری‌ها", "Loadings pagination")),
+        PagerHtml = await DetailPager("loadingsPage", loadingPage, loadingPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "loadingsPage",
@@ -496,7 +457,7 @@
         FirstLoadingId = firstLoading?.Id,
         BulkReceiptDefaultQuantityMt = bulkReceiptDefaultQuantityMt,
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("receiptsPage", receiptPage, receiptPageCount, T("صفحه‌بندی رسیدها", "Receipts pagination")),
+        PagerHtml = await DetailPager("receiptsPage", receiptPage, receiptPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "receiptsPage",
@@ -518,7 +479,7 @@
         ContractNumber = Model.ContractNumber ?? string.Empty,
         StockCardUrl = $"/Inventory/StockCard?Filter.ContractId={Model.ContractId}",
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("inventoryPage", inventoryPage, inventoryPageCount, T("صفحه‌بندی حرکت‌های موجودی", "Inventory movements pagination")),
+        PagerHtml = await DetailPager("inventoryPage", inventoryPage, inventoryPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "inventoryPage",
@@ -535,7 +496,7 @@
         LockContract = Model.LockContract,
         CreateUrl = Url.Action("Create", "Dispatch", new { contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Dispatch) }) ?? string.Empty,
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("dispatchPage", dispatchPage, dispatchPageCount, T("صفحه‌بندی نقل و انتقالات", "Transfers pagination")),
+        PagerHtml = await DetailPager("dispatchPage", dispatchPage, dispatchPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "dispatchPage",
@@ -555,8 +516,8 @@
         CreateUrl = Url.Action("Create", "Sales", new { contractId = Model.ContractId, returnUrl = ReturnUrl(ContractJourneyTabs.Details.Sales) }) ?? string.Empty,
         NoSalesText = T("داده‌ای ثبت نشده است.", "No records yet."),
         NoPreSalesText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        SalesPagerHtml = ListPager("salesPage", salesPage, salesPageCount, T("صفحه‌بندی فروش‌ها", "Sales pagination")),
-        PreSalesPagerHtml = ListPager("preSalesPage", preSalesPage, preSalesPageCount, T("صفحه‌بندی پیش‌فروش", "Pre-sales pagination")),
+        SalesPagerHtml = await DetailPager("salesPage", salesPage, salesPageCount),
+        PreSalesPagerHtml = await DetailPager("preSalesPage", preSalesPage, preSalesPageCount),
         SalesPager = new ContractJourneyPagerViewModel
         {
             PageKey = "salesPage",
@@ -586,7 +547,7 @@
         BalanceTransferIndexUrl = Url.Action("Index", "ContractBalanceTransfers", new { contractId = Model.ContractId }) ?? string.Empty,
         AccountStatementUrl = Url.Action("Contract", "AccountStatements", new { contractId = Model.ContractId }) ?? string.Empty,
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("paymentsPage", paymentsPage, paymentsPageCount, T("صفحه‌بندی پرداخت‌ها", "Payments pagination")),
+        PagerHtml = await DetailPager("paymentsPage", paymentsPage, paymentsPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "paymentsPage",
@@ -617,7 +578,7 @@
         LockContract = Model.LockContract,
         LedgerIndexUrl = $"/Ledger?ContractId={Model.ContractId}",
         NoRecordsText = T("داده‌ای ثبت نشده است.", "No records yet."),
-        PagerHtml = ListPager("ledgerPage", ledgerPage, ledgerPageCount, T("صفحه‌بندی دفتر کل", "Ledger pagination")),
+        PagerHtml = await DetailPager("ledgerPage", ledgerPage, ledgerPageCount),
         Pager = new ContractJourneyPagerViewModel
         {
             PageKey = "ledgerPage",
@@ -629,7 +590,7 @@
     };
 }
 
-<div class="ak-form-page ak-detail-page" data-contract-journey-page dir="@pageDirection">
+<div class="ak-form-page ak-detail-page" data-contract-journey-page data-ak-detail-v2="true" dir="@pageDirection">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"{T("قرارداد", "Contract")} {Model.ContractNumber}", false,
                        string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? T("انتقال از موجودی", "Inventory transfer") : Model.NextRecommendedActionTitle,
@@ -637,36 +598,44 @@
                        string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl) ? inventoryTransferUrl : Model.NextRecommendedActionUrl, (string?)null,
                        T("بازگشت", "Back"), "bi-arrow-right", (string?)contractsListBackUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @contractStatusToneClass">@LocalizeDisplay(Model.StatusName)</span>
-        <div class="dropdown ak-row-menu">
-            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
-                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="@inventoryTransferUrl"><i class="bi bi-truck-front"></i> @T("انتقال از موجودی", "Inventory transfer")</a></li>
-                <li><a class="dropdown-item" href="@contractStatementUrl"><i class="bi bi-journal-text"></i> @T("دفتر حساب قرارداد", "Contract statement")</a></li>
-                <li><a class="dropdown-item" href="@contractPricingUrl"><i class="bi bi-tag"></i> @T("قیمت‌گذاری قرارداد", "Contract pricing")</a></li>
-                <li><a class="dropdown-item" href="@contractEditUrl"><i class="bi bi-pencil-square"></i> @T("ویرایش قرارداد", "Edit contract")</a></li>
-            </ul>
-        </div>
-    </div>
+    <div data-contract-journey-facts-host>
+        @if (string.Equals(activeTab, ContractJourneyTabs.Details.Summary, StringComparison.OrdinalIgnoreCase))
+        {
+            <section class="ak-form-section ak-detail-section" aria-label="@T("خلاصه اطلاعات قرارداد", "Contract information summary")" data-contract-journey-facts>
+                <dl class="ak-detail-essentials">
+                    <div><dt>@partnerLabel</dt><dd>@partnerName</dd></div>
+                    <div><dt>@T("جنس", "Product")</dt><dd>@TextOrDash(Model.ProductName)</dd></div>
+                    <div><dt>@T("دوره قرارداد", "Contract period")</dt><dd>@FormatShortDate(Model.StartDate) — @FormatShortDate(Model.EndDate)</dd></div>
+                    <div><dt>@T("ارز و نرخ", "Currency & rate")</dt><dd>@contractCurrencyText</dd></div>
+                </dl>
 
-    <section class="ak-form-section ak-detail-section" aria-label="@T("خلاصه اطلاعات قرارداد", "Contract information summary")">
-        <dl class="ak-list" data-contract-journey-facts>
-            <div class="ak-list-row"><dt>@partnerLabel</dt><dd>@partnerName</dd></div>
-            <div class="ak-list-row"><dt>@T("جنس", "Product")</dt><dd>@TextOrDash(Model.ProductName)</dd></div>
-            <div class="ak-list-row"><dt>@T("مقدار کل", "Contract quantity")</dt><dd class="ak-num">@FormatMt(Model.ContractQuantityMt)</dd></div>
-            <div class="ak-list-row"><dt>@T("مقدار تخصیص‌یافته", "Allocated quantity")</dt><dd class="ak-num">@FormatMt(loadingQuantityMt)</dd></div>
-            <div class="ak-list-row"><dt>@T("مقدار باقی‌مانده", "Remaining quantity")</dt><dd class="ak-num">@FormatMt(remainingToLoadMt)</dd></div>
-            <div class="ak-list-row"><dt>@T("مبلغ قرارداد", "Contract amount")</dt><dd class="ak-num">@FormatHeaderValueUsd(contractDisplayValueUsd)</dd></div>
-            <div class="ak-list-row"><dt>@T("پرداخت‌شده", "Paid")</dt><dd class="ak-num">@FormatLifecycleUsd(supplierPaidNetUsd)</dd></div>
-            <div class="ak-list-row"><dt>@T("مانده", "Balance")</dt><dd class="ak-num @supplierRemainingToneClass">@FormatLifecycleUsd(supplierRemainingUsd)</dd></div>
-            <div class="ak-list-row"><dt>@T("ارز و نرخ", "Currency & rate")</dt><dd>@contractCurrencyText</dd></div>
-            <div class="ak-list-row"><dt>@T("دوره قرارداد", "Contract period")</dt><dd>@FormatShortDate(Model.StartDate) — @FormatShortDate(Model.EndDate)</dd></div>
-            <div class="ak-list-row"><dt>@T("وضعیت قرارداد", "Contract status")</dt><dd><span class="ak-status @contractStatusToneClass">@LocalizeDisplay(Model.StatusName)</span></dd></div>
-        </dl>
-    </section>
+                <details class="ak-detail-fold">
+                    <summary><i class="bi bi-chevron-left ak-detail-fold-caret" aria-hidden="true"></i>@T("مشخصات کامل قرارداد", "Full contract details")</summary>
+                    <div class="ak-detail-fold-body">
+                        <dl class="ak-list">
+                            <div class="ak-list-row"><dt>@T("مقدار کل", "Contract quantity")</dt><dd class="ak-num">@FormatMt(Model.ContractQuantityMt)</dd></div>
+                            <div class="ak-list-row"><dt>@T("مقدار تخصیص‌یافته", "Allocated quantity")</dt><dd class="ak-num">@FormatMt(loadingQuantityMt)</dd></div>
+                            <div class="ak-list-row"><dt>@T("مقدار باقی‌مانده", "Remaining quantity")</dt><dd class="ak-num">@FormatMt(remainingToLoadMt)</dd></div>
+                            <div class="ak-list-row"><dt>@T("مبلغ قرارداد", "Contract amount")</dt><dd class="ak-num">@FormatHeaderValueUsd(contractDisplayValueUsd)</dd></div>
+                            <div class="ak-list-row"><dt>@T("پرداخت‌شده", "Paid")</dt><dd class="ak-num">@FormatLifecycleUsd(supplierPaidNetUsd)</dd></div>
+                            <div class="ak-list-row"><dt>@T("مانده", "Balance")</dt><dd class="ak-num @supplierRemainingToneClass">@FormatLifecycleUsd(supplierRemainingUsd)</dd></div>
+                            <div class="ak-list-row"><dt>@T("روش قیمت‌گذاری", "Pricing method")</dt><dd>@TextOrDash(Model.PricingMethodName)</dd></div>
+                            @if (!string.IsNullOrWhiteSpace(Model.PricingFormulaText))
+                            {
+                                <div class="ak-list-row"><dt>@T("فرمول قیمت", "Pricing formula")</dt><dd>@Model.PricingFormulaText</dd></div>
+                            }
+                            <div class="ak-list-row"><dt>@T("وضعیت قیمت‌گذاری", "Pricing status")</dt><dd>@TextOrDash(Model.PricingStatusName)</dd></div>
+                            @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                            {
+                                <div class="ak-list-row"><dt>@T("توضیحات", "Notes")</dt><dd>@Model.Notes</dd></div>
+                            }
+                            <div class="ak-list-row"><dt>@T("وضعیت قرارداد", "Contract status")</dt><dd><span class="ak-status @contractStatusToneClass">@LocalizeDisplay(Model.StatusName)</span></dd></div>
+                        </dl>
+                    </div>
+                </details>
+            </section>
+        }
+    </div>
 
     <partial name="_ContractJourneyDetailTabsRail" model="detailTabsRailModel" />
 
@@ -679,32 +648,50 @@
     @if (activeTab == ContractJourneyTabs.Details.Summary)
     {
         <div id="journey-tab-lists" class="ak-summary-page">
+            <section class="ak-stat-grid" aria-label="@T("آمار خلاصه قرارداد", "Contract summary statistics")">
+                <vc:stat-card title="@T("مقدار کل قرارداد", "Contract quantity")" value="@NumberDisplay.Quantity(Model.ContractQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                <vc:stat-card title="@T("بارگیری‌شده", "Loaded")" value="@NumberDisplay.Quantity(loadingQuantityMt)" unit="@UnitMt()" avatar="loading"></vc:stat-card>
+                <vc:stat-card title="@T("فروخته‌شده", "Sold")" value="@NumberDisplay.Quantity(soldQuantityMt)" unit="@UnitMt()" avatar="sold-quantity"></vc:stat-card>
+                <vc:stat-card title="@T("مانده قابل پرداخت", "Remaining payable")" value="@supplierRemainingUsd.ToString("N0")" unit="@UnitUsd()" avatar="payments" state="@(supplierRemainingUsd > 0m ? "warning" : null)"></vc:stat-card>
+            </section>
             <section class="ak-form-section ak-detail-section">
+                @{
+                    var priceRows = new List<(string Label, string Value)>
+                    {
+                        (T("ارزش قرارداد به دالر", "Contract value in USD"), FormatHeaderValueUsd(contractDisplayValueUsd)),
+                        (T("قیمت واحد", "Unit price"), Model.PricingFinalUnitPriceUsd.HasValue && Model.PricingFinalUnitPriceUsd.Value > 0m
+                            ? $"{Model.PricingFinalUnitPriceUsd.Value:N2} {UnitUsd()}/{UnitMt()}"
+                            : "-"),
+                    };
+
+                    // Rouble rows only exist for rouble-settled contracts; a "none"
+                    // placeholder row would be noise on every USD contract.
+                    if (rubSettlement.IsRubSettlement)
+                    {
+                        if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate)
+                        {
+                            var fixedRubEquivalent = rubSettlement.ContractRubPerUsdRate.HasValue && contractDisplayValueUsd > 0m
+                                ? contractDisplayValueUsd * rubSettlement.ContractRubPerUsdRate.Value
+                                : (decimal?)null;
+                            priceRows.Add((T("نرخ روبل برای 1 دالر", "RUB per 1 USD"), FormatRubRate(rubSettlement.ContractRubPerUsdRate)));
+                            priceRows.Add((T("معادل روبلی قرارداد", "RUB equivalent"), fixedRubEquivalent.HasValue ? FormatRubAmount(fixedRubEquivalent.Value) : T("در انتظار نرخ", "Pending rate")));
+                        }
+                        else if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.PerLoadingRate)
+                        {
+                            priceRows.Add((T("ارزش روبلی قطعی تا اکنون", "Locked RUB to date"), rubSettlement.LockedAmountRub > 0m ? FormatRubAmount(rubSettlement.LockedAmountRub) : T("در انتظار نرخ", "Pending rate")));
+                        }
+                        else
+                        {
+                            priceRows.Add((T("وضعیت قیمت روبلی", "RUB price status"), T("در انتظار نرخ روبل", "Pending RUB rate")));
+                        }
+                    }
+                }
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                          model="@((T("قیمت و ارزش قرارداد", "Contract price and value"), (string?)(rubSettlement.IsRubSettlement ? rubPendingStatusText : null)))" />
                 <dl class="ak-list">
-                    <div class="ak-list-row"><dt>@T("ارزش قرارداد به دالر", "Contract value in USD")</dt><dd class="ak-num">@FormatHeaderValueUsd(contractDisplayValueUsd)</dd></div>
-                    <div class="ak-list-row"><dt>@T("قیمت واحد", "Unit price")</dt><dd class="ak-num">@(Model.PricingFinalUnitPriceUsd.HasValue && Model.PricingFinalUnitPriceUsd.Value > 0m ? $"{Model.PricingFinalUnitPriceUsd.Value:N2} {UnitUsd()}/{UnitMt()}" : "-")</dd></div>
-                    @if (!rubSettlement.IsRubSettlement)
+                    @foreach (var priceRow in priceRows)
                     {
-                        <div class="ak-list-row"><dt>@T("قیمت روبلی قرارداد", "RUB contract price")</dt><dd>@T("ندارد", "None")</dd></div>
-                    }
-                    else if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.FixedContractRate)
-                    {
-                        var fixedRubEquivalent = rubSettlement.ContractRubPerUsdRate.HasValue && contractDisplayValueUsd > 0m
-                            ? contractDisplayValueUsd * rubSettlement.ContractRubPerUsdRate.Value
-                            : (decimal?)null;
-                        <div class="ak-list-row"><dt>@T("نرخ روبل برای 1 دالر", "RUB per 1 USD")</dt><dd class="ak-num">@FormatRubRate(rubSettlement.ContractRubPerUsdRate)</dd></div>
-                        <div class="ak-list-row"><dt>@T("معادل روبلی قرارداد", "RUB equivalent")</dt><dd class="ak-num">@(fixedRubEquivalent.HasValue ? FormatRubAmount(fixedRubEquivalent.Value) : T("در انتظار نرخ", "Pending rate"))</dd></div>
-                    }
-                    else if (rubSettlement.RubRatePolicy == PTGOilSystem.Web.Models.Entities.RubSettlementRatePolicy.PerLoadingRate)
-                    {
-                        <div class="ak-list-row"><dt>@T("ارزش روبلی قطعی تا اکنون", "Locked RUB to date")</dt><dd class="ak-num">@(rubSettlement.LockedAmountRub > 0m ? FormatRubAmount(rubSettlement.LockedAmountRub) : T("در انتظار نرخ", "Pending rate"))</dd></div>
-                        <div class="ak-list-row"><dt>@T("نرخ‌دار / منتظر نرخ", "Rated / pending")</dt><dd class="ak-num">@rubSettlement.LockedLoadingCount.ToString("N0") / @rubSettlement.PendingRateLoadingCount.ToString("N0")</dd></div>
-                    }
-                    else
-                    {
-                        <div class="ak-list-row"><dt>@T("وضعیت قیمت روبلی", "RUB price status")</dt><dd>@T("در انتظار نرخ روبل", "Pending RUB rate")</dd></div>
+                        <div class="ak-list-row"><dt>@priceRow.Label</dt><dd class="ak-num">@priceRow.Value</dd></div>
                     }
                 </dl>
                 @if (!string.IsNullOrWhiteSpace(Model.NextRecommendedActionTitle) && !string.IsNullOrWhiteSpace(Model.NextRecommendedActionUrl))
@@ -718,77 +705,79 @@
             <section class="ak-form-section ak-detail-section">
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
                          model="@((T("چرخه قرارداد", "Contract lifecycle"), (string?)T("مقدار و ارزش هر مرحله", "Quantity and value per stage")))" />
-                <div class="ak-table-wrap">
-                    <table class="ak-table ak-detail-table">
-                        <thead>
-                            <tr>
-                                <th class="ak-col-grow">@T("مرحله", "Stage")</th>
-                                <th class="ak-col-num">@T("مقدار", "Quantity")</th>
-                                <th class="ak-col-num">@T("باقی‌مانده", "Remaining")</th>
-                                <th class="ak-col-num">@T("ارزش", "Value")</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="ak-col-grow">@T("بارگیری", "Loading")</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(loadingQuantityMt)</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(remainingToLoadMt)</td>
-                                <td class="ak-num">@FormatLifecycleUsd(loadingValueUsd)</td>
-                            </tr>
-                            <tr>
-                                <td class="ak-col-grow">@T("ذخایر", "Storage")</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(receiptQuantityMt)</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(currentStockMt)</td>
-                                <td class="ak-num">-</td>
-                            </tr>
-                            <tr>
-                                <td class="ak-col-grow">@T("کسری و ضایعات", "Losses and wastage")</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(totalDisplayLossMt)</td>
-                                <td class="ak-num">-</td>
-                                <td class="ak-num">@FormatLifecycleUsd(summaryLossCostUsd)</td>
-                            </tr>
-                            <tr>
-                                <td class="ak-col-grow">@T("فروشات", "Sales")</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(soldQuantityMt)</td>
-                                <td class="ak-num">@FormatLifecycleQuantity(lifecycleSaleableQuantityMt)</td>
-                                <td class="ak-num">@FormatLifecycleUsd(salesTotalUsd)</td>
-                            </tr>
-                            <tr>
-                                <td class="ak-col-grow">@T("مصارف", "Expenses")</td>
-                                <td class="ak-num">@expenseCount.ToString("N0")</td>
-                                <td class="ak-num">@FormatLifecycleRate(summaryExpensePerLoadedMt)</td>
-                                <td class="ak-num">@FormatLifecycleUsd(summaryExpenseTotalUsd)</td>
-                            </tr>
-                            <tr>
-                                <td class="ak-col-grow">@T("پرداخت‌ها", "Payments")</td>
-                                <td class="ak-num">@paymentCount.ToString("N0")</td>
-                                <td class="ak-num">@FormatLifecycleUsd(supplierRemainingUsd)</td>
-                                <td class="ak-num">@FormatLifecycleUsd(supplierPaidNetUsd)</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="ak-cycle">
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-truck"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("بارگیری", "Loading")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مقدار بارگیری‌شده", "Loaded quantity")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(loadingQuantityMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("مقدار باقی‌مانده", "Remaining quantity")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(remainingToLoadMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">III</span><span class="ak-cycle-label">@T("ارزش مقدار بارگیری‌شده", "Loaded value")</span><span class="ak-cycle-value">@FormatLifecycleUsd(loadingValueUsd)</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-box-seam"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("ذخایر", "Storage")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مقدار رسیدشده", "Received quantity")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(receiptQuantityMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("موجودی فعلی", "Current stock")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(currentStockMt)</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-exclamation-octagon"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("ضایعات قرارداد", "Contract losses")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مجموع کل ضایعات", "Total losses")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(totalDisplayLossMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("ارزش ضایعات", "Loss cost")</span><span class="ak-cycle-value">@FormatLifecycleUsd(summaryLossCostUsd)</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-cash-stack"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("فروشات", "Sales")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مقدار فروش‌شده", "Sold quantity")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(soldQuantityMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("مقدار قابل فروش", "Saleable quantity")</span><span class="ak-cycle-value">@FormatLifecycleQuantity(lifecycleSaleableQuantityMt)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">III</span><span class="ak-cycle-label">@T("ارزش فروشات", "Sales value")</span><span class="ak-cycle-value">@FormatLifecycleUsd(salesTotalUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">IV</span><span class="ak-cycle-label">@T("اوسط قیمت فروش", "Average sale price")</span><span class="ak-cycle-value">@FormatLifecycleRate(salesAverageUsd)</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-receipt"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("مصارف", "Expenses")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مجموع مصارف قرارداد", "Total contract expenses")</span><span class="ak-cycle-value">@FormatLifecycleUsd(summaryExpenseTotalUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("اوسط مصارف", "Expense average")</span><span class="ak-cycle-value">@FormatLifecycleRate(summaryExpensePerLoadedMt)</span></div>
+                        </div>
+                    </article>
+
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-credit-card-2-front"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@T("پرداخت‌ها", "Payments")</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("مجموع پرداختی به قرارداد", "Total paid to contract")</span><span class="ak-cycle-value">@FormatLifecycleUsd(supplierPaidNetUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("بیلانس پرداختی قرارداد", "Contract payment balance")</span><span class="ak-cycle-value">@FormatLifecycleUsd(supplierRemainingUsd)</span></div>
+                        </div>
+                    </article>
                 </div>
-                <p class="ak-note">
-                    @T("مصارف ثبت‌شده", "Recorded expenses"): @FormatLifecycleUsd(summaryRegisteredExpenseUsd) ·
-                    @T("بارگیری / گمرک", "Loading / customs"): @FormatLifecycleUsd(summaryLoadingAndCustomsExpenseUsd) ·
-                    @T("ضایعات بارگیری", "Loading wastage"): @FormatLifecycleQuantity(loadingWastageMt) ·
-                    @T("کسری رسید", "Receipt shortage"): @FormatLifecycleQuantity(receiptShortageWastageMt) ·
-                    @T("کسری انتقال", "Transfer shortage"): @FormatLifecycleQuantity(dispatchShortageWastageMt)
-                </p>
             </section>
 
             <section class="ak-form-section ak-detail-section">
-                <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml"
-                         model="@((contractNetLabel, (string?)T("سود و زیان عملیاتی قرارداد", "Contract operational profit and loss")))" />
-                <dl class="ak-list">
-                    <div class="ak-list-row"><dt>@T("مجموع فروش", "Total sales")</dt><dd class="ak-num">@FormatLifecycleUsd(salesTotalUsd)</dd></div>
-                    <div class="ak-list-row"><dt>@T("هزینه کالای فروخته‌شده", "Cost of goods sold")</dt><dd class="ak-num">@FormatLifecycleUsd(Model.MiniPnl.CostOfGoodsSoldUsd)</dd></div>
-                    <div class="ak-list-row"><dt>@T("سهم مصارف فروش", "Expenses on sold")</dt><dd class="ak-num">@FormatLifecycleUsd(Model.MiniPnl.ExpensesForSoldUsd)</dd></div>
-                    <div class="ak-list-row"><dt>@contractNetLabel</dt><dd class="ak-num @pnlToneClass">@FormatLifecycleUsd(pnlOperationalMarginUsd)</dd></div>
-                    <div class="ak-list-row"><dt>@T("حاشیه سود", "Margin")</dt><dd class="ak-num">@NumberDisplay.Number(marginPercent, 2)%</dd></div>
-                    <div class="ak-list-row"><dt>@T("بازده خرید", "Purchase return")</dt><dd class="ak-num">@NumberDisplay.Number(returnOnInvestmentPercent, 2)%</dd></div>
-                    <div class="ak-list-row"><dt>@T("میانگین فروش", "Sales average")</dt><dd class="ak-num">@FormatLifecycleRate(salesAverageUsd)</dd></div>
-                </dl>
+                <div class="ak-cycle">
+                    <article class="ak-cycle-card">
+                        <div class="ak-cycle-icon" aria-hidden="true"><i class="bi bi-graph-up-arrow"></i></div>
+                        <div class="ak-cycle-body">
+                            <h3 class="ak-cycle-title">@contractNetLabel</h3>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">I</span><span class="ak-cycle-label">@T("هزینه کالای فروخته‌شده", "Cost of goods sold")</span><span class="ak-cycle-value">@FormatLifecycleUsd(Model.MiniPnl.CostOfGoodsSoldUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">II</span><span class="ak-cycle-label">@T("سهم مصارف فروش", "Expenses on sold")</span><span class="ak-cycle-value">@FormatLifecycleUsd(Model.MiniPnl.ExpensesForSoldUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">III</span><span class="ak-cycle-label">@contractNetLabel</span><span class="ak-cycle-value @(pnlOperationalMarginUsd < 0m ? "is-loss" : null)">@FormatLifecycleUsd(pnlOperationalMarginUsd)</span></div>
+                            <div class="ak-cycle-row"><span class="ak-cycle-num">IV</span><span class="ak-cycle-label">@T("حاشیه سود", "Margin")</span><span class="ak-cycle-value">@NumberDisplay.Number(marginPercent, 2)%</span></div>
+                        </div>
+                    </article>
+                </div>
             </section>
 
             @if (Model.ShipmentScenarios.Any())
@@ -835,20 +824,37 @@
     @switch (activeTab)
     {
         case ContractJourneyTabs.Details.Loadings:
+            <section class="ak-stat-grid" aria-label="@T("آمار بارگیری", "Loading statistics")">
+                <vc:stat-card title="@T("تعداد بارگیری‌ها", "Loadings")" value="@loadingCount.ToString("N0")" unit="@T("بارگیری", "loadings")" avatar="loading"></vc:stat-card>
+                <vc:stat-card title="@T("مقدار کل بارگیری‌شده", "Total loaded")" value="@NumberDisplay.Quantity(loadingQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                <vc:stat-card title="@T("مبلغ کل بارگیری", "Loading value")" value="@loadingValueUsd.ToString("N0")" unit="@UnitUsd()" avatar="purchase-value"></vc:stat-card>
+                <vc:stat-card title="@T("میانگین قیمت", "Average price")" value="@(loadingQuantityMt > 0m ? (loadingValueUsd / loadingQuantityMt).ToString("N2") : "—")" unit="@($"{UnitUsd()}/{UnitMt()}")" avatar="profit-loss"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneyLoadingsTab" model="loadingsTabModel" />
             break;
 
         case ContractJourneyTabs.Details.Receipts:
+            <section class="ak-stat-grid" aria-label="@T("آمار رسید بارگیری", "Receipt statistics")">
+                <vc:stat-card title="@T("وسایط منتظر رسید", "Awaiting receipt")" value="@bulkReceiptCandidates.Count.ToString("N0")" unit="@T("بارگیری", "loadings")" avatar="purchase-contracts" state="@(bulkReceiptCandidates.Count > 0 ? "warning" : null)"></vc:stat-card>
+                <vc:stat-card title="@T("رسیدهای ثبت‌شده", "Registered receipts")" value="@receiptCount.ToString("N0")" unit="@T("رسید", "receipts")" avatar="transported"></vc:stat-card>
+                <vc:stat-card title="@T("مقدار رسیده", "Received quantity")" value="@NumberDisplay.Quantity(receiptQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                <vc:stat-card title="@T("کسری رسید", "Receipt shortage")" value="@NumberDisplay.Quantity(receiptShortageWastageMt)" unit="@UnitMt()" avatar="losses" state="@(receiptShortageWastageMt > 0m ? "warning" : null)"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneyReceiptsTab" model="receiptsTabModel" />
             break;
 
         case ContractJourneyTabs.Details.InventoryTransport:
             <div id="journey-tab-lists" class="ak-tab-panel">
+                <section class="ak-stat-grid" aria-label="@T("آمار جریان حمل بار", "Cargo flow statistics")">
+                    <vc:stat-card title="@T("مقدار کل حمل", "Total transported")" value="@NumberDisplay.Quantity(transportLegQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                    <vc:stat-card title="@T("مقدار در مسیر", "In transit")" value="@NumberDisplay.Quantity(transportLegInTransitMt)" unit="@UnitMt()" avatar="transported"></vc:stat-card>
+                    <vc:stat-card title="@T("مقدار رسیده", "Received")" value="@NumberDisplay.Quantity(transportLegReceivedMt)" unit="@UnitMt()" avatar="loading"></vc:stat-card>
+                    <vc:stat-card title="@T("کسری حمل", "Transport shortage")" value="@NumberDisplay.Quantity(transportLegShortageMt)" unit="@UnitMt()" avatar="losses" state="@(transportLegShortageMt > 0m ? "warning" : null)"></vc:stat-card>
+                </section>
                 <section class="ak-form-section ak-detail-section">
                     <div class="ak-section-head ak-detail-section-header">
                         <div>
                             <h2 class="ak-section-title">@T("زنجیره حمل موجودی", "Inventory Journey")</h2>
-                            <p class="ak-section-desc">@TextOrDash(Model.ContractNumber) · @TextOrDash(Model.ProductName) · @T("مقدار کل مرتبط", "Related total"): @FormatMt(transportLegQuantityMt)</p>
                         </div>
                         <a asp-controller="InventoryTransportLegs" asp-action="Create" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.InventoryTransport)" class="btn btn-primary ak-primary-action">
                             <i class="bi bi-train-front"></i>
@@ -915,44 +921,69 @@
                             </tbody>
                         </table>
                     </div>
-                    @ListPager("transportLegPage", transportLegPage, transportLegPageCount, T("صفحه‌بندی جریان حمل بار", "Cargo flow pagination"))
+                    @await DetailPager("transportLegPage", transportLegPage, transportLegPageCount)
                 </section>
             </div>
             break;
 
         case ContractJourneyTabs.Details.Inventory:
+            <section class="ak-stat-grid" aria-label="@T("آمار موجودی", "Inventory statistics")">
+                <vc:stat-card title="@T("موجودی فعلی قرارداد", "Current stock")" value="@NumberDisplay.Quantity(currentStockMt)" unit="@UnitMt()" avatar="total-inventory" state="@(currentStockMt < 0m ? "warning" : null)"></vc:stat-card>
+                <vc:stat-card title="@T("مقدار در مسیر", "In transit")" value="@NumberDisplay.Quantity(transportLegInTransitMt)" unit="@UnitMt()" avatar="shipments"></vc:stat-card>
+                <vc:stat-card title="@T("مقدار خارج‌شده", "Dispatched out")" value="@NumberDisplay.Quantity(Model.Kpis.DispatchedQuantityMt)" unit="@UnitMt()" avatar="transported"></vc:stat-card>
+                <vc:stat-card title="@T("تعداد حرکات موجودی", "Movements")" value="@inventoryMovementCount.ToString("N0")" unit="@T("حرکت", "moves")" avatar="purchase-contracts"></vc:stat-card>
+            </section>
+            <p class="ak-stat-note">@T("تفکیک موجودی ترمینال و مخزن و کسری موجودی از داده این تب قابل محاسبهٔ دقیق نیست و برای جلوگیری از عدد نادرست نمایش داده نشده است.", "Terminal/tank and inventory-shortage breakdowns cannot be computed accurately from this tab's data and are intentionally omitted.")</p>
             <partial name="_ContractJourneyInventoryTab" model="inventoryTabModel" />
             break;
 
         case ContractJourneyTabs.Details.Dispatch:
+            <section class="ak-stat-grid" aria-label="@T("آمار نقل و انتقالات", "Transfer statistics")">
+                <vc:stat-card title="@T("تعداد انتقال‌ها", "Transfers")" value="@dispatchCount.ToString("N0")" unit="@T("انتقال", "transfers")" avatar="transported"></vc:stat-card>
+                <vc:stat-card title="@T("مقدار انتقال‌یافته", "Transferred quantity")" value="@NumberDisplay.Quantity(dispatchQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                <vc:stat-card title="@T("تحویل‌شده", "Delivered")" value="@Model.DispatchItems.Count(d => string.Equals(d.StatusName, "Delivered", StringComparison.OrdinalIgnoreCase)).ToString("N0")" unit="@T("انتقال", "transfers")" avatar="sold-quantity"></vc:stat-card>
+                <vc:stat-card title="@T("کسری انتقال", "Transfer shortage")" value="@NumberDisplay.Quantity(dispatchShortageWastageMt)" unit="@UnitMt()" avatar="losses" state="@(dispatchShortageWastageMt > 0m ? "warning" : null)"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneyDispatchTab" model="dispatchTabModel" />
             break;
 
         case ContractJourneyTabs.Details.Sales:
+            <section class="ak-stat-grid" aria-label="@T("آمار فروشات", "Sales statistics")">
+                <vc:stat-card title="@T("مقدار فروخته‌شده", "Sold quantity")" value="@NumberDisplay.Quantity(soldQuantityMt)" unit="@UnitMt()" avatar="sold-quantity"></vc:stat-card>
+                <vc:stat-card title="@T("مبلغ کل فروش", "Sales value")" value="@salesTotalUsd.ToString("N0")" unit="@UnitUsd()" avatar="sales-value"></vc:stat-card>
+                <vc:stat-card title="@T("مانده قابل فروش", "Saleable remaining")" value="@NumberDisplay.Quantity(lifecycleSaleableQuantityMt)" unit="@UnitMt()" avatar="total-inventory"></vc:stat-card>
+                <vc:stat-card title="@contractNetLabel" value="@pnlOperationalMarginUsd.ToString("N0")" unit="@UnitUsd()" avatar="profit-loss" trend-direction="@(pnlOperationalMarginUsd >= 0m ? "up" : "down")"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneySalesTab" model="salesTabModel" />
             break;
 
         case ContractJourneyTabs.Details.Costs:
             <div id="journey-tab-lists" class="ak-tab-panel">
+                <section class="ak-stat-grid" aria-label="@T("آمار مصرف و کسری", "Expense and loss statistics")">
+                    <vc:stat-card title="@T("مجموع مصارف", "Total expenses")" value="@summaryExpenseTotalUsd.ToString("N0")" unit="@UnitUsd()" avatar="purchase-value"></vc:stat-card>
+                    <vc:stat-card title="@T("مصرف هر تن", "Expense per MT")" value="@(summaryExpensePerLoadedMt.HasValue ? summaryExpensePerLoadedMt.Value.ToString("N2") : "—")" unit="@($"{UnitUsd()}/{UnitMt()}")" avatar="profit-loss"></vc:stat-card>
+                    <vc:stat-card title="@T("مقدار کسری", "Loss quantity")" value="@NumberDisplay.Quantity(totalDisplayLossMt)" unit="@UnitMt()" avatar="losses" state="@(totalDisplayLossMt > 0m ? "warning" : null)"></vc:stat-card>
+                    <vc:stat-card title="@T("مبلغ کسری", "Loss cost")" value="@summaryLossCostUsd.ToString("N0")" unit="@UnitUsd()" avatar="expenses"></vc:stat-card>
+                </section>
                 <section class="ak-form-section ak-detail-section">
                     <div class="ak-section-head ak-detail-section-header">
                         <div>
                             <h2 class="ak-section-title">@T("خزینه", "Expenses")</h2>
-                            <p class="ak-section-desc">@T("مصارف عملیاتی و مصارف مرتبط قرارداد", "Operational and contract-related expenses")</p>
                         </div>
                         <div class="ak-page-actions">
-                            <a asp-controller="Expenses" asp-action="CreateWagonRent" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-light ak-secondary-action">
-                                <i class="bi bi-train-front"></i>
-                                <span>@T("ثبت کرایه واگون", "Wagon rent")</span>
-                            </a>
-                            <a asp-controller="Expenses" asp-action="CustomsBatch" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-light ak-secondary-action">
-                                <i class="bi bi-file-earmark-spreadsheet"></i>
-                                <span>@T("مصارف گمرکی", "Customs expenses")</span>
-                            </a>
                             <a asp-controller="Expenses" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)" class="btn btn-primary ak-primary-action">
                                 <i class="bi bi-wallet2"></i>
                                 <span>@T("ثبت مصرف", "New expense")</span>
                             </a>
+                            <div class="dropdown ak-row-menu">
+                                <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
+                                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" asp-controller="Expenses" asp-action="CreateWagonRent" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)"><i class="bi bi-train-front"></i> @T("ثبت کرایه واگون", "Wagon rent")</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Expenses" asp-action="CustomsBatch" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Costs)"><i class="bi bi-file-earmark-spreadsheet"></i> @T("مصارف گمرکی", "Customs expenses")</a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                     <div class="ak-table-wrap">
@@ -999,7 +1030,7 @@
                             </tbody>
                         </table>
                     </div>
-                    @ListPager("expensesPage", expensesPage, expensesPageCount, T("صفحه‌بندی مصارف", "Expenses pagination"))
+                    @await DetailPager("expensesPage", expensesPage, expensesPageCount)
                     <p class="ak-note">
                         @T("مصرف عمومی هر 1 تن بارگیری", "General expense per 1 MT loaded"):
                         @(expensePerLoadedMt.HasValue ? $"{expensePerLoadedMt.Value:N2} {UnitUsd()}/{UnitMt()}" : T("نیاز به بارگیری", "Loading required")) ·
@@ -1151,16 +1182,28 @@
                             </tbody>
                         </table>
                     </div>
-                    @ListPager("lossesPage", lossesPage, lossesPageCount, T("صفحه‌بندی کسری‌ها", "Losses pagination"))
+                    @await DetailPager("lossesPage", lossesPage, lossesPageCount)
                 </section>
             </div>
             break;
 
         case ContractJourneyTabs.Details.Finance:
+            <section class="ak-stat-grid" aria-label="@T("آمار پرداخت‌ها", "Payment statistics")">
+                <vc:stat-card title="@T("مبلغ قرارداد", "Contract amount")" value="@supplierPayableTotalUsd.ToString("N0")" unit="@UnitUsd()" avatar="purchase-value"></vc:stat-card>
+                <vc:stat-card title="@T("پرداخت‌شده", "Paid")" value="@supplierPaidNetUsd.ToString("N0")" unit="@UnitUsd()" avatar="payments"></vc:stat-card>
+                <vc:stat-card title="@T("مانده تأمین‌کننده", "Supplier remaining")" value="@supplierRemainingUsd.ToString("N0")" unit="@UnitUsd()" avatar="receivables" state="@(supplierRemainingUsd > 0m ? "warning" : null)"></vc:stat-card>
+                <vc:stat-card title="@T("تعداد پرداخت‌ها", "Payments")" value="@paymentCount.ToString("N0")" unit="@T("پرداخت", "payments")" avatar="purchase-contracts"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneyFinanceTab" model="financeTabModel" />
             break;
 
         case ContractJourneyTabs.Details.Ledger:
+            <section class="ak-stat-grid" aria-label="@T("آمار دفتر کل", "Ledger statistics")">
+                <vc:stat-card title="@T("مجموع بدهکار", "Total debit")" value="@Model.LedgerSummary.DebitTotalUsd.ToString("N0")" unit="@UnitUsd()" avatar="purchase-value"></vc:stat-card>
+                <vc:stat-card title="@T("مجموع بستانکار", "Total credit")" value="@Model.LedgerSummary.CreditTotalUsd.ToString("N0")" unit="@UnitUsd()" avatar="sales-value"></vc:stat-card>
+                <vc:stat-card title="@T("مانده", "Balance")" value="@Model.LedgerSummary.BalanceUsd.ToString("N0")" unit="@UnitUsd()" avatar="profit-loss"></vc:stat-card>
+                <vc:stat-card title="@T("تعداد اسناد", "Entries")" value="@ledgerItemCount.ToString("N0")" unit="@T("سند", "entries")" avatar="purchase-contracts"></vc:stat-card>
+            </section>
             <partial name="_ContractJourneyLedgerTab" model="ledgerTabModel" />
             break;
 

@@ -112,6 +112,9 @@
                 });
         }
         <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="contractsFilter" />
+        <div class="d-flex justify-content-end mt-2 no-print">
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
+        </div>
     </div>
     <section class="ak-list" aria-label="@T("فهرست قراردادها", "Contracts list")">
         @if (items.Any())

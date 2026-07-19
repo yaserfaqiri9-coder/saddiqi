@@ -307,6 +307,7 @@ public class AuditLogsController : Controller
             .ToListAsync();
 
         ViewData["Categories"] = categories;
+        ViewData["HideSectionTabs"] = true;
 
         return View(new ActivityLogIndexViewModel
         {

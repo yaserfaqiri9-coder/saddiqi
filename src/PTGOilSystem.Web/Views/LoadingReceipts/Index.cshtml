@@ -11,7 +11,13 @@
              model="@((ViewData["Title"]?.ToString() ?? "Loading Receipts", true,
                        UiText.T(Context, "ثبت رسید", "New Receipt"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl = currentUrl }), (string?)null,
-                       (string?)null, (string?)null, (string?)null))" />
+                        (string?)null, (string?)null, (string?)null))" />
+        <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار رسیدهای بارگیری", "Loading receipt statistics")">
+            <vc:stat-card title="@UiText.T(Context, "کل رسیدها", "Total receipts")" value="@Model.TotalCount.ToString("N0")" unit="@UiText.T(Context, "رسید", "receipts")" avatar="transported"></vc:stat-card>
+            <vc:stat-card title="@UiText.T(Context, "مقدار این صفحه", "Quantity on this page")" value="@NumberDisplay.Quantity(Model.Items.Sum(x => x.ReceivedQuantityMt))" unit="MT" avatar="total-inventory"></vc:stat-card>
+            <vc:stat-card title="@UiText.T(Context, "رسیدهای مخزن‌دار", "Receipts with tank")" value="@Model.Items.Count(x => !string.IsNullOrWhiteSpace(x.StorageTankCode)).ToString("N0")" unit="@UiText.T(Context, "رسید", "receipts")" avatar="loading"></vc:stat-card>
+            <vc:stat-card title="@UiText.T(Context, "دارای سند مرجع", "With reference")" value="@Model.Items.Count(x => !string.IsNullOrWhiteSpace(x.ReferenceDocument) && !x.ReferenceDocument.StartsWith("BULK-RCPT-", StringComparison.OrdinalIgnoreCase)).ToString("N0")" unit="@UiText.T(Context, "رسید", "receipts")" avatar="purchase-contracts"></vc:stat-card>
+        </section>
         @{
             var lrFilter = new AkSearchFilterModel("q", Model.Query,
                 UiText.T(Context, "قرارداد، جنس، مخزن یا مرجع...", "Contract, product, tank or reference..."),
@@ -22,6 +28,9 @@
                 });
         }
         <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="lrFilter" />
+        <div class="d-flex justify-content-end mt-2 mb-2 no-print">
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
+        </div>
 
     <div class="ak-list">
         <div class="ak-table-wrap">
@@ -52,7 +61,14 @@
                                 <small>@item.TerminalName</small>
                             </td>
                             <td class="ak-num">@NumberDisplay.Quantity(item.ReceivedQuantityMt) MT</td>
-                            <td><span class="ak-status @(string.IsNullOrWhiteSpace(item.ReferenceDocument) ?"is-inactive" : "is-active")">@(string.IsNullOrWhiteSpace(item.ReferenceDocument) ? UiText.T(Context,"بدون مرجع","No reference") : item.ReferenceDocument)</span></td>
+                            <td>
+                                @{
+                                    var receiptRef = item.ReferenceDocument != null && item.ReferenceDocument.StartsWith("BULK-RCPT-", StringComparison.OrdinalIgnoreCase)
+                                        ? null
+                                        : item.ReferenceDocument;
+                                }
+                                <span class="ak-status @(string.IsNullOrWhiteSpace(receiptRef) ?"is-inactive" : "is-active")">@(string.IsNullOrWhiteSpace(receiptRef) ? UiText.T(Context,"بدون مرجع","No reference") : receiptRef)</span>
+                            </td>
                             <td class="ak-col-actions">
                                 <div>
                                     <a asp-action="Details" asp-route-id="@item.Id" class="ak-row-menu-btn" title="@UiText.T(Context, "مشاهده", "View")" aria-label="@UiText.T(Context, "مشاهده", "View")"><i class="bi bi-eye" aria-hidden="true"></i></a>

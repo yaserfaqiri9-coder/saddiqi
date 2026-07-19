@@ -3,24 +3,39 @@
 @{
     ViewData["Title"] = Model.Name;
     ViewData["HideSectionTabs"] = true;
+    var activeTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeTab = activeTab is "statement" or "documents" ? activeTab : "overview";
+    var showOverview = activeTab == "overview";
+    var showStatement = activeTab == "statement";
+    var showDocuments = activeTab == "documents";
     var notRecorded = UiText.T(Context, "ثبت نشده", "Not recorded");
     var providerTypeName = ServiceProviderTypeLabels.ToDisplay(Model.ProviderType, Context);
     var spReturnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 
-    var bal = Model.LedgerBalanceUsd;
-    var balanceLabel = bal > 0
+    var officialSummary = ViewData["PartyStatementSummary"] as PTGOilSystem.Web.Models.PartyStatements.PartyStatementSummary;
+    var bal = officialSummary?.ClosingBalance ?? Model.LedgerBalanceUsd;
+    var balanceLabel = officialSummary?.ClosingBalanceMeaning ?? (bal > 0
         ? UiText.T(Context, "قابل پرداخت به شرکت خدماتی", "Payable to provider")
         : bal < 0
             ? UiText.T(Context, "پیش‌پرداخت / طلب ما", "Prepaid / they owe us")
-            : UiText.T(Context, "حساب تسویه است", "Settled");
+            : UiText.T(Context, "حساب تسویه است", "Settled"));
     var balanceClass = bal > 0 ? "ak-num" : bal < 0 ? "ak-num" : "";
 
-    var recentStatement = Model.StatementRows.Reverse().Take(5).ToList();
+    var officialRecentRows = ViewData["PartyStatementRecentRows"] as IReadOnlyList<PTGOilSystem.Web.Models.PartyStatements.PartyStatementRow> ?? [];
 
     var spPaymentUrl = Url.Action("Create", "Payments", new { serviceProviderId = Model.Id, returnUrl = spReturnUrl }) ?? "#";
     var spExpenseUrl = Url.Action("Create", "Expenses", new { serviceProviderId = Model.Id, returnUrl = spReturnUrl }) ?? "#";
     var spEditUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
     var spIndexUrl = Url.Action("Index") ?? "#";
+    ViewData["AkHeaderStatus"] = Model.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive");
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = $"{providerTypeName} · {balanceLabel}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = UiText.T(Context, "صورت‌حساب رسمی", "Official statement"), Href = Url.Action("ServiceProvider", "PartyStatements", new { id = Model.Id }), Icon = "bi-file-earmark-text" },
+        new() { Label = UiText.T(Context, "ثبت مصرف / کرایه", "Record expense"), Href = spExpenseUrl, Icon = "bi-receipt-cutoff" },
+        new() { Label = UiText.T(Context, "ویرایش", "Edit"), Href = spEditUrl, Icon = "bi-pencil" }
+    };
 
     string ExpenseRef(PTGOilSystem.Web.Models.ServiceProviders.ServiceProviderExpenseRowViewModel e)
     {
@@ -31,48 +46,23 @@
         return UiText.T(Context, "بدون سند/قرارداد مشخص", "No linked document");
     }
 
-    // نوع حرکت حساب را به متن سادهٔ کاربرپسند تبدیل می‌کند (کد فنی سند در UI دیده نشود).
-    string MoveType(string s) => s switch
-    {
-        "Expense" => UiText.T(Context, "مصرف / کرایه", "Expense"),
-        "Payment" => UiText.T(Context, "پرداخت", "Payment"),
-        "AssetRentTransaction" => UiText.T(Context, "کرایه دارایی", "Asset rent"),
-        "OperationalAsset" => UiText.T(Context, "دارایی", "Asset"),
-        "Adjustment" => UiText.T(Context, "اصلاح حساب", "Adjustment"),
-        "ContractBalanceTransfer" => UiText.T(Context, "انتقال مانده", "Balance transfer"),
-        "SarrafSettlement" => UiText.T(Context, "تسویه صراف", "Sarraf settlement"),
-        _ => UiText.T(Context, "سند مالی", "Document")
-    };
-
     var providerTabs = new[]
     {
-        $"#provider-overview|{UiText.T(Context, "خلاصه حساب", "Summary")}|bi-grid-1x2|active",
-        $"#provider-statement|{UiText.T(Context, "صورت‌حساب", "Statement")}|bi-journal-text|",
-        $"#provider-documents|{UiText.T(Context, "مصارف و پرداخت‌ها", "Expenses & Payments")}|bi-folder2-open|"
+        $"overview|{UiText.T(Context, "خلاصه حساب", "Summary")}|bi-grid-1x2|{(showOverview ? "active" : "")}",
+        $"statement|{UiText.T(Context, "صورت‌حساب", "Statement")}|bi-journal-text|{(showStatement ? "active" : "")}",
+        $"documents|{UiText.T(Context, "مصارف و پرداخت‌ها", "Expenses & Payments")}|bi-folder2-open|{(showDocuments ? "active" : "")}"
     };
 }
 
-<div class="ak-form-page ak-party-page service-provider-details-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page service-provider-details-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.Name, false,
                        UiText.T(Context, "ثبت پرداخت", "Record payment"), "bi-cash-coin", spPaymentUrl, (string?)null,
                        UiText.T(Context, "فهرست شرکت‌ها", "Back to list"), "bi-arrow-right", (string?)spIndexUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive"))</span>
-        <div class="dropdown ak-row-menu">
-            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@UiText.T(Context, "عملیات", "Actions")">
-                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="@spEditUrl"><i class="bi bi-pencil"></i> @UiText.T(Context, "ویرایش", "Edit")</a></li>
-                <li><a class="dropdown-item" href="@spExpenseUrl"><i class="bi bi-receipt-cutoff"></i> @UiText.T(Context, "ثبت مصرف / کرایه", "Record expense")</a></li>
-                <li><a class="dropdown-item" href="@spPaymentUrl"><i class="bi bi-cash-coin"></i> @UiText.T(Context, "ثبت پرداخت", "Record payment")</a></li>
-            </ul>
-        </div>
-    </div>
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های پروفایل", "Profile sections"), providerTabs)" />
 
-    <div class="ak-form-grid">
+    <div class="ak-form-grid" hidden="@(!showOverview)">
         <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "اطلاعات هویتی", "Identity"), (string?)null))" />
             <dl class="ak-list">
@@ -98,94 +88,22 @@
         </section>
     </div>
 
-    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های پروفایل", "Profile sections"), providerTabs)" />
-
     @* ===== تب ۱: خلاصه — آخرین حرکت‌ها ===== *@
-    <section id="provider-overview" class="ak-form-section ak-detail-section">
-        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "آخرین حرکت‌های حساب", "Recent activity"), (string?)null))" />
-        <div class="ak-table-wrap">
-            <table class="ak-table ak-detail-table">
-                <thead>
-                    <tr>
-                        <th>@UiText.T(Context, "تاریخ", "Date")</th>
-                        <th class="ak-col-grow">@UiText.T(Context, "نوع", "Type")</th>
-                        <th>@UiText.T(Context, "قرارداد / شرح", "Contract / desc")</th>
-                        <th class="ak-col-num">@UiText.T(Context, "مبلغ USD", "Amount USD")</th>
-                    </tr>
-                </thead>
-                <tbody>
-                @foreach (var r in recentStatement)
-                {
-                    var given = r.DebitUsd.HasValue && r.DebitUsd.Value != 0m;
-                    var taken = r.CreditUsd.HasValue && r.CreditUsd.Value != 0m;
-                    var eff = given ? r.DebitUsd : taken ? r.CreditUsd : null;
-                    <tr>
-                        <td>@r.EntryDate.ToDisplayDate()</td>
-                        <td class="ak-col-grow">@MoveType(r.SourceType)</td>
-                        <td>@(string.IsNullOrWhiteSpace(r.ContractNumber) ? r.Description : "قرارداد " + r.ContractNumber)</td>
-                        <td class="ak-col-num ak-num @(given ?"ak-num" : taken ? "ak-num" : "")">@(eff.HasValue ? (given ? "+" : "-") + eff.Value.ToString("N2") : "—")</td>
-                    </tr>
-                }
-                @if (recentStatement.Count == 0)
-                {
-                    <tr><td colspan="4"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> @UiText.T(Context, "هنوز هیچ مصرف یا پرداختی برای این شرکت ثبت نشده است.", "No expense or payment recorded yet.")</div></td></tr>
-                }
-                </tbody>
-            </table>
+    <section id="provider-overview" class="ak-form-section ak-detail-section" hidden="@(!showOverview)">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "آخرین حرکت‌های حساب", "Recent account activity"), UiText.T(Context, "پنج سند آخر از موتور مشترک صورت‌حساب.", "Last five rows from the shared statement engine.")))" />
+        <partial name="~/Views/Shared/Statements/_PartyStatementRecent.cshtml" model="officialRecentRows" />
+    </section>
+    @* ===== تب ۲: صورت‌حساب ===== *@
+    <section id="provider-statement" class="ak-form-section ak-detail-section" hidden="@(!showStatement)">
+        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "صورت‌حساب رسمی شرکت خدماتی", "Official service provider statement"), UiText.T(Context, "مانده و گردش در موتور مشترک صورت‌حساب محاسبه می‌شود.", "Balance and activity are calculated by the shared statement engine.")))" />
+        <div class="ak-empty ak-detail-empty-state">
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+            <p>@UiText.T(Context, "برای فیلتر تاریخ، چاپ و PDF سند رسمی را باز کنید.", "Open the official document for date filters, printing and PDF.")</p>
+            <a asp-controller="PartyStatements" asp-action="ServiceProvider" asp-route-id="@Model.Id" class="btn btn-primary">@UiText.T(Context, "مشاهده صورت‌حساب رسمی", "View official statement")</a>
         </div>
     </section>
-
-    @* ===== تب ۲: صورت‌حساب ===== *@
-    <section id="provider-statement" class="ak-form-section ak-detail-section">
-        <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "صورت‌حساب کامل", "Full statement"), UiText.T(Context, "داده‌شده = پرداخت ما؛ گرفته‌شده = خدمت/مصرف. مانده مثبت = پیش‌پرداخت/طلب ما؛ مانده منفی = قابل پرداخت.", "Credit = our payment; Debit = service. Positive = prepaid; negative = payable.")))" />
-        @{
-            // قاعدهٔ یک‌دست «داده/گرفته»: پرداخت شرکت = داده‌شده (Credit)، خدمت/مصرف = گرفته‌شده (Debit). مانده = Σ(داده − گرفته).
-            var providerStatementRows = new List<PTGOilSystem.Web.Models.Shared.PartyStatementRowViewModel>();
-            var providerStatementBalance = 0m;
-            foreach (var row in Model.StatementRows)
-            {
-                var givenUsd = row.DebitUsd;
-                var takenUsd = row.CreditUsd;
-                var givenOriginal = row.Debit;
-                var takenOriginal = row.Credit;
-                var hasGiven = givenUsd.HasValue && givenUsd.Value != 0m;
-                var hasTaken = takenUsd.HasValue && takenUsd.Value != 0m;
-                providerStatementBalance += (givenUsd ?? 0m) - (takenUsd ?? 0m);
-                var effectUsd = hasGiven ? givenUsd : hasTaken ? takenUsd : givenUsd ?? takenUsd;
-                providerStatementRows.Add(new PTGOilSystem.Web.Models.Shared.PartyStatementRowViewModel
-                {
-                    LedgerEntryId = row.LedgerEntryId,
-                    Date = row.EntryDate,
-                    Type = MoveType(row.SourceType),
-                    Reference = row.Reference,
-                    ContractNumber = row.ContractNumber,
-                    Description = row.Description,
-                    SourceAmount = hasGiven ? givenOriginal : hasTaken ? takenOriginal : givenOriginal ?? takenOriginal,
-                    Currency = row.Currency,
-                    FxRateUsed = row.FxRateUsed,
-                    FxRateDisplayPerUsd = row.FxRateDisplayPerUsd,
-                    StatementCreditUsd = givenUsd,
-                    StatementDebitUsd = takenUsd,
-                    EffectLabel = hasGiven ? UiText.T(Context, "پرداخت / داده شد", "Paid") : hasTaken ? UiText.T(Context, "خدمت / گرفته شد", "Service") : UiText.T(Context, "بدون اثر", "No effect"),
-                    EffectClass = hasGiven ? "is-increase" : hasTaken ? "is-decrease" : "is-neutral",
-                    SignedUsd = effectUsd.HasValue ? $"{(hasGiven ? "+" : hasTaken ? "-" : "")}{effectUsd.Value:N2}" : "-",
-                    RunningBalanceUsd = providerStatementBalance,
-                    BalanceLabel = providerStatementBalance < 0 ? UiText.T(Context, "قابل پرداخت", "Payable") : providerStatementBalance > 0 ? UiText.T(Context, "پیش‌پرداخت / طلب ما", "Prepaid") : UiText.T(Context, "تسویه", "Settled"),
-                    BalanceClass = providerStatementBalance < 0 ? "ak-num" : providerStatementBalance > 0 ? "ak-num" : ""
-                });
-            }
-            var providerStatementTable = new PTGOilSystem.Web.Models.Shared.PartyStatementTableViewModel
-            {
-                EmptyTitle = UiText.T(Context, "صورت‌حساب خالی است", "No statement rows"),
-                EmptyMessage = UiText.T(Context, "برای این شرکت خدماتی هنوز سند مالی ثبت نشده است.", "No ledger entry is linked to this provider."),
-                Rows = providerStatementRows
-            };
-        }
-        <partial name="~/Views/Shared/Partials/_PartyStatementTable.cshtml" model="providerStatementTable" />
-    </section>
-
     @* ===== تب ۳: مصارف و پرداخت‌ها ===== *@
-    <section id="provider-documents" class="ak-form-section ak-detail-section">
+    <section id="provider-documents" class="ak-form-section ak-detail-section" hidden="@(!showDocuments)">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@((UiText.T(Context, "مصارف و کرایه‌ها", "Expenses & Charges"), $"{Model.Expenses.Count:N0}"))" />
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">

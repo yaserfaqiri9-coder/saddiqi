@@ -8,33 +8,44 @@
 
     if (!toggle) return;
 
-    const labels = document.body.dataset.uiLanguage === "en"
+    const labels = () => document.body.dataset.uiLanguage === "en"
         ? { dark: "Enable dark mode", light: "Enable light mode" }
         : { dark: "فعال‌کردن حالت تیره", light: "فعال‌کردن حالت روشن" };
 
     const applyTheme = (theme) => {
         const isDark = theme === "dark";
+        const currentLabels = labels();
         root.dataset.theme = isDark ? "dark" : "light";
         root.dataset.bsTheme = isDark ? "dark" : "light";
         root.style.colorScheme = isDark ? "dark" : "light";
         toggle.setAttribute("aria-pressed", String(isDark));
-        toggle.setAttribute("aria-label", isDark ? labels.light : labels.dark);
+        toggle.setAttribute("aria-label", isDark ? currentLabels.light : currentLabels.dark);
         if (icon) icon.className = isDark ? "bi bi-sun" : "bi bi-moon-stars";
     };
 
-    let preferredTheme = "light";
-    try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved === "dark" || saved === "light") {
-            preferredTheme = saved;
-        } else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-            preferredTheme = "dark";
+    const preferredTheme = () => {
+        try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved === "dark" || saved === "light") {
+                return saved;
+            }
+            if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+                return "dark";
+            }
+        } catch {
+            // Storage can be unavailable in restricted browser contexts.
         }
-    } catch {
-        // Storage can be unavailable in restricted browser contexts.
-    }
+        return "light";
+    };
 
-    applyTheme(preferredTheme);
+    const syncForCurrentPage = () => {
+        const isFinancePage = document.body.classList.contains("is-finance-workspace");
+        toggle.hidden = !isFinancePage;
+
+        // The finance theme must not leak into operational pages that reuse the
+        // persistent SPA shell. Keep the saved preference for the next visit.
+        applyTheme(isFinancePage ? preferredTheme() : "light");
+    };
 
     toggle.addEventListener("click", () => {
         const nextTheme = root.dataset.theme === "dark" ? "light" : "dark";
@@ -45,4 +56,8 @@
             // The active theme still works for the current page.
         }
     });
+
+    syncForCurrentPage();
+    window.addEventListener("ptg:page-ready", syncForCurrentPage);
+    window.addEventListener("pageshow", syncForCurrentPage);
 })();

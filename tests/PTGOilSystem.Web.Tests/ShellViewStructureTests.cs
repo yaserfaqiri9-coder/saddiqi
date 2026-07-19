@@ -54,6 +54,39 @@ public class ShellViewStructureTests
     }
 
     [Fact]
+    public void Desktop_Sidebar_Collapse_Keeps_An_Icon_Rail()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var tokensCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/01-tokens.css");
+        var sidebarCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/04-sidebar.css")
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+        var navigationJs = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/navigation.js");
+
+        Assert.Contains("--layout-sidebar-mini: 64px", tokensCss);
+        Assert.Contains("is-sidebar-collapsed .ak-navpanel {\n        display: flex;", sidebarCss);
+        Assert.Contains("is-sidebar-collapsed .ptg-nav-ic > svg {\n        inline-size: 24px;\n        block-size: 24px;", sidebarCss);
+        Assert.Contains("is-sidebar-collapsed .boltz-nav-link > span", sidebarCss);
+        Assert.Contains("window.innerWidth >= 1200", navigationJs);
+        Assert.Contains("document.body.classList.remove(\"is-sidebar-collapsed\")", navigationJs);
+        Assert.Contains("aria-label=\"@node.Label\"", layout);
+        Assert.Contains("title=\"@node.Label\"", layout);
+    }
+
+    [Fact]
+    public void Header_Removes_Settings_And_Fits_The_Account_Avatar()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var shellCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/boltz-shell.css")
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.DoesNotContain("ptg-hgear", layout);
+        Assert.DoesNotContain("bi bi-gear", layout);
+        Assert.Contains("ptg-havatar-ring ptg-havatar-trigger", layout);
+        Assert.Contains(".ptg-havatar-ring {\n    width: 2.5rem;\n    height: 2.5rem;\n    padding: 2px;", shellCss);
+        Assert.Contains("object-fit: contain", shellCss);
+    }
+
+    [Fact]
     public void Canonical_Tabs_Skin_Loads_Last_And_Covers_Every_Tab_Family()
     {
         var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
@@ -111,8 +144,9 @@ public class ShellViewStructureTests
         Assert.Contains("class=\"ptg-tabs-rail\"", sectionTabs);
         Assert.Contains("class=\"ptg-tab-item ", sectionTabs);
         Assert.Contains("data-section-tabs-group", sectionTabs);
-        Assert.Contains("class=\"ptg-tabs-rail ak-detail-tabs no-print\" data-shipment-file-tabs", shipmentTabs);
-        Assert.Contains("class=\"ptg-tab-item active\"", shipmentTabs);
+        Assert.Contains("_DetailsTabs.cshtml", shipmentTabs);
+        Assert.Contains("Context.Request.Query[\"tab\"]", shipmentTabs);
+        Assert.DoesNotContain("data-shipment-file-tabs", shipmentTabs);
         Assert.Contains("class=\"ptg-tabs-rail\"", journeyTabs);
         Assert.DoesNotContain("cj-tabs-card", journeyTabs);
         Assert.DoesNotContain("cj-tab-pill", journeyTabs);
@@ -136,6 +170,170 @@ public class ShellViewStructureTests
         Assert.Contains("role\", \"tablist\"", tabsJs);
         Assert.Contains("role\", \"tabpanel\"", tabsJs);
         Assert.Contains("aria-controls", tabsJs);
+    }
+
+    [Fact]
+    public void Finance_Assets_Remain_Available_Across_Spa_And_Back_Navigation()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var financeCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/61-finance-workspace.css");
+        var financeTheme = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/finance-theme.js");
+        var invoiceDocument = ReadRepoFile("src/PTGOilSystem.Web/Views/Invoices/Document.cshtml");
+
+        Assert.Contains("~/css/ptg/61-finance-workspace.css", layout);
+        Assert.DoesNotContain("@if (isFinanceWorkspace)", layout);
+        Assert.Contains("data-finance-theme-toggle", layout);
+        Assert.Contains("~/js/finance-theme.js", layout);
+
+        Assert.Contains("body.is-finance-workspace", financeCss);
+        Assert.Contains("ptg:page-ready", financeTheme);
+        Assert.Contains("pageshow", financeTheme);
+        Assert.Contains("classList.contains(\"is-finance-workspace\")", financeTheme);
+        Assert.Contains("toggle.hidden = !isFinancePage", financeTheme);
+        Assert.Contains("data-ptg-page-asset=\"invoice-document\"", invoiceDocument);
+    }
+
+    [Fact]
+    public void Dashboard_Uses_A_Scoped_Responsive_Erp_Composition()
+    {
+        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/Home/Index.cshtml");
+        var css = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/12-dashboard.css");
+        var script = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/dashboard.js");
+
+        Assert.Contains("ViewData[\"DashboardAssets\"] = true", view);
+        Assert.Equal(7, view.Split("class=\"dashboard-shortcut\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("class=\"dashboard-shortcut dashboard-shortcut--primary\"", view);
+        Assert.Contains("dashboard-shortcut-edit", view);
+        Assert.DoesNotContain("dashboard-kpis", view);
+        Assert.DoesNotContain("dashboard-metric-card", view);
+        Assert.Equal(1, view.Split("data-dashboard-chart", StringSplitOptions.None).Length - 1);
+        Assert.Contains("asp-controller=\"Loading\" asp-action=\"Create\"", view);
+        Assert.Contains("asp-controller=\"Sales\" asp-action=\"Create\"", view);
+        Assert.Contains("asp-controller=\"Payments\" asp-action=\"Create\"", view);
+        Assert.Contains("data-labels=\"@chartLabels\"", view);
+        Assert.Contains("data-sales=\"@chartSales\"", view);
+        Assert.Contains("data-expenses=\"@chartExpenses\"", view);
+        Assert.Contains("dashboard-attention-list", view);
+        Assert.DoesNotContain("dashboard-activity", view);
+        Assert.DoesNotContain("RecentActivities", view);
+        Assert.DoesNotContain("style=", view);
+
+        Assert.Contains(".dashboard-page", css);
+        Assert.Contains("max-inline-size: 1520px", css);
+        Assert.Contains("grid-template-columns: repeat(8, minmax(0, 1fr))", css);
+        Assert.Contains("grid-template-columns: repeat(4, minmax(0, 1fr))", css);
+        Assert.Contains("grid-template-columns: repeat(2, minmax(0, 1fr))", css);
+        Assert.Contains("block-size: 102px", css);
+        Assert.Contains("overflow: visible", css);
+        Assert.DoesNotContain(".dashboard-metric", css);
+        Assert.DoesNotContain(".dashboard-activity", css);
+        Assert.Contains(".dashboard-chart-line--sales", css);
+        Assert.Contains("@media (max-width: 575.98px)", css);
+        Assert.Contains("var(--background-paper)", css);
+        Assert.Contains("var(--divider)", css);
+        Assert.DoesNotContain("!important", css);
+        Assert.DoesNotContain("linear-gradient", css);
+
+        Assert.Contains("ptg:page-ready", script);
+        Assert.Contains("pageshow", script);
+        Assert.Contains("replaceChildren", script);
+        Assert.Contains("Intl.NumberFormat", script);
+        Assert.Contains("stroke-dasharray: 4 6", css);
+        Assert.Contains("function linePath(points)", script);
+        Assert.Contains("dashboard-chart-legend", script);
+        Assert.Contains("dashboard-chart-area--", script);
+        Assert.DoesNotContain("dashboard-radial", script);
+    }
+
+    [Fact]
+    public void Base_Definition_Tabs_Use_The_Shared_Statistic_Cards()
+    {
+        var modules = new[]
+        {
+            "Products",
+            "Units",
+            "Currencies",
+            "DailyFxRates",
+            "Locations",
+            "ExpenseTypes",
+            "ExpenseRules",
+            "StorageTanks",
+            "Terminals"
+        };
+
+        foreach (var module in modules)
+        {
+            var view = ReadRepoFile($"src/PTGOilSystem.Web/Views/{module}/Index.cshtml");
+            var headerPosition = view.IndexOf("_AkPageHeader.cshtml", StringComparison.Ordinal);
+            var statisticsPosition = view.IndexOf("ak-stat-grid mb-3", StringComparison.Ordinal);
+
+            Assert.True(headerPosition >= 0, $"{module} must keep the shared page header.");
+            Assert.True(statisticsPosition > headerPosition, $"{module} statistics must follow the page header.");
+            Assert.Equal(4, view.Split("<vc:stat-card", StringSplitOptions.None).Length - 1);
+        }
+    }
+
+    [Fact]
+    public void Operations_Tabs_Use_The_Shared_Statistic_Cards_With_Avatars()
+    {
+        var modules = new[]
+        {
+            "Loading",
+            "InventoryTransportLegs",
+            "ShipmentPnl",
+            "Dispatch",
+            "TruckSettlements",
+            "Expenses",
+            "LossEvents",
+            "LoadingReceipts",
+            "CustomsDeclarations",
+            "Sales"
+        };
+
+        foreach (var module in modules)
+        {
+            var view = ReadRepoFile($"src/PTGOilSystem.Web/Views/{module}/Index.cshtml");
+
+            Assert.Contains("ak-stat-grid mb-3", view);
+            Assert.Equal(4, view.Split("<vc:stat-card", StringSplitOptions.None).Length - 1);
+            Assert.Equal(4, view.Split(" avatar=\"", StringSplitOptions.None).Length - 1);
+        }
+    }
+
+    [Fact]
+    public void Canonical_Index_Lists_Use_The_Shared_Module_Row_Avatar()
+    {
+        var tables = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/js/tables.js");
+        var components = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/50-ak-components.css");
+        var personCell = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/Partials/_PersonCell.cshtml");
+        var modules = new[]
+        {
+            "accountstatements", "auditlogs", "cashaccounts", "chartofaccounts",
+            "closingchecklist", "companies", "contractamendments", "contractbalancetransfers",
+            "contractjourney", "contracts", "currencies", "customers", "customsdeclarations",
+            "customspermitturnover", "dailyfxrates", "dispatch", "drivers", "employees",
+            "expenserules", "expenses", "expensetypes", "finalclose", "fiscalyears",
+            "inventory", "inventorytransportlegs", "ledger", "loading", "loadingreceipts",
+            "locations", "lossevents", "operationalassets", "partners", "payments",
+            "plattsrates", "products", "roles", "sales", "sarrafs", "sarrafsettlements",
+            "serviceproviders", "shipmentcontracts", "shipmentpnl", "storagetanks",
+            "suppliers", "terminals", "threewaysettlement", "trialclose", "trucks",
+            "trucksettlements", "units", "users", "vessels", "wagons"
+        };
+
+        Assert.Contains("initializeListRowAvatars();", tables);
+        Assert.Contains("document.body.classList.contains(\"action-index\")", tables);
+        Assert.Contains(".ptg-person-avatar, .ptg-list-row-avatar, .ak-empty", tables);
+        Assert.Contains("ptg-list-entity-cell", tables);
+        Assert.Contains("ptg-list-row-avatar", components);
+        Assert.Contains("width: 28px", components);
+        Assert.Contains("background: #3C3F72", components);
+        Assert.Contains("class=\"ptg-person-avatar\"", personCell);
+
+        foreach (var module in modules)
+        {
+            Assert.Contains($"{module}:", tables);
+        }
     }
 
     [Theory]

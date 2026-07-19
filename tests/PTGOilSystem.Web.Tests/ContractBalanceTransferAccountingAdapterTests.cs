@@ -282,7 +282,7 @@ public sealed class ContractBalanceTransferAccountingAdapterTests(AccountingPost
         });
         return new ContractBalanceTransferAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             options,
             NullLogger<ContractBalanceTransferAccountingAdapter>.Instance);
@@ -325,8 +325,11 @@ public sealed class ContractBalanceTransferAccountingAdapterTests(AccountingPost
             Code = Unique("C"),
             Name = Unique("Company"),
             Country = "AF",
-            IsActive = true
+            IsActive = true,
+            IsSystemOwner = true
         };
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Companies\" SET \"IsSystemOwner\" = FALSE WHERE \"IsSystemOwner\" = TRUE");
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 

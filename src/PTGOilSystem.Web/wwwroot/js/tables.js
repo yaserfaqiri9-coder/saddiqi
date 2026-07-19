@@ -18,12 +18,127 @@
 
     function init() {
         initializeResponsiveTables();
+        initializeListRowAvatars();
         initializeClickableTableRows();
         initializeAkRowNavigation();
         initializeTableActionMenus();
         initializeContextualRowActions();
         initializeBulkSelection();
         initializeClientTablePagination();
+    }
+
+    // Give every canonical Index list the same compact navy row marker used by
+    // Customers/Users. Human and party lists already render _PersonCell, so
+    // those rows are left untouched. The icon changes by route/module while
+    // size, colour and spacing stay one shared visual contract.
+    function initializeListRowAvatars() {
+        if (!document.body.classList.contains("action-index")) return;
+
+        var iconClass = resolveListRowIcon();
+        document.querySelectorAll(".ak-table").forEach(function (table) {
+            Array.prototype.forEach.call(table.tBodies, function (body) {
+                Array.prototype.forEach.call(body.rows, function (row) {
+                    if (row.dataset.akEntityAvatarReady === "true") return;
+                    row.dataset.akEntityAvatarReady = "true";
+
+                    if (row.querySelector(".ptg-person-avatar, .ptg-list-row-avatar, .ak-empty")) return;
+
+                    var cells = Array.prototype.filter.call(row.children, function (cell) {
+                        return cell.matches && cell.matches("td, th")
+                            && !cell.matches(".ak-col-check, .ak-col-actions, .ak-col-spacer")
+                            && !cell.querySelector(".ak-check")
+                            && Number(cell.getAttribute("colspan") || "1") === 1;
+                    });
+                    if (!cells.length) return;
+
+                    var cell = cells.find(function (candidate) { return candidate.querySelector(".ak-name"); })
+                        || cells.find(function (candidate) {
+                            return candidate.querySelector("a[href]") && !candidate.querySelector(".dropdown, form");
+                        })
+                        || cells[0];
+                    if (!cell || cell.querySelector(".ptg-list-entity-cell")) return;
+
+                    var wrapper = document.createElement("div");
+                    wrapper.className = "ptg-list-entity-cell";
+
+                    var avatar = document.createElement("span");
+                    avatar.className = "ptg-list-row-avatar";
+                    avatar.setAttribute("aria-hidden", "true");
+
+                    var icon = document.createElement("i");
+                    icon.className = "bi " + iconClass;
+                    avatar.appendChild(icon);
+
+                    var content = document.createElement("div");
+                    content.className = "ptg-list-entity-content";
+                    while (cell.firstChild) content.appendChild(cell.firstChild);
+
+                    wrapper.appendChild(avatar);
+                    wrapper.appendChild(content);
+                    cell.appendChild(wrapper);
+                });
+            });
+        });
+    }
+
+    function resolveListRowIcon() {
+        var segment = (location.pathname.split("/").filter(Boolean)[0] || "").toLowerCase();
+        var icons = {
+            accountstatements: "bi-journal-text",
+            auditlogs: "bi-shield-check",
+            cashaccounts: "bi-wallet2",
+            chartofaccounts: "bi-diagram-3",
+            closingchecklist: "bi-list-check",
+            companies: "bi-building",
+            contractamendments: "bi-file-earmark-diff",
+            contractbalancetransfers: "bi-arrow-left-right",
+            contractjourney: "bi-signpost-split",
+            contracts: "bi-file-earmark-text",
+            currencies: "bi-currency-exchange",
+            customers: "bi-person-fill",
+            customsdeclarations: "bi-file-earmark-check",
+            customspermitturnover: "bi-arrow-repeat",
+            dailyfxrates: "bi-graph-up-arrow",
+            dispatch: "bi-truck",
+            drivers: "bi-person-badge",
+            employees: "bi-person-vcard",
+            expenserules: "bi-sliders",
+            expenses: "bi-receipt",
+            expensetypes: "bi-tags",
+            finalclose: "bi-lock-fill",
+            fiscalyears: "bi-calendar3",
+            inventory: "bi-boxes",
+            inventorytransportlegs: "bi-arrow-left-right",
+            ledger: "bi-journal-bookmark",
+            loading: "bi-box-arrow-up",
+            loadingreceipts: "bi-box-arrow-in-down",
+            locations: "bi-geo-alt",
+            lossevents: "bi-exclamation-triangle",
+            operationalassets: "bi-tools",
+            partners: "bi-people-fill",
+            payments: "bi-cash-coin",
+            plattsrates: "bi-graph-up",
+            products: "bi-droplet-fill",
+            roles: "bi-person-lock",
+            sales: "bi-cart-check",
+            sarrafs: "bi-bank",
+            sarrafsettlements: "bi-arrow-left-right",
+            serviceproviders: "bi-briefcase",
+            shipmentcontracts: "bi-files",
+            shipmentpnl: "bi-water",
+            storagetanks: "bi-database",
+            suppliers: "bi-building-check",
+            terminals: "bi-pin-map",
+            threewaysettlement: "bi-diagram-3",
+            trialclose: "bi-clipboard-check",
+            trucks: "bi-truck-front",
+            trucksettlements: "bi-cash-stack",
+            units: "bi-rulers",
+            users: "bi-person-fill",
+            vessels: "bi-water",
+            wagons: "bi-train-front"
+        };
+        return icons[segment] || "bi-list-ul";
     }
 
     // Contextual row actions — replaces the always-visible ⋯ menu with a small

@@ -278,9 +278,9 @@ public class ClosingChecklistServiceTests
         SeedHealthy(db, companyId: 1);
         await db.SaveChangesAsync();
 
-        var controller = new ClosingChecklistController(NewService(db), db);
+        var controller = new ClosingChecklistController(NewService(db), db, new SystemCompanyProvider(db));
         var result = Assert.IsType<Microsoft.AspNetCore.Mvc.FileContentResult>(
-            await controller.Csv(1, 1, default));
+            await controller.Csv(1, default));
 
         var text = System.Text.Encoding.UTF8.GetString(result.FileContents);
         var report = await Build(db, 1, 1);
@@ -297,8 +297,8 @@ public class ClosingChecklistServiceTests
         SeedHealthy(db, companyId: 1);
         await db.SaveChangesAsync();
 
-        var controller = new ClosingChecklistController(NewService(db), db);
-        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(await controller.Json(1, 1, default));
+        var controller = new ClosingChecklistController(NewService(db), db, new SystemCompanyProvider(db));
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(await controller.Json(1, default));
         Assert.IsType<ClosingChecklistReport>(json.Value);
     }
 
@@ -334,8 +334,8 @@ public class ClosingChecklistServiceTests
                   new() { AccountId = AccountBaseId + 1, LineNumber = 2, Credit = 100m } ]
     };
 
-    private static void SeedCompany(ApplicationDbContext db, int id = 1, string code = "PTG")
-        => db.Companies.Add(new Company { Id = id, Code = code, Name = $"Company {code}", IsActive = true });
+    private static void SeedCompany(ApplicationDbContext db, int id = 1, string code = "PTG", bool isOwner = false)
+        => db.Companies.Add(new Company { Id = id, Code = code, Name = $"Company {code}", IsActive = true, IsSystemOwner = isOwner });
 
     private static void SeedFullYear(ApplicationDbContext db, int companyId)
     {
@@ -354,7 +354,7 @@ public class ClosingChecklistServiceTests
 
     private static void SeedHealthy(ApplicationDbContext db, int companyId)
     {
-        SeedCompany(db, companyId);
+        SeedCompany(db, companyId, isOwner: true);
         SeedAccountsAndSettings(db, companyId);
         SeedFullYear(db, companyId);
     }

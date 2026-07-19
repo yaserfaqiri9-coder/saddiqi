@@ -55,6 +55,87 @@ public class DashboardService : IDashboardService
         var tomorrowUtc = todayUtc.AddDays(1);
         var monthStartUtc = new DateTime(todayUtc.Year, todayUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        if (_db.Database.IsRelational())
+        {
+            await PopulateOperationalStatsWithSingleRoundTripAsync(vm, todayUtc, tomorrowUtc, monthStartUtc, ct);
+        }
+        else
+        {
+            await PopulateOperationalStatsWithLinqAsync(vm, todayUtc, tomorrowUtc, monthStartUtc, ct);
+        }
+
+        var tankStocks = await _db.InventoryMovements.AsNoTracking()
+            .Where(m => m.StorageTankId != null)
+            .GroupBy(m => m.StorageTankId)
+            .Select(g => g.Sum(m =>
+                m.Direction == MovementDirection.In || m.Direction == MovementDirection.Adjustment
+                    ? m.QuantityMt
+                    : m.Direction == MovementDirection.Out || m.Direction == MovementDirection.Transfer
+                        ? -m.QuantityMt
+                        : 0m))
+            .ToListAsync(ct);
+        vm.LowStockTankCount = tankStocks.Count(s => s <= LowStockThresholdMt);
+    }
+
+    // نسخه یک رفت‌وبرگشت: همان ۱۸ شمارش/جمع مسیر LINQ پایین، در یک SELECT.
+    // معناشناسی هر ستون باید دقیقاً با کوئری LINQ متناظر یکسان بماند
+    // (اثبات در DashboardServicePostgresTests روی PostgreSQL واقعی).
+    private async Task PopulateOperationalStatsWithSingleRoundTripAsync(
+        DashboardViewModel vm,
+        DateTime todayUtc,
+        DateTime tomorrowUtc,
+        DateTime monthStartUtc,
+        CancellationToken ct)
+    {
+        var row = await _db.Database.SqlQuery<DashboardOperationalStatsRow>($"""
+            SELECT
+                (SELECT COUNT(*)::int FROM "InventoryTransportLegs" WHERE "Status" = {(int)InventoryTransportLegStatus.InTransit}) AS "ShipmentsInTransitCount",
+                (SELECT COALESCE(SUM("TotalUsd"), 0) FROM "SalesTransactions" WHERE NOT "IsCancelled" AND "SaleDate" >= {todayUtc} AND "SaleDate" < {tomorrowUtc}) AS "TodaySalesUsd",
+                (SELECT COUNT(*)::int FROM "SalesTransactions" WHERE NOT "IsCancelled" AND "SaleDate" >= {todayUtc} AND "SaleDate" < {tomorrowUtc}) AS "TodaySalesCount",
+                (SELECT COALESCE(SUM("AmountUsd"), 0) FROM "PaymentTransactions" WHERE "Direction" = {(int)PaymentDirection.In} AND "PaymentDate" >= {todayUtc} AND "PaymentDate" < {tomorrowUtc}) AS "TodayReceiptsUsd",
+                (SELECT COALESCE(SUM("AmountUsd"), 0) FROM "PaymentTransactions" WHERE "Direction" = {(int)PaymentDirection.Out} AND "PaymentDate" >= {todayUtc} AND "PaymentDate" < {tomorrowUtc}) AS "TodayPaymentsUsd",
+                (SELECT COALESCE(SUM("AmountUsd"), 0) FROM "ExpenseTransactions" WHERE NOT "IsCancelled" AND "ExpenseDate" >= {todayUtc} AND "ExpenseDate" < {tomorrowUtc}) AS "TodayExpensesUsd",
+                (SELECT COALESCE(SUM("AmountUsd"), 0) FROM "ExpenseTransactions" WHERE NOT "IsCancelled" AND "ExpenseDate" >= {monthStartUtc} AND "ExpenseDate" < {tomorrowUtc}) AS "MonthExpensesUsd",
+                (SELECT COUNT(*)::int FROM "Sarrafs" WHERE "IsActive") AS "ActiveSarrafCount",
+                (SELECT COUNT(*)::int FROM "LoadingRegisters" WHERE "LoadingDate" >= {todayUtc} AND "LoadingDate" < {tomorrowUtc}) AS "TodayLoadingCount",
+                (SELECT COUNT(*)::int FROM "TruckDispatches" WHERE "Status" <> {(int)DispatchStatus.Cancelled} AND "DispatchDate" >= {todayUtc} AND "DispatchDate" < {tomorrowUtc}) AS "TodayDispatchCount",
+                (SELECT COUNT(*)::int FROM "LoadingRegisters" l WHERE NOT EXISTS (SELECT 1 FROM "LoadingReceipts" r WHERE r."LoadingRegisterId" = l."Id")) AS "LoadingsWithoutReceiptCount",
+                (SELECT COUNT(*)::int FROM "LoadingReceipts" r WHERE NOT EXISTS (SELECT 1 FROM "LoadingReceiptAllocations" a WHERE a."LoadingReceiptId" = r."Id")) AS "ReceiptsWithoutAllocationCount",
+                (SELECT COUNT(*)::int FROM "LoadingRegisters" l WHERE NOT EXISTS (SELECT 1 FROM "CustomsDeclarations" c WHERE c."LoadingRegisterId" = l."Id")) AS "LoadingsWithoutCustomsCount",
+                (SELECT COUNT(*)::int FROM "SalesTransactions" s WHERE NOT "IsCancelled" AND NOT EXISTS (SELECT 1 FROM "PaymentTransactions" p WHERE p."SalesTransactionId" = s."Id")) AS "SalesWithoutPaymentCount",
+                (SELECT COUNT(*)::int FROM "Contracts" WHERE "Status" = {(int)ContractStatus.Active} AND "UnitPriceUsd" IS NULL AND "ManualFinalPriceUsd" IS NULL AND "PlattsManualPriceUsd" IS NULL) AS "ContractsWithoutFinalPriceCount",
+                (SELECT COUNT(*)::int FROM "LossEvents" WHERE NOT "IsCancelled") AS "ShortageCount",
+                (SELECT COUNT(*)::int FROM "LossEvents" WHERE NOT "IsCancelled" AND "ChargeableLossMt" > 0) AS "ExcessShortageCount",
+                (SELECT COUNT(*)::int FROM "SarrafSettlements" WHERE "DifferenceType" <> {(int)SarrafSettlementDifferenceType.None}) AS "SarrafRateDiffCount"
+            """).SingleAsync(ct);
+
+        vm.ShipmentsInTransitCount = row.ShipmentsInTransitCount;
+        vm.TodaySalesUsd = row.TodaySalesUsd;
+        vm.TodaySalesCount = row.TodaySalesCount;
+        vm.TodayReceiptsUsd = row.TodayReceiptsUsd;
+        vm.TodayPaymentsUsd = row.TodayPaymentsUsd;
+        vm.TodayExpensesUsd = row.TodayExpensesUsd;
+        vm.MonthExpensesUsd = row.MonthExpensesUsd;
+        vm.ActiveSarrafCount = row.ActiveSarrafCount;
+        vm.TodayLoadingCount = row.TodayLoadingCount;
+        vm.TodayDispatchCount = row.TodayDispatchCount;
+        vm.LoadingsWithoutReceiptCount = row.LoadingsWithoutReceiptCount;
+        vm.ReceiptsWithoutAllocationCount = row.ReceiptsWithoutAllocationCount;
+        vm.LoadingsWithoutCustomsCount = row.LoadingsWithoutCustomsCount;
+        vm.SalesWithoutPaymentCount = row.SalesWithoutPaymentCount;
+        vm.ContractsWithoutFinalPriceCount = row.ContractsWithoutFinalPriceCount;
+        vm.ShortageCount = row.ShortageCount;
+        vm.ExcessShortageCount = row.ExcessShortageCount;
+        vm.SarrafRateDiffCount = row.SarrafRateDiffCount;
+    }
+
+    private async Task PopulateOperationalStatsWithLinqAsync(
+        DashboardViewModel vm,
+        DateTime todayUtc,
+        DateTime tomorrowUtc,
+        DateTime monthStartUtc,
+        CancellationToken ct)
+    {
         vm.ShipmentsInTransitCount = await _db.InventoryTransportLegs.AsNoTracking()
             .CountAsync(l => l.Status == InventoryTransportLegStatus.InTransit, ct);
 
@@ -106,18 +187,6 @@ public class DashboardService : IDashboardService
 
         vm.SarrafRateDiffCount = await _db.SarrafSettlements.AsNoTracking()
             .CountAsync(x => x.DifferenceType != SarrafSettlementDifferenceType.None, ct);
-
-        var tankStocks = await _db.InventoryMovements.AsNoTracking()
-            .Where(m => m.StorageTankId != null)
-            .GroupBy(m => m.StorageTankId)
-            .Select(g => g.Sum(m =>
-                m.Direction == MovementDirection.In || m.Direction == MovementDirection.Adjustment
-                    ? m.QuantityMt
-                    : m.Direction == MovementDirection.Out || m.Direction == MovementDirection.Transfer
-                        ? -m.QuantityMt
-                        : 0m))
-            .ToListAsync(ct);
-        vm.LowStockTankCount = tankStocks.Count(s => s <= LowStockThresholdMt);
     }
 
     private async Task PopulateCountsAndTotalsAsync(
@@ -241,6 +310,45 @@ public class DashboardService : IDashboardService
 
     private async Task PopulateBalanceSummariesAsync(DashboardViewModel vm, CancellationToken ct)
     {
+        if (_db.Database.IsRelational())
+        {
+            // یک اسکن LedgerEntries به‌جای سه کوئری جدا؛ معناشناسی هر ستون همان
+            // BuildBalanceSummaryAsync است (اثبات در DashboardServicePostgresTests).
+            var row = await _db.Database.SqlQuery<DashboardBalanceSummariesRow>($"""
+                SELECT
+                    COUNT(*) FILTER (WHERE "ContractId" IS NOT NULL)::int AS "ContractItemCount",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "ContractId" IS NOT NULL AND "Side" = {(int)LedgerSide.Debit}), 0) AS "ContractDebitUsd",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "ContractId" IS NOT NULL AND "Side" = {(int)LedgerSide.Credit}), 0) AS "ContractCreditUsd",
+                    COUNT(*) FILTER (WHERE "CustomerId" IS NOT NULL)::int AS "CustomerItemCount",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "CustomerId" IS NOT NULL AND "Side" = {(int)LedgerSide.Debit}), 0) AS "CustomerDebitUsd",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "CustomerId" IS NOT NULL AND "Side" = {(int)LedgerSide.Credit}), 0) AS "CustomerCreditUsd",
+                    COUNT(*) FILTER (WHERE "SupplierId" IS NOT NULL)::int AS "SupplierItemCount",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "SupplierId" IS NOT NULL AND "Side" = {(int)LedgerSide.Debit}), 0) AS "SupplierDebitUsd",
+                    COALESCE(SUM("AmountUsd") FILTER (WHERE "SupplierId" IS NOT NULL AND "Side" = {(int)LedgerSide.Credit}), 0) AS "SupplierCreditUsd"
+                FROM "LedgerEntries"
+                """).SingleAsync(ct);
+
+            vm.ContractBalanceSummary = new DashboardBalanceSummaryViewModel
+            {
+                ItemCount = row.ContractItemCount,
+                DebitTotalUsd = row.ContractDebitUsd,
+                CreditTotalUsd = row.ContractCreditUsd
+            };
+            vm.CustomerBalanceSummary = new DashboardBalanceSummaryViewModel
+            {
+                ItemCount = row.CustomerItemCount,
+                DebitTotalUsd = row.CustomerDebitUsd,
+                CreditTotalUsd = row.CustomerCreditUsd
+            };
+            vm.SupplierBalanceSummary = new DashboardBalanceSummaryViewModel
+            {
+                ItemCount = row.SupplierItemCount,
+                DebitTotalUsd = row.SupplierDebitUsd,
+                CreditTotalUsd = row.SupplierCreditUsd
+            };
+            return;
+        }
+
         vm.ContractBalanceSummary = await BuildBalanceSummaryAsync(
             _db.LedgerEntries.AsNoTracking().Where(l => l.ContractId.HasValue),
             ct);
@@ -745,6 +853,41 @@ public class DashboardService : IDashboardService
     }
 
     private sealed record ActivitySeed(DateTime Date, DashboardActivityViewModel Item);
+
+    public sealed class DashboardOperationalStatsRow
+    {
+        public int ShipmentsInTransitCount { get; set; }
+        public decimal TodaySalesUsd { get; set; }
+        public int TodaySalesCount { get; set; }
+        public decimal TodayReceiptsUsd { get; set; }
+        public decimal TodayPaymentsUsd { get; set; }
+        public decimal TodayExpensesUsd { get; set; }
+        public decimal MonthExpensesUsd { get; set; }
+        public int ActiveSarrafCount { get; set; }
+        public int TodayLoadingCount { get; set; }
+        public int TodayDispatchCount { get; set; }
+        public int LoadingsWithoutReceiptCount { get; set; }
+        public int ReceiptsWithoutAllocationCount { get; set; }
+        public int LoadingsWithoutCustomsCount { get; set; }
+        public int SalesWithoutPaymentCount { get; set; }
+        public int ContractsWithoutFinalPriceCount { get; set; }
+        public int ShortageCount { get; set; }
+        public int ExcessShortageCount { get; set; }
+        public int SarrafRateDiffCount { get; set; }
+    }
+
+    public sealed class DashboardBalanceSummariesRow
+    {
+        public int ContractItemCount { get; set; }
+        public decimal ContractDebitUsd { get; set; }
+        public decimal ContractCreditUsd { get; set; }
+        public int CustomerItemCount { get; set; }
+        public decimal CustomerDebitUsd { get; set; }
+        public decimal CustomerCreditUsd { get; set; }
+        public int SupplierItemCount { get; set; }
+        public decimal SupplierDebitUsd { get; set; }
+        public decimal SupplierCreditUsd { get; set; }
+    }
 
     public sealed class DashboardCountsAndTotalsRow
     {

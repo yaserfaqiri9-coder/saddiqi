@@ -1,0 +1,442 @@
+/* Screenshot-faithful Saddiqi login. Scoped to Auth/Login only. */
+body.controller-auth.action-login {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: hidden;
+    background: #fff;
+}
+
+body.controller-auth.action-login .boltz-public-shell {
+    min-height: 100vh;
+}
+
+.sadd-login-page {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+    background: #fff;
+    color: #0c1727;
+    font-family: "Vazirmatn", "Poppins", Arial, sans-serif;
+}
+
+.sadd-login-art {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 62%;
+    overflow: hidden;
+    background: #eff9f5;
+    pointer-events: none;
+    user-select: none;
+}
+
+.sadd-login-art::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    width: 3px;
+    height: 23%;
+    background: #287ff0;
+}
+
+.sadd-login-art::after {
+    content: "";
+    position: absolute;
+    top: -13%;
+    right: -8vw;
+    z-index: 1;
+    width: 18vw;
+    height: 126%;
+    border-radius: 50% 0 0 50%;
+    background: #fff;
+}
+
+.sadd-login-art img {
+    position: absolute;
+    left: clamp(4rem, 7.5vw, 9rem);
+    bottom: clamp(2rem, 6vh, 4.5rem);
+    z-index: 1;
+    display: block;
+    width: min(42vw, 780px);
+    max-width: none;
+    height: min(76vh, 720px);
+    object-fit: contain;
+    object-position: left bottom;
+}
+
+.sadd-login-panel {
+    --sadd-login-form-width: clamp(360px, 22vw, 430px);
+    position: relative;
+    z-index: 1;
+    width: var(--sadd-login-form-width);
+    min-height: 100vh;
+    margin-inline-start: auto;
+    margin-inline-end: max(1.5rem, calc(37vw - var(--sadd-login-form-width)));
+    display: flex;
+    align-items: center;
+    padding: 2.4rem 0;
+    direction: ltr;
+}
+
+.sadd-login-form {
+    width: 100%;
+    margin-top: 3.6rem;
+    text-align: center;
+}
+
+.sadd-login-heading {
+    margin-bottom: 2rem;
+}
+
+.sadd-login-heading h1 {
+    margin: 0;
+    color: #0b1422;
+    font-size: clamp(1.85rem, 2vw, 2.2rem);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+}
+
+.sadd-login-heading p {
+    margin: 0.42rem 0 0;
+    color: #647181;
+    font-size: clamp(1.12rem, 1.45vw, 1.7rem);
+    font-weight: 400;
+    line-height: 1.35;
+}
+
+.sadd-login-alert:empty {
+    display: none;
+}
+
+.sadd-login-alert {
+    margin: -0.75rem 0 1rem;
+    padding: 0.68rem 0.85rem;
+    border: 1px solid #f1b8c0;
+    border-radius: 0.9rem;
+    background: #fff5f6;
+    color: #b42335;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    text-align: start;
+}
+
+.sadd-login-alert ul {
+    margin: 0;
+    padding-inline-start: 1.2rem;
+}
+
+.sadd-login-field {
+    position: relative;
+    margin-bottom: 1.1rem;
+}
+
+.sadd-login-input {
+    width: 100%;
+    height: 3.85rem;
+    padding: 0 1.5rem 0 4.3rem;
+    border: 1px solid #d9dee6;
+    border-radius: 999px;
+    outline: 0;
+    background: #fff;
+    color: #0d1726;
+    font-family: inherit;
+    font-size: 1.02rem;
+    text-align: left;
+    direction: ltr;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sadd-login-input::placeholder {
+    color: #9aa5b3;
+    opacity: 1;
+}
+
+.sadd-login-input:focus {
+    border-color: #237cf3;
+    box-shadow: 0 0 0 4px rgba(35, 124, 243, 0.12);
+}
+
+.sadd-login-field-icon {
+    position: absolute;
+    z-index: 1;
+    top: 1.04rem;
+    left: 1.45rem;
+    width: 1.55rem;
+    height: 1.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #9aa8b8;
+    font-family: Arial, sans-serif;
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.sadd-login-lock svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sadd-login-error {
+    display: block;
+    min-height: 0;
+    margin: 0.28rem 1.35rem 0;
+    color: #c2273a;
+    font-size: 0.76rem;
+    text-align: start;
+}
+
+.sadd-login-error:empty {
+    display: none;
+}
+
+.sadd-login-help {
+    position: relative;
+    margin: 0.9rem 0 1.85rem;
+    color: #1477f8;
+}
+
+.sadd-login-help summary {
+    display: inline-block;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.sadd-login-help summary::-webkit-details-marker {
+    display: none;
+}
+
+.sadd-login-help summary:hover,
+.sadd-login-help summary:focus-visible {
+    text-decoration: underline;
+}
+
+.sadd-login-help p {
+    position: absolute;
+    top: calc(100% + 0.45rem);
+    left: 50%;
+    z-index: 3;
+    width: min(22rem, 90vw);
+    margin: 0;
+    padding: 0.65rem 0.8rem;
+    transform: translateX(-50%);
+    border: 1px solid #dce6f4;
+    border-radius: 0.75rem;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(31, 55, 82, 0.13);
+    color: #5b6878;
+    font-size: 0.77rem;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+.sadd-login-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+}
+
+.sadd-login-submit,
+.sadd-login-signup {
+    min-height: 3.45rem;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.94rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.sadd-login-submit {
+    border: 1px solid #237cf3;
+    background: #237cf3;
+    box-shadow: 0 12px 22px rgba(35, 124, 243, 0.18);
+    color: #fff;
+    cursor: pointer;
+    transition: background 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.sadd-login-submit:hover {
+    background: #126ce0;
+    box-shadow: 0 14px 25px rgba(35, 124, 243, 0.25);
+    transform: translateY(-1px);
+}
+
+.sadd-login-submit:focus-visible,
+.sadd-login-signup:focus-visible,
+.sadd-social-button:focus-visible {
+    outline: 3px solid rgba(35, 124, 243, 0.28);
+    outline-offset: 3px;
+}
+
+.sadd-login-signup {
+    border: 1.5px solid #1477f8;
+    background: #fff;
+    color: #1477f8;
+}
+
+.sadd-login-signup:disabled,
+.sadd-social-button:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.sadd-login-social {
+    margin-top: 2.8rem;
+}
+
+.sadd-login-social > p {
+    margin: 0 0 1.65rem;
+    color: #5f6c7a;
+    font-family: Arial, sans-serif;
+    font-size: 0.92rem;
+    font-weight: 400;
+}
+
+.sadd-login-social-list {
+    display: flex;
+    justify-content: space-around;
+    gap: 1.25rem;
+    padding-inline: 1.5rem;
+}
+
+.sadd-social-button {
+    width: 4.65rem;
+    height: 4.65rem;
+    flex: 0 0 4.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 5px 16px rgba(32, 56, 84, 0.13);
+    font-family: Arial, sans-serif;
+    font-size: 2.35rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.sadd-social-facebook,
+.sadd-social-linkedin {
+    color: #1675e8;
+}
+
+.sadd-social-linkedin {
+    padding-top: 0.35rem;
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+.sadd-social-google {
+    color: #4285f4;
+}
+
+@media (max-width: 1400px) {
+    .sadd-login-panel {
+        --sadd-login-form-width: clamp(350px, 26vw, 400px);
+    }
+
+    .sadd-login-form {
+        margin-top: 1.5rem;
+    }
+
+    .sadd-login-social {
+        margin-top: 2.2rem;
+    }
+
+    .sadd-social-button {
+        width: 4rem;
+        height: 4rem;
+        flex-basis: 4rem;
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 900px) {
+    body.controller-auth.action-login {
+        background: #eff9f5;
+    }
+
+    .sadd-login-page {
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background:
+            linear-gradient(rgba(239, 249, 245, 0.92), rgba(239, 249, 245, 0.96)),
+            url("../../images/auth/login.webp") left center / auto 90% no-repeat;
+    }
+
+    .sadd-login-art {
+        display: none;
+    }
+
+    .sadd-login-panel {
+        width: min(100%, 430px);
+        min-height: auto;
+        margin: 0;
+        padding: 2rem;
+        border-radius: 1.5rem;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 24px 65px rgba(31, 55, 82, 0.16);
+    }
+
+    .sadd-login-form {
+        margin: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .sadd-login-page {
+        padding: 0;
+        background: #fff;
+    }
+
+    .sadd-login-panel {
+        width: 100%;
+        min-height: 100vh;
+        padding: 2.2rem 1.25rem;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .sadd-login-heading {
+        margin-bottom: 1.6rem;
+    }
+
+    .sadd-login-actions {
+        gap: 0.75rem;
+    }
+
+    .sadd-login-social-list {
+        padding-inline: 0.75rem;
+    }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+    .sadd-login-panel {
+        padding-block: 1.25rem;
+    }
+
+    .sadd-login-form {
+        margin-top: 0;
+        transform: scale(0.9);
+        transform-origin: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sadd-login-input,
+    .sadd-login-submit {
+        transition: none;
+    }
+}

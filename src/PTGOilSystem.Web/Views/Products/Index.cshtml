@@ -8,6 +8,12 @@
     var unitItems = ViewBag.Units as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var selectedUnitId = ViewData["unitId"]?.ToString();
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var activeCount = items.Count(item => item.IsActive);
+    var secondaryUnitCount = items.Count(item => item.SecondaryUnitId.HasValue);
+    var categoryCount = items.Select(item => item.Category)
+        .Where(category => !string.IsNullOrWhiteSpace(category))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Count();
 }
 
 <div class="ak-list-page">
@@ -16,6 +22,13 @@
                        UiText.T(Context, "جنس جدید", "New product"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار اجناس", "Product statistics")">
+        <vc:stat-card title="@UiText.T(Context, "تعداد اجناس", "Products")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "جنس", "products")" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "اجناس فعال", "Active products")" value="@activeCount.ToString("N0")" unit="@UiText.T(Context, "جنس", "products")" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "دارای واحد ثانویه", "With secondary unit")" value="@secondaryUnitCount.ToString("N0")" unit="@UiText.T(Context, "جنس", "products")" avatar="purchase-quantity"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "دسته‌های ثبت‌شده", "Categories")" value="@categoryCount.ToString("N0")" unit="@UiText.T(Context, "دسته", "categories")" avatar="purchase-requests"></vc:stat-card>
+    </section>
 
     @{
         var productUnitOptions = (unitItems ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())

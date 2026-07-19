@@ -28,6 +28,10 @@ public sealed class ShipmentExpenseDisplayRow
     public string? Description { get; init; }
     public decimal AmountUsd { get; init; }
     public bool IsCustoms { get; init; }
+    /// <summary>ستون ساخت‌یافتهٔ ExpenseType.Category از دیتابیس (Transport/Storage/…).</summary>
+    public string? ExpenseTypeCategory { get; init; }
+    /// <summary>دستهٔ نمایشی واحد — منبع مشترک KPI و جدول‌های صفحهٔ پروندهٔ محموله.</summary>
+    public ShipmentExpenseCategory Category => ShipmentExpenseCategorizer.Categorize(this);
     public IReadOnlyList<ShipmentContractBreakdownLine> ContractBreakdownLines { get; init; } = [];
 }
 
@@ -182,6 +186,9 @@ public static class ShipmentPnlDisplayGrouping
                         "مصرف تخصیص‌یافته بین چند قرارداد"),
                     AmountUsd = RoundMoney(ordered.Sum(expense => expense.AmountUsd)),
                     IsCustoms = ordered.All(expense => expense.IsCustoms),
+                    ExpenseTypeCategory = ordered
+                        .Select(expense => expense.ExpenseTypeCategory)
+                        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)),
                     ContractBreakdownLines = breakdown
                 };
             })

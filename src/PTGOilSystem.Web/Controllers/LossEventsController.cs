@@ -15,7 +15,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class LossEventsController : Controller
+public partial class LossEventsController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IStockService _stock;
@@ -52,6 +52,7 @@ public class LossEventsController : Controller
     public async Task<IActionResult> Index([FromQuery] LossEventIndexFilterViewModel? filter = null, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         filter ??= new LossEventIndexFilterViewModel();
         await PopulateLookupsAsync(filter: filter);
 
@@ -83,8 +84,8 @@ public class LossEventsController : Controller
         var items = await query
             .OrderByDescending(e => e.EventDate)
             .ThenByDescending(e => e.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(e => new LossEventListItemViewModel
             {
                 Id = e.Id,

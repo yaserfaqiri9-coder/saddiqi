@@ -7,45 +7,33 @@ namespace PTGOilSystem.Web.Services.Accounting;
 public interface IChartOfAccountsReadService
 {
     Task<ChartOfAccountsIndexViewModel> BuildAsync(
-        int? companyId,
         string? search,
         int page,
         CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// فهرست فقط‌خواندنی سرفصل حساب‌ها. منبع Query فقط DbSet حساب‌های هسته جدید است.
+/// فهرست فقط‌خواندنیِ سرفصل حساب‌ها. همیشه فقط حساب‌های شرکتِ مالک را نشان می‌دهد؛ انتخابِ شرکت از
+/// کاربر گرفته نمی‌شود. اگر هنوز مالکی تعیین نشده باشد، فهرست خالی با پیام مناسب برمی‌گردد.
 /// </summary>
-public sealed class ChartOfAccountsReadService(ApplicationDbContext db) : IChartOfAccountsReadService
+public sealed class ChartOfAccountsReadService(
+    ApplicationDbContext db,
+    ISystemCompanyProvider systemCompany) : IChartOfAccountsReadService
 {
     private const int PageSize = 20;
 
     public async Task<ChartOfAccountsIndexViewModel> BuildAsync(
-        int? companyId,
         string? search,
         int page,
         CancellationToken cancellationToken = default)
     {
-        var companyIds = await db.Accounts.AsNoTracking()
-            .Select(account => account.CompanyId)
-            .Distinct()
-            .OrderBy(id => id)
-            .ToListAsync(cancellationToken);
-
-        var selectedCompanyId = companyId is int requested && companyIds.Contains(requested)
-            ? requested
-            : companyIds.Select(id => (int?)id).FirstOrDefault();
-
-        var companies = companyIds
-            .Select(id => new ChartOfAccountsCompanyOption(id, id == selectedCompanyId))
-            .ToList();
-
         var normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-        if (selectedCompanyId is null)
+        var ownerCompanyId = await systemCompany.FindOwnerCompanyIdAsync(cancellationToken);
+
+        if (ownerCompanyId is null)
         {
             return new ChartOfAccountsIndexViewModel(
-                companies,
-                null,
+                OwnerCompanyId: null,
                 normalizedSearch,
                 [],
                 CurrentPage: 1,
@@ -55,7 +43,7 @@ public sealed class ChartOfAccountsReadService(ApplicationDbContext db) : IChart
         }
 
         var query = db.Accounts.AsNoTracking()
-            .Where(account => account.CompanyId == selectedCompanyId.Value);
+            .Where(account => account.CompanyId == ownerCompanyId.Value);
 
         if (normalizedSearch is not null)
         {
@@ -93,8 +81,7 @@ public sealed class ChartOfAccountsReadService(ApplicationDbContext db) : IChart
             .ToListAsync(cancellationToken);
 
         return new ChartOfAccountsIndexViewModel(
-            companies,
-            selectedCompanyId,
+            ownerCompanyId.Value,
             normalizedSearch,
             items,
             currentPage,

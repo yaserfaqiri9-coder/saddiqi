@@ -1,0 +1,249 @@
+@model PTGOilSystem.Web.Models.PartyStatements.PartyStatementViewModel
+@using PTGOilSystem.Web.Models.PartyStatements
+@{
+    var s = Model.Statement;
+    var c = s.ColumnOptions;
+    var baseCurrency = s.Summary.BaseCurrencyCode;
+    ViewData["Title"] = s.Policy.StatementTitleFa;
+    ViewData["HideSectionTabs"] = true;
+    var routeValues = new Dictionary<string, string?>
+    {
+        ["FromDate"] = s.DocumentInfo.PeriodFrom?.ToString("yyyy-MM-dd"),
+        ["ToDate"] = s.DocumentInfo.PeriodTo?.ToString("yyyy-MM-dd"),
+        ["ContractId"] = Context.Request.Query["ContractId"],
+        ["CompanyId"] = Context.Request.Query["CompanyId"],
+        ["CurrencyCode"] = Context.Request.Query["CurrencyCode"],
+        ["IncludeOperationalColumns"] = Context.Request.Query["IncludeOperationalColumns"]
+    };
+    var csvUrl = Url.Action("Csv", "PartyStatements", new
+    {
+        partyType = s.Party.PartyType,
+        id = s.Party.PartyId,
+        FromDate = routeValues["FromDate"],
+        ToDate = routeValues["ToDate"],
+        ContractId = routeValues["ContractId"],
+        CompanyId = routeValues["CompanyId"],
+        CurrencyCode = routeValues["CurrencyCode"],
+        IncludeOperationalColumns = routeValues["IncludeOperationalColumns"]
+    });
+
+    string Amount(decimal? value) => value.HasValue ? value.Value.ToString("N2") : "–";
+    string OptionalAmount(decimal? value, int decimals = 2) => value.HasValue ? value.Value.ToString($"N{decimals}") : "–";
+    string Contact(string? value) => string.IsNullOrWhiteSpace(value) ? "–" : value;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ptg/62-party-statement.css" asp-append-version="true" />
+}
+
+<div class="statement-screen-tools no-print" dir="rtl">
+    <form method="get" class="statement-filter-bar">
+        <label>
+            <span>از تاریخ</span>
+            <input type="date" name="FromDate" value="@Context.Request.Query["FromDate"]" />
+        </label>
+        <label>
+            <span>تا تاریخ</span>
+            <input type="date" name="ToDate" value="@Context.Request.Query["ToDate"]" />
+        </label>
+        <label>
+            <span>قرارداد</span>
+            <input type="number" min="1" name="ContractId" value="@Context.Request.Query["ContractId"]" placeholder="اختیاری" />
+        </label>
+        <label>
+            <span>شرکت</span>
+            <input type="number" min="1" name="CompanyId" value="@Context.Request.Query["CompanyId"]" placeholder="اختیاری" />
+        </label>
+        <label>
+            <span>ارز</span>
+            <input type="text" maxlength="10" name="CurrencyCode" value="@Context.Request.Query["CurrencyCode"]" placeholder="USD / RUB / AED" />
+        </label>
+        <label>
+            <span>ستون‌های نفتی</span>
+            <select name="IncludeOperationalColumns">
+                <option value="true" selected="@(Model.Filter.IncludeOperationalColumns)">نمایش</option>
+                <option value="false" selected="@(!Model.Filter.IncludeOperationalColumns)">مخفی</option>
+            </select>
+        </label>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> تطبیق</button>
+        <a class="btn btn-outline-secondary" href="@csvUrl"><i class="bi bi-filetype-csv"></i> CSV</a>
+        <button type="button" class="btn btn-outline-dark" data-statement-print><i class="bi bi-file-earmark-pdf"></i> چاپ / PDF</button>
+    </form>
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger mt-2 mb-0" role="alert">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div>@error.ErrorMessage</div>
+            }
+        </div>
+    }
+</div>
+
+<article class="statement-document @(c.UseLandscape ? "is-landscape" : "is-portrait")" dir="rtl" data-statement-auto-print="@(Model.IsPrintMode ? "true" : "false")">
+    <header class="statement-brand-header">
+        <div class="statement-brand-identity">
+            <img src="@s.CompanyInfo.LogoPath" alt="@s.CompanyInfo.Name" class="statement-logo" />
+            <div>
+                <strong>@s.CompanyInfo.Name</strong>
+                <span>@s.CompanyInfo.Subtitle</span>
+            </div>
+        </div>
+        <address class="statement-company-contact">
+            <strong>@s.CompanyInfo.Name</strong>
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Address)) { <span><i class="bi bi-geo-alt"></i>@s.CompanyInfo.Address</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Phone)) { <span><i class="bi bi-telephone"></i>@s.CompanyInfo.Phone</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Email)) { <span><i class="bi bi-envelope"></i>@s.CompanyInfo.Email</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Website)) { <span><i class="bi bi-globe2"></i>@s.CompanyInfo.Website</span> }
+        </address>
+    </header>
+
+    <div class="statement-brand-rule" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <section class="statement-title-row">
+        <div>
+            <h1>@s.Policy.StatementTitleFa</h1>
+            <p>@s.Policy.StatementTitleEn</p>
+        </div>
+        <p class="statement-courtesy">@s.CourtesyText</p>
+    </section>
+
+    <section class="statement-info-grid">
+        <div class="statement-info-block">
+            <h2><i class="bi bi-person"></i>@s.Policy.PartyInformationTitleFa</h2>
+            <dl>
+                <div><dt>نام</dt><dd>@s.PartyInfo.Name</dd></div>
+                <div><dt>شماره حساب / کد</dt><dd>@Contact(s.PartyInfo.Code)</dd></div>
+                <div><dt>تلفن</dt><dd>@Contact(s.PartyInfo.Phone)</dd></div>
+                @if (!string.IsNullOrWhiteSpace(s.PartyInfo.Email)) { <div><dt>ایمیل</dt><dd>@s.PartyInfo.Email</dd></div> }
+                <div><dt>آدرس</dt><dd>@Contact(s.PartyInfo.Address)</dd></div>
+            </dl>
+        </div>
+        <div class="statement-info-block is-document-info">
+            <h2><i class="bi bi-file-earmark-text"></i>اطلاعات صورت‌حساب</h2>
+            <dl>
+                <div><dt>شماره</dt><dd class="statement-ltr">@s.DocumentInfo.StatementNumber</dd></div>
+                <div><dt>تاریخ</dt><dd>@s.DocumentInfo.StatementDate.ToString("yyyy/MM/dd")</dd></div>
+                <div><dt>دوره</dt><dd>@(s.DocumentInfo.PeriodFrom?.ToString("yyyy/MM/dd") ?? "ابتدای حساب") تا @(s.DocumentInfo.PeriodTo?.ToString("yyyy/MM/dd") ?? "امروز")</dd></div>
+                <div><dt>ارز مبنا</dt><dd>@s.DocumentInfo.BaseCurrencyCode</dd></div>
+                <div><dt>نوع حساب</dt><dd>@s.Policy.AccountTypeFa</dd></div>
+            </dl>
+        </div>
+    </section>
+
+    <section class="statement-summary" aria-label="خلاصه مالی">
+        <div class="statement-summary-item is-opening">
+            <span class="statement-summary-icon"><i class="bi bi-wallet2"></i></span>
+            <span class="statement-summary-copy"><small>مانده ابتدایی</small><strong>@Amount(s.Summary.OpeningBalance) <em>@baseCurrency</em></strong></span>
+        </div>
+        <div class="statement-summary-item is-debit">
+            <span class="statement-summary-icon"><i class="bi bi-arrow-down"></i></span>
+            <span class="statement-summary-copy"><small>مجموع بدهکار</small><strong>@Amount(s.Summary.TotalDebit) <em>@baseCurrency</em></strong></span>
+        </div>
+        <div class="statement-summary-item is-credit">
+            <span class="statement-summary-icon"><i class="bi bi-arrow-up"></i></span>
+            <span class="statement-summary-copy"><small>مجموع بستانکار</small><strong>@Amount(s.Summary.TotalCredit) <em>@baseCurrency</em></strong></span>
+        </div>
+        <div class="statement-summary-item is-closing">
+            <span class="statement-summary-icon"><i class="bi bi-balance-scale"></i></span>
+            <span class="statement-summary-copy">
+                <small>مانده نهایی</small>
+                <strong>@Amount(s.Summary.ClosingBalanceAbsolute) <em>@baseCurrency</em></strong>
+                <span>@s.Summary.ClosingBalanceMeaning</span>
+            </span>
+        </div>
+    </section>
+
+    <div class="statement-table-wrap">
+        <table class="statement-table">
+            <thead>
+                <tr>
+                    <th class="statement-col-no">شماره</th>
+                    <th class="statement-col-date">تاریخ</th>
+                    <th class="statement-col-ref">مرجع</th>
+                    <th class="statement-col-description">شرح</th>
+                    @if (c.ShowRub) { <th>روبل</th> }
+                    @if (c.ShowAed) { <th>AED</th> }
+                    @if (c.ShowOriginalAmount) { <th>مبلغ اصلی</th><th>ارز</th> }
+                    @if (c.ShowFxRate) { <th>نرخ تبدیل</th> }
+                    @if (c.ShowQuantity) { <th>M‑Tone</th> }
+                    @if (c.ShowPlatts) { <th>Platts</th> }
+                    @if (c.ShowPremiumOrDiscount) { <th>Premium / Discount</th> }
+                    @if (c.ShowUnitPrice) { <th>نرخ واحد</th> }
+                    <th title="@s.Policy.DebitMeaningFa">بدهکار (@baseCurrency)</th>
+                    <th title="@s.Policy.CreditMeaningFa">بستانکار (@baseCurrency)</th>
+                    <th>مانده (@baseCurrency)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (s.Rows.Count == 0)
+                {
+                    <tr><td colspan="30" class="statement-empty">در این دوره تراکنشی ثبت نشده است.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in s.Rows)
+                    {
+                        <tr class="@(row.IsOpeningBalance ? "is-opening-row" : null)">
+                            <td class="statement-num">@(row.IsOpeningBalance ? "–" : row.Sequence)</td>
+                            <td class="statement-date">@row.Date.ToString("yyyy/MM/dd")</td>
+                            <td class="statement-ref">@(row.Reference ?? "–")</td>
+                            <td class="statement-description">@row.Description</td>
+                            @if (c.ShowRub) { <td class="statement-money">@(row.OriginalCurrency == "RUB" ? OptionalAmount(row.OriginalAmount, 2) : "–")</td> }
+                            @if (c.ShowAed) { <td class="statement-money">@(row.OriginalCurrency == "AED" ? OptionalAmount(row.OriginalAmount, 2) : "–")</td> }
+                            @if (c.ShowOriginalAmount) { <td class="statement-money">@(row.OriginalCurrency is not "USD" and not "RUB" and not "AED" ? OptionalAmount(row.OriginalAmount, 2) : "–")</td><td>@(row.OriginalCurrency is not "USD" and not "RUB" and not "AED" ? row.OriginalCurrency : "–")</td> }
+                            @if (c.ShowFxRate) { <td class="statement-fx">@(row.OriginalCurrency == "USD" ? "–" : row.FxRateDisplay ?? "نرخ ثبت نشده")</td> }
+                            @if (c.ShowQuantity) { <td class="statement-money">@OptionalAmount(row.Quantity, 3)</td> }
+                            @if (c.ShowPlatts) { <td class="statement-money">@OptionalAmount(row.PlattsPrice)</td> }
+                            @if (c.ShowPremiumOrDiscount) { <td class="statement-money">@OptionalAmount(row.PremiumOrDiscount)</td> }
+                            @if (c.ShowUnitPrice) { <td class="statement-money">@OptionalAmount(row.UnitPrice)</td> }
+                            <td class="statement-money statement-debit">@Amount(row.DebitBase)</td>
+                            <td class="statement-money statement-credit">@Amount(row.CreditBase)</td>
+                            <td class="statement-money statement-balance">@Amount(row.RunningBalance)</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="@(4 + (c.ShowRub ? 1 : 0) + (c.ShowAed ? 1 : 0) + (c.ShowOriginalAmount ? 2 : 0) + (c.ShowFxRate ? 1 : 0) + (c.ShowQuantity ? 1 : 0) + (c.ShowPlatts ? 1 : 0) + (c.ShowPremiumOrDiscount ? 1 : 0) + (c.ShowUnitPrice ? 1 : 0))">مجموع دوره</th>
+                    <th class="statement-money">@Amount(s.Summary.TotalDebit)</th>
+                    <th class="statement-money">@Amount(s.Summary.TotalCredit)</th>
+                    <th class="statement-money">@Amount(s.Summary.ClosingBalance)</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <section class="statement-closing-grid">
+        <div class="statement-note">
+            <h2>یادداشت</h2>
+            <p>@s.Note</p>
+        </div>
+        <div class="statement-authorization">
+            <h2>تأیید بخش مالی</h2>
+            @if (!string.IsNullOrWhiteSpace(s.Authorization.SignatureImagePath))
+            {
+                <img src="@s.Authorization.SignatureImagePath" alt="امضای رسمی" />
+            }
+            <span class="statement-signature-line"></span>
+            <strong>@(string.IsNullOrWhiteSpace(s.Authorization.AuthorizedByName) ? "نام و امضای مسئول" : s.Authorization.AuthorizedByName)</strong>
+            @if (!string.IsNullOrWhiteSpace(s.Authorization.AuthorizedByTitle)) { <small>@s.Authorization.AuthorizedByTitle</small> }
+        </div>
+    </section>
+
+    <footer class="statement-footer">
+        <strong>@s.CompanyInfo.Name</strong>
+        <p>
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Address)) { <span>@s.CompanyInfo.Address</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Phone)) { <span>@s.CompanyInfo.Phone</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Email)) { <span>@s.CompanyInfo.Email</span> }
+            @if (!string.IsNullOrWhiteSpace(s.CompanyInfo.Website)) { <span>@s.CompanyInfo.Website</span> }
+        </p>
+        <small>تولید: @s.DocumentInfo.GeneratedAtUtc.ToString("yyyy/MM/dd HH:mm") UTC</small>
+    </footer>
+</article>
+
+@section Scripts {
+    <script src="~/js/party-statement.js" asp-append-version="true"></script>
+}

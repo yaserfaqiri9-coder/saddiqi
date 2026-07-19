@@ -2,9 +2,12 @@
 @{
     ViewData["Title"] = "جزئیات استیتمنت";
     ViewData["HideSectionTabs"] = true;
+    ViewData["AkHeaderStatus"] = Model.SideName;
+    ViewData["AkHeaderStatusState"] = "is-active";
+    ViewData["AkHeaderContext"] = $"{Model.SourceCurrencyCode} · {Model.EntryDate.ToDisplayDate()}";
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"استیتمنت دو ارزی #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -13,7 +16,7 @@
     <div class="ak-stat-grid" aria-label="آمار استیتمنت">
         <vc:stat-card title="مبلغ منبع" value="@Model.SourceAmount.ToString("N2")" unit="@Model.SourceCurrencyCode" avatar="payments"></vc:stat-card>
         <vc:stat-card title="مبلغ USD" value="@Model.AmountUsd.ToString("N2")" unit="USD" avatar="receivables"></vc:stat-card>
-        <vc:stat-card title="Running balance" value="@Model.RunningBalanceUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
+        <vc:stat-card title="مانده جاری" value="@Model.RunningBalanceUsd.ToString("N2")" unit="USD" avatar="profit-loss"></vc:stat-card>
     </div>
 
     <div class="ak-form-grid">
@@ -23,20 +26,20 @@
                 <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.EntryDate.ToDisplayDate()</dd></div>
                 <div class="ak-list-row"><dt>سمت</dt><dd>@Model.SideName</dd></div>
                 <div class="ak-list-row"><dt>مبلغ منبع</dt><dd class="ak-num">@Model.SourceAmount.ToString("N2") @Model.SourceCurrencyCode</dd></div>
-                <div class="ak-list-row"><dt>نرخ FX به USD</dt><dd class="ak-num">@Model.AppliedFxRateToUsd.ToString("N6")</dd></div>
+                <div class="ak-list-row"><dt>نرخ ارز به دالر</dt><dd class="ak-num">@Model.AppliedFxRateToUsd.ToString("N6")</dd></div>
                 <div class="ak-list-row"><dt>تاریخ نرخ</dt><dd>@(Model.AppliedFxRateDate?.ToDisplayDate() ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>مبلغ USD</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
-                <div class="ak-list-row"><dt>Running balance</dt><dd class="ak-num @(Model.RunningBalanceUsd >= 0 ?"ak-num" : "ak-num")">@Model.RunningBalanceUsd.ToString("N2") USD</dd></div>
+                <div class="ak-list-row"><dt>مانده جاری</dt><dd class="ak-num">@Model.RunningBalanceUsd.ToString("N2") USD</dd></div>
             </dl>
         </section>
 
         <section class="ak-form-section ak-detail-section">
-            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("Trace", (string?)null))" />
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی سند", (string?)null))" />
             <dl class="ak-list">
-                <div class="ak-list-row"><dt>SourceType</dt><dd>@Model.SourceType</dd></div>
-                <div class="ak-list-row"><dt>SourceId</dt><dd class="ak-num">#@Model.SourceId</dd></div>
+                <div class="ak-list-row"><dt>نوع منبع</dt><dd>@UiText.LedgerSource(Context, Model.SourceType)</dd></div>
+                <div class="ak-list-row"><dt>شناسه منبع</dt><dd class="ak-num">#@Model.SourceId</dd></div>
                 <div class="ak-list-row"><dt>مرجع</dt><dd>@(Model.Reference ?? "-")</dd></div>
-                <div class="ak-list-row"><dt>FX trace</dt><dd>@(Model.AppliedFxRateSource ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>منبع نرخ ارز</dt><dd>@(Model.AppliedFxRateSource ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>قرارداد</dt><dd>@(Model.ContractNumber ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>مشتری</dt><dd>@(Model.CustomerName ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>تأمین‌کننده</dt><dd>@(Model.SupplierName ?? "-")</dd></div>

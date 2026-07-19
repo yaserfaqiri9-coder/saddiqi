@@ -10,8 +10,7 @@
                        "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
 
     <div class="ak-page-actions">
-        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
-        <a asp-action="OpenContractsCsv" class="btn btn-light">Export CSV</a>
+        <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("OpenContractsExport"))" />
     </div>
 
     <p class="ak-note">Remaining برابر است با Contract Quantity منهای بیشترین مقدار ثبت‌شده در loading، receipt و sales.</p>

@@ -24,7 +24,7 @@
         {
             <details class="finance-more-actions">
                 <summary>عملیات بیشتر</summary>
-                <a asp-controller="ReopenFiscalYear" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                <a asp-controller="ReopenFiscalYear" asp-action="Index" asp-route-fiscalYearId="@fiscalYearId">
                     بازگشایی کنترل‌شده سال بسته
                 </a>
                 <small>فقط برای مدیر دارای مجوز صریح؛ آثار بستن با سند برگشت رسمی برگردانده می‌شود.</small>
@@ -39,7 +39,7 @@
             <li class="@css">
                 @if (step.Number == 1)
                 {
-                    <a asp-controller="FiscalYears" asp-action="Index" asp-route-companyId="@companyId">
+                    <a asp-controller="FiscalYears" asp-action="Index">
                         <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
                     </a>
                 }
@@ -51,19 +51,19 @@
                 }
                 else if (step.Number == 4)
                 {
-                    <a asp-controller="ClosingChecklist" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                    <a asp-controller="ClosingChecklist" asp-action="Index" asp-route-fiscalYearId="@fiscalYearId">
                         <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
                     </a>
                 }
                 else if (step.Number == 5)
                 {
-                    <a asp-controller="TrialClose" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                    <a asp-controller="TrialClose" asp-action="Index" asp-route-fiscalYearId="@fiscalYearId">
                         <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
                     </a>
                 }
                 else
                 {
-                    <a asp-controller="FinalClose" asp-action="Index" asp-route-companyId="@companyId" asp-route-fiscalYearId="@fiscalYearId">
+                    <a asp-controller="FinalClose" asp-action="Index" asp-route-fiscalYearId="@fiscalYearId">
                         <span>@step.Number</span><strong>@step.Title</strong><small>@step.Hint</small>
                     </a>
                 }

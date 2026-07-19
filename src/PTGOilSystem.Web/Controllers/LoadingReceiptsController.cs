@@ -20,7 +20,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class LoadingReceiptsController : Controller
+public partial class LoadingReceiptsController : Controller
 {
     private const int MixedAllocationEditorRows = 4;
     private const decimal QuantityPrecisionUnit = 0.0001m;
@@ -239,6 +239,7 @@ public class LoadingReceiptsController : Controller
     public async Task<IActionResult> Index(string? q = null, DateTime? fromDate = null, DateTime? toDate = null, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         var normalizedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         var query = _db.LoadingReceipts
@@ -279,8 +280,8 @@ public class LoadingReceiptsController : Controller
         var items = await query
             .OrderByDescending(receipt => receipt.ReceiptDate)
             .ThenByDescending(receipt => receipt.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(receipt => new LoadingReceiptIndexItemViewModel
             {
                 Id = receipt.Id,
@@ -1157,6 +1158,58 @@ public class LoadingReceiptsController : Controller
         var receiptShortageLossMt = await GetCommittedReceiptShortageQuantityMtAsync(loadingRegisterId);
 
         return new LoadingReceiptQuantitySnapshot(receivedQuantityMt, receiptShortageLossMt);
+    }
+
+    private async Task<Dictionary<int, LoadingRegister>> LockLoadingRegistersAsync(IReadOnlyCollection<int> loadingRegisterIds)
+    {
+        if (loadingRegisterIds.Count == 0)
+        {
+            return new Dictionary<int, LoadingRegister>();
+        }
+
+        // ترتیب صعودی شناسه برای جلوگیری از بن‌بست هنگام قفل هم‌زمان چند بارگیری.
+        var orderedIds = loadingRegisterIds.Distinct().OrderBy(id => id).ToArray();
+
+        if (_db.Database.IsRelational()
+            && string.Equals(_db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.Ordinal))
+        {
+            var lockedRows = await _db.LoadingRegisters
+                .FromSqlInterpolated($@"SELECT * FROM ""LoadingRegisters"" WHERE ""Id"" = ANY({orderedIds}) ORDER BY ""Id"" FOR UPDATE")
+                .AsNoTracking()
+                .ToListAsync();
+            return lockedRows.ToDictionary(l => l.Id);
+        }
+
+        return await _db.LoadingRegisters
+            .AsNoTracking()
+            .Where(l => orderedIds.Contains(l.Id))
+            .ToDictionaryAsync(l => l.Id);
+    }
+
+    private async Task<Dictionary<int, LoadingReceiptQuantitySnapshot>> GetCommittedReceiptQuantitySnapshotsAsync(
+        IReadOnlyCollection<int> loadingRegisterIds)
+    {
+        if (loadingRegisterIds.Count == 0)
+        {
+            return new Dictionary<int, LoadingReceiptQuantitySnapshot>();
+        }
+
+        var receivedByLoadingId = await _db.LoadingReceipts
+            .AsNoTracking()
+            .Where(r => loadingRegisterIds.Contains(r.LoadingRegisterId))
+            .GroupBy(r => r.LoadingRegisterId)
+            .Select(g => new { LoadingRegisterId = g.Key, ReceivedQuantityMt = g.Sum(r => r.ReceivedQuantityMt) })
+            .ToDictionaryAsync(g => g.LoadingRegisterId, g => g.ReceivedQuantityMt);
+
+        var shortageByLoadingId = await GetCommittedReceiptShortageQuantityByLoadingIdAsync(loadingRegisterIds);
+
+        return loadingRegisterIds
+            .Distinct()
+            .ToDictionary(
+                id => id,
+                id => new LoadingReceiptQuantitySnapshot(
+                    receivedByLoadingId.GetValueOrDefault(id),
+                    shortageByLoadingId.GetValueOrDefault(id)));
     }
 
     private async Task<decimal> GetCommittedReceiptShortageQuantityMtAsync(int loadingRegisterId)
@@ -2136,17 +2189,27 @@ public class LoadingReceiptsController : Controller
 
             try
             {
+                // قفل و خواندن مقادیر ثبت‌شده به‌صورت دسته‌ای انجام می‌شود تا به‌ازای هر بارگیری
+                // چند رفت‌وبرگشت جداگانه به دیتابیس نداشته باشیم.
+                var lockedLoadingsById = await LockLoadingRegistersAsync(selectedLoadingIds);
+                var committedSnapshotsByLoadingId = await GetCommittedReceiptQuantitySnapshotsAsync(
+                    lockedLoadingsById.Values
+                        .Where(l => l.ContractId == model.ContractId)
+                        .Select(l => l.Id)
+                        .ToList());
+
                 var lockedOpenLoadings = new List<BulkReceiptOpenLoading>();
                 foreach (var loadingId in selectedLoadingIds)
                 {
-                    var lockedLoading = await LockLoadingRegisterAsync(loadingId);
-                    if (lockedLoading is null || lockedLoading.ContractId != model.ContractId)
+                    if (!lockedLoadingsById.TryGetValue(loadingId, out var lockedLoading)
+                        || lockedLoading.ContractId != model.ContractId)
                     {
                         ModelState.AddModelError(nameof(model.LoadingRegisterIds), "یک یا چند بارگیری انتخاب‌شده در زمان ثبت قابل تایید نبود.");
                         continue;
                     }
 
-                    var committedQuantities = await GetCommittedReceiptQuantitySnapshotAsync(lockedLoading.Id);
+                    var committedQuantities = committedSnapshotsByLoadingId.GetValueOrDefault(lockedLoading.Id)
+                        ?? new LoadingReceiptQuantitySnapshot(0m, 0m);
                     var remainingQuantityMt = Math.Max(lockedLoading.LoadedQuantityMt - committedQuantities.AccountedQuantityMt, 0m);
                     if (remainingQuantityMt > 0m)
                     {
@@ -2351,6 +2414,9 @@ public class LoadingReceiptsController : Controller
                             .ToDictionary(a => a.OpenLoading.Loading.Id, a => a.QuantityMt);
                     }
 
+                    // ساخت تمام درخواست‌ها و سپس یک فراخوانی گروهی، تا تعداد SaveChanges
+                    // مستقل از تعداد بارگیری‌ها ثابت بماند.
+                    var lossSubmissions = new List<LossEventSubmission>(lossAllocations.Count);
                     foreach (var lossAllocation in lossAllocations)
                     {
                         var loading = lossAllocation.OpenLoading.Loading;
@@ -2365,7 +2431,7 @@ public class LoadingReceiptsController : Controller
                                 $"Bulk receipt shortage allocation. Selected total loss: {requestedLossMt:N4} MT."
                             }.Where(note => !string.IsNullOrWhiteSpace(note))));
 
-                        await _lossWorkflow.CreateAsync(new LossEventSubmission
+                        lossSubmissions.Add(new LossEventSubmission
                         {
                             Stage = LossEventStage.ReceiptShortage,
                             ProductId = loading.ProductId,
@@ -2383,8 +2449,10 @@ public class LoadingReceiptsController : Controller
                             Reference = lossReference,
                             Notes = lossNotes
                         });
-                        createdLossEventCount++;
                     }
+
+                    var lossResults = await _lossWorkflow.CreateBatchAsync(lossSubmissions);
+                    createdLossEventCount = lossResults.Count;
                 }
 
                 await _db.SaveChangesAsync();

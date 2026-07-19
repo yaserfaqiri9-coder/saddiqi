@@ -1,4 +1,5 @@
 @model Driver
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] = "جزئیات راننده";
     ViewData["HideSectionTabs"] = true;
@@ -10,25 +11,36 @@
     var hasLedger = ViewData["DriverHasLedger"] as bool? ?? false;
     var freightCreditUsd = ViewData["DriverFreightCreditUsd"] as decimal? ?? 0m;
     var shortageDebitUsd = ViewData["DriverShortageDebitUsd"] as decimal? ?? 0m;
-    var netOwedUsd = ViewData["DriverNetOwedUsd"] as decimal? ?? 0m;
+    var officialSummary = ViewData["PartyStatementSummary"] as PTGOilSystem.Web.Models.PartyStatements.PartyStatementSummary;
+    var netOwedUsd = officialSummary?.ClosingBalance ?? (ViewData["DriverNetOwedUsd"] as decimal? ?? 0m);
+    var netOwedMeaning = officialSummary?.ClosingBalanceMeaning
+        ?? (netOwedUsd >= 0m ? "بدهی ما به راننده" : "بدهی راننده به ما");
 
-    var tripsUrl = Url.Action("Details", new { id = Model.Id, tab = "trips" }) ?? "#";
-    var docsUrl = Url.Action("Details", new { id = Model.Id, tab = "docs" }) ?? "#";
-    var infoUrl = Url.Action("Details", new { id = Model.Id, tab = "info" }) ?? "#";
     var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
     var indexUrl = Url.Action("Index") ?? "#";
+    var statementUrl = Url.Action("Driver", "PartyStatements", new { id = Model.Id }) ?? "#";
+    ViewData["AkHeaderStatus"] = Model.IsActive ? "فعال" : "غیرفعال";
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = $"{code} · {netOwedMeaning}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = "ویرایش مشخصات", Href = editUrl, Icon = "bi-pencil" }
+    };
+    var driverTabs = new[]
+    {
+        $"trips|سوابق سفرها|bi-truck|{(activeTab == "trips" ? "active" : "")}",
+        $"docs|اسناد و مدارک|bi-folder2-open|{(activeTab == "docs" ? "active" : "")}",
+        $"info|مشخصات پایه|bi-card-text|{(activeTab == "info" ? "active" : "")}"
+    };
 }
 
-<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.FullName, false,
-                       "ویرایش مشخصات", "bi-pencil", editUrl, (string?)null,
+                       "صورت‌حساب رسمی", "bi-file-earmark-text", statementUrl, (string?)null,
                        "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
-        <span class="ak-note">@code</span>
-    </div>
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل راننده", driverTabs)" />
 
     @* ===== وضعیت حساب / سوابق (تخت) ===== *@
     <section class="ak-form-section ak-detail-section">
@@ -43,17 +55,10 @@
                 {
                     <div class="ak-list-row"><dt>بدهی خسارت کسری</dt><dd class="ak-num">@shortageDebitUsd.ToString("N2") USD</dd></div>
                 }
-                <div class="ak-list-row"><dt>ماندهٔ خالص</dt><dd class="ak-num @(netOwedUsd >= 0m ?"ak-num" : "ak-num")">@Math.Abs(netOwedUsd).ToString("N2") USD — @(netOwedUsd >= 0m ? "بدهی ما به راننده" : "بدهی راننده به ما")</dd></div>
+                <div class="ak-list-row"><dt>ماندهٔ خالص</dt><dd class="ak-num @(netOwedUsd >= 0m ?"ak-num" : "ak-num")">@Math.Abs(netOwedUsd).ToString("N2") USD — @netOwedMeaning</dd></div>
             }
         </dl>
     </section>
-
-    @* ===== ریل تب‌های ناوبری سروری (canonical ptg-tabs-rail) ===== *@
-    <nav class="ptg-tabs-rail ak-detail-tabs" role="tablist" aria-label="بخش‌های پروفایل راننده">
-        <a class="ptg-tab-item @(activeTab =="trips" ? "is-active" : "")" href="@tripsUrl" role="tab" aria-selected="@(activeTab == "trips" ? "true" : "false")"><span data-tab-label="سوابق سفرها">سوابق سفرها</span></a>
-        <a class="ptg-tab-item @(activeTab =="docs" ? "is-active" : "")" href="@docsUrl" role="tab" aria-selected="@(activeTab == "docs" ? "true" : "false")"><span data-tab-label="اسناد و مدارک">اسناد و مدارک</span></a>
-        <a class="ptg-tab-item @(activeTab =="info" ? "is-active" : "")" href="@infoUrl" role="tab" aria-selected="@(activeTab == "info" ? "true" : "false")"><span data-tab-label="مشخصات پایه">مشخصات پایه</span></a>
-    </nav>
 
     @if (activeTab == "docs")
     {

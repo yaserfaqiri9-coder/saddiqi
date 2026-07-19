@@ -16,54 +16,45 @@
     var relationStatus = isLinked ? T("وصل شده", "Linked") : T("مستقل", "Standalone");
     var providerText = Model.ServiceProviderName ?? Model.OperationalAssetName ?? "-";
 
+    ViewData["AkHeaderStatus"] = ledgerStatus;
+    ViewData["AkHeaderStatusState"] = ledgerRecorded ? "is-active" : "is-warning";
+    ViewData["AkHeaderContext"] = $"{Model.ExpenseTypeName} · {providerText} · {Model.ExpenseDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), Icon = "bi-pencil-square" },
+        new() { Label = T("مصرف جدید", "New expense"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("مصرف ثبت شد", "Expense recorded"), Date = Model.ExpenseDate.ToDisplayDate(), Icon = "bi-receipt", State = ledgerRecorded ? null : "is-current", Meta = $"{Model.AmountUsd:N2} USD" }
+    };
+    var relatedRecords = new List<AkRelatedRecord>();
+    if (!string.IsNullOrWhiteSpace(Model.ContractNumber)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, Icon = "bi-file-earmark-text" });
+    if (!string.IsNullOrWhiteSpace(Model.ShipmentCode)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("محموله", "Shipment"), Label = Model.ShipmentCode, Icon = "bi-box-seam" });
+    if (Model.ServiceProviderId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("شرکت خدماتی", "Service provider"), Label = Model.ServiceProviderName ?? $"#{Model.ServiceProviderId.Value}", Href = Url.Action("Details", "ServiceProviders", new { id = Model.ServiceProviderId.Value, returnUrl = currentReturnUrl }), Icon = "bi-building" });
+    if (Model.OperationalAssetId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("دارایی عملیاتی", "Operational asset"), Label = Model.OperationalAssetName ?? $"#{Model.OperationalAssetId.Value}", Href = Url.Action("Details", "OperationalAssets", new { id = Model.OperationalAssetId.Value, returnUrl = currentReturnUrl }), Icon = "bi-truck" });
+    if (Model.LedgerEntryId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("سند دفتر کل", "Ledger entry"), Label = $"#{Model.LedgerEntryId.Value}", KeyValue = $"{Model.AmountUsd:N2} USD", Icon = "bi-journal-text" });
+    var nextActions = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("مصرف جدید", "New expense"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+
     ViewData["Title"] = T("جزئیات مصرف", "Expense Details");
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات مصرف", "Expense details") + $" #{Model.Id}", false,
-                       T("ویرایش", "Edit"), "bi-pencil-square",
-                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), (string?)null,
+                       T("مصرف جدید", "New expense"), "bi-plus-lg",
+                       Url.Action("Create", new { returnUrl = backUrl }), (string?)null,
                        T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @(ledgerRecorded ?"is-active" : "is-inactive")">@ledgerStatus</span>
-        <div class="dropdown ak-row-menu">
-            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="@T("عملیات", "Actions")">
-                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="@(Url.Action("Create", new { returnUrl = backUrl }) ?? "#")"><i class="bi bi-plus-lg"></i> @T("مصرف جدید", "New expense")</a></li>
-                @if (Model.ExpenseBatchId.HasValue)
-                {
-                    <li><a class="dropdown-item" asp-action="GroupDetails" asp-route-id="@Model.ExpenseBatchId"><i class="bi bi-collection"></i> @T("مصرف گروهی", "Group expense")</a></li>
-                }
-            </ul>
-        </div>
-    </div>
-
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-label">@T("تاریخ مصرف", "Expense date")</span>
-            <strong>@Model.ExpenseDate.ToDisplayDate()</strong>
-            <span class="ak-section-desc">@T("نوع مصرف", "Expense type"): @Model.ExpenseTypeName</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("مبلغ", "Amount") (USD)</span>
-            <strong class="ak-num">@Model.AmountUsd.ToString("N2")</strong>
-            <span class="ak-section-desc">@T("سند", "Document"): @Model.Amount.ToString("N2") @Model.Currency</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("طرف حساب", "Party")</span>
-            <strong>@providerText</strong>
-            <span class="ak-section-desc">@T("ارتباط", "Relation"): @relationStatus</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("دفتر کل", "Ledger")</span>
-            <span class="ak-status @(ledgerRecorded ?"is-active" : "is-inactive")">@ledgerStatus</span>
-            <span class="ak-section-desc">@T("مرجع", "Reference"): @(Model.LedgerReference ?? "-")</span>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های مصرف", "Expense metrics")">
+        <vc:stat-card title="@T("مبلغ سند", "Document amount")" value="@Model.Amount.ToString("N2")" unit="@Model.Currency" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@T("معادل دالر", "USD equivalent")" value="@Model.AmountUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="@T("نرخ تبدیل", "FX rate")" value="@(Model.AppliedFxRateToUsd?.ToString("N6") ?? "-")" unit="" avatar="exchange-rate"></vc:stat-card>
+        <vc:stat-card title="@T("وضعیت دفتر", "Ledger status")" value="@ledgerStatus" unit="" avatar="ledger"></vc:stat-card>
     </section>
 
     <div class="ak-form-grid">
@@ -74,7 +65,7 @@
                 <div class="ak-list-row"><dt>@T("تاریخ مصرف", "Expense date")</dt><dd>@Model.ExpenseDate.ToDisplayDate()</dd></div>
                 <div class="ak-list-row"><dt>@T("نوع مصرف", "Expense type")</dt><dd>@Model.ExpenseTypeName</dd></div>
                 <div class="ak-list-row"><dt>@T("قرارداد", "Contract")</dt><dd>@(Model.ContractNumber ?? "-")</dd></div>
-                <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>محموله</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("ارسال با موتر", "Truck send")</dt><dd>@(Model.TruckDispatchLabel ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("جریان حمل بار", "Cargo flow")</dt><dd>@(Model.TransportLegLabel ?? "-")</dd></div>
                 @if (Model.ExpenseBatchId.HasValue)
@@ -144,4 +135,17 @@
             </dl>
         </section>
     </div>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="expense-timeline-title">
+        <h2 class="ak-section-title" id="expense-timeline-title">@T("روند سند", "Document timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+    @if (relatedRecords.Count > 0)
+    {
+        <section class="ak-form-section ak-detail-section" aria-labelledby="expense-related-title">
+            <h2 class="ak-section-title" id="expense-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+            <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+        </section>
+    }
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 </div>

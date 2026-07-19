@@ -306,7 +306,7 @@ public sealed class SupplierPaymentAllocationAccountingAdapterTests(AccountingPo
         });
         return new SupplierPaymentAllocationAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             options,
             NullLogger<SupplierPaymentAllocationAccountingAdapter>.Instance);
@@ -347,8 +347,11 @@ public sealed class SupplierPaymentAllocationAccountingAdapterTests(AccountingPo
             Code = Unique("C"),
             Name = Unique("Company"),
             Country = "AF",
-            IsActive = true
+            IsActive = true,
+            IsSystemOwner = true
         };
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Companies\" SET \"IsSystemOwner\" = FALSE WHERE \"IsSystemOwner\" = TRUE");
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 

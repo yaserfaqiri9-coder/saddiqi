@@ -7,13 +7,33 @@
         if (ViewData["TabsPrimary"] is bool tp) { tabsPrimary = tp; }
         else { bool.TryParse(ViewData["TabsPrimary"]?.ToString() ?? "false", out tabsPrimary); }
     }
+
+    string BuildServerTabHref(string tabKey)
+    {
+        var queryParts = new List<string>();
+        foreach (var pair in Context.Request.Query)
+        {
+            if (string.Equals(pair.Key, "tab", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (var value in pair.Value)
+            {
+                queryParts.Add($"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(value ?? string.Empty)}");
+            }
+        }
+
+        queryParts.Add($"tab={Uri.EscapeDataString(tabKey)}");
+        return $"{Context.Request.Path}?{string.Join("&", queryParts)}";
+    }
 }
 
 @if (tabs.Length > 0)
 {
     @* Text-only rail, per the canonical tab skin in 16-system-tabs.css.
        The icon segment of each descriptor is still accepted but not rendered. *@
-    <nav class="ptg-tabs-rail" role="tablist" aria-label="@Model.AriaLabel" data-details-tabs>
+    <nav class="ptg-tabs-rail ak-detail-tabs" role="tablist" aria-label="@Model.AriaLabel" data-details-tabs>
         @foreach (var tab in tabs)
         {
             var parts = tab.Split('|', 4);
@@ -22,14 +42,17 @@
                 continue;
             }
 
-            var href = parts[0];
+            var descriptor = parts[0];
             var label = parts[1];
             var active = parts.Length > 3 && string.Equals(parts[3], "active", StringComparison.OrdinalIgnoreCase);
 
             var classes = "ptg-tab-item" + (active ? " is-active" : "");
-            var controlId = href?.StartsWith("#") == true ? href.Substring(1) : null;
+            var isServerTab = !descriptor.StartsWith("#", StringComparison.Ordinal);
+            var href = isServerTab ? BuildServerTabHref(descriptor) : descriptor;
+            var controlId = isServerTab ? null : descriptor.Substring(1);
 
-            <a class="@classes" href="@href" role="tab" aria-controls="@controlId" aria-selected="@(active ? "true" : "false")">
+            <a class="@classes" href="@href" role="tab" aria-controls="@controlId"
+               aria-selected="@(active ? "true" : "false")" aria-current="@(active ? "page" : null)">
                 <span data-tab-label="@label">@label</span>
             </a>
         }

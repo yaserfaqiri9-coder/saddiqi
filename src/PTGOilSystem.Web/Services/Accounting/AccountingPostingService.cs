@@ -21,7 +21,8 @@ public interface IAccountingPostingService
 public sealed class AccountingPostingService(
     ApplicationDbContext db,
     IPeriodGuard periodGuard,
-    IOptions<AccountingOptions> options) : IAccountingPostingService
+    IOptions<AccountingOptions> options,
+    ISystemCompanyProvider systemCompany) : IAccountingPostingService
 {
     private readonly AccountingOptions _options = options.Value;
 
@@ -99,6 +100,7 @@ public sealed class AccountingPostingService(
     {
         EnsureEnabled();
         ValidateRequestShape(request);
+        await EnsureOwnerCompanyAsync(request.CompanyId, cancellationToken);
 
         var selection = await periodGuard.EnsurePostingAllowedAsync(
             request.CompanyId,
@@ -195,6 +197,24 @@ public sealed class AccountingPostingService(
         {
             if (transaction is not null)
                 await transaction.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// گاردِ مرکزیِ مالک (Fail-Closed): هیچ سندی نباید به دفترِ شرکتی جز شرکتِ مالک بنشیند. چون همهٔ
+    /// حساب‌ها، تنظیمات، سال و دورهٔ همین سند در ادامه با <c>request.CompanyId</c> اعتبارسنجی می‌شوند،
+    /// تطبیقِ همین یک شناسه با مالک، کلِ سند را به شرکتِ مالک مقید می‌کند. اگر مالک صفر یا بیش از یک
+    /// باشد، <see cref="ISystemCompanyProvider.GetOwnerCompanyIdAsync"/> با خطای پیکربندیِ واضح کلِ
+    /// عملیات را متوقف می‌کند — گارد هرگز ساکت نمی‌ماند.
+    /// </summary>
+    private async Task EnsureOwnerCompanyAsync(int companyId, CancellationToken cancellationToken)
+    {
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        if (companyId != ownerCompanyId)
+        {
+            throw new AccountingValidationException(
+                "COMPANY_NOT_OWNER",
+                "The journal company is not the system owner company.");
         }
     }
 

@@ -87,6 +87,12 @@ public partial class AccountStatementsController : Controller
                 l.SourceId,
                 l.Reference,
                 l.Description,
+                l.ContractId,
+                l.CustomerId,
+                l.SupplierId,
+                l.ServiceProviderId,
+                l.DriverId,
+                l.EmployeeId,
                 ContractNumber = l.Contract != null ? l.Contract.ContractNumber : null,
                 CustomerName = l.Customer != null ? l.Customer.Name : null,
                 SupplierName = l.Supplier != null ? l.Supplier.Name : null
@@ -98,7 +104,15 @@ public partial class AccountStatementsController : Controller
             return NotFound();
         }
 
-        var runningBalance = await CalculateRunningBalanceAtAsync(entry.EntryDate, entry.Id);
+        var runningBalance = await CalculateRunningBalanceAtAsync(
+            entry.EntryDate,
+            entry.Id,
+            entry.ContractId,
+            entry.CustomerId,
+            entry.SupplierId,
+            entry.ServiceProviderId,
+            entry.DriverId,
+            entry.EmployeeId);
 
         return View(new AccountStatementDetailsViewModel
         {
@@ -826,10 +840,30 @@ public partial class AccountStatementsController : Controller
         return query;
     }
 
-    private async Task<decimal> CalculateRunningBalanceAtAsync(DateTime entryDate, int entryId)
-        => await SumSignedAmountAsync(_db.LedgerEntries
+    private async Task<decimal> CalculateRunningBalanceAtAsync(
+        DateTime entryDate,
+        int entryId,
+        int? contractId,
+        int? customerId,
+        int? supplierId,
+        int? serviceProviderId,
+        int? driverId,
+        int? employeeId)
+    {
+        var query = _db.LedgerEntries
             .AsNoTracking()
-            .Where(l => l.EntryDate < entryDate || (l.EntryDate == entryDate && l.Id <= entryId)));
+            .Where(l => l.EntryDate < entryDate || (l.EntryDate == entryDate && l.Id <= entryId));
+
+        query = customerId.HasValue ? query.Where(l => l.CustomerId == customerId.Value)
+            : supplierId.HasValue ? query.Where(l => l.SupplierId == supplierId.Value)
+            : serviceProviderId.HasValue ? query.Where(l => l.ServiceProviderId == serviceProviderId.Value)
+            : driverId.HasValue ? query.Where(l => l.DriverId == driverId.Value)
+            : employeeId.HasValue ? query.Where(l => l.EmployeeId == employeeId.Value)
+            : contractId.HasValue ? query.Where(l => l.ContractId == contractId.Value)
+            : query.Where(l => l.Id == entryId);
+
+        return await SumSignedAmountAsync(query);
+    }
 
     private static async Task<decimal> SumSignedAmountAsync(IQueryable<LedgerEntry> query)
         => await query.SumAsync(l => (decimal?)(l.Side == LedgerSide.Credit ? l.AmountUsd : -l.AmountUsd)) ?? 0m;

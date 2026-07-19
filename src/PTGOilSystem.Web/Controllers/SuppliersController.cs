@@ -10,27 +10,32 @@ using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Audit;
 using PTGOilSystem.Web.Services.DeleteSafety;
+using PTGOilSystem.Web.Services.PartyStatements;
+using PTGOilSystem.Web.Models.PartyStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class SuppliersController : Controller
+public partial class SuppliersController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IAuditService _audit;
     private readonly MasterDataDeleteSafetyService _deleteSafety;
     private readonly IPurchaseAggregationService _purchaseAggregation;
+    private readonly IPartyStatementReadService? _partyStatements;
 
     public SuppliersController(
         ApplicationDbContext db,
         IAuditService audit,
         MasterDataDeleteSafetyService deleteSafety,
-        IPurchaseAggregationService? purchaseAggregation = null)
+        IPurchaseAggregationService? purchaseAggregation = null,
+        IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
         _audit = audit;
         _deleteSafety = deleteSafety;
         _purchaseAggregation = purchaseAggregation ?? new PurchaseAggregationService(db);
+        _partyStatements = partyStatements;
     }
 
     public async Task<IActionResult> Index(string? q, int page = 1)
@@ -82,6 +87,15 @@ public class SuppliersController : Controller
     {
         var item = await BuildSupplierProfileAsync(id, contractId, tab);
         if (item == null) return NotFound();
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.Supplier, id),
+                new PartyStatementFilter { ContractId = contractId, IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
 
         return View(item);
     }
@@ -521,7 +535,7 @@ public class SuppliersController : Controller
         decimal? GetSarrafReductionRubForDisplay(SupplierSarrafSettlementProjection settlement)
             => sarrafLedgerExactRubBySettlementId.TryGetValue(settlement.Id, out var ledgerRub) && ledgerRub.HasValue
                 ? ledgerRub.Value
-                : GetSarrafSupplierReductionRub(settlement);
+                : GetSarrafSupplierReductionRub(settlement) ?? GetSettlementRubFallbackFromContractLoadings(settlement);
 
         var ledgerByContract = ledgers
             .Where(l => l.ContractId.HasValue)
@@ -996,7 +1010,10 @@ public class SuppliersController : Controller
                 sarrafSettlements
                     .Where(s => s.Status == SarrafSettlementStatus.Posted)
                     .ToDictionary(s => s.Id, GetSettlementRubForDisplay)),
-            PaymentLines = paymentLineRows
+            PaymentLines = paymentLineRows,
+            UnallocatedPaymentTotalUsd = paymentLineRows
+                .Where(p => string.IsNullOrWhiteSpace(p.ContractNumber))
+                .Sum(p => p.AmountUsd)
         };
     }
 

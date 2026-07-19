@@ -37,7 +37,7 @@
     }));
 }
 
-<div class="ak-form-page" dir="rtl" data-transfer-mode="batch">
+<div class="ak-form-page ak-group-operation-page" dir="rtl" data-transfer-mode="batch">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("انتقال از موجودی", "Inventory Transfer"), false,
                        isShipmentSelection
@@ -245,7 +245,6 @@
 
         <footer class="ak-footer-actions no-print">
             <button type="submit" class="btn ak-primary-action"><i class="bi bi-check2-circle"></i>@T("ثبت انتقال", "Save transfer")</button>
-            <button type="button" class="btn ak-secondary-action is-outline" data-print-list><i class="bi bi-printer"></i>@T("ثبت و چاپ لیست", "Save and print list")</button>
             <a href="@cancelUrl" class="btn ak-secondary-action is-neutral">@T("انصراف", "Cancel")</a>
         </footer>
     </form>
@@ -411,8 +410,6 @@
                     status.textContent = 'امکان خواندن clipboard نبود. ردیف‌ها را مستقیم در جدول وارد کنید.';
                 }
             });
-            form.querySelector('[data-print-list]')?.addEventListener('click', () => window.print());
-
             bindRows();
             refresh();
         })();

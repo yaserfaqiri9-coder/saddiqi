@@ -721,6 +721,9 @@ namespace PTGOilSystem.Web.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsSystemOwner")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -744,6 +747,10 @@ namespace PTGOilSystem.Web.Migrations
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("IsSystemOwner")
+                        .IsUnique()
+                        .HasFilter("\"IsSystemOwner\" = true");
 
                     b.ToTable("Companies");
                 });

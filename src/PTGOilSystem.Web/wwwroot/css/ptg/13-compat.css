@@ -477,6 +477,35 @@ body.boltz-shell .loading-expense-editor.is-modal .loading-expense-actions {
     padding-top: .55rem;
 }
 
+/* Group-expense modal (پرونده محموله › تب مصارف): keep the header and every
+ * expense entry on ONE row (8 columns) instead of the default 2-column wrap. */
+body.boltz-shell [data-loading-expense-editor] .ak-form-grid {
+    grid-template-columns:
+        minmax(130px, 1.6fr) /* نوع مصرف */
+        minmax(104px, 1fr)   /* روش محاسبه */
+        minmax(72px, .8fr)   /* مقدار */
+        minmax(72px, .8fr)   /* نرخ فی تن */
+        minmax(84px, .9fr)   /* مبلغ کل */
+        minmax(116px, 1fr)   /* طرف حساب */
+        minmax(120px, 1.4fr) /* انتخاب طرف */
+        auto;                /* حذف */
+    column-gap: 12px;
+    row-gap: 6px;
+    align-items: end;
+}
+body.boltz-shell [data-loading-expense-editor] .ak-form-grid > span {
+    font-size: .74rem;
+    font-weight: 700;
+    color: #424242;
+}
+
+/* The expense modal body uses .ak-modal-body (not Bootstrap's .modal-body), so
+ * the modal-dialog-scrollable overflow rule never reaches it → allow it to scroll. */
+body.boltz-shell [data-loading-expense-remote-modal] .ak-modal-body {
+    min-height: 0;
+    overflow-y: auto;
+}
+
 /* Shared section heading retained for grouped operational forms. */
 .boltz-shell .section-title-row {
     display: flex;

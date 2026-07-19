@@ -66,7 +66,7 @@
     var createPostUrl = Url.Action("Create", "Loading");
 }
 
-<div class="ak-form-page loading-import-workbook" data-loading-create-page>
+<div class="ak-form-page ak-form-page--wide loading-import-workbook" data-loading-create-page>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "ثبت بارگیری", "Loading Registration"), false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
@@ -236,8 +236,8 @@
         <div class="ak-footer-actions" data-loading-footer-actions>
             <span class="lic-footer-count">کل: <strong data-lic-count-total>0</strong> ردیف · <span class="lic-count-err">خطا: <strong data-lic-count-error>0</strong></span></span>
             <button type="submit" class="ak-save">ذخیره</button>
-            <button type="button" class="ak-form-secondary-action" id="excelFilePickBtn"><i class="bi bi-file-earmark-excel"></i> بارگذاری اکسل</button>
-            <button type="button" class="ak-form-secondary-action d-none" id="excelImportBtn"><i class="bi bi-check2"></i> وارد کردن</button>
+            <button type="button" class="btn btn-light ak-secondary-action" id="excelFilePickBtn"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> بارگذاری اکسل</button>
+            <button type="button" class="btn btn-primary ak-primary-action d-none" id="excelImportBtn"><i class="bi bi-check2" aria-hidden="true"></i> وارد کردن</button>
             <span id="excelFileName" class="ak-note d-none"></span>
             <button type="reset" class="ak-cancel" data-loading-reset>بازنشانی</button>
             <a href="@cancelUrl" class="ak-cancel">لغو</a>
@@ -261,6 +261,26 @@
             <option value="@opt.Text"></option>
         }
     </datalist>
+
+    @{
+        var logisticsProviderCatalog = ViewBag.LogisticsServiceProviders as IReadOnlyList<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? Array.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+        var operationalAssetCatalog = ViewBag.LoadingOperationalAssets as IReadOnlyList<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? Array.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+    }
+    @* Single copy of the transport lists. Row selects start with only their own value and
+       are filled from here when the user opens them, so row count no longer multiplies
+       the option count. Kept outside the form so they never post. *@
+    <select id="loading-provider-catalog" class="d-none" aria-hidden="true" tabindex="-1" disabled>
+        @foreach (var opt in logisticsProviderCatalog)
+        {
+            <option value="@opt.Value">@opt.Text</option>
+        }
+    </select>
+    <select id="loading-asset-catalog" class="d-none" aria-hidden="true" tabindex="-1" disabled>
+        @foreach (var opt in operationalAssetCatalog)
+        {
+            <option value="@opt.Value">@opt.Text</option>
+        }
+    </select>
 
     <template id="loading-row-template">
         @await Html.PartialAsync("_LoadingRowEditor", new LoadingCreateRowEditorViewModel
@@ -669,11 +689,55 @@
                 return providerSelect && providerSelect.value ? 'free' : '';
             }
 
-            function replaceLogisticsItemOptions(itemSelect, sourceSelect, mode, selectedValue) {
+            // The full provider/asset lists are rendered once per page. Rows only carry their
+            // own selected option until the user opens the select, which keeps an imported
+            // sheet of thousands of rows from creating an option element per row per company.
+            const providerCatalog = document.getElementById('loading-provider-catalog');
+            const assetCatalog = document.getElementById('loading-asset-catalog');
+
+            function catalogFor(mode) {
+                return mode === 'owned' ? assetCatalog : mode === 'free' ? providerCatalog : null;
+            }
+
+            // A trimmed select cannot take a value whose option is absent, and the assignment
+            // fails silently, so the option is recreated before the value is written.
+            function ensureOption(select, value, text) {
+                if (!select || !value) {
+                    return;
+                }
+
+                if (Array.from(select.options).some(option => option.value === value)) {
+                    return;
+                }
+
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text || value;
+                select.appendChild(option);
+            }
+
+            function optionTextFor(mode, value) {
+                const catalog = catalogFor(mode);
+                if (!catalog || !value) {
+                    return '';
+                }
+
+                const match = Array.from(catalog.options).find(option => option.value === value);
+                return match ? match.textContent : '';
+            }
+
+            // Fills a row's visible select from the catalogue. Runs once per row, on first use.
+            function hydrateLogisticsItemOptions(itemSelect, mode) {
                 if (!itemSelect) {
                     return;
                 }
 
+                const catalog = catalogFor(mode);
+                if (!catalog || itemSelect.dataset.hydratedMode === mode) {
+                    return;
+                }
+
+                const selectedValue = itemSelect.value;
                 itemSelect.replaceChildren();
 
                 const placeholder = document.createElement('option');
@@ -681,13 +745,7 @@
                 placeholder.textContent = '';
                 itemSelect.appendChild(placeholder);
 
-                if (!mode || !sourceSelect) {
-                    itemSelect.value = '';
-                    itemSelect.disabled = true;
-                    return;
-                }
-
-                Array.from(sourceSelect.options)
+                Array.from(catalog.options)
                     .filter(option => option.value)
                     .forEach(option => {
                         const itemOption = document.createElement('option');
@@ -696,10 +754,51 @@
                         itemSelect.appendChild(itemOption);
                     });
 
-                itemSelect.disabled = false;
+                itemSelect.dataset.hydratedMode = mode;
                 itemSelect.value = Array.from(itemSelect.options).some(option => option.value === selectedValue)
                     ? selectedValue
                     : '';
+            }
+
+            function replaceLogisticsItemOptions(itemSelect, mode, selectedValue) {
+                if (!itemSelect) {
+                    return;
+                }
+
+                if (!mode) {
+                    itemSelect.replaceChildren();
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = '';
+                    itemSelect.appendChild(placeholder);
+                    delete itemSelect.dataset.hydratedMode;
+                    itemSelect.value = '';
+                    itemSelect.disabled = true;
+                    return;
+                }
+
+                itemSelect.disabled = false;
+
+                // Already-open lists stay complete; untouched rows keep just their own value.
+                if (itemSelect.dataset.hydratedMode === mode) {
+                    itemSelect.value = Array.from(itemSelect.options).some(option => option.value === selectedValue)
+                        ? selectedValue
+                        : '';
+                    return;
+                }
+
+                if (itemSelect.dataset.hydratedMode) {
+                    // Mode switched: the stale list belongs to the other catalogue.
+                    itemSelect.replaceChildren();
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = '';
+                    itemSelect.appendChild(placeholder);
+                    delete itemSelect.dataset.hydratedMode;
+                }
+
+                ensureOption(itemSelect, selectedValue, optionTextFor(mode, selectedValue));
+                itemSelect.value = selectedValue || '';
             }
 
             function syncRowLogisticsMode(row) {
@@ -710,10 +809,10 @@
                 const mode = getRowLogisticsMode(row);
                 const previousMode = row.dataset.logisticsMode || '';
                 const modeChanged = !!previousMode && previousMode !== mode;
-                const sourceSelect = mode === 'owned' ? assetSelect : mode === 'free' ? providerSelect : null;
-                const selectedValue = modeChanged ? '' : (itemSelect?.value || sourceSelect?.value || '');
+                const rowSourceSelect = mode === 'owned' ? assetSelect : mode === 'free' ? providerSelect : null;
+                const selectedValue = modeChanged ? '' : (itemSelect?.value || rowSourceSelect?.value || '');
 
-                replaceLogisticsItemOptions(itemSelect, sourceSelect, mode, selectedValue);
+                replaceLogisticsItemOptions(itemSelect, mode, selectedValue);
                 if (itemField) {
                     itemField.hidden = !mode;
                 }
@@ -734,14 +833,23 @@
                 }
 
                 const activeValue = itemSelect?.value || '';
+                const activeText = activeValue ? optionTextFor(mode, activeValue) : '';
 
                 if (providerSelect) {
                     providerSelect.disabled = mode !== 'free';
+                    if (mode === 'free') {
+                        ensureOption(providerSelect, activeValue, activeText);
+                    }
+
                     providerSelect.value = mode === 'free' ? activeValue : '';
                 }
 
                 if (assetSelect) {
                     assetSelect.disabled = mode !== 'owned';
+                    if (mode === 'owned') {
+                        ensureOption(assetSelect, activeValue, activeText);
+                    }
+
                     assetSelect.value = mode === 'owned' ? activeValue : '';
                 }
 
@@ -1612,6 +1720,22 @@
                 updateAllRows();
             });
 
+            // Fill a row's transport list the moment the user reaches for it. Capture phase so
+            // the options exist before the browser opens the dropdown.
+            ['pointerdown', 'focusin'].forEach(eventName => {
+                rowsHost.addEventListener(eventName, event => {
+                    const itemSelect = event.target.closest('[data-row-logistics-display]');
+                    if (!itemSelect) {
+                        return;
+                    }
+
+                    const row = itemSelect.closest('[data-loading-row]');
+                    if (row) {
+                        hydrateLogisticsItemOptions(itemSelect, getRowLogisticsMode(row));
+                    }
+                }, true);
+            });
+
             rowsHost.addEventListener('input', event => {
                 const row = event.target.closest('[data-loading-row]');
                 if (!row) {
@@ -1667,7 +1791,11 @@
             });
 
             updateAllRows();
-            refreshContractPricing();
+            refreshContractPricing().finally(() => {
+                // Pricing can populate imported rows after the preview status has already
+                // rendered. Notify the preview once those programmatic values are final.
+                window.setTimeout(() => document.dispatchEvent(new CustomEvent('loading:rows-refreshed')), 0);
+            });
             applyFreightVisibility();
         })();
     </script>
@@ -1707,12 +1835,23 @@
                 return el ? (el.value || '') : '';
             }
 
-            function rowIsValid(row) {
+            function rowStatus(row) {
                 const qtyEl = row.querySelector('[data-row-quantity]');
                 const priceEl = row.querySelector('[data-row-loading-price]');
-                const qty = qtyEl ? Number.parseFloat((qtyEl.value || '').replace(/,/g, '')) : NaN;
-                const price = priceEl ? Number.parseFloat((priceEl.value || '').replace(/,/g, '')) : NaN;
-                return Number.isFinite(qty) && qty > 0 && Number.isFinite(price) && price > 0;
+                const qtyText = (qtyEl?.value || '').trim();
+                const priceText = (priceEl?.value || '').trim();
+
+                // A fresh untouched row is neutral, not an error. It becomes invalid only
+                // after one of the two required numeric fields has been started.
+                if (!qtyText && !priceText) {
+                    return 'empty';
+                }
+
+                const qty = Number.parseFloat(qtyText.replace(/,/g, ''));
+                const price = Number.parseFloat(priceText.replace(/,/g, ''));
+                return Number.isFinite(qty) && qty > 0 && Number.isFinite(price) && price > 0
+                    ? 'valid'
+                    : 'error';
             }
 
             function rowMatchesSearch(row, term) {
@@ -1741,19 +1880,24 @@
 
                 let total = 0;
                 let valid = 0;
+                let errors = 0;
                 const visible = [];
 
                 all.forEach(row => {
                     total += 1;
-                    const isValid = rowIsValid(row);
+                    const status = rowStatus(row);
+                    const isValid = status === 'valid';
                     if (isValid) {
                         valid += 1;
                     }
-                    row.classList.toggle('lic-row-error', !isValid);
+                    if (status === 'error') {
+                        errors += 1;
+                    }
+                    row.classList.toggle('lic-row-error', status === 'error');
 
                     const passStatus = filter === 'all'
                         || (filter === 'valid' && isValid)
-                        || (filter === 'error' && !isValid);
+                        || (filter === 'error' && status === 'error');
                     if (passStatus && rowMatchesSearch(row, term)) {
                         visible.push(row);
                     }
@@ -1761,7 +1905,7 @@
 
                 countTotalEls.forEach(el => { el.textContent = total; });
                 countValidEls.forEach(el => { el.textContent = valid; });
-                countErrorEls.forEach(el => { el.textContent = total - valid; });
+                countErrorEls.forEach(el => { el.textContent = errors; });
 
                 const size = pageSize();
                 const pageCount = Math.max(1, Math.ceil(visible.length / size));
@@ -1810,6 +1954,7 @@
             // react to rows added or removed by the existing row controls.
             host.addEventListener('input', () => scheduleRender(false));
             host.addEventListener('change', () => scheduleRender(false));
+            document.addEventListener('loading:rows-refreshed', () => scheduleRender(false));
             let addObserverPending = false;
             const observer = new MutationObserver(mutations => {
                 const added = mutations.some(m => m.addedNodes.length > 0);

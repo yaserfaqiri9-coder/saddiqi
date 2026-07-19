@@ -10,43 +10,77 @@
 @section Styles {
     <link rel="stylesheet" href="@(isEn ? Url.Content("~/vendor/bootstrap/css/bootstrap.min.css") : Url.Content("~/vendor/bootstrap/css/bootstrap.rtl.min.css"))" />
     <link rel="stylesheet" href="~/vendor/fonts/vazirmatn/vazirmatn.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/ptg/01-tokens.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/ptg/50-ak-components.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ptg/90-auth-login.css" asp-append-version="true" />
 }
 
-<div class="ak-form-page container py-5">
-    <partial name="Components/Ak/_AkPageHeader"
-             model='((T("ورود به سیستم", "Sign In"), false, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null, (string?)null))' />
+<div class="sadd-login-page" dir="@(isEn ? "ltr" : "rtl")">
+    <div class="sadd-login-art" aria-hidden="true">
+        <img src="~/images/auth/login.webp" alt="" />
+    </div>
 
-    <form asp-action="Login" method="post" class="ak-form" novalidate>
-        @Html.AntiForgeryToken()
-        <input asp-for="ReturnUrl" type="hidden" />
+    <main class="sadd-login-panel">
+        <form asp-action="Login" method="post" class="sadd-login-form" novalidate>
+            @Html.AntiForgeryToken()
+            <input asp-for="ReturnUrl" type="hidden" />
 
-        <div asp-validation-summary="ModelOnly" class="ak-form-alert text-danger"></div>
+            <header class="sadd-login-heading">
+                <h1>@T("خوش آمدید!", "Welcome!")</h1>
+                <p>@T("وارد حساب کاربری خود شوید", "Sign in to your Account")</p>
+            </header>
 
-        <section class="ak-form-section">
-            <partial name="Components/Ak/_AkSectionHead"
-                     model='((T("اطلاعات ورود", "Account credentials"), T("نام کاربری و رمز عبور خود را وارد کنید.", "Enter your username and password.")))' />
+            <div asp-validation-summary="ModelOnly" class="sadd-login-alert" role="alert"></div>
 
-            <div class="ak-form-grid">
-                <div class="ak-field ak-col-full">
-                    <label asp-for="Username" class="ak-label">@T("نام کاربری", "Username")</label>
-                    <input asp-for="Username" class="ak-input" autocomplete="username" />
-                    <span asp-validation-for="Username" class="ak-field-error"></span>
-                </div>
+            <div class="sadd-login-field">
+                <label asp-for="Username" class="visually-hidden">@T("نام کاربری", "Username")</label>
+                <span class="sadd-login-field-icon" aria-hidden="true">@@</span>
+                <input asp-for="Username"
+                       class="sadd-login-input"
+                       autocomplete="username"
+                       autocapitalize="none"
+                       spellcheck="false"
+                       placeholder="@T("نام کاربری", "Username")" />
+                <span asp-validation-for="Username" class="sadd-login-error"></span>
+            </div>
 
-                <div class="ak-field ak-col-full">
-                    <label asp-for="Password" class="ak-label">@T("رمز عبور", "Password")</label>
-                    <input asp-for="Password" class="ak-input" autocomplete="current-password" />
-                    <span asp-validation-for="Password" class="ak-field-error"></span>
+            <div class="sadd-login-field">
+                <label asp-for="Password" class="visually-hidden">@T("رمز عبور", "Password")</label>
+                <span class="sadd-login-field-icon sadd-login-lock" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v8H6v-8a2 2 0 0 1 2-2Z" />
+                    </svg>
+                </span>
+                <input asp-for="Password"
+                       class="sadd-login-input"
+                       autocomplete="current-password"
+                       placeholder="@T("رمز عبور", "Password")" />
+                <span asp-validation-for="Password" class="sadd-login-error"></span>
+            </div>
+
+            <details class="sadd-login-help">
+                <summary>@T("رمز عبور را فراموش کرده‌اید؟", "Forgot Password?")</summary>
+                <p>@T("برای تنظیم مجدد رمز عبور با مدیر سیستم تماس بگیرید.", "Contact the system administrator to reset your password.")</p>
+            </details>
+
+            <div class="sadd-login-actions">
+                <button type="submit" class="sadd-login-submit">@T("ورود", "SIGN IN")</button>
+                <button type="button"
+                        class="sadd-login-signup"
+                        disabled
+                        title="@T("ثبت‌نام عمومی در این سیستم فعال نیست.", "Public sign-up is not enabled for this system.")">
+                    @T("ثبت‌نام", "SIGN UP")
+                </button>
+            </div>
+
+            <div class="sadd-login-social" aria-label="@T("ورودهای غیرفعال", "Unavailable social sign-ins")">
+                <p>@T("یا ورود با", "OR LOGIN WITH")</p>
+                <div class="sadd-login-social-list">
+                    <button type="button" class="sadd-social-button sadd-social-facebook" disabled aria-label="Facebook">f</button>
+                    <button type="button" class="sadd-social-button sadd-social-google" disabled aria-label="Google">G</button>
+                    <button type="button" class="sadd-social-button sadd-social-linkedin" disabled aria-label="LinkedIn">in</button>
                 </div>
             </div>
-        </section>
-
-        <div class="ak-footer-actions">
-            <button type="submit" class="ak-save">@T("ورود", "Sign In")</button>
-        </div>
-    </form>
+        </form>
+    </main>
 </div>
 
 @section Scripts {

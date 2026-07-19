@@ -78,7 +78,9 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("data-contract-journey-tab-nav=\"true\"", view);
         Assert.Contains("data-contract-journey-tab-link=\"true\"", view);
         Assert.Contains("data-contract-journey-tab-content=\"true\"", view);
+        Assert.Contains("data-contract-journey-facts-host", view);
         Assert.Contains("data-contract-journey-facts", view);
+        Assert.Contains("string.Equals(activeTab, ContractJourneyTabs.Details.Summary", view);
         Assert.Contains("id=\"journey-tab-lists\"", view);
 
         // خانواده‌های موازی قدیمی قرارداد نباید باقی مانده باشند
@@ -93,6 +95,33 @@ public class ContractJourneyViewStructureTests
         {
             Assert.DoesNotContain(legacy, view);
         }
+    }
+
+    [Fact]
+    public void ContractJourney_Every_Operation_Tab_Uses_Shared_Stat_Cards_With_Avatars()
+    {
+        var view = ReadContractJourneyDetailsMarkup();
+        var statisticLabels = new[]
+        {
+            "آمار خلاصه قرارداد",
+            "آمار بارگیری",
+            "آمار رسید بارگیری",
+            "آمار جریان حمل بار",
+            "آمار موجودی",
+            "آمار نقل و انتقالات",
+            "آمار فروشات",
+            "آمار مصرف و کسری",
+            "آمار پرداخت‌ها",
+            "آمار دفتر کل"
+        };
+
+        foreach (var label in statisticLabels)
+        {
+            Assert.Contains(label, view);
+        }
+
+        Assert.Equal(40, view.Split("<vc:stat-card", StringSplitOptions.None).Length - 1);
+        Assert.Equal(40, view.Split(" avatar=\"", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]
@@ -514,16 +543,20 @@ public class ContractJourneyViewStructureTests
 
         Assert.Contains("ak-form-page", view);
         Assert.Contains("data-transport-details", view);
+        Assert.Contains("data-ak-detail-v2=\"true\"", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
         Assert.Contains("class=\"ak-stat-grid\"", view);
         Assert.Contains("<vc:stat-card", view);
-        Assert.Contains("class=\"ptg-tabs-rail ak-detail-tabs\"", view);
-        Assert.Contains("class=\"ak-tab-panel is-active\"", view);
-        Assert.Contains("class=\"ak-list\" data-ptcd-list", view);
-        Assert.Contains("class=\"ak-pager\" data-ptcd-pager", view);
-        Assert.Contains("جزئیات حمل از موجودی", view);
+        Assert.Contains("_DetailPager.cshtml", view);
+        Assert.Contains("_DetailTimeline.cshtml", view);
+        Assert.Contains("_RelatedRecords.cshtml", view);
+        Assert.Contains("_DetailActionBar.cshtml", view);
+        Assert.DoesNotContain("data-ptcd-tab", view);
+        Assert.DoesNotContain("data-ptcd-pager", view);
+        Assert.DoesNotContain("ak-form-section ak-detail-section is-receipt", view);
+        Assert.Contains("عملیات بعدی بار", view);
         Assert.Contains("ثبت گمرک", view);
-        Assert.Contains("class=\"ak-primary-action\"", view);
+        Assert.Contains("_DetailActionBar.cshtml", view);
         Assert.DoesNotContain("ptg-transport-clean-details", view);
         Assert.DoesNotContain("ptcd-summary-card", view);
     }
@@ -759,7 +792,9 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("class=\"ak-table-wrap\"", view);
         Assert.Contains("class=\"ak-form-section\"", view);
         Assert.Contains("ak-empty", view);
-        Assert.Contains("ak-pager", view);
+        Assert.Contains("_DetailPager.cshtml", view);
+        Assert.Contains("await DetailPager(", view);
+        Assert.DoesNotContain("Microsoft.AspNetCore.Html.IHtmlContent ListPager", view);
         foreach (var legacy in new[] { "journey-wide-table", "journey-compact-table", "journey-tab-grid", "journey-finance-panel", "journey-loading-list", "table-responsive", "<div class=\"row g-3\">" })
         {
             Assert.DoesNotContain(legacy, view);
@@ -779,7 +814,7 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("ak-row-menu", block);
         Assert.Contains("ak-status", block);
         Assert.Contains("ak-num", block);
-        Assert.Contains("@ListPager(\"transportLegPage\", transportLegPage, transportLegPageCount", block);
+        Assert.Contains("@await DetailPager(\"transportLegPage\", transportLegPage, transportLegPageCount)", block);
         Assert.Contains("TransportInTransitQuantity(leg)", block);
         Assert.Contains("TransportStatusToneClass(leg.StatusName)", block);
         Assert.Contains("asp-controller=\"InventoryTransportLegs\"", block);
@@ -980,10 +1015,10 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("var effectiveReturnUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : loadingListReturnUrl;", view);
         Assert.Contains("var currentPageReturnUrl = Context.Request.Path + Context.Request.QueryString;", view);
         Assert.Contains("(string?)effectiveReturnUrl", view);
-        Assert.Contains("data-bs-target=\"#loadingReceiptModal\"", view);
+        Assert.Contains("ModalTarget = \"loadingReceiptModal\"", view);
         Assert.Contains("id=\"loadingReceiptModal\"", view);
         Assert.Contains("_ReceiptCreateForm.cshtml", view);
-        Assert.Contains("var loadingExpenseTotal = expenseLines.Count > 0", view);
+        Assert.Contains("var loadingExpenseTotal = Model.LoadingExpenseTotalUsd;", view);
         Assert.Contains("class=\"ak-form-page ak-detail-page\"", view);
         Assert.Contains("_AkPageHeader", view);
         Assert.Contains("_AkSectionHead", view);
@@ -998,15 +1033,13 @@ public class ContractJourneyViewStructureTests
         Assert.Contains("NumberDisplay.UnitPrice(Model.FreightRateUsdPerMt, \"USD/MT\")", view);
         Assert.Contains("@loadingExpenseTotal.ToString(\"N2\") USD", view);
         Assert.Contains("@loadingCostsGrandTotal.ToString(\"N2\") USD", view);
-        Assert.Contains("Model.TransportExpenseUsd ?? 0m", view);
-        Assert.Contains("Model.WarehouseExpenseUsd ?? 0m", view);
-        Assert.Contains("Model.RailwayExpenseUsd ?? 0m", view);
-        Assert.Contains("Model.OtherExpenseUsd ?? 0m", view);
+        Assert.DoesNotContain("expenseLines.Sum", view);
+        Assert.DoesNotContain("Model.CustomsItems.Sum", view);
         Assert.DoesNotContain("loading-journal-metrics", view);
         Assert.DoesNotContain("loading-journal-grid-bottom", view);
         Assert.DoesNotContain("asp-controller=\"LoadingReceipts\" asp-action=\"Create\" asp-route-loadingId=\"@Model.Id\"", view);
-        Assert.Contains("asp-route-returnUrl=\"@currentPageReturnUrl\"", view);
-        Assert.Contains("asp-controller=\"CustomsDeclarations\" asp-action=\"Create\" asp-route-loadingRegisterId=\"@Model.Id\" asp-route-returnUrl=\"@currentPageReturnUrl\"", view);
+        Assert.Contains("returnUrl = currentPageReturnUrl", view);
+        Assert.Contains("Url.Action(\"Create\", \"CustomsDeclarations\"", view);
         Assert.DoesNotContain("asp-controller=\"CustomsDeclarations\" asp-action=\"Details\"", view);
         Assert.DoesNotContain("asp-controller=\"LoadingReceipts\" asp-action=\"Details\"", view);
         Assert.DoesNotContain("Model.TransportType == PTGOilSystem.Web.Models.Entities.LoadingTransportType.Wagon", view);
@@ -1019,10 +1052,9 @@ public class ContractJourneyViewStructureTests
     {
         var contents = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
 
-        Assert.Contains("asp-controller=\"LossEvents\"", contents);
-        Assert.Contains("asp-action=\"Create\"", contents);
-        Assert.Contains("asp-route-loadingRegisterId=\"@Model.Id\"", contents);
-        Assert.Contains("asp-route-returnUrl=\"@currentPageReturnUrl\"", contents);
+        Assert.Contains("Url.Action(\"Create\", \"LossEvents\"", contents);
+        Assert.Contains("loadingRegisterId = Model.Id", contents);
+        Assert.Contains("returnUrl = currentPageReturnUrl", contents);
     }
 
     [Fact]
@@ -1151,7 +1183,11 @@ public class ContractJourneyViewStructureTests
         var expenseEditor = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/_LoadingExpenseEditor.cshtml");
         var details = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Details.cshtml");
         var index = ReadRepoFile("src/PTGOilSystem.Web/Views/Loading/Index.cshtml");
+        var detailActionBar = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/Partials/_DetailActionBar.cshtml");
 
+        Assert.Contains("ak-form-page--wide loading-import-workbook", create);
+        Assert.Contains("class=\"btn btn-light ak-secondary-action\" id=\"excelFilePickBtn\"", create);
+        Assert.Contains("class=\"btn btn-primary ak-primary-action d-none\" id=\"excelImportBtn\"", create);
         Assert.Contains("RWB / CMR / Bill of Lading", create);
         Assert.Contains("RWB / CMR / Bill of Lading", rowEditor);
         Assert.Contains("TransportExpenseUsd", rowEditor);
@@ -1165,7 +1201,8 @@ public class ContractJourneyViewStructureTests
         Assert.DoesNotContain("data-loading-expense-panel", rowEditor);
         Assert.Contains("_LoadingExpenseEditor", editExpenses);
         Assert.Contains("loadingExpensesModal", details);
-        Assert.Contains("data-bs-toggle=\"modal\"", details);
+        Assert.Contains("ModalTarget = \"loadingExpensesModal\"", details);
+        Assert.Contains("data-bs-toggle=\"modal\"", detailActionBar);
         Assert.Contains("loadingIndexExpensesModal", index);
         Assert.Contains("data-loading-expense-trigger=\"true\"", index);
         Assert.Contains("modal = true", index);

@@ -1,80 +1,157 @@
+@using System.Text.Json
 @using PTGOilSystem.Web.Models.StatCards
 @model PTGOilSystem.Web.Models.DashboardViewModel
 @{
     ViewData["Title"] = UiText.T(Context, "داشبورد", "Dashboard");
     ViewData["HideSectionTabs"] = true;
+    ViewData["DashboardAssets"] = true;
 
+    string T(string fa, string en) => UiText.T(Context, fa, en);
     var dbWarning = ViewData["DbWarning"] as string;
+    var chartLabels = JsonSerializer.Serialize(Model.MarketLabels);
+    var chartSales = JsonSerializer.Serialize(Model.MarketSalesSeries);
+    var chartExpenses = JsonSerializer.Serialize(Model.MarketExpenseSeries);
 
-    string Dir(decimal v) => v >= 0 ? "up" : "down";
+    var attentionItems = new[]
+    {
+        (Label: T("بارگیری بدون رسید", "Loadings without receipt"), Count: Model.LoadingsWithoutReceiptCount, Controller: "LoadingReceipts", Action: "Index"),
+        (Label: T("قرارداد بدون قیمت نهایی", "Contracts without final price"), Count: Model.ContractsWithoutFinalPriceCount, Controller: "Contracts", Action: "Index"),
+        (Label: T("رسید بدون تخصیص", "Receipts without allocation"), Count: Model.ReceiptsWithoutAllocationCount, Controller: "LoadingReceipts", Action: "Index"),
+        (Label: T("فروش بدون پرداخت", "Sales without payment"), Count: Model.SalesWithoutPaymentCount, Controller: "Sales", Action: "Index"),
+        (Label: T("مخزن با موجودی پایین", "Low-stock tanks"), Count: Model.LowStockTankCount, Controller: "StorageTanks", Action: "Index"),
+        (Label: T("کسری و ضایعات", "Shortages and losses"), Count: Model.ShortageCount, Controller: "LossEvents", Action: "Index")
+    };
+    var priorityItems = attentionItems
+        .OrderByDescending(item => item.Count)
+        .Take(5)
+        .ToArray();
 }
 
-<div class="ak-form-page ref-dashboard">
-    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
-             model="@((ViewData["Title"]?.ToString() ?? "داشبورد", false,
-                       (string?)null, (string?)null, (string?)null, (string?)null,
-                       (string?)null, (string?)null, (string?)null))" />
+<div class="ak-form-page dashboard-page">
+    <header class="dashboard-hero">
+        <div>
+            <span class="dashboard-eyebrow">PTG OIL SYSTEM</span>
+            <h1>@T("داشبورد مدیریتی", "Management dashboard")</h1>
+            <p>@T("تصویر روشن از عملیات، فروش و موارد نیازمند پیگیری", "A clear view of operations, sales and follow-up items")</p>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.MarketRangeLabel))
+        {
+            <span class="dashboard-period">
+                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                <bdi>@Model.MarketRangeLabel</bdi>
+            </span>
+        }
+    </header>
 
     @if (!string.IsNullOrWhiteSpace(dbWarning))
     {
-        <div class="ak-note">
-            <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+        <div class="ak-note dashboard-warning" role="alert">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
             <div>
-                <strong>هشدار اتصال پایگاه‌داده</strong>
-                <div class="surface-callout-muted">رشته اتصال <code>ConnectionStrings__DefaultConnection</code> را روی PostgreSQL تنظیم کنید و migrationها را اجرا نمایید.</div>
+                <strong>@T("اطلاعات داشبورد در دسترس نیست", "Dashboard data is unavailable")</strong>
+                <span>@T("اتصال پایگاه داده را بررسی کنید و دوباره تلاش نمایید.", "Check the database connection and try again.")</span>
             </div>
         </div>
     }
 
-    @* 1) Shipment operations *@
-    <section class="ak-stat-section">
-        <h2 class="ak-stat-section__title"><i class="bi bi-boxes"></i>@UiText.T(Context, "عملیات محموله", "Shipment operations")</h2>
-        <div class="ak-stat-grid">
-            <vc:stat-card title="کل محموله‌ها" value="@StatCardFormatter.Count(Model.ShipmentCount)" unit="محموله" avatar="shipments"></vc:stat-card>
-            <vc:stat-card title="محموله‌های در حال انتقال" value="@StatCardFormatter.Count(Model.ShipmentsInTransitCount)" unit="محموله" avatar="transported"></vc:stat-card>
-            <vc:stat-card title="بارگیری‌ها" value="@StatCardFormatter.Count(Model.LoadingCount)" unit="بارگیری" avatar="loading"></vc:stat-card>
+    <section class="dashboard-section dashboard-shortcuts" aria-labelledby="dashboard-shortcuts-title">
+        <div class="dashboard-section-heading">
+            <h2 id="dashboard-shortcuts-title">@T("دسترسی سریع", "Quick access")</h2>
+        </div>
+
+        <div class="dashboard-shortcut-rail">
+            <div class="dashboard-shortcut-viewport">
+                <div class="dashboard-shortcut-grid">
+                    <a asp-controller="Sales" asp-action="Create" class="dashboard-shortcut dashboard-shortcut--primary">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
+                        <strong>@T("ثبت فروش", "New sale")</strong>
+                    </a>
+                    <a asp-controller="Loading" asp-action="Create" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-truck-front" aria-hidden="true"></i></span>
+                        <strong>@T("ثبت بارگیری", "New loading")</strong>
+                    </a>
+                    <a asp-controller="LoadingReceipts" asp-action="Create" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i></span>
+                        <strong>@T("ثبت رسید", "New receipt")</strong>
+                    </a>
+                    <a asp-controller="Expenses" asp-action="Create" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-tools" aria-hidden="true"></i></span>
+                        <strong>@T("ثبت مصرف", "New expense")</strong>
+                    </a>
+                    <a asp-controller="Payments" asp-action="Create" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-cash" aria-hidden="true"></i></span>
+                        <strong>@T("ثبت پرداخت", "New payment")</strong>
+                    </a>
+                    <a asp-controller="Inventory" asp-action="Index" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+                        <strong>@T("موجودی", "Inventory")</strong>
+                    </a>
+                    <a asp-controller="Contracts" asp-action="Index" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></span>
+                        <strong>@T("قراردادها", "Contracts")</strong>
+                    </a>
+                    <a asp-controller="Reports" asp-action="Index" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut-icon"><i class="bi bi-bounding-box-circles" aria-hidden="true"></i></span>
+                        <strong>@T("گزارش‌ها", "Reports")</strong>
+                    </a>
+                </div>
+            </div>
+            <span class="dashboard-shortcut-edit" aria-hidden="true">
+                <i class="bi bi-pencil" aria-hidden="true"></i>
+            </span>
         </div>
     </section>
 
-    @* 2) Purchase & supply *@
-    <section class="ak-stat-section">
-        <h2 class="ak-stat-section__title"><i class="bi bi-cart3"></i>@UiText.T(Context, "تأمین و خرید", "Purchase & supply")</h2>
-        <div class="ak-stat-grid">
-            <vc:stat-card title="ارزش ذخیره خرید" value="@StatCardFormatter.Number(Model.PurchaseReserveUsd, 0)" unit="دلار" avatar="purchase-value"></vc:stat-card>
-            <vc:stat-card title="تأمین‌کنندگان دارای مانده" value="@StatCardFormatter.Count(Model.SupplierBalanceSummary.ItemCount)" unit="تأمین‌کننده" avatar="suppliers"></vc:stat-card>
-            <vc:stat-card title="قراردادهای فعال" value="@StatCardFormatter.Count(Model.ActiveContractCount)" unit="قرارداد" avatar="purchase-contracts"></vc:stat-card>
-        </div>
+    <section class="dashboard-main-grid" aria-label="@T("روند مالی و موارد نیازمند توجه", "Financial trend and attention items")">
+        <article class="dashboard-panel dashboard-chart-panel">
+            <header class="dashboard-panel-header">
+                <div>
+                    <h2>@T("روند فروش و مصارف", "Sales and expense trend")</h2>
+                    <p>@(string.IsNullOrWhiteSpace(Model.MarketSubtitle) ? T("مقایسه هفتگی تراکنش‌های ثبت‌شده", "Weekly comparison of posted transactions") : Model.MarketSubtitle)</p>
+                </div>
+                <div class="dashboard-net-result">
+                    <span>@T("نتیجه خالص", "Net result")</span>
+                    <strong class="@(Model.NetUsd < 0 ? "is-negative" : "is-positive")"><bdi>@StatCardFormatter.Number(Model.NetUsd, 0) USD</bdi></strong>
+                </div>
+            </header>
+            <div class="dashboard-chart"
+                 data-dashboard-chart
+                 data-labels="@chartLabels"
+                 data-sales="@chartSales"
+                 data-expenses="@chartExpenses"
+                 data-sales-label="@T("فروش", "Sales")"
+                 data-expenses-label="@T("مصارف", "Expenses")"
+                 data-chart-label="@T("نمودار روند هفتگی فروش و مصارف", "Weekly sales and expense trend chart")"
+                 data-empty-label="@T("برای این بازه داده‌ای ثبت نشده است.", "No data is recorded for this range.")">
+                <div class="dashboard-chart-loading" aria-live="polite">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    @T("در حال آماده‌سازی نمودار", "Preparing chart")
+                </div>
+            </div>
+        </article>
+
+        <aside class="dashboard-panel dashboard-attention" aria-labelledby="dashboard-attention-title">
+            <header class="dashboard-panel-header">
+                <div>
+                    <span class="dashboard-panel-kicker">@T("پیگیری امروز", "Today's follow-up")</span>
+                    <h2 id="dashboard-attention-title">@T("نیازمند توجه", "Needs attention")</h2>
+                    <p>@T("موارد باز بر اساس بیشترین تعداد", "Open items ordered by volume")</p>
+                </div>
+                <span class="dashboard-attention-total"><bdi>@StatCardFormatter.Count(attentionItems.Sum(item => item.Count))</bdi></span>
+            </header>
+            <div class="dashboard-attention-list">
+                @foreach (var item in priorityItems)
+                {
+                    <a asp-controller="@item.Controller" asp-action="@item.Action" class="dashboard-attention-row">
+                        <span>
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            @item.Label
+                        </span>
+                        <strong class="@(item.Count > 0 ? "has-items" : null)">@StatCardFormatter.Count(item.Count)</strong>
+                    </a>
+                }
+            </div>
+        </aside>
     </section>
 
-    @* 3) Sales & revenue *@
-    <section class="ak-stat-section">
-        <h2 class="ak-stat-section__title"><i class="bi bi-graph-up-arrow"></i>@UiText.T(Context, "فروش و درآمد", "Sales & revenue")</h2>
-        <div class="ak-stat-grid">
-            <vc:stat-card title="ارزش کل فروش" value="@StatCardFormatter.Number(Model.TotalSalesUsd, 0)" unit="دلار" avatar="sales-value"
-                          trend-value="@Model.TotalSalesWeekChangePercent" trend-direction="@Dir(Model.TotalSalesWeekChangePercent)"></vc:stat-card>
-            <vc:stat-card title="مشتریان دارای مانده" value="@StatCardFormatter.Count(Model.CustomerBalanceSummary.ItemCount)" unit="مشتری" avatar="customers"></vc:stat-card>
-            <vc:stat-card title="تعداد فروش‌ها" value="@StatCardFormatter.Count(Model.SalesCount)" unit="فروش" avatar="sold-quantity"></vc:stat-card>
-        </div>
-    </section>
-
-    @* 4) Finance & accounting *@
-    <section class="ak-stat-section">
-        <h2 class="ak-stat-section__title"><i class="bi bi-bank2"></i>@UiText.T(Context, "مالی و حسابداری", "Finance & accounting")</h2>
-        <div class="ak-stat-grid">
-            <vc:stat-card title="مانده حساب مشتریان" value="@StatCardFormatter.Number(Model.CustomerBalanceSummary.BaseBalanceUsd, 0)" unit="دلار" avatar="receivables"></vc:stat-card>
-            <vc:stat-card title="پرداختی‌های امروز" value="@StatCardFormatter.Number(Model.TodayPaymentsUsd, 0)" unit="دلار" avatar="payments"></vc:stat-card>
-            <vc:stat-card title="نتیجه خالص فروش و مصارف" value="@StatCardFormatter.Number(Model.NetUsd, 0)" unit="دلار" avatar="profit-loss"></vc:stat-card>
-        </div>
-    </section>
-
-    @* 5) Inventory & stock *@
-    <section class="ak-stat-section">
-        <h2 class="ak-stat-section__title"><i class="bi bi-archive"></i>@UiText.T(Context, "انبار و موجودی", "Inventory & stock")</h2>
-        <div class="ak-stat-grid">
-            <vc:stat-card title="موجودی کل پایانه‌ها" value="@StatCardFormatter.Number(Model.TerminalStockMt, 2)" unit="متریک تن" avatar="total-inventory"></vc:stat-card>
-            <vc:stat-card title="مصارف کل" value="@StatCardFormatter.Number(Model.TotalExpensesUsd, 0)" unit="دلار" avatar="expenses"
-                          trend-value="@Model.TotalExpensesWeekChangePercent" trend-direction="@Dir(Model.TotalExpensesWeekChangePercent)"></vc:stat-card>
-            <vc:stat-card title="رویدادهای کسری و ضایعات" value="@StatCardFormatter.Count(Model.ShortageCount)" unit="مورد" avatar="losses"></vc:stat-card>
-        </div>
-    </section>
 </div>

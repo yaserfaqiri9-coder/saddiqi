@@ -496,7 +496,7 @@ public sealed class InventoryTransferAccountingAdapterTests(AccountingPostgreSql
         };
 
     private static AccountingPostingService CreatePostingService(ApplicationDbContext db)
-        => new(db, new PeriodGuard(db, new FiscalCalendarService(db)), Options.Create(EnabledOptions()));
+        => new(db, new PeriodGuard(db, new FiscalCalendarService(db)), Options.Create(EnabledOptions()), new SystemCompanyProvider(db));
 
     private static InventoryTransferAccountingAdapter CreateAdapter(ApplicationDbContext db)
         => new(

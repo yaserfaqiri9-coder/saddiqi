@@ -186,7 +186,7 @@ public class ReopenFiscalYearServiceTests
 
     private static AccountingPostingService Posting(ApplicationDbContext db)
         => new(db, new PeriodGuard(db, new FiscalCalendarService(db)),
-            Options.Create(new AccountingOptions { Enabled = true }));
+            Options.Create(new AccountingOptions { Enabled = true }), new SystemCompanyProvider(db));
 
     private static IReopenFiscalYearService Reopen(ApplicationDbContext db)
         => new ReopenFiscalYearService(db, Posting(db));
@@ -205,7 +205,7 @@ public class ReopenFiscalYearServiceTests
     {
         var options = Options.Create(new AccountingOptions { Enabled = true });
 
-        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true });
+        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true, IsSystemOwner = true });
         for (var i = 0; i < 20; i++)
         {
             db.Accounts.Add(new Account

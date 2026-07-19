@@ -59,6 +59,8 @@ public sealed class ShipmentPnlExpenseItemViewModel
     public decimal AllocationQuantityMt { get; init; }
     public string SourceKey { get; init; } = string.Empty;
     public bool IsCustoms { get; init; }
+    /// <summary>ExpenseType.Category دیتابیس؛ ورودی ساخت‌یافتهٔ دسته‌بندی نمایشی.</summary>
+    public string? ExpenseTypeCategory { get; init; }
 }
 
 public sealed class ShipmentPnlTransportLegItemViewModel
@@ -257,6 +259,12 @@ public sealed class ShipmentPnlDetailsViewModel
         => ShipmentPnlDisplayGrouping.GroupSales(Sales);
     public IReadOnlyList<ShipmentExpenseDisplayRow> ExpenseDisplayRows
         => ShipmentPnlDisplayGrouping.GroupExpenses(Expenses);
+    /// <summary>
+    /// گروه‌های دسته‌بندی مصارف — منبع واحد کارت‌های KPI، گروه‌های تب «مصارف و گمرک»
+    /// و جدول «جزئیات هزینه‌ها بر اساس دسته». View نباید خودش دسته‌بندی کند.
+    /// </summary>
+    public IReadOnlyList<ShipmentExpenseCategoryGroup> ExpenseCategoryGroups
+        => ShipmentExpenseCategorizer.Group(ExpenseDisplayRows);
     public IReadOnlyList<ShipmentLossDisplayRow> LossDisplayRows
         => ShipmentPnlDisplayGrouping.GroupLosses(Losses, ContractLines);
     public IReadOnlyList<ShipmentTransportDisplayRow> TransportDisplayRows

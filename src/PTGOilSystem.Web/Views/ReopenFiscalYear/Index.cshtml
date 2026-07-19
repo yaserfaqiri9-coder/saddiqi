@@ -23,15 +23,6 @@
 
     <form method="get" asp-action="Index" class="ak-form">
         <div class="ak-field">
-            <label class="ak-label" for="companyId">شرکت</label>
-            <select class="form-select" id="companyId" name="companyId" onchange="this.form.submit()">
-                @foreach (var c in Model.Companies)
-                {
-                    <option value="@c.CompanyId" selected="@c.IsSelected">@c.Name</option>
-                }
-            </select>
-        </div>
-        <div class="ak-field">
             <label class="ak-label" for="fiscalYearId">سال بسته</label>
             <select class="form-select" id="fiscalYearId" name="fiscalYearId" onchange="this.form.submit()">
                 @foreach (var y in Model.Years)
@@ -66,7 +57,6 @@
             </div>
             <form method="post" asp-action="Reopen">
                 @Html.AntiForgeryToken()
-                <input type="hidden" name="companyId" value="@Model.SelectedCompanyId" />
                 <input type="hidden" name="fiscalYearId" value="@Model.SelectedFiscalYearId" />
                 <div class="ak-field">
                     <label class="ak-label" for="reason">دلیل بازگشایی (اجباری)</label>

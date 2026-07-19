@@ -31,8 +31,7 @@
                        "بررسی تطبیق", "bi-arrow-right", Url.Action("Index")))" />
 
     <div class="ak-page-actions">
-        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
-        <a asp-action="MissingLedgerCsv" class="btn btn-light">خروجی CSV</a>
+        <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("MissingLedgerExport"))" />
     </div>
 
     <p class="ak-note">فروش‌ها، مصارف و پرداخت‌هایی که هنوز رکورد دفتر کل متناظر ندارند برای بررسی سریع دیده می‌شوند. داده عملیاتی اصلی تغییر نمی‌کند و فقط اتصال دفتر کل باید بازبینی شود.</p>

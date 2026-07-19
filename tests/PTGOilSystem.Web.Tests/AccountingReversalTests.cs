@@ -343,7 +343,7 @@ public sealed class AccountingReversalTests(AccountingPostgreSqlFixture fixture)
         });
         return new ExpenseAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             options,
             NullLogger<ExpenseAccountingAdapter>.Instance);
@@ -365,7 +365,7 @@ public sealed class AccountingReversalTests(AccountingPostgreSqlFixture fixture)
         });
         return new PurchaseAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             new PricingService(db),
             new InventoryValuationService(db),

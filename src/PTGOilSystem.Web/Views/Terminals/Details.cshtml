@@ -4,7 +4,7 @@
     var statusText = Model.IsActive ? "فعال" : "غیرفعال";
 }
 
-<div class="ak-form-page ak-detail-page">
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,

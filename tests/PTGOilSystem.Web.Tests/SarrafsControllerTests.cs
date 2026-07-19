@@ -25,7 +25,7 @@ public class SarrafsControllerTests
         Assert.Contains("ما با صراف حساب کردیم", view);
         Assert.Contains("asp-controller=\"SarrafSettlements\"", view);
         Assert.Contains("asp-controller=\"Payments\"", view);
-        Assert.Contains("asp-route-sarrafId=\"@Model.Id\"", view);
+        Assert.Contains("sarrafId = Model.Id", view);
         Assert.Contains("پرداخت‌های صراف برای تأمین‌کنندگان", view);
         Assert.Contains("پرداخت‌های ما به صراف", view);
         Assert.DoesNotContain("Ledger", view);

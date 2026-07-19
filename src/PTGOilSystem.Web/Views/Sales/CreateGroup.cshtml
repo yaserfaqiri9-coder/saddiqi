@@ -1,5 +1,6 @@
 @model PTGOilSystem.Web.Models.Sales.GroupSaleCreateViewModel
 @using PTGOilSystem.Web.Models.Sales
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] ="ثبت فروش گروهی";
     ViewData["HideSectionTabs"] = true;
@@ -9,7 +10,7 @@
         : Url.Action("Index");
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-group-operation-page ak-group-wizard-page">
     @* data-no-spa + novalidate: مانند فرم مصرف گروهی؛ نرخ تبدیل مخفی نباید native-validation را بلاک کند.
        data-no-submit-guard: گاردِ سراسریِ core.js روی فرمِ novalidate راهِ آزادسازی ندارد و دکمه را
        روی «در حال ثبت…» قفل می‌کرد؛ این فرم قفلِ ضدِ دابل‌کلیکِ خودش را با آزادسازیِ امنِ زمان‌دار دارد. *@
@@ -26,24 +27,16 @@
                     <p>فروش همزمان از چند منبع: موجودی مخازن، موترها، واگن‌ها و انتقال‌های در مسیر</p>
                 </div>
             </div>
-            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
+            <a href="@cancelUrl" class="btn btn-light ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
         </header>
 
-        <nav class="ptg-tabs-rail" aria-label="مراحل">
-            <button type="button" class="ptg-tabs-link is-active" data-step-btn="1"><span>1</span> انتخاب منابع</button>
-            <span></span>
-            <button type="button" class="ptg-tabs-link" data-step-btn="2"><span>2</span> تعیین مقدار</button>
-            <span></span>
-            <button type="button" class="ptg-tabs-link" data-step-btn="3"><span>3</span> مشخصات فروش</button>
-            <span></span>
-            <button type="button" class="ptg-tabs-link" data-step-btn="4"><span>4</span> بررسی و ثبت</button>
-        </nav>
+        <partial name="~/Views/Shared/Components/_WizardSteps.cshtml" model="@(new WizardStepsViewModel("مراحل ثبت فروش گروهی", "data-step-btn", new[] { new WizardStepItem(1, "انتخاب منابع", true), new WizardStepItem(2, "تعیین مقدار"), new WizardStepItem(3, "مشخصات فروش"), new WizardStepItem(4, "بررسی و ثبت") }))" />
 
         <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
 
         <!-- مرحله ۱: انتخاب منابع -->
-        <section class="ak-form-section" data-step-panel="1">
-            <div>
+        <section class="ak-form-section ak-group-wizard-workspace" data-step-panel="1">
+            <div class="ak-group-wizard-main">
                 <div class="ak-form-section">
                     <h2 class="ak-section-title">انتخاب منابع قابل فروش</h2>
                     <div class="ak-form-grid">
@@ -116,7 +109,7 @@
                 </div>
             </div>
 
-            <aside class="ak-form-section">
+            <aside class="ak-form-section ak-group-wizard-summary">
                 <div class="ak-form-section ak-list">
                     <h2 class="ak-section-title">خلاصه انتخاب</h2>
                     <div class="ak-list-row">
@@ -553,6 +546,8 @@
                 var bn = parseInt(b.dataset.stepBtn, 10);
                 b.classList.toggle('is-active', bn === n);
                 b.classList.toggle('is-done', bn < n);
+                if (bn === n) b.setAttribute('aria-current', 'step');
+                else b.removeAttribute('aria-current');
             });
             $('btnPrev').hidden = n === 1;
             $('btnNext').hidden = n === 4;

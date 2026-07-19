@@ -4,24 +4,22 @@
     var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : Url.Action("Index") ?? "/Ledger";
     ViewData["Title"] = "جزئیات ثبت دفتر کل";
     ViewData["HideSectionTabs"] = true;
+    ViewData["AkHeaderStatus"] = Model.SideName;
+    ViewData["AkHeaderStatusState"] = "is-active";
+    ViewData["AkHeaderContext"] = $"{UiText.LedgerSource(Context, Model.SourceTypeLabel)} · سند #{Model.SourceId}";
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"ثبت دفتر کل #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)backUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status">@Model.SideName</span>
-        <span class="ak-note">@Model.SourceTypeLabel / @Model.SourceType #@Model.SourceId</span>
-    </div>
-
     <div class="ak-form-grid">
         <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی ثبت", (string?)null))" />
             <dl class="ak-list">
-                <div class="ak-list-row"><dt>شناسه Ledger</dt><dd class="ak-num">#@Model.Id</dd></div>
+                <div class="ak-list-row"><dt>شناسه دفتر کل</dt><dd class="ak-num">#@Model.Id</dd></div>
                 <div class="ak-list-row"><dt>تاریخ ثبت</dt><dd>@Model.EntryDate.ToDisplayDate()</dd></div>
                 <div class="ak-list-row"><dt>سمت</dt><dd>@Model.SideName</dd></div>
                 <div class="ak-list-row"><dt>مبلغ (USD)</dt><dd class="ak-num">@Model.AmountUsd.ToString("N2")</dd></div>
@@ -31,13 +29,13 @@
         </section>
 
         <section class="ak-form-section ak-detail-section">
-            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("relationهای متصل", (string?)null))" />
+            <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("روابط متصل", (string?)null))" />
             <dl class="ak-list">
                 <div class="ak-list-row"><dt>قرارداد فروش</dt><dd>@(Model.Contract is null ? "-" : $"#{Model.Contract.Id} - {Model.Contract.Label}")</dd></div>
                 <div class="ak-list-row"><dt>مشتری</dt><dd>@(Model.Customer is null ? "-" : $"#{Model.Customer.Id} - {Model.Customer.Label}")</dd></div>
                 <div class="ak-list-row"><dt>تأمین‌کننده</dt><dd>@(Model.Supplier is null ? "-" : $"#{Model.Supplier.Id} - {Model.Supplier.Label}")</dd></div>
                 <div class="ak-list-row"><dt>کارمند</dt><dd>@(Model.Employee is null ? "-" : $"#{Model.Employee.Id} - {Model.Employee.Label}")</dd></div>
-                <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.Shipment is null ? "-" : $"#{Model.Shipment.Id} - {Model.Shipment.Label}")</dd></div>
+                <div class="ak-list-row"><dt>محموله</dt><dd>@(Model.Shipment is null ? "-" : $"#{Model.Shipment.Id} - {Model.Shipment.Label}")</dd></div>
             </dl>
         </section>
     </div>
@@ -46,14 +44,14 @@
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی منبع ثبت", (string?)null))" />
         @if (Model.SourceTrace is null)
         {
-            <p class="ak-note">برای این SourceType در UI فعلی فقط trace پایه SourceType و SourceId قابل نمایش است.</p>
+            <p class="ak-note">برای این نوع منبع، فعلاً فقط نوع و شناسه سند قابل ردیابی است.</p>
         }
         else
         {
             <div class="ak-page-actions">
                 <div>
                     <strong>@Model.SourceTrace.Title</strong>
-                    <div class="ak-note">@Model.SourceTrace.SourceType / #@Model.SourceTrace.SourceId</div>
+                    <div class="ak-note">نوع منبع: @UiText.LedgerSource(Context, Model.SourceTrace.SourceType) / سند #@Model.SourceTrace.SourceId</div>
                 </div>
                 @if (!string.IsNullOrWhiteSpace(Model.SourceTrace.ControllerName))
                 {

@@ -145,7 +145,7 @@ public class LoadingControllerTests
 
         var viewContent = File.ReadAllText(viewPath);
 
-        Assert.Contains("class=\"ak-form-page\"", viewContent);
+        Assert.Contains("class=\"ak-form-page", viewContent);
         Assert.Contains("class=\"ak-form\"", viewContent);
         Assert.Contains("_AkPageHeader", viewContent);
         Assert.Contains("_AkSectionHead", viewContent);
@@ -1516,6 +1516,7 @@ public class LoadingControllerTests
         var importView = Assert.IsType<ViewResult>(importResult);
         var importedModel = Assert.IsType<LoadingCreateViewModel>(importView.Model);
         importedModel.ImportWorkbookFile = null;
+        importedModel.RecordFreight = true;
 
         var saveResult = await controller.Create(importedModel);
 
@@ -1638,6 +1639,7 @@ public class LoadingControllerTests
             ContractId = 1,
             ProductId = 1,
             TransportType = LoadingTransportType.Truck,
+            RecordFreight = true,
             Rows =
             [
                 new LoadingCreateRowViewModel
@@ -1933,6 +1935,7 @@ public class LoadingControllerTests
             OriginLocationId = 1,
             TransportType = LoadingTransportType.Truck,
             Notes = "April batch",
+            RecordFreight = true,
             Rows =
             [
                 new LoadingCreateRowViewModel
@@ -2030,6 +2033,7 @@ public class LoadingControllerTests
             ContractId = 1,
             ProductId = 1,
             TransportType = LoadingTransportType.Truck,
+            RecordFreight = true,
             Rows =
             [
                 new LoadingCreateRowViewModel
@@ -2131,6 +2135,7 @@ public class LoadingControllerTests
             ContractId = 1,
             ProductId = 1,
             TransportType = LoadingTransportType.Truck,
+            RecordFreight = true,
             Rows =
             [
                 new LoadingCreateRowViewModel
@@ -2217,6 +2222,7 @@ public class LoadingControllerTests
             ContractId = 1,
             ProductId = 1,
             TransportType = LoadingTransportType.Wagon,
+            RecordFreight = true,
             Rows =
             [
                 new LoadingCreateRowViewModel

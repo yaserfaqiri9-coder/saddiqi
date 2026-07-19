@@ -1,0 +1,46 @@
+@*
+    Shared detail-page timeline (AK Detail v2 zone 5).
+    Vertical chronological list of document events. Renders nothing when the
+    list is empty — callers never need an empty-state wrapper.
+    Model: IReadOnlyList<AkTimelineItem>
+*@
+@model IReadOnlyList<PTGOilSystem.Web.Models.Shared.AkTimelineItem>
+@if (Model is { Count: > 0 })
+{
+    <ol class="ak-timeline" aria-label="@UiText.T(Context, "خط زمانی سند", "Document timeline")">
+        @foreach (var item in Model)
+        {
+            var stateClass = item.StateClass;
+            var machineDate = item.Timestamp?.ToString("O");
+            <li class="ak-timeline-item@(stateClass is null ? "" : " " + stateClass)"
+                aria-current="@(stateClass == "is-current" ? "step" : null)">
+                <span class="ak-timeline-dot" aria-hidden="true">
+                    @if (!string.IsNullOrWhiteSpace(item.Icon))
+                    {
+                        <i class="bi @item.Icon"></i>
+                    }
+                </span>
+                <div class="ak-timeline-body">
+                    <div class="ak-timeline-head">
+                        @if (!string.IsNullOrWhiteSpace(item.Href))
+                        {
+                            <a class="ak-timeline-title" href="@item.Href">@item.Title</a>
+                        }
+                        else
+                        {
+                            <span class="ak-timeline-title">@item.Title</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.Date))
+                        {
+                            <time class="ak-timeline-date" datetime="@machineDate">@item.Date</time>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Meta))
+                    {
+                        <p class="ak-timeline-meta">@item.Meta</p>
+                    }
+                </div>
+            </li>
+        }
+    </ol>
+}

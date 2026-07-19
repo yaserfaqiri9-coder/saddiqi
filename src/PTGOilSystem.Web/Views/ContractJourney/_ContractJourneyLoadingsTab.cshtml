@@ -55,7 +55,6 @@
         <div class="ak-section-head">
             <div>
                 <h2 class="ak-section-title">@T("سوابق بارگیری", "Loading records")</h2>
-                <p class="ak-section-desc">@T("تحویل جنس از مبدا به مقصد نهایی", "Goods loaded from origin to final destination")</p>
             </div>
             <a asp-controller="Loading" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-lockContract="true" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Loadings)" class="btn btn-primary ak-primary-action">
                 <i class="bi bi-train-freight-front"></i>

@@ -168,8 +168,10 @@ public sealed class AccountingCorePostgreSqlTests(AccountingPostgreSqlFixture fi
     public async Task Account_From_Another_Company_Is_Rejected()
     {
         await using var db = fixture.CreateDbContext();
-        var scope = await CreatePostingScopeAsync(db);
+        // «other» اول ساخته می‌شود تا «scope» آخرین (و تنها) مالک بماند؛ آن‌گاه سندِ متعلق به مالک
+        // با یک حسابِ متعلق به شرکت دیگر رد می‌شود — دقیقاً همان چیزی که این تست می‌سنجد.
         var other = await CreatePostingScopeAsync(db);
+        var scope = await CreatePostingScopeAsync(db);
         var request = BalancedRequest(scope) with
         {
             Lines =
@@ -346,7 +348,8 @@ public sealed class AccountingCorePostgreSqlTests(AccountingPostgreSqlFixture fi
         var service = new AccountingPostingService(
             db,
             new PeriodGuard(db, new FiscalCalendarService(db)),
-            Options.Create(new AccountingOptions { Enabled = false }));
+            Options.Create(new AccountingOptions { Enabled = false }),
+            new SystemCompanyProvider(db));
 
         var error = await Assert.ThrowsAsync<AccountingValidationException>(() => service.PostAsync(
             new AccountingPostRequest(0, "X", DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow, "Tests", [])));
@@ -355,7 +358,7 @@ public sealed class AccountingCorePostgreSqlTests(AccountingPostgreSqlFixture fi
 
     private static async Task<PostingScope> CreatePostingScopeAsync(ApplicationDbContext db)
     {
-        var company = await AddCompanyAsync(db);
+        var company = await AddCompanyAsync(db, isOwner: true);
         await CreateSeeder(db).SeedAsync();
 
         var accountingDate = new DateTime(2026, 7, 15);
@@ -473,7 +476,8 @@ public sealed class AccountingCorePostgreSqlTests(AccountingPostgreSqlFixture fi
         => new AccountingPostingService(
             db,
             new PeriodGuard(db, new FiscalCalendarService(db)),
-            Options.Create(new AccountingOptions { Enabled = true }));
+            Options.Create(new AccountingOptions { Enabled = true }),
+            new SystemCompanyProvider(db));
 
     private static IAccountingChartSeeder CreateSeeder(ApplicationDbContext db)
         => new AccountingChartSeeder(
@@ -484,15 +488,24 @@ public sealed class AccountingCorePostgreSqlTests(AccountingPostgreSqlFixture fi
                 DefaultFunctionalCurrencyCode = "USD"
             }));
 
-    private static async Task<Company> AddCompanyAsync(ApplicationDbContext db)
+    // isOwner فقط برای سناریوهای تک‌شرکتیِ Posting؛ تست‌های چندشرکتی مالک نمی‌سازند تا ایندکسِ
+    // یکتای جزئیِ IsSystemOwner (حداکثر یک مالک) نقض نشود.
+    private static async Task<Company> AddCompanyAsync(ApplicationDbContext db, bool isOwner = false)
     {
         var company = new Company
         {
             Code = Unique("C"),
             Name = Unique("Company"),
             Country = "AF",
-            IsActive = true
+            IsActive = true,
+            IsSystemOwner = isOwner
         };
+        if (isOwner)
+        {
+            // دیتابیسِ مشترکِ مجموعه: مالکِ قبلی را demote کن تا قیدِ «حداکثر یک مالک» نقض نشود.
+            await db.Database.ExecuteSqlRawAsync(
+                "UPDATE \"Companies\" SET \"IsSystemOwner\" = FALSE WHERE \"IsSystemOwner\" = TRUE");
+        }
         db.Companies.Add(company);
         await db.SaveChangesAsync();
         return company;

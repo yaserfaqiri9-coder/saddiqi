@@ -94,19 +94,19 @@ public class MasterDataCleanupTests
         Assert.Contains("NavNode(\"Contracts\", \"Index\"", layout);
         Assert.Contains("NavNode(\"Loading\", \"Index\"", layout);
         Assert.Contains("\"Operations\")", layout);
-        Assert.Contains("NavNode(\"Reports\", \"Index\"", layout);
+        Assert.Contains("NavNode(\"Reports\", \"CompanyOverview\"", layout);
         Assert.Contains("NavNode(\"StorageTanks\", \"Index\"", layout);
 
         // Expandable submenus wired from the existing child sources.
         Assert.Contains("children: businessPartyItems", layout);
         Assert.Contains("children: transportItems", layout);
         Assert.Contains("children: baseDefinitionChildren", layout);
-        Assert.Contains("children: reportItems", layout);
+        Assert.Contains("children: reportMenuItems", layout);
         Assert.Contains("(\"ServiceProviders\", \"Index\"", layout);
         Assert.Contains("(\"ServiceProviders\", \"Index\"", sectionTabs);
 
-        // 56px toolbar rail + 224px menu panel with inline accordion submenus.
-        Assert.Contains("ak-rail", layout);
+        // Compact menu panel with inline accordion submenus.
+        Assert.Contains("boltz-sidebar", layout);
         Assert.Contains("ak-navpanel", layout);
         Assert.Contains("data-nav-group", layout);
         Assert.Contains("data-nav-group-toggle=\"true\"", layout);
@@ -123,12 +123,12 @@ public class MasterDataCleanupTests
         Assert.Contains("(\"Products\"", layout);
         Assert.Contains("(\"Terminals\"", layout);
         Assert.Contains("(\"Wagons\"", layout);
-        Assert.Contains("(\"CashAccounts\"", layout);
-        Assert.Contains("var foundationPriorityControllers = new[] { \"StorageTanks\", \"Trucks\", \"Drivers\", \"Vessels\", \"Wagons\" };", sectionTabs);
-        Assert.Contains("var foundationTabs = foundationPriorityTabs.Concat(foundationDefinitionTabs).Concat(foundationOtherResourceTabs).ToArray();", sectionTabs);
+        Assert.Contains("\"CashAccounts\"", layout);
+        Assert.Contains("var foundationTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]", sectionTabs);
+        Assert.Contains("var transportTabs = new (string Controller, string Action, string Label, string Icon, string? RouteKey)[]", sectionTabs);
         Assert.Contains("tabs = foundationTabs;", sectionTabs);
-        Assert.Contains("(\"InventoryTransportLegs\", \"Index\", T(\"انتقال از موجودی\", \"Inventory Transfer\")", sectionTabs);
-        Assert.Contains("(\"Locations\",    \"Index\", T(\"بنادر\",       \"Ports\")", sectionTabs);
+        Assert.Contains("(\"InventoryTransportLegs\", \"Index\", T(\"حمل موجودی\", \"Inventory Transfer\")", sectionTabs);
+        Assert.Contains("(\"Locations\",    \"Index\", T(\"بنادر\",           \"Ports\")", sectionTabs);
         Assert.DoesNotContain("(\"Locations\",    \"Index\", T(\"مکان‌ها\",       \"Locations\")", sectionTabs);
     }
 
@@ -152,11 +152,47 @@ public class MasterDataCleanupTests
         Assert.Contains("\"Create\", \"Expenses\"", details);
         Assert.Contains("serviceProviderId = Model.Id", details);
 
-        // صورت‌حساب از جدول مشترک طرف‌حساب استفاده می‌کند.
-        Assert.Contains("_PartyStatementTable.cshtml", details);
+        // پروفایل فقط خلاصهٔ مشترک و لینک سند رسمی را نشان می‌دهد؛ جدول کامل مستقل است.
+        Assert.Contains("_PartyStatementRecent.cshtml", details);
+        Assert.Contains("asp-controller=\"PartyStatements\"", details);
 
         // متریک‌کارت‌های شلوغ قدیمی دیگر استفاده نمی‌شوند.
         Assert.DoesNotContain("supplier-journal-shot-grid", details);
+    }
+
+    [Fact]
+    public void Counterparty_Details_Use_The_Shared_Compact_Composition()
+    {
+        var layout = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/_Layout.cshtml");
+        var tabsPartial = ReadRepoFile("src/PTGOilSystem.Web/Views/Shared/Partials/_DetailsTabs.cshtml");
+        var compactCss = ReadRepoFile("src/PTGOilSystem.Web/wwwroot/css/ptg/63-party-details.css");
+        var tabbedParties = new[] { "Customers", "Suppliers", "Partners", "Sarrafs", "Employees", "ServiceProviders" };
+        var allParties = tabbedParties.Append("Drivers").Append("Companies");
+
+        Assert.Contains("~/css/ptg/63-party-details.css", layout);
+        Assert.Contains("ptg-tabs-rail ak-detail-tabs", tabsPartial);
+        Assert.Contains(".ak-party-page > .ak-detail-header", compactCss);
+        Assert.Contains(".ak-party-page > .ak-page-actions", compactCss);
+        Assert.Contains("--ptg-tabs-space-above: 0", compactCss);
+
+        foreach (var controller in allParties)
+        {
+            var details = ReadRepoFile($"src/PTGOilSystem.Web/Views/{controller}/Details.cshtml");
+            Assert.Contains("ak-party-page", details);
+        }
+
+        foreach (var controller in tabbedParties)
+        {
+            var details = ReadRepoFile($"src/PTGOilSystem.Web/Views/{controller}/Details.cshtml");
+            Assert.True(
+                details.IndexOf("_DetailsTabs.cshtml", StringComparison.Ordinal)
+                < details.IndexOf("<div class=\"ak-form-grid\"", StringComparison.Ordinal),
+                $"{controller} must expose profile navigation before its detail blocks.");
+        }
+
+        var driverDetails = ReadRepoFile("src/PTGOilSystem.Web/Views/Drivers/Details.cshtml");
+        Assert.Contains("_DetailsTabs.cshtml", driverDetails);
+        Assert.Contains("Context.Request.Query[\"tab\"]", driverDetails);
     }
 
     [Fact]

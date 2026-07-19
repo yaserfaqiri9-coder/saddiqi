@@ -91,6 +91,7 @@ public sealed class SupplierProfileViewModel
     // لیست نمایشیِ یکپارچهٔ پرداخت‌ها (نقدی/بانکی + صراف) برای تب «پرداخت‌ها».
     // فقط نمایش است؛ هیچ مبلغی از این لیست در جمع‌های مالی (TotalPaidUsd و …) دوباره حساب نمی‌شود.
     public IReadOnlyList<SupplierPaymentLineViewModel> PaymentLines { get; init; } = [];
+    public decimal UnallocatedPaymentTotalUsd { get; init; }
 
     // پیش‌پرداخت نزد تأمین‌کننده (جمع، مصرف‌شده برای قراردادها، مانده آزاد، تفکیک ارز).
     public bool HasAdvances { get; init; }

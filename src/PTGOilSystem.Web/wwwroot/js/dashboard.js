@@ -1,161 +1,220 @@
 (function () {
-    'use strict';
+    "use strict";
 
-    var svgNs = 'http://www.w3.org/2000/svg';
-    var fontFamily = 'Poppins,Vazirmatn,sans-serif';
+    var svgNs = "http://www.w3.org/2000/svg";
 
-    function isEnglishUi() {
-        var match = document.cookie.match(/(?:^|; )ptg-ui-lang=([^;]+)/);
-        return !!match && decodeURIComponent(match[1]).toLowerCase() === 'en';
-    }
-    function text(fa, en) { return isEnglishUi() ? en : fa; }
-
-    function parseJsonData(element, key, fallback) {
-        if (!element || !element.dataset || !element.dataset[key]) return fallback;
+    function parseList(container, name) {
         try {
-            var parsed = JSON.parse(element.dataset[key]);
-            return Array.isArray(parsed) ? parsed : fallback;
-        } catch (e) { return fallback; }
-    }
-    function toNumber(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
-
-    function createSvg(w, h) {
-        var svg = document.createElementNS(svgNs, 'svg');
-        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-        svg.setAttribute('width', '100%');
-        svg.setAttribute('height', '100%');
-        svg.setAttribute('role', 'img');
-        svg.setAttribute('focusable', 'false');
-        return svg;
-    }
-    function el(name, attrs) {
-        var e = document.createElementNS(svgNs, name);
-        Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
-        return e;
-    }
-    function polar(cx, cy, r, deg) {
-        var a = (deg - 90) * Math.PI / 180;
-        return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
-    }
-    function arc(cx, cy, r, start, end) {
-        var s = polar(cx, cy, r, end), e = polar(cx, cy, r, start);
-        var large = end - start <= 180 ? '0' : '1';
-        return ['M', s.x.toFixed(3), s.y.toFixed(3), 'A', r, r, 0, large, 0, e.x.toFixed(3), e.y.toFixed(3)].join(' ');
-    }
-    function smoothPath(pts) {
-        if (!pts.length) return '';
-        if (pts.length === 1) return 'M ' + pts[0].x + ' ' + pts[0].y;
-        var p = 'M ' + pts[0].x.toFixed(2) + ' ' + pts[0].y.toFixed(2);
-        for (var i = 0; i < pts.length - 1; i++) {
-            var c = pts[i], n = pts[i + 1], span = (n.x - c.x) / 2;
-            p += ' C ' + (c.x + span).toFixed(2) + ' ' + c.y.toFixed(2) + ', '
-                + (n.x - span).toFixed(2) + ' ' + n.y.toFixed(2) + ', '
-                + n.x.toFixed(2) + ' ' + n.y.toFixed(2);
+            var value = JSON.parse(container.dataset[name] || "[]");
+            return Array.isArray(value) ? value : [];
+        } catch (_error) {
+            return [];
         }
-        return p;
     }
 
-    // ---- Concentric multi-ring donut ----
-    function renderRings(element) {
-        if (!element) return;
-        var values = parseJsonData(element, 'values', []).map(toNumber);
-        var colors = parseJsonData(element, 'colors', ['#8BB475', '#7779A2', '#FB7185']);
-        var total = values.reduce(function (s, v) { return s + Math.max(0, v); }, 0);
-        var svg = createSvg(220, 220);
-        var cx = 110, cy = 110;
-        var radii = [92, 70, 48];
-        svg.setAttribute('aria-label', text('نمودار ترکیب فروش', 'Sales breakdown chart'));
-
-        values.slice(0, 3).forEach(function (v, i) {
-            var r = radii[i];
-            svg.appendChild(el('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: '#E5E7EB', 'stroke-width': '13' }));
-            var frac = total > 0 ? Math.max(0, v) / total : 0;
-            if (frac > 0) {
-                svg.appendChild(el('path', {
-                    d: arc(cx, cy, r, 0, Math.min(359.9, 360 * frac)),
-                    fill: 'none', stroke: colors[i] || '#8BB475', 'stroke-width': '13', 'stroke-linecap': 'round'
-                }));
-            }
-        });
-        element.textContent = '';
-        element.appendChild(svg);
+    function number(value) {
+        var parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
     }
 
-    // ---- Two-series smooth area line (income vs expenses) ----
-    function renderAreaLine(element) {
-        if (!element) return;
-        var labels = parseJsonData(element, 'labels', []);
-        var income = parseJsonData(element, 'income', []).map(toNumber);
-        var expenses = parseJsonData(element, 'expenses', []).map(toNumber);
-        var n = Math.max(labels.length, income.length, expenses.length, 2);
-
-        var W = 1000, H = 360;
-        var m = { top: 18, right: 20, bottom: 40, left: 52 };
-        var cw = W - m.left - m.right, ch = H - m.top - m.bottom;
-        var max = Math.max.apply(null, income.concat(expenses).concat([1]));
-        var scale = max > 1000 ? 1000 : 1;
-        var incK = income.map(function (v) { return v / scale; });
-        var expK = expenses.map(function (v) { return v / scale; });
-        var maxK = Math.max.apply(null, incK.concat(expK).concat([1]));
-        var step = maxK > 600 ? 200 : maxK > 120 ? 50 : maxK > 60 ? 20 : maxK > 12 ? 10 : 5;
-        var yMax = Math.max(step, Math.ceil(maxK / step) * step);
-
-        var svg = createSvg(W, H);
-        svg.setAttribute('aria-label', text('نمودار درآمد و مصارف', 'Income vs expenses chart'));
-        function xs(i) { return n <= 1 ? m.left : m.left + cw * i / (n - 1); }
-        function ys(v) { return m.top + ch - ch * v / yMax; }
-
-        var defs = el('defs', {});
-        [['incFill', '#8BB475'], ['expFill', '#FB7185']].forEach(function (g) {
-            var grad = el('linearGradient', { id: g[0], x1: '0', y1: '0', x2: '0', y2: '1' });
-            grad.appendChild(el('stop', { offset: '0', 'stop-color': g[1], 'stop-opacity': '0.22' }));
-            grad.appendChild(el('stop', { offset: '1', 'stop-color': g[1], 'stop-opacity': '0' }));
-            defs.appendChild(grad);
+    function svgElement(name, attributes) {
+        var element = document.createElementNS(svgNs, name);
+        Object.keys(attributes || {}).forEach(function (key) {
+            element.setAttribute(key, attributes[key]);
         });
-        svg.appendChild(defs);
+        return element;
+    }
 
-        for (var t = 0; t <= 5; t++) {
-            var y = ys(yMax * t / 5);
-            svg.appendChild(el('line', { x1: m.left, x2: W - m.right, y1: y.toFixed(1), y2: y.toFixed(1), stroke: '#E5E7EB', 'stroke-width': '1', 'stroke-dasharray': '6 8' }));
-            var lb = el('text', { x: m.left - 10, y: (y + 4).toFixed(1), fill: '#7B7B7B', 'font-family': fontFamily, 'font-size': '12', 'text-anchor': 'end' });
-            lb.textContent = Math.round(yMax * t / 5);
-            svg.appendChild(lb);
-        }
-        for (var i = 0; i < n; i++) {
-            var xl = el('text', { x: xs(i).toFixed(1), y: String(H - 12), fill: '#7B7B7B', 'font-family': fontFamily, 'font-size': '12', 'text-anchor': 'middle' });
-            xl.textContent = labels[i] || '';
-            svg.appendChild(xl);
-        }
+    function locale() {
+        return document.documentElement.lang === "en" ? "en-US" : "fa-AF";
+    }
 
-        [{ vals: incK, color: '#8BB475', fill: 'incFill' }, { vals: expK, color: '#FB7185', fill: 'expFill' }].forEach(function (s) {
-            var pts = s.vals.map(function (v, i) { return { x: xs(i), y: ys(v) }; });
-            if (!pts.length) return;
-            var d = smoothPath(pts);
-            svg.appendChild(el('path', { d: d + ' L ' + pts[pts.length - 1].x.toFixed(2) + ' ' + (m.top + ch) + ' L ' + pts[0].x.toFixed(2) + ' ' + (m.top + ch) + ' Z', fill: 'url(#' + s.fill + ')', stroke: 'none' }));
-            svg.appendChild(el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': '3', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    function formatCompact(value) {
+        return new Intl.NumberFormat(locale(), {
+            notation: "compact",
+            maximumFractionDigits: 1
+        }).format(value);
+    }
+
+    function formatMoney(value) {
+        return new Intl.NumberFormat(locale(), {
+            maximumFractionDigits: 0
+        }).format(value) + " USD";
+    }
+
+    function linePath(points) {
+        if (!points.length) return "";
+        var path = "M " + points[0].x + " " + points[0].y;
+        for (var index = 1; index < points.length; index += 1) {
+            var previous = points[index - 1];
+            var current = points[index];
+            var middle = (previous.x + current.x) / 2;
+            path += " C " + middle + " " + previous.y + ", " + middle + " " + current.y + ", " + current.x + " " + current.y;
+        }
+        return path;
+    }
+
+    function areaPath(points, baseline) {
+        if (!points.length) return "";
+        return linePath(points) + " L " + points[points.length - 1].x + " " + baseline + " L " + points[0].x + " " + baseline + " Z";
+    }
+
+    function appendText(parent, className, value, x, y) {
+        var text = svgElement("text", { x: x, y: y, class: className });
+        text.textContent = value;
+        parent.appendChild(text);
+    }
+
+    function renderEmpty(container) {
+        var empty = document.createElement("div");
+        var icon = document.createElement("i");
+        var label = document.createElement("span");
+
+        empty.className = "dashboard-chart-empty";
+        icon.className = "bi bi-graph-up";
+        icon.setAttribute("aria-hidden", "true");
+        label.textContent = container.dataset.emptyLabel || "No data";
+        empty.append(icon, label);
+        container.appendChild(empty);
+    }
+
+    function seriesPoints(values, maximum, count, left, top, plotWidth, plotHeight) {
+        return values.map(function (value, index) {
+            var x = count <= 1 ? left + (plotWidth / 2) : left + ((plotWidth * index) / (count - 1));
+            var y = top + plotHeight - ((Math.max(0, value) / maximum) * plotHeight);
+            return { x: x, y: y, value: value };
+        });
+    }
+
+    function appendSeries(svg, points, kind, baseline, label) {
+        var area = svgElement("path", {
+            d: areaPath(points, baseline),
+            class: "dashboard-chart-area dashboard-chart-area--" + kind,
+            "aria-hidden": "true"
+        });
+        var line = svgElement("path", {
+            d: linePath(points),
+            class: "dashboard-chart-line dashboard-chart-line--" + kind
+        });
+        var title = svgElement("title");
+        title.textContent = label + " · " + formatMoney(points[points.length - 1].value);
+        line.appendChild(title);
+        svg.append(area, line);
+
+        [0, points.length - 1].filter(function (value, index, items) {
+            return items.indexOf(value) === index;
+        }).forEach(function (index) {
+            svg.appendChild(svgElement("circle", {
+                cx: points[index].x,
+                cy: points[index].y,
+                r: "3.5",
+                class: "dashboard-chart-dot dashboard-chart-dot--" + kind,
+                "aria-hidden": "true"
+            }));
+        });
+    }
+
+    function appendLegend(shell, labels) {
+        var legend = document.createElement("div");
+        legend.className = "dashboard-chart-legend";
+        legend.setAttribute("aria-label", document.documentElement.lang === "en" ? "Chart legend" : "راهنمای نمودار");
+
+        ["sales", "expenses"].forEach(function (kind, index) {
+            var item = document.createElement("span");
+            var line = document.createElement("span");
+            var label = document.createElement("span");
+            item.className = "dashboard-chart-legend-item";
+            line.className = "dashboard-chart-legend-line dashboard-chart-legend-line--" + kind;
+            label.textContent = labels[index];
+            item.append(line, label);
+            legend.appendChild(item);
         });
 
-        element.textContent = '';
-        element.appendChild(svg);
+        shell.appendChild(legend);
+    }
+
+    function renderChart(container) {
+        if (!container) return;
+
+        var labels = parseList(container, "labels").map(String);
+        var sales = parseList(container, "sales").map(number);
+        var expenses = parseList(container, "expenses").map(number);
+        var count = Math.min(labels.length, sales.length, expenses.length);
+        var maximum = Math.max.apply(null, sales.concat(expenses, [0]));
+        container.replaceChildren();
+
+        if (count === 0 || maximum <= 0) {
+            renderEmpty(container);
+            return;
+        }
+
+        labels = labels.slice(0, count);
+        sales = sales.slice(0, count);
+        expenses = expenses.slice(0, count);
+
+        var width = 760;
+        var height = 300;
+        var left = 54;
+        var right = 18;
+        var top = 18;
+        var bottom = 42;
+        var plotWidth = width - left - right;
+        var plotHeight = height - top - bottom;
+        var baseline = top + plotHeight;
+        var shell = document.createElement("div");
+        var svg = svgElement("svg", {
+            viewBox: "0 0 " + width + " " + height,
+            role: "img",
+            focusable: "false",
+            "aria-label": container.dataset.chartLabel || "Sales and expense trend"
+        });
+        shell.className = "dashboard-chart-shell";
+
+        for (var gridIndex = 0; gridIndex <= 4; gridIndex += 1) {
+            var ratio = gridIndex / 4;
+            var y = top + (plotHeight * ratio);
+            svg.appendChild(svgElement("line", {
+                x1: left,
+                y1: y,
+                x2: left + plotWidth,
+                y2: y,
+                class: "dashboard-chart-grid",
+                "aria-hidden": "true"
+            }));
+            appendText(svg, "dashboard-chart-axis-label", formatCompact(maximum * (1 - ratio)), left - 9, y + 4);
+        }
+
+        var labelIndexes = [0, Math.round((count - 1) / 3), Math.round(((count - 1) * 2) / 3), count - 1];
+        labelIndexes.filter(function (value, index, items) {
+            return items.indexOf(value) === index;
+        }).forEach(function (index) {
+            var x = count <= 1 ? left + (plotWidth / 2) : left + ((plotWidth * index) / (count - 1));
+            appendText(svg, "dashboard-chart-x-label", labels[index], x, height - 14);
+        });
+
+        var salesPoints = seriesPoints(sales, maximum, count, left, top, plotWidth, plotHeight);
+        var expensePoints = seriesPoints(expenses, maximum, count, left, top, plotWidth, plotHeight);
+        appendSeries(svg, salesPoints, "sales", baseline, container.dataset.salesLabel || "Sales");
+        appendSeries(svg, expensePoints, "expenses", baseline, container.dataset.expensesLabel || "Expenses");
+
+        shell.appendChild(svg);
+        appendLegend(shell, [container.dataset.salesLabel || "Sales", container.dataset.expensesLabel || "Expenses"]);
+        container.appendChild(shell);
     }
 
     function renderDashboardCharts() {
-        renderRings(document.getElementById('ptg-rings'));
-        renderAreaLine(document.getElementById('ptg-area'));
+        document.querySelectorAll("[data-dashboard-chart]").forEach(renderChart);
     }
 
     window.__ptgRenderDashboardCharts = renderDashboardCharts;
     if (window.__ptgDashboardChartsReady !== true) {
-        window.addEventListener('ptg:page-ready', function () {
-            if (typeof window.__ptgRenderDashboardCharts === 'function') {
-                window.__ptgRenderDashboardCharts();
-            }
-        });
+        window.addEventListener("ptg:page-ready", renderDashboardCharts);
+        window.addEventListener("pageshow", renderDashboardCharts);
         window.__ptgDashboardChartsReady = true;
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderDashboardCharts, { once: true });
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", renderDashboardCharts, { once: true });
     } else {
         renderDashboardCharts();
     }

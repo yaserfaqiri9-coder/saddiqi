@@ -10,8 +10,7 @@
                        "Reconciliation", "bi-arrow-right", Url.Action("Index")))" />
 
     <div class="ak-page-actions">
-        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
-        <a asp-action="OpenShipmentsCsv" class="btn btn-light">Export CSV</a>
+        <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("OpenShipmentsExport"))" />
     </div>
 
     <p class="ak-note">shipment بدون فروش یا مصرف و dispatch بدون receipt در این صفحه با دسته‌بندی روشن نمایش داده می‌شوند.</p>

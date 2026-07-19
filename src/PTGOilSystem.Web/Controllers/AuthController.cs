@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Auth;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Security;
@@ -17,24 +19,37 @@ public class AuthController : Controller
 {
     private readonly IUserService _users;
     private readonly IAuditService? _audit;
+    private readonly ILoginAttemptGuard _loginAttemptGuard;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(IUserService users, ILogger<AuthController> logger)
-        : this(users, null, logger)
+        : this(users, null, AllowAllLoginAttemptGuard.Instance, logger)
+    {
+    }
+
+    public AuthController(IUserService users, IAuditService? audit, ILogger<AuthController> logger)
+        : this(users, audit, AllowAllLoginAttemptGuard.Instance, logger)
     {
     }
 
     [ActivatorUtilitiesConstructor]
-    public AuthController(IUserService users, IAuditService? audit, ILogger<AuthController> logger)
+    public AuthController(
+        IUserService users,
+        IAuditService? audit,
+        ILoginAttemptGuard loginAttemptGuard,
+        ILogger<AuthController> logger)
     {
         _users = users;
         _audit = audit;
+        _loginAttemptGuard = loginAttemptGuard;
         _logger = logger;
     }
 
     [AllowAnonymous]
     public IActionResult Login(string? returnUrl = null)
     {
+        ApplyLoginResponseHeaders();
+
         if (User.Identity?.IsAuthenticated == true)
             return RedirectToLocal(returnUrl);
 
@@ -43,25 +58,67 @@ public class AuthController : Controller
 
     [HttpPost, ValidateAntiForgeryToken]
     [AllowAnonymous]
-    public async Task<IActionResult> Login(LoginViewModel model)
+    [EnableRateLimiting(RateLimitPolicies.Login)]
+    public async Task<IActionResult> Login(
+        LoginViewModel model,
+        CancellationToken cancellationToken = default)
     {
+        ApplyLoginResponseHeaders();
+
         if (!ModelState.IsValid)
             return View(model);
 
-        var user = await _users.VerifyPasswordAsync(model.Username, model.Password);
+        var attemptedUsername = model.Username.Trim();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var attemptStatus = await _loginAttemptGuard.GetStatusAsync(
+            attemptedUsername,
+            ipAddress,
+            cancellationToken);
+
+        if (attemptStatus.IsLocked)
+        {
+            await LogAuthenticationEventAsync(
+                LoginAuditActions.Locked,
+                attemptedUsername,
+                "درخواست ورود در زمان قفل موقت رد شد.",
+                StatusCodes.Status429TooManyRequests,
+                cancellationToken: cancellationToken);
+
+            return LockedLoginView(model);
+        }
+
+        var user = await _users.VerifyPasswordAsync(
+            attemptedUsername,
+            model.Password,
+            cancellationToken);
         if (user is null)
         {
-            if (_audit is not null)
+            await LogAuthenticationEventAsync(
+                LoginAuditActions.Failed,
+                attemptedUsername,
+                "تلاش ناموفق ورود به سیستم.",
+                StatusCodes.Status401Unauthorized,
+                cancellationToken: cancellationToken);
+
+            attemptStatus = await _loginAttemptGuard.GetStatusAsync(
+                attemptedUsername,
+                ipAddress,
+                cancellationToken);
+
+            if (attemptStatus.IsLocked)
             {
-                await _audit.LogActivityAndSaveAsync(BuildAuthAuditEntry(
-                    action: "LoginFailed",
-                    username: model.Username,
-                    description: "تلاش ناموفق ورود به سیستم.",
-                    isSuccess: false,
-                    statusCode: 401));
+                await LogAuthenticationEventAsync(
+                    LoginAuditActions.Locked,
+                    attemptedUsername,
+                    "حفاظت ورود پس از چند تلاش ناموفق فعال شد.",
+                    StatusCodes.Status429TooManyRequests,
+                    cancellationToken: cancellationToken);
+
+                return LockedLoginView(model);
             }
 
             ModelState.AddModelError(string.Empty, "نام کاربری یا رمز عبور نادرست است.");
+            model.Password = string.Empty;
             return View(model);
         }
 
@@ -105,17 +162,15 @@ public class AuthController : Controller
                 ExpiresUtc = DateTimeOffset.UtcNow.AddHours(12)
             });
 
-        if (_audit is not null)
-        {
-            await _audit.LogActivityAndSaveAsync(BuildAuthAuditEntry(
-                action: "Login",
-                actorUserId: user.Id,
-                username: user.Username,
-                entityId: user.Id,
-                description: $"ورود موفق کاربر با نقش {roleName}.",
-                isSuccess: true,
-                statusCode: 200));
-        }
+        await LogAuthenticationEventAsync(
+            LoginAuditActions.Succeeded,
+            user.Username,
+            $"ورود موفق کاربر با نقش {roleName}.",
+            StatusCodes.Status200OK,
+            isSuccess: true,
+            actorUserId: user.Id,
+            entityId: user.Id,
+            cancellationToken: cancellationToken);
 
         _logger.LogInformation("User '{Username}' logged in with role '{RoleName}'.", user.Username, roleName);
         TempData["ok"] = "ورود با موفقیت انجام شد.";
@@ -223,6 +278,47 @@ public class AuthController : Controller
             return LocalRedirect(returnUrl);
 
         return RedirectToAction("Index", "Home");
+    }
+
+    private IActionResult LockedLoginView(LoginViewModel model)
+    {
+        Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        ModelState.AddModelError(
+            string.Empty,
+            "ورود موقتاً محدود شده است. لطفاً ۱۵ دقیقه بعد دوباره تلاش کنید.");
+        model.Password = string.Empty;
+        return View("Login", model);
+    }
+
+    private async Task LogAuthenticationEventAsync(
+        string action,
+        string? username,
+        string description,
+        int statusCode,
+        bool isSuccess = false,
+        int? actorUserId = null,
+        int entityId = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (_audit is null)
+            return;
+
+        await _audit.LogActivityAndSaveAsync(BuildAuthAuditEntry(
+            action: action,
+            actorUserId: actorUserId,
+            username: username,
+            entityId: entityId,
+            description: description,
+            isSuccess: isSuccess,
+            statusCode: statusCode), cancellationToken);
+    }
+
+    private void ApplyLoginResponseHeaders()
+    {
+        Response.Headers.CacheControl = "no-store, no-cache";
+        Response.Headers.Pragma = "no-cache";
+        Response.Headers.Expires = "0";
+        Response.Headers.XFrameOptions = "DENY";
     }
 
     private static string ResolveRoleName(string? roleName)

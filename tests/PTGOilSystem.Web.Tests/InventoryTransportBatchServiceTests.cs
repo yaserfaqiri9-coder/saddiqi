@@ -127,7 +127,7 @@ public class InventoryTransportBatchServiceTests
     }
 
     [Fact]
-    public async Task Create_Rejects_Standalone_Operational_Asset_Without_Any_Capacity()
+    public async Task Create_Allows_Standalone_Operational_Asset_Without_Any_Capacity()
     {
         await using var db = CreateDb();
         var sourceIds = await SeedAsync(db);
@@ -142,10 +142,13 @@ public class InventoryTransportBatchServiceTests
         await db.SaveChangesAsync();
         var model = BuildStandaloneAssetModel(sourceIds, capacityMt: null);
 
-        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => BuildService(db).CreateAsync(model, null));
+        // Capacity is optional: a missing/unknown capacity no longer blocks creation.
+        var batch = await BuildService(db).CreateAsync(model, null);
 
-        Assert.Equal("INVENTORY_TRANSPORT_CAPACITY_MISSING", error.Code);
-        Assert.Empty(await db.InventoryTransportBatches.ToListAsync());
+        var leg = Assert.Single(batch.Legs);
+        Assert.Equal(2, leg.OperationalAssetId);
+        Assert.Equal(150m, leg.QuantityMt);
+        Assert.Single(await db.InventoryTransportBatches.ToListAsync());
     }
 
     [Fact]

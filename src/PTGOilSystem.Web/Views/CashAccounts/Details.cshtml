@@ -1,5 +1,6 @@
 @model PTGOilSystem.Web.Models.Entities.CashAccount
 @using PTGOilSystem.Web.Models.Payments
+@using PTGOilSystem.Web.Models.Shared
 @{
     var transactions = ViewBag.PaymentTransactions as IReadOnlyList<PaymentListItemViewModel> ?? Array.Empty<PaymentListItemViewModel>();
     object? totalInObject = ViewBag.TotalIn;
@@ -14,27 +15,32 @@
     var statusText = Model.IsActive ? "فعال" : "غیرفعال";
     var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
     var indexUrl = Url.Action("Index") ?? "#";
+    var createPaymentUrl = Url.Action("Create", "Payments", new { cashAccountId = Model.Id, returnUrl = Context.Request.Path }) ?? "#";
+    var activeAccountTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeAccountTab = activeAccountTab == "ledger" ? "ledger" : "info";
+    ViewData["AkHeaderStatus"] = statusText;
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = string.IsNullOrWhiteSpace(Model.BankName) ? Model.Name : $"{Model.Name} · {Model.BankName}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = UiText.T(Context, "ویرایش", "Edit"), Href = editUrl, Icon = "bi-pencil" }
+    };
     var detailTabs = new[]
     {
-        "#account-info|مشخصات|bi-wallet2|active",
-        "#account-ledger|تراکنش‌ها|bi-journal-text|"
+        $"info|مشخصات|bi-wallet2|{(activeAccountTab == "info" ? "active" : "")}",
+        $"ledger|تراکنش‌ها|bi-journal-text|{(activeAccountTab == "ledger" ? "active" : "")}"
     };
 }
 
-<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"حساب {Model.Code}", false,
-                       UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", editUrl, (string?)null,
+                       UiText.T(Context, "ثبت تراکنش", "Record transaction"), "bi-cash-coin", createPaymentUrl, (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)indexUrl))" />
-
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@statusText</span>
-        <span class="ak-note">@(string.IsNullOrWhiteSpace(Model.BankName) ? Model.Name : $"{Model.Name} · {Model.BankName}")</span>
-    </div>
 
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@(UiText.T(Context, "بخش‌های حساب", "Account Sections"), detailTabs)" />
 
-    <section id="account-info" class="ak-form-section ak-detail-section">
+    <section id="account-info" class="ak-form-section ak-detail-section" hidden="@(activeAccountTab != "info")">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات حساب", "مشخصات مرجع حساب بدون تغییر در منطق پرداخت."))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>کد</dt><dd>@Model.Code</dd></div>
@@ -50,13 +56,13 @@
         </dl>
     </section>
 
-    <section id="account-ledger" class="ak-form-section ak-detail-section">
+    <section id="account-ledger" class="ak-form-section ak-detail-section" hidden="@(activeAccountTab != "ledger")">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("گزارش صندوق/بانک", (string?)null))" />
         <div class="ak-stat-grid" aria-label="گزارش صندوق یا بانک">
-            <vc:stat-card title="Opening" value="0.00" unit="@Model.Currency" avatar="payments"></vc:stat-card>
+            <vc:stat-card title="مانده آغاز" value="0.00" unit="@Model.Currency" avatar="payments"></vc:stat-card>
             <vc:stat-card title="دریافت‌ها" value="@totalIn.ToString("N2")" unit="@Model.Currency" avatar="receivables"></vc:stat-card>
             <vc:stat-card title="پرداخت‌ها" value="@totalOut.ToString("N2")" unit="@Model.Currency" avatar="payments"></vc:stat-card>
-            <vc:stat-card title="Closing" value="@closingBalance.ToString("N2")" unit="@Model.Currency" avatar="profit-loss"></vc:stat-card>
+            <vc:stat-card title="مانده پایان" value="@closingBalance.ToString("N2")" unit="@Model.Currency" avatar="profit-loss"></vc:stat-card>
         </div>
 
         <div class="ak-table-wrap">
@@ -66,11 +72,11 @@
                         <th>تاریخ</th>
                         <th>نوع</th>
                         <th class="ak-col-grow">طرف حساب</th>
-                        <th>قرارداد</th>
+                        <th class="ak-col-priority-2">قرارداد</th>
                         <th class="ak-col-num">مبلغ</th>
-                        <th class="ak-col-num">USD</th>
+                        <th class="ak-col-num ak-col-priority-2">معادل دالر</th>
                         <th>مرجع</th>
-                        <th>Ledger</th>
+                        <th class="ak-col-priority-3">دفتر کل</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,11 +86,11 @@
                             <td>@row.PaymentDate.ToDisplayDate()</td>
                             <td><span class="ak-status @(row.Direction == PaymentDirection.In ?"is-active" : "")">@row.PaymentKindName</span></td>
                             <td class="ak-col-grow">@row.CounterpartyName</td>
-                            <td>@(row.ContractNumber ?? "—")</td>
+                            <td class="ak-col-priority-2">@(row.ContractNumber ?? "—")</td>
                             <td class="ak-col-num ak-num">@row.Amount.ToString("N2") @row.Currency</td>
-                            <td class="ak-col-num ak-num">@row.AmountUsd.ToString("N2")</td>
+                            <td class="ak-col-num ak-num ak-col-priority-2">@row.AmountUsd.ToString("N2")</td>
                             <td><a asp-controller="Payments" asp-action="Details" asp-route-id="@row.Id">@(row.Reference ?? $"#{row.Id}")</a></td>
-                            <td>
+                            <td class="ak-col-priority-3">
                                 @if (row.LedgerEntryId.HasValue)
                                 {
                                     <a asp-controller="Ledger" asp-action="Details" asp-route-id="@row.LedgerEntryId.Value">#@row.LedgerEntryId</a>

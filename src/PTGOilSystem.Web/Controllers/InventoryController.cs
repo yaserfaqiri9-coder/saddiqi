@@ -14,7 +14,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class InventoryController : Controller
+public partial class InventoryController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IStockService _stock;

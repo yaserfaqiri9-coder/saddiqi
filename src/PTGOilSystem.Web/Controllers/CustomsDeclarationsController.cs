@@ -13,7 +13,7 @@ using System.ComponentModel.DataAnnotations;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class CustomsDeclarationsController : Controller
+public partial class CustomsDeclarationsController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly ILogger<CustomsDeclarationsController> _logger;
@@ -51,6 +51,7 @@ public class CustomsDeclarationsController : Controller
         int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         var normalizedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
 
         var query = _db.CustomsDeclarations
@@ -102,8 +103,8 @@ public class CustomsDeclarationsController : Controller
         var items = await query
             .OrderByDescending(cd => cd.DeclarationDate)
             .ThenByDescending(cd => cd.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(cd => new CustomsDeclarationListItemViewModel
             {
                 Id = cd.Id,

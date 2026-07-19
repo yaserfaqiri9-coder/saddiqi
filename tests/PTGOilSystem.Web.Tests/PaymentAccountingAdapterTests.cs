@@ -515,7 +515,7 @@ public sealed class PaymentAccountingAdapterTests(AccountingPostgreSqlFixture fi
             Enabled = accountingEnabled,
             Pilots = pilots
         });
-        var posting = new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options);
+        var posting = new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db));
         return new PaymentAccountingAdapter(
             db,
             posting,
@@ -564,8 +564,13 @@ public sealed class PaymentAccountingAdapterTests(AccountingPostgreSqlFixture fi
             Code = Unique("C"),
             Name = Unique("Company"),
             Country = "AF",
-            IsActive = true
+            IsActive = true,
+            IsSystemOwner = true
         };
+        // دیتابیسِ این مجموعه بین تست‌ها مشترک است و تست‌ها sequential اجرا می‌شوند؛ پیش از ثبتِ
+        // مالکِ این تست، مالکِ تستِ قبلی را demote می‌کنیم تا قیدِ «حداکثر یک مالک» نقض نشود.
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"Companies\" SET \"IsSystemOwner\" = FALSE WHERE \"IsSystemOwner\" = TRUE");
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 

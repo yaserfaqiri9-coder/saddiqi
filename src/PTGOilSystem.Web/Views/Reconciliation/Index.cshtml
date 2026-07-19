@@ -1,65 +1,100 @@
 @model PTGOilSystem.Web.Models.Reconciliation.ReconciliationIndexViewModel
 @{
     ViewData["Title"] = UiText.T(Context,"کنترل مغایرت‌ها","Reconciliation");
-    var openShipmentIssues = Model.ShipmentsWithoutSalesCount + Model.ShipmentsWithoutExpensesCount + Model.DispatchesWithoutReceiptCount;
-    var financeIssueCount = Model.MissingLedgerCount + Model.NonZeroBalancesCount;
+    // Counts render as a placeholder glyph and are filled lazily from
+    // Reconciliation/Summary (see the script below). This keeps the page-load
+    // critical path free of the ~46 reconciliation queries.
+    const string L = "…";
 }
 
-<div class="ak-form-page" dir="rtl">
+<div class="ak-form-page" dir="rtl" data-reconciliation-summary-url="@Url.Action("Summary", "Reconciliation")">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context,"کنترل مغایرت‌ها","Reconciliation"), false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
 
-    <div class="ak-page-actions">
-        <button type="button" class="btn btn-light" onclick="window.print()">چاپ</button>
-    </div>
-
     <section class="ak-stat-grid" aria-label="خلاصهٔ مغایرت‌ها">
-        <vc:stat-card title="@UiText.T(Context,"قراردادهای باز","Open Contracts")" value="@Model.OpenContractsCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="purchase-contracts"></vc:stat-card>
-        <vc:stat-card title="@UiText.T(Context,"حمل باز","Open Shipments")" value="@openShipmentIssues.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="transported"></vc:stat-card>
-        <vc:stat-card title="@UiText.T(Context,"ناتمام پس از رسید","Incomplete After Receipt")" value="@Model.IncompleteAfterReceiptCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="loading"></vc:stat-card>
-        <vc:stat-card title="@UiText.T(Context,"ثبت مالی / مانده باز","Ledger / Balance Issues")" value="@financeIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="losses"></vc:stat-card>
-        <vc:stat-card title="@UiText.T(Context,"ریسک کارمندان","Employee Issues")" value="@Model.EmployeeIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="expenses"></vc:stat-card>
-        <vc:stat-card title="@UiText.T(Context,"ریسک رزنامچه","Roznamcha Issues")" value="@Model.RoznamchaIssueCount.ToString("N0")" unit="@UiText.T(Context,"مورد","items")" avatar="payments"></vc:stat-card>
+        <span data-recon-count="openContracts" style="display:contents"><vc:stat-card title="@UiText.T(Context,"قراردادهای باز","Open Contracts")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="purchase-contracts"></vc:stat-card></span>
+        <span data-recon-count="openShipments" style="display:contents"><vc:stat-card title="@UiText.T(Context,"حمل باز","Open Shipments")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="transported"></vc:stat-card></span>
+        <span data-recon-count="incompleteAfterReceipt" style="display:contents"><vc:stat-card title="@UiText.T(Context,"ناتمام پس از رسید","Incomplete After Receipt")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="loading"></vc:stat-card></span>
+        <span data-recon-count="financeIssues" style="display:contents"><vc:stat-card title="@UiText.T(Context,"ثبت مالی / مانده باز","Ledger / Balance Issues")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="losses"></vc:stat-card></span>
+        <span data-recon-count="employeeIssues" style="display:contents"><vc:stat-card title="@UiText.T(Context,"ریسک کارمندان","Employee Issues")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="expenses"></vc:stat-card></span>
+        <span data-recon-count="roznamchaIssues" style="display:contents"><vc:stat-card title="@UiText.T(Context,"ریسک رزنامچه","Roznamcha Issues")" value="@L" unit="@UiText.T(Context,"مورد","items")" avatar="payments"></vc:stat-card></span>
     </section>
 
     <div class="ak-hub-grid">
         <a class="ak-hub-tile" asp-action="OpenContracts">
-            <span class="ak-hub-tile-title">قراردادهای باز <span class="ak-status">@Model.OpenContractsCount</span></span>
+            <span class="ak-hub-tile-title">قراردادهای باز <span class="ak-status" data-recon-count="openContracts">@L</span></span>
             <span class="ak-hub-tile-desc">مقدار باقی‌مانده یا وضعیت نیازمند بررسی</span>
         </a>
         <a class="ak-hub-tile" asp-action="OpenShipments">
-            <span class="ak-hub-tile-title">حمل و دیسپچ باز <span class="ak-status">@(Model.ShipmentsWithoutSalesCount + Model.ShipmentsWithoutExpensesCount + Model.DispatchesWithoutReceiptCount)</span></span>
+            <span class="ak-hub-tile-title">حمل و دیسپچ باز <span class="ak-status" data-recon-count="openShipments">@L</span></span>
             <span class="ak-hub-tile-desc">حمل بدون فروش/مصرف یا دیسپچ بدون رسید</span>
         </a>
         <a class="ak-hub-tile" asp-action="IncompleteAfterReceipt">
-            <span class="ak-hub-tile-title">بارهای در مسیر / ناتمام بعد از رسید <span class="ak-status">@Model.IncompleteAfterReceiptCount</span></span>
+            <span class="ak-hub-tile-title">بارهای در مسیر / ناتمام بعد از رسید <span class="ak-status" data-recon-count="incompleteAfterReceipt">@L</span></span>
             <span class="ak-hub-tile-desc">بارگیری مستقیم بدون پایان، انتقال در مسیر، تضاد فروش/تخلیه، باقی‌مانده دیسپچ</span>
         </a>
         <a class="ak-hub-tile" asp-action="MissingLedger">
-            <span class="ak-hub-tile-title">ثبت مالی ناقص <span class="ak-status is-inactive">@Model.MissingLedgerCount</span></span>
+            <span class="ak-hub-tile-title">ثبت مالی ناقص <span class="ak-status is-inactive" data-recon-count="missingLedger">@L</span></span>
             <span class="ak-hub-tile-desc">تراکنش‌هایی که دفتر کل متناظر ندارند</span>
         </a>
         <a class="ak-hub-tile" asp-action="NonZeroBalances">
-            <span class="ak-hub-tile-title">مانده‌های باز <span class="ak-status">@Model.NonZeroBalancesCount</span></span>
+            <span class="ak-hub-tile-title">مانده‌های باز <span class="ak-status" data-recon-count="nonZeroBalances">@L</span></span>
             <span class="ak-hub-tile-desc">مانده‌های غیرصفر براساس دفتر کل</span>
         </a>
         <a class="ak-hub-tile" asp-controller="LossEvents" asp-action="Index">
-            <span class="ak-hub-tile-title">کسری‌ها و ضایعات <span class="ak-status">@Model.LossEventsCount</span></span>
+            <span class="ak-hub-tile-title">کسری‌ها و ضایعات <span class="ak-status" data-recon-count="lossEvents">@L</span></span>
             <span class="ak-hub-tile-desc">مواردی که باید بررسی و ردیابی شوند</span>
         </a>
         <a class="ak-hub-tile" asp-action="EmployeeTransactions">
-            <span class="ak-hub-tile-title">مغایرت معاش کارمندان <span class="ak-status">@Model.EmployeeIssueCount</span></span>
+            <span class="ak-hub-tile-title">مغایرت معاش کارمندان <span class="ak-status" data-recon-count="employeeIssues">@L</span></span>
             <span class="ak-hub-tile-desc">پرداخت/برداشت بدون Ledger، بدون حساب نقد یا مبلغ ناسازگار</span>
         </a>
         <a class="ak-hub-tile" asp-action="Roznamcha">
-            <span class="ak-hub-tile-title">مغایرت رزنامچه <span class="ak-status">@Model.RoznamchaIssueCount</span></span>
+            <span class="ak-hub-tile-title">مغایرت رزنامچه <span class="ak-status" data-recon-count="roznamchaIssues">@L</span></span>
             <span class="ak-hub-tile-desc">طرف حساب، حساب نقد/بانک، Ledger و ریسک دوباره‌شماری مصارف</span>
         </a>
         <a class="ak-hub-tile" asp-action="SuspenseMoney">
-            <span class="ak-hub-tile-title">پول‌های معلق <span class="ak-status is-inactive">@Model.SuspenseMoneyCount</span></span>
+            <span class="ak-hub-tile-title">پول‌های معلق <span class="ak-status is-inactive" data-recon-count="suspenseMoney">@L</span></span>
             <span class="ak-hub-tile-desc">پولی که هنوز به مشتری، تأمین‌کننده، قرارداد یا سند وصل نیست</span>
         </a>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            "use strict";
+            var page = document.querySelector("[data-reconciliation-summary-url]");
+            if (!page) return;
+            var url = page.getAttribute("data-reconciliation-summary-url");
+            var targets = Array.prototype.slice.call(document.querySelectorAll("[data-recon-count]"));
+            targets.forEach(function (el) { el.setAttribute("aria-busy", "true"); });
+
+            function setValue(el, text) {
+                var bdi = el.querySelector(".ak-stat-card__value bdi");
+                if (bdi) { bdi.textContent = text; }
+                else { el.textContent = text; }
+                el.setAttribute("aria-busy", "false");
+            }
+
+            fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } })
+                .then(function (r) { if (!r.ok) throw new Error("summary failed"); return r.json(); })
+                .then(function (data) {
+                    targets.forEach(function (el) {
+                        var key = el.getAttribute("data-recon-count");
+                        var value = data[key];
+                        if (typeof value === "number") {
+                            setValue(el, value.toLocaleString());
+                        } else {
+                            setValue(el, "—");
+                        }
+                    });
+                })
+                .catch(function () {
+                    targets.forEach(function (el) { setValue(el, "—"); });
+                });
+        })();
+    </script>
+}

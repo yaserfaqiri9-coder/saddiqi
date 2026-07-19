@@ -229,7 +229,7 @@ public class FinalCloseServiceTests
     private static IFinalCloseService Svc(ApplicationDbContext db)
     {
         var options = Options.Create(new AccountingOptions { Enabled = true });
-        var posting = new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options);
+        var posting = new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db));
         var checklist = new ClosingChecklistService(db, options, new AccountingReadinessService(db, options));
         var trialClose = new TrialCloseService(db, checklist, posting);
         return new FinalCloseService(db, checklist, trialClose, posting);
@@ -243,7 +243,7 @@ public class FinalCloseServiceTests
     private static void SeedClosable(ApplicationDbContext db, decimal revenue, decimal expense,
         bool includeTrialRun = true, bool includeNextYear = true, int trialCutoff = 999999)
     {
-        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true });
+        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true, IsSystemOwner = true });
 
         for (var i = 0; i < 20; i++)
         {

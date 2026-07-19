@@ -20,22 +20,47 @@
         <header class="finance-section-header">
             <div>
                 <h2 id="fiscal-current-title">سال مالی جاری</h2>
-                <p>شرکت، بازه، دوره جاری و وضعیت بستن را از یک‌جا ببینید.</p>
+                <p>بازه، دوره جاری و وضعیت بستن را از یک‌جا ببینید.</p>
             </div>
-            <form method="get" asp-action="Index" class="finance-inline-filter">
-                <label for="companyId">شرکت</label>
-                <select class="form-select" id="companyId" name="companyId" onchange="this.form.submit()">
-                    @foreach (var company in Model.Companies)
-                    {
-                        <option value="@company.CompanyId" selected="@company.IsSelected">@company.Name</option>
-                    }
-                </select>
-            </form>
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
         </header>
 
         @if (year is null)
         {
             <div class="ak-empty"><i class="bi bi-calendar-x" aria-hidden="true"></i>برای این شرکت سال مالی ثبت نشده است.</div>
+
+            @* اولین سال مالی: فقط وقتی شرکت هیچ سالی ندارد (نه سال جاری و نه سال قبلی) و کاربر مجاز است. *@
+            @if (Model.CanManage && Model.OtherYears.Count == 0 && Model.SelectedCompanyId is not null)
+            {
+                var today = DateTime.UtcNow.Date;
+                var defaultStart = new DateTime(today.Year, 1, 1);
+                var defaultEnd = new DateTime(today.Year, 12, 31);
+                <form asp-action="CreateInitialYear" method="post" class="finance-initial-year"
+                      data-ptg-confirm="true" data-ptg-confirm-title="ایجاد اولین سال مالی"
+                      data-ptg-confirm-message="اولین سال مالی با وضعیت «باز» و به‌عنوان سال جاری ساخته شود؟">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="initial-name">نام سال مالی</label>
+                            <input class="form-control" id="initial-name" name="name" value="FY-@today.Year" required maxlength="100" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="initial-start">تاریخ شروع</label>
+                            <input class="form-control" id="initial-start" name="startDate" type="date" value="@defaultStart.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="initial-end">تاریخ پایان</label>
+                            <input class="form-control" id="initial-end" name="endDate" type="date" value="@defaultEnd.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="initial-count">تعداد دوره</label>
+                            <input class="form-control" id="initial-count" name="periodCount" type="number" min="1" max="53" value="12" required />
+                        </div>
+                    </div>
+                    <p class="ak-hint">دوره‌ها به‌صورت ماهانه و پیوسته تولید می‌شوند و باید کل بازهٔ سال را دقیقاً بپوشانند.</p>
+                    <button type="submit" class="btn btn-primary">ایجاد اولین سال مالی</button>
+                </form>
+            }
         }
         else
         {
@@ -63,7 +88,7 @@
                         <strong>اقدام بعدی: اجرای چک‌لیست بستن</strong>
                         <p>در بررسی اولیه مانع آمادگی ثبت نشده است؛ چک‌لیست رسمی را اجرا کنید.</p>
                     </div>
-                    <a class="btn btn-primary" asp-controller="ClosingChecklist" asp-action="Index" asp-route-companyId="@year.CompanyId" asp-route-fiscalYearId="@year.FiscalYearId">بررسی چک‌لیست</a>
+                    <a class="btn btn-primary" asp-controller="ClosingChecklist" asp-action="Index" asp-route-fiscalYearId="@year.FiscalYearId">بررسی چک‌لیست</a>
                 }
             </div>
 
@@ -101,13 +126,12 @@
     {
         <section class="finance-fiscal-actions" aria-label="عملیات مجاز سال مالی">
             <a class="btn btn-light" asp-action="Details" asp-route-id="@year.FiscalYearId">جزئیات دوره‌ها و اسناد</a>
-            @if (Model.CanManage && Model.NextYear.IsAllowed && Model.SelectedCompanyId is int companyId)
+            @if (Model.CanManage && Model.NextYear.IsAllowed && Model.SelectedCompanyId is not null)
             {
                 <form asp-action="CreateNextYear" method="post"
                       data-ptg-confirm="true" data-ptg-confirm-title="ایجاد سال مالی بعدی"
                       data-ptg-confirm-message="سال مالی بعدی به‌صورت پیش‌نویس ساخته شود؟">
                     @Html.AntiForgeryToken()
-                    <input type="hidden" name="companyId" value="@companyId" />
                     <button type="submit" class="btn btn-primary">ایجاد سال مالی بعدی (@Model.NextYear.ProposedName)</button>
                 </form>
             }

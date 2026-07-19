@@ -10,7 +10,7 @@
     var expensePartyType = Model.OperationalAssetId.HasValue ? "operational-asset" : Model.ServiceProviderId.HasValue ? "service-provider" : "";
 }
 
-<div class="page-stack ak-form-page">
+<div class="page-stack ak-form-page ak-group-operation-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "ثبت مصرف کلی برای حمل", "Register Transport Expense"), false,
                        (string?)null, (string?)null, (string?)null, (string?)null,

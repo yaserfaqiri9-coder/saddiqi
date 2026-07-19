@@ -7,6 +7,7 @@
         => bytes >= 1048576 ? (bytes / 1048576d).ToString("N1") + " MB" : (bytes / 1024d).ToString("N0") + " KB";
 }
 @{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
     var canManageDocuments = (await AuthorizationService.AuthorizeAsync(User, AuthPolicies.ManageData)).Succeeded;
     var returnUrl = ViewBag.ReturnUrl as string;
     var loadingDetailsUrl = Model.TransportLegId.HasValue
@@ -19,17 +20,44 @@
         : Url.Action("Create", new { loadingRegisterId = Model.LoadingRegisterId, returnUrl = backUrl }) ?? "#";
     var hasDocs = Model.Documents.Count > 0;
 
+    ViewData["AkHeaderStatus"] = hasDocs ? T($"{Model.Documents.Count} سند", $"{Model.Documents.Count} documents") : T("بدون سند", "No document");
+    ViewData["AkHeaderStatusState"] = hasDocs ? "is-active" : "is-warning";
+    ViewData["AkHeaderContext"] = $"{Model.ContractNumber} · {Model.ProductName} · {Model.DeclarationDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = canManageDocuments ? Url.Action("Edit", new { id = Model.Id, returnUrl = currentUrl }) : null, Icon = "bi-pencil-square" },
+        new() { Label = T("اعلامیه جدید", "New declaration"), Href = newDeclarationUrl, Icon = "bi-plus-lg" }
+    };
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("اعلامیه گمرکی ثبت شد", "Customs declaration recorded"), Date = Model.DeclarationDate.ToDisplayDate(), Icon = "bi-shield-check", State = "is-current", Meta = $"{Model.TotalUsd:N2} USD" }
+    };
+    timelineItems.AddRange(Model.Documents.OrderBy(document => document.UploadedAt).Select(document => new AkTimelineItem
+    {
+        Title = T("سند پیوست شد", "Document attached"), Date = document.UploadedAt.ToDisplayDate(), Timestamp = document.UploadedAt,
+        Icon = "bi-paperclip", Href = Url.Action("DownloadDocument", new { id = document.Id }), Meta = document.OriginalFileName
+    }));
+    var relatedRecords = new List<AkRelatedRecord>
+    {
+        new() { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, KeyValue = Model.ProductName, Icon = "bi-file-earmark-text" }
+    };
+    if (Model.TransportLegId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("حمل", "Transport"), Label = $"TR-{Model.TransportLegId.Value:0000}", Href = Url.Action("Details", "InventoryTransportLegs", new { id = Model.TransportLegId.Value, returnUrl = currentUrl }), Icon = "bi-truck-front" });
+    else relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("بارگیری", "Loading"), Label = $"LD-{Model.LoadingRegisterId:0000}", Href = Url.Action("Details", "Loading", new { id = Model.LoadingRegisterId, returnUrl = currentUrl }), Icon = "bi-box-arrow-up" });
+    var nextActions = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("اعلامیه جدید", "New declaration"), Href = newDeclarationUrl, Icon = "bi-plus-lg" }
+    };
+
     ViewData["Title"] = "جزئیات اعلامیه گمرکی";
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"اعلامیه گمرکی #{Model.Id}", false,
-                       canManageDocuments ? "ویرایش" : null, "bi-pencil-square",
-                       canManageDocuments ? Url.Action("Edit", new { id = Model.Id, returnUrl = currentUrl }) : null, (string?)null,
+                       T("افزودن سند", "Add document"), "bi-paperclip",
+                       (string?)"#customs-documents", (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)backUrl))" />
-    <p class="ak-section-desc">@Model.ContractNumber · @Model.ProductName</p>
 
     <div class="ak-page-actions">
         <span class="ak-status @(hasDocs ?"is-active" : "is-inactive")">@(hasDocs ? $"{Model.Documents.Count} سند" : "بدون سند")</span>
@@ -53,30 +81,14 @@
         </div>
     </div>
 
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-label">تاریخ اعلامیه</span>
-            <strong>@Model.DeclarationDate.ToDisplayDate()</strong>
-            <span class="ak-section-desc">واگن / موتر: @(Model.WagonOrTruckNumber ?? "—")</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">مجموع (AFN)</span>
-            <strong class="ak-num">@Model.TotalAfn.ToString("N0")</strong>
-            <span class="ak-section-desc">معادل USD: @(Model.TotalUsd > 0 ? Model.TotalUsd.ToString("N2") + " USD" : "—")</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">نرخ هر MT (AFN)</span>
-            <strong class="ak-num">@(Model.RatePerMtAfn?.ToString("N0") ?? "—")</strong>
-            <span class="ak-section-desc">USD/MT: @(Model.RatePerMtUsd.HasValue ? Model.RatePerMtUsd.Value.ToString("N4") : "—")</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">وزن کنسمنت</span>
-            <strong class="ak-num">@(Model.ConsignmentWeightMt?.ToString("N4") ?? "—") MT</strong>
-            <span class="ak-section-desc">شماره مرجع: @(Model.DeclarationReference ?? "—")</span>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های گمرک", "Customs metrics")">
+        <vc:stat-card title="@T("وزن محموله", "Consignment weight")" value="@(Model.ConsignmentWeightMt?.ToString("N4") ?? "-")" unit="MT" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@T("مجموع افغانی", "Total AFN")" value="@Model.TotalAfn.ToString("N0")" unit="AFN" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="@T("معادل دالر", "USD equivalent")" value="@Model.TotalUsd.ToString("N2")" unit="USD" avatar="exchange-rate"></vc:stat-card>
+        <vc:stat-card title="@T("اسناد", "Documents")" value="@Model.Documents.Count.ToString()" unit="" avatar="documents"></vc:stat-card>
     </section>
 
-    <section class="ak-form-section ak-detail-section">
+    <section class="ak-form-section ak-detail-section" id="customs-documents">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("مشخصات اعلامیه", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.DeclarationDate.ToDisplayDate()</dd></div>
@@ -236,4 +248,14 @@
             </form>
         }
     </section>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="customs-timeline-title">
+        <h2 class="ak-section-title" id="customs-timeline-title">@T("روند اعلامیه", "Declaration timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+    <section class="ak-form-section ak-detail-section" aria-labelledby="customs-related-title">
+        <h2 class="ak-section-title" id="customs-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+        <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+    </section>
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 </div>

@@ -16,7 +16,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class ContractsController : Controller
+public partial class ContractsController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IAuditService _audit;

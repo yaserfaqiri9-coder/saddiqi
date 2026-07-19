@@ -10,6 +10,12 @@
 <div class="ak-form-page ak-list-page" data-operations-list>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "کسری و ضایعات", "Loss events"), true, UiText.T(Context, "ثبت کسری جدید", "New loss event"), "bi-plus-lg", Url.Action("Create"), (string?)null, (string?)null, (string?)null, (string?)null))" />
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار کسری و ضایعات", "Loss statistics")">
+        <vc:stat-card title="@UiText.T(Context, "کل رویدادها", "Total events")" value="@Model.TotalCount.ToString("N0")" unit="@UiText.T(Context, "رویداد", "events")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مقدار کسری این صفحه", "Page loss quantity")" value="@NumberDisplay.Quantity(Model.Items.Sum(x => x.DifferenceQuantityMt))" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "کسری قابل مطالبه", "Chargeable loss")" value="@NumberDisplay.Quantity(Model.Items.Sum(x => x.ChargeableLossMt))" unit="MT" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "نیازمند بررسی", "Needs review")" value="@Model.Items.Count(x => x.ChargeableLossMt > 0m).ToString("N0")" unit="@UiText.T(Context, "رویداد", "events")" avatar="purchase-contracts"></vc:stat-card>
+    </section>
     <div class="ak-list">
         @{
             List<AkFilterOption> LossOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
@@ -30,6 +36,7 @@
         }
         <div class="ak-list-toolbar">
             <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="lossFilter" />
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
         </div>
 
         <div class="ak-table-wrap">
@@ -40,7 +47,7 @@
                         <th class="col-name">@UiText.T(Context,"رویداد","Event")</th>
                         <th>@UiText.T(Context,"جنس / قرارداد","Product / Contract")</th>
                         <th>@UiText.T(Context,"مسئول","Responsible")</th>
-                        <th>@UiText.T(Context,"مقدار / فیصدی","Quantity / Percent")</th>
+                        <th>@UiText.T(Context,"مقدار","Quantity")</th>
                         <th class="col-status">@UiText.T(Context,"وضعیت","Status")</th>
                         <th class="col-actions">@UiText.T(Context,"عملیات","Action")</th>
                     </tr>
@@ -58,12 +65,14 @@
                             </td>
                             <td>
                                 <span>@item.ProductName</span>
-                                <span class="ak-note col-ltr">@(item.ContractNumber ?? "-")</span>
+                                @if (!string.IsNullOrWhiteSpace(item.ContractNumber))
+                                {
+                                    <span class="ak-section-desc col-ltr">@item.ContractNumber</span>
+                                }
                             </td>
                             <td>@(string.IsNullOrWhiteSpace(item.ResponsiblePartyName) ? "-" : item.ResponsiblePartyName)</td>
                             <td>
                                 <span class="col-ltr">@item.ChargeableLossMt.ToString("N2") MT</span>
-                                <span class="ak-note col-ltr">@(item.AllowableLossMt > 0m ? (item.ChargeableLossMt / item.AllowableLossMt * 100m).ToString("N2") + "%" : "-")</span>
                             </td>
                             <td class="col-status"><span class="ak-status @(needsReview ?"is-pending" : "is-active")" title="@statusText">@statusText</span></td>
                             <td class="col-actions">

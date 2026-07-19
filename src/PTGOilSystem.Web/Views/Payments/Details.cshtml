@@ -1,4 +1,5 @@
 @model PTGOilSystem.Web.Models.Payments.PaymentDetailsViewModel
+@using PTGOilSystem.Web.Models.Shared
 @{
     var returnUrl = ViewBag.ReturnUrl as string;
     var backUrl = !string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : Url.Action("Index") ?? "/Payments";
@@ -20,35 +21,37 @@
 
     ViewData["Title"] = "جزئیات پرداخت";
     ViewData["HideSectionTabs"] = true;
+    var activePaymentTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activePaymentTab = activePaymentTab is "relations" or "trace" or "audit" ? activePaymentTab : "main";
+    ViewData["AkHeaderStatus"] = Model.DirectionName;
+    ViewData["AkHeaderStatusState"] = Model.Direction == PTGOilSystem.Web.Models.Entities.PaymentDirection.In ? "is-active" : "is-warning";
+    ViewData["AkHeaderContext"] = $"{Model.PaymentKindName} · {counterpartyType}: {counterpartyName}";
+    var paymentMenu = new List<AkHeaderMenuItem>();
+    if (Model.LedgerEntryId.HasValue)
+    {
+        paymentMenu.Add(new AkHeaderMenuItem { Label = "سند دفتر کل", Href = Url.Action("Details", "Ledger", new { id = Model.LedgerEntryId.Value }), Icon = "bi-journal-text" });
+    }
+    ViewData["AkHeaderKebab"] = paymentMenu;
     var paymentTabs = new[]
     {
-        "#payment-main|اطلاعات اصلی|bi-info-circle|active",
-        "#payment-relations|روابط|bi-diagram-3|",
-        "#payment-trace|ردیابی|bi-signpost-split|",
-        "#payment-audit|ثبت سیستم|bi-clock-history|"
+        $"main|اطلاعات اصلی|bi-info-circle|{(activePaymentTab == "main" ? "active" : "")}",
+        $"relations|روابط|bi-diagram-3|{(activePaymentTab == "relations" ? "active" : "")}",
+        $"trace|ردیابی|bi-signpost-split|{(activePaymentTab == "trace" ? "active" : "")}",
+        $"audit|ثبت سیستم|bi-clock-history|{(activePaymentTab == "audit" ? "active" : "")}"
     };
 }
 
-<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"سند مالی #{Model.Id}", false,
                        "سند چاپی", "bi-receipt-cutoff", voucherUrl, (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)backUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.Direction == PTGOilSystem.Web.Models.Entities.PaymentDirection.In ?"is-active" : "")">@Model.DirectionName</span>
-        <span class="ak-note">@Model.PaymentKindName</span>
-        @if (Model.LedgerEntryId.HasValue)
-        {
-            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.LedgerEntryId.Value" class="btn btn-light">دفتر کل</a>
-        }
-    </div>
-
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("تب‌های سند مالی", paymentTabs)" />
 
-    <section id="payment-main" class="ak-form-section ak-detail-section">
+    <section id="payment-main" class="ak-form-section ak-detail-section" hidden="@(activePaymentTab != "main")">
         <div class="ak-form-grid">
-            <div class="ak-form-section ak-detail-section">
+            <div>
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات اصلی", (string?)null))" />
                 <dl class="ak-list">
                     <div class="ak-list-row"><dt>تاریخ</dt><dd>@Model.PaymentDate.ToDisplayDate()</dd></div>
@@ -59,7 +62,7 @@
                     <div class="ak-list-row"><dt>شرح</dt><dd>@(Model.Description ?? "-")</dd></div>
                 </dl>
             </div>
-            <div class="ak-form-section ak-detail-section">
+            <div>
                 <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("حساب نقد / بانک", (string?)null))" />
                 <dl class="ak-list">
                     <div class="ak-list-row"><dt>کد</dt><dd>@Model.CashAccountCode</dd></div>
@@ -70,7 +73,7 @@
         </div>
     </section>
 
-    <section id="payment-relations" class="ak-form-section ak-detail-section">
+    <section id="payment-relations" class="ak-form-section ak-detail-section" hidden="@(activePaymentTab != "relations")">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("روابط مالی", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>طرف حساب</dt><dd>@counterpartyName (@counterpartyType)</dd></div>
@@ -85,7 +88,7 @@
         </dl>
     </section>
 
-    <section id="payment-trace" class="ak-form-section ak-detail-section">
+    <section id="payment-trace" class="ak-form-section ak-detail-section" hidden="@(activePaymentTab != "trace")">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("ردیابی عملیاتی", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>فروش</dt><dd>@(Model.SalesInvoiceNumber ?? "-")</dd></div>
@@ -102,7 +105,7 @@
                 else { <span>-</span> }
             </dd></div>
             <div class="ak-list-row"><dt>ارسال با موتر</dt><dd>@(Model.TruckDispatchLabel ?? "-")</dd></div>
-            <div class="ak-list-row"><dt>دفتر کل</dt><dd>@(Model.LedgerEntryId.HasValue ? $"#{Model.LedgerEntryId} / {Model.LedgerSourceType} / {Model.LedgerSideName}" : "-")</dd></div>
+            <div class="ak-list-row"><dt>دفتر کل</dt><dd>@(Model.LedgerEntryId.HasValue ? $"#{Model.LedgerEntryId} / {UiText.LedgerSource(Context, Model.LedgerSourceType)} / {Model.LedgerSideName}" : "-")</dd></div>
         </dl>
 
         @if (Model.SupportsAdvanceAllocation)
@@ -141,7 +144,7 @@
                         {
                             <tr class="@(a.IsActive ?"" : "ak-row-muted")">
                                 <td>@a.AllocationDate.ToDisplayDate()</td>
-                                <td class="ak-col-grow"><a asp-controller="Contracts" asp-action="Details" asp-route-id="@a.ContractId">@a.ContractNumber</a></td>
+                                <td class="ak-col-grow"><a asp-controller="ContractJourney" asp-action="Details" asp-route-contractId="@a.ContractId" asp-route-returnUrl="@(Url.Action("Details", new { id = Model.Id }))">@a.ContractNumber</a></td>
                                 <td class="ak-col-num ak-num">@a.AllocatedBookAmountUsd.ToString("N2")</td>
                                 <td class="ak-col-num ak-num">@NumberDisplay.Number(a.ContractCurrencyPerUsdRate, 4) @a.ContractCurrencyCode/USD</td>
                                 <td class="ak-col-num ak-num">@a.AllocatedContractCurrencyAmount.ToString("N2") @a.ContractCurrencyCode</td>
@@ -196,7 +199,7 @@
         }
     </section>
 
-    <section id="payment-audit" class="ak-form-section ak-detail-section">
+    <section id="payment-audit" class="ak-form-section ak-detail-section" hidden="@(activePaymentTab != "audit")">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("زمینه ثبت", (string?)null))" />
         <dl class="ak-list">
             <div class="ak-list-row"><dt>ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>

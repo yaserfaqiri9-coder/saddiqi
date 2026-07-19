@@ -6,30 +6,89 @@
       - ActionModalTarget set -> primary button opens that Bootstrap modal id.
       - else ActionHref set    -> primary action is a link.
       - Secondary* set         -> a quiet ghost link left of the primary action.
+
+    AK Detail v2 slots (optional, via ViewData — existing callers unaffected):
+      - ViewData["AkHeaderStatus"]      : string  -> status pill next to the title.
+      - ViewData["AkHeaderStatusState"] : string  -> pill state class ("is-active",
+                                                     "is-inactive", "is-warning", "is-danger").
+      - ViewData["AkHeaderContext"]     : string  -> one context line under the title
+                                                     (max 3 facts joined with "·").
+      - ViewData["AkHeaderKebab"]       : IReadOnlyList<AkHeaderMenuItem>
+                                          -> kebab menu for secondary/destructive actions.
 *@
 @model (string Title, bool Star, string? ActionLabel, string? ActionIcon, string? ActionHref, string? ActionModalTarget, string? SecondaryLabel, string? SecondaryIcon, string? SecondaryHref)
 @{
-    var icon = string.IsNullOrWhiteSpace(Model.ActionIcon) ? "bi-plus-lg" : Model.ActionIcon;
-    var hasPrimary = !string.IsNullOrWhiteSpace(Model.ActionLabel)
-        && (!string.IsNullOrWhiteSpace(Model.ActionModalTarget) || !string.IsNullOrWhiteSpace(Model.ActionHref));
-    var hasSecondary = !string.IsNullOrWhiteSpace(Model.SecondaryLabel) && !string.IsNullOrWhiteSpace(Model.SecondaryHref);
-    var secIcon = string.IsNullOrWhiteSpace(Model.SecondaryIcon) ? "bi-arrow-right" : Model.SecondaryIcon;
     var isDetailPage = string.Equals(
         ViewContext.RouteData.Values["action"]?.ToString(),
         "Details",
         StringComparison.OrdinalIgnoreCase);
+    var icon = string.IsNullOrWhiteSpace(Model.ActionIcon) ? "bi-plus-lg" : Model.ActionIcon;
+    var primaryCandidate = !string.IsNullOrWhiteSpace(Model.ActionLabel)
+        && (!string.IsNullOrWhiteSpace(Model.ActionModalTarget) || !string.IsNullOrWhiteSpace(Model.ActionHref));
+    var primaryIsEdit = isDetailPage
+        && primaryCandidate
+        && (string.Equals(icon, "bi-pencil", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(icon, "bi-pencil-square", StringComparison.OrdinalIgnoreCase));
+    var hasPrimary = primaryCandidate && !primaryIsEdit;
+    var hasSecondary = !string.IsNullOrWhiteSpace(Model.SecondaryLabel) && !string.IsNullOrWhiteSpace(Model.SecondaryHref);
+    var secIcon = string.IsNullOrWhiteSpace(Model.SecondaryIcon) ? "bi-arrow-right" : Model.SecondaryIcon;
+
+    var statusText = ViewData["AkHeaderStatus"] as string;
+    var requestedStatusState = ViewData["AkHeaderStatusState"] as string;
+    var statusState = requestedStatusState switch
+    {
+        "is-active" => "is-active",
+        "is-inactive" => "is-inactive",
+        "is-warning" => "is-warning",
+        "is-danger" => "is-danger",
+        _ => "is-inactive"
+    };
+    var contextLine = ViewData["AkHeaderContext"] as string;
+    var kebabItems = (ViewData["AkHeaderKebab"] as IReadOnlyList<PTGOilSystem.Web.Models.Shared.AkHeaderMenuItem>)
+        ?.Where(item => item.IsRenderable)
+        .ToList() ?? new List<PTGOilSystem.Web.Models.Shared.AkHeaderMenuItem>();
+    if (primaryIsEdit)
+    {
+        kebabItems.Add(new PTGOilSystem.Web.Models.Shared.AkHeaderMenuItem
+        {
+            Label = Model.ActionLabel!,
+            Href = Model.ActionHref,
+            ModalTarget = Model.ActionModalTarget,
+            Icon = icon
+        });
+    }
+    var hasStatus = !string.IsNullOrWhiteSpace(statusText);
+    var hasKebab = kebabItems.Count > 0;
+    var statusAriaLabel = hasStatus
+        ? UiText.T(Context, $"وضعیت: {statusText}", $"Status: {statusText}")
+        : null;
+    const string contextId = "ak-detail-header-context";
+    const string kebabId = "ak-detail-header-menu-toggle";
 }
 <header class="ak-page-header@(isDetailPage ? " ak-detail-header" : string.Empty)">
-    <div class="ak-page-heading@(isDetailPage ? " ak-detail-header-main" : string.Empty)">
-        <h1 class="ak-page-title@(isDetailPage ? " ak-detail-title" : string.Empty)">@Model.Title</h1>
-        @if (Model.Star)
+    <div class="ak-page-heading@(isDetailPage ? " ak-detail-header-main" : string.Empty)"
+         aria-describedby="@(!string.IsNullOrWhiteSpace(contextLine) ? contextId : null)">
+        <div class="ak-detail-title-row">
+            <h1 class="ak-page-title@(isDetailPage ? " ak-detail-title" : string.Empty)">@Model.Title</h1>
+            @if (Model.Star)
+            {
+                <i class="bi bi-star ak-star" aria-hidden="true"></i>
+            }
+            @if (hasStatus)
+            {
+                <span class="ak-status @statusState ak-detail-status"
+                      aria-label="@statusAriaLabel">@statusText</span>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(contextLine))
         {
-            <i class="bi bi-star ak-star" aria-hidden="true"></i>
+            <p class="ak-detail-subtitle" id="@contextId">@contextLine</p>
         }
     </div>
-    @if (hasPrimary || hasSecondary)
+    @if (hasPrimary || hasSecondary || hasKebab)
     {
-        <div class="ak-page-actions@(isDetailPage ? " ak-detail-actions" : string.Empty)">
+        <div class="ak-page-actions@(isDetailPage ? " ak-detail-actions" : string.Empty)" role="group"
+             aria-label="@UiText.T(Context, "عملیات صفحه", "Page actions")">
             @if (hasSecondary)
             {
                 <a href="@Model.SecondaryHref" class="btn btn-light ak-secondary-action">
@@ -55,6 +114,53 @@
                         <span>@Model.ActionLabel</span>
                     </a>
                 }
+            }
+            @if (hasKebab)
+            {
+                <div class="dropdown ak-header-kebab">
+                    <button type="button" class="btn btn-light ak-secondary-action ak-kebab-toggle" id="@kebabId"
+                            data-bs-toggle="dropdown" aria-expanded="false"
+                            aria-label="@UiText.T(Context, "اکشن‌های بیشتر", "More actions")">
+                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="@kebabId">
+                        @foreach (var item in kebabItems)
+                        {
+                            <li>
+                                @if (!string.IsNullOrWhiteSpace(item.ModalTarget))
+                                {
+                                    <button type="button"
+                                            class="dropdown-item@(item.IsDestructive ? " text-danger" : "")"
+                                            data-bs-toggle="modal" data-bs-target="#@item.ModalTarget"
+                                            aria-label="@item.AccessibleLabel"
+                                            data-ptg-confirm="@(string.IsNullOrWhiteSpace(item.ConfirmMessage) ? null : "true")"
+                                            data-ptg-confirm-title="@item.ConfirmTitle"
+                                            data-ptg-confirm-message="@item.ConfirmMessage">
+                                        @if (!string.IsNullOrWhiteSpace(item.Icon))
+                                        {
+                                            <i class="bi @item.Icon" aria-hidden="true"></i>
+                                        }
+                                        <span>@item.Label</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <a class="dropdown-item@(item.IsDestructive ? " text-danger" : "")" href="@item.Href"
+                                       aria-label="@item.AccessibleLabel"
+                                       data-ptg-confirm="@(string.IsNullOrWhiteSpace(item.ConfirmMessage) ? null : "true")"
+                                       data-ptg-confirm-title="@item.ConfirmTitle"
+                                       data-ptg-confirm-message="@item.ConfirmMessage">
+                                        @if (!string.IsNullOrWhiteSpace(item.Icon))
+                                        {
+                                            <i class="bi @item.Icon" aria-hidden="true"></i>
+                                        }
+                                        <span>@item.Label</span>
+                                    </a>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
             }
         </div>
     }

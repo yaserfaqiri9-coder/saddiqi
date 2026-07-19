@@ -36,7 +36,6 @@
         <div class="ak-section-head">
             <div>
                 <h2 class="ak-section-title">@T("نقل و انتقالات", "Transfers")</h2>
-                <p class="ak-section-desc">@T("انتقال جنس با موتر", "Goods transferred by truck")</p>
             </div>
             <a asp-controller="Dispatch" asp-action="Create" asp-route-contractId="@Model.ContractId" asp-route-returnUrl="@ReturnUrl(ContractJourneyTabs.Details.Dispatch)" class="btn btn-primary ak-primary-action">
                 <i class="bi bi-truck"></i>

@@ -1,0 +1,75 @@
+@model PTGOilSystem.Web.Models.Accounting.ChartOfAccountsCreateForm
+@{
+    ViewData["Title"] = UiText.T(Context, "ثبت سرفصل حساب", "New Account");
+}
+
+<div class="ak-list-page finance-workspace-page chart-of-accounts-page">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "ثبت سرفصل حساب", "New Account"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت به فهرست", "Back to list"), "bi-arrow-right", Url.Action("Index", "ChartOfAccounts")))" />
+
+    <section class="ak-list" aria-label="@UiText.T(Context, "فرم سرفصل حساب", "Account form")">
+        <form method="post" asp-action="Create" class="coa-form">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" asp-for="ParentAccountId">@UiText.T(Context, "حساب والد", "Parent account")</label>
+                    <select asp-for="ParentAccountId" class="form-select" asp-items="ViewBag.ParentAccounts">
+                        <option value="">@UiText.T(Context, "— حساب اصلی —", "— Root account —")</option>
+                    </select>
+                    <span asp-validation-for="ParentAccountId" class="text-danger"></span>
+                    <small class="text-muted">@UiText.T(Context, "حساب برای شرکت مالک سیستم ثبت می‌شود.", "The account is recorded for the system owner company.")</small>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" asp-for="Code">@UiText.T(Context, "کد حساب", "Code")</label>
+                    <input asp-for="Code" class="form-control" autocomplete="off" />
+                    <span asp-validation-for="Code" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-8">
+                    <label class="form-label" asp-for="Name">@UiText.T(Context, "نام حساب", "Account name")</label>
+                    <input asp-for="Name" class="form-control" autocomplete="off" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" asp-for="AccountType">@UiText.T(Context, "نوع حساب", "Account type")</label>
+                    <select asp-for="AccountType" class="form-select" asp-items="ViewBag.AccountTypes"></select>
+                    <span asp-validation-for="AccountType" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" asp-for="NormalBalance">@UiText.T(Context, "مانده طبیعی", "Normal balance")</label>
+                    <select asp-for="NormalBalance" class="form-select" asp-items="ViewBag.NormalBalances"></select>
+                    <span asp-validation-for="NormalBalance" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" asp-for="MonetaryTreatment">@UiText.T(Context, "طبقه‌بندی پولی", "Monetary treatment")</label>
+                    <select asp-for="MonetaryTreatment" class="form-select" asp-items="ViewBag.MonetaryTreatments"></select>
+                    <span asp-validation-for="MonetaryTreatment" class="text-danger"></span>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label class="form-check-label" asp-for="IsActive">@UiText.T(Context, "فعال", "Active")</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="coa-toolbar-actions mt-3">
+                <button type="submit" class="btn btn-primary">@UiText.T(Context, "ثبت حساب", "Save account")</button>
+                <a class="btn btn-light" asp-action="Index">@UiText.T(Context, "انصراف", "Cancel")</a>
+            </div>
+        </form>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

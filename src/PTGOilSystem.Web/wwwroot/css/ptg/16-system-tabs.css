@@ -284,12 +284,114 @@
     display: none !important; /* beats Bootstrap's .tab-pane display rules */
 }
 
+/* ---- Shared operational wizard ----------------------------------- */
+
+.ptg-wizard-steps {
+    align-items: center;
+    gap: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--ptg-tabs-border-color);
+    border-radius: 0;
+    background: #f8fafc;
+}
+
+.ptg-wizard-steps .ptg-wizard-step {
+    isolation: isolate;
+    flex: 1 0 max-content;
+    min-height: 44px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.ptg-wizard-steps .ptg-wizard-step::after {
+    z-index: -1;
+    display: block;
+    inset-inline: 0;
+    top: 50%;
+    bottom: auto;
+    height: 1px;
+    background: #d8dee8;
+}
+
+.ptg-wizard-steps .ptg-wizard-step:hover {
+    background: transparent;
+    color: var(--ptg-tabs-active-color);
+}
+
+.ptg-wizard-steps .ptg-wizard-step.is-active,
+.ptg-wizard-steps .ptg-wizard-step[aria-current="step"] {
+    background: transparent;
+    color: var(--ptg-tabs-active-color);
+    font-weight: 700;
+    box-shadow: none;
+}
+
+.ptg-wizard-step__number {
+    position: relative;
+    z-index: 1;
+    display: inline-grid !important;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+    background: #fff;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.ptg-wizard-step__number::after,
+.ptg-wizard-step__label::after {
+    display: none !important;
+}
+
+.ptg-wizard-step.is-active .ptg-wizard-step__number,
+.ptg-wizard-step[aria-current="step"] .ptg-wizard-step__number {
+    border-color: var(--ptg-tabs-active-color);
+    background: var(--ptg-tabs-active-color);
+    color: #fff;
+}
+
+.ptg-wizard-step.is-done .ptg-wizard-step__number {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.ptg-wizard-step.is-done .ptg-wizard-step__label {
+    color: #475569;
+}
+
+.ptg-wizard-step__label {
+    position: relative;
+    z-index: 1;
+    padding-inline: 6px;
+    background: #f8fafc;
+    white-space: nowrap;
+}
+
 /* ---- Responsive ---------------------------------------------------- */
 
 @media (max-width: 767.98px) {
     :root {
         --ptg-tabs-horizontal-padding: 12px;
         --ptg-tabs-space-above: 16px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ptg-wizard-steps {
+        margin-block: 12px;
+    }
+
+    .ptg-wizard-steps .ptg-wizard-step {
+        min-height: 40px;
+        padding: 6px 10px;
     }
 }
 

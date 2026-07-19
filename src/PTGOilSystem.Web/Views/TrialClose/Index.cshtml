@@ -23,15 +23,6 @@
 
     <form method="get" asp-action="Index" class="ak-form">
         <div class="ak-field">
-            <label class="ak-label" for="companyId">شرکت</label>
-            <select class="form-select" id="companyId" name="companyId" onchange="this.form.submit()">
-                @foreach (var c in Model.Companies)
-                {
-                    <option value="@c.CompanyId" selected="@c.IsSelected">@c.Name</option>
-                }
-            </select>
-        </div>
-        <div class="ak-field">
             <label class="ak-label" for="fiscalYearId">سال مالی</label>
             <select class="form-select" id="fiscalYearId" name="fiscalYearId" onchange="this.form.submit()">
                 @foreach (var y in Model.Years)
@@ -82,12 +73,12 @@
         </div>
 
         <div class="d-flex flex-wrap gap-2 my-3">
-            <form method="post" asp-action="RunTrialClose" asp-route-companyId="@p.CompanyId" asp-route-fiscalYearId="@p.FiscalYearId">
+            <form method="post" asp-action="RunTrialClose" asp-route-fiscalYearId="@p.FiscalYearId">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="acknowledgeWarnings" value="true" />
                 <button type="submit" class="btn btn-primary" @(p.ChecklistBlocked ? "disabled" : "") title="@(p.ChecklistBlocked ? "تا رفع مانع‌های چک‌لیست این اقدام مجاز نیست." : null)">ثبت بستن آزمایشی (با تأیید هشدارها)</button>
             </form>
-            <form method="post" asp-action="ApplyRevaluation" asp-route-companyId="@p.CompanyId" asp-route-fiscalYearId="@p.FiscalYearId">
+            <form method="post" asp-action="ApplyRevaluation" asp-route-fiscalYearId="@p.FiscalYearId">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-warning" @(p.CanApply ? "" : "disabled") title="@(p.CanApply ? null : p.BlockingReason ?? "پیش‌شرط‌های تسعیر کامل نیست.")">اعمال تسعیر پایان دوره</button>
             </form>

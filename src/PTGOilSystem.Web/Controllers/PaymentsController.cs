@@ -13,10 +13,13 @@ using PTGOilSystem.Web.Helpers;
 using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
+using PTGOilSystem.Web.Models.PartyStatements;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Audit;
 using PTGOilSystem.Web.Services.Exceptions;
+using PTGOilSystem.Web.Services.Exports;
+using PTGOilSystem.Web.Services.PartyStatements;
 using ServiceProviderEntity = PTGOilSystem.Web.Models.Entities.ServiceProvider;
 
 namespace PTGOilSystem.Web.Controllers;
@@ -33,6 +36,7 @@ public class PaymentsController : Controller
     private readonly IPurchaseAggregationService _purchaseAggregation;
     private readonly IMemoryCache? _summaryCache;
     private readonly IFormTokenGuard _formTokens;
+    private readonly IPartyStatementReadService? _partyStatements;
     // مرحله ۴ — Dual-write اختیاری به دفتر کل جدید. پشت Feature Flag و null-safe: اگر تزریق
     // نشود یا خاموش باشد، مسیر قدیمی هیچ تغییری نمی‌کند.
     private readonly Services.Accounting.IPaymentAccountingAdapter? _paymentAccounting;
@@ -60,7 +64,8 @@ public class PaymentsController : Controller
         IFormTokenGuard? formTokens = null,
         Services.Accounting.IPaymentAccountingAdapter? paymentAccounting = null,
         Services.Accounting.IViaSarrafAccountingAdapter? viaSarrafAccounting = null,
-        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null)
+        Services.Accounting.IExpenseAccountingAdapter? expenseAccounting = null,
+        IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
         _currencyConversion = currencyConversion;
@@ -74,6 +79,7 @@ public class PaymentsController : Controller
         _paymentAccounting = paymentAccounting;
         _viaSarrafAccounting = viaSarrafAccounting;
         _expenseAccounting = expenseAccounting;
+        _partyStatements = partyStatements;
     }
 
     public PaymentsController(
@@ -215,6 +221,58 @@ public class PaymentsController : Controller
                 r.CreatedByDisplay,
                 r.LedgerEntryId?.ToString()
             }));
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
+    public async Task<IActionResult> Export(string? format, [FromQuery] PaymentIndexFilterViewModel? filter = null)
+    {
+        filter ??= new PaymentIndexFilterViewModel();
+        NormalizeFilter(filter);
+        if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
+        {
+            TempData["error"] = UiText.T(HttpContext,
+                "برای خروجی، تعیین «از تاریخ» و «تا تاریخ» الزامی است.",
+                "From date and to date are required for export.");
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        var (rows, _, _, _) = await BuildRowsAsync(filter, page: 0);
+        var document = new TabularExportDocument
+        {
+            FileNameStem = "PTG_Roznamcha",
+            TitleFa = "روزنامچه دریافت و پرداخت",
+            TitleEn = "Receipts and Payments Journal",
+            KnownRowCount = rows.Count,
+            ForceLandscape = true,
+            Filters =
+            [
+                new("از تاریخ", "From date", filter.FromDate?.ToString("yyyy-MM-dd")),
+                new("تا تاریخ", "To date", filter.ToDate?.ToString("yyyy-MM-dd")),
+                new("جستجو", "Search", filter.Search),
+                new("مشتری", "Customer", filter.CustomerId?.ToString()),
+                new("تأمین‌کننده", "Supplier", filter.SupplierId?.ToString()),
+                new("حساب نقدی", "Cash account", filter.CashAccountId?.ToString())
+            ],
+            Columns =
+            [
+                new("تاریخ", "Date", TabularExportValueType.Date, 13), new("شماره سند", "Reference", Width: 18),
+                new("جهت", "Direction", Width: 11), new("نوع", "Kind", Width: 16), new("نوع طرف حساب", "Counterparty type", Width: 16),
+                new("طرف حساب", "Counterparty", Width: 20), new("حساب نقدی/بانکی", "Cash account", Width: 20),
+                new("مبلغ", "Amount", TabularExportValueType.Number, 16), new("ارز", "Currency", Width: 10),
+                new("مبلغ USD", "Amount USD", TabularExportValueType.Number, 16), new("مرتبط به", "Related to", Width: 20),
+                new("شرح", "Description", Width: 30, Wrap: true), new("ثبت‌کننده", "Created by", Width: 18)
+            ],
+            Rows = rows.Select(row => new TabularExportRow(
+            [
+                TabularExportCell.Date(row.PaymentDate), TabularExportCell.Text(row.Reference), TabularExportCell.Text(row.DirectionName),
+                TabularExportCell.Text(row.PaymentKindName), TabularExportCell.Text(row.CounterpartyTypeName), TabularExportCell.Text(row.CounterpartyName),
+                TabularExportCell.Text(row.CashAccountName), TabularExportCell.Number(row.Amount), TabularExportCell.Text(row.Currency),
+                TabularExportCell.Number(row.AmountUsd), TabularExportCell.Text(row.RelatedTo), TabularExportCell.Text(row.Description),
+                TabularExportCell.Text(row.CreatedByDisplay)
+            ]))
+        };
+
+        return TabularExportSupport.File(this, format, document);
     }
 
     public async Task<IActionResult> Details(int id, string? returnUrl = null)
@@ -2150,6 +2208,31 @@ public class PaymentsController : Controller
         }
 
         var counterparty = (PaymentCounterpartyType)type;
+
+        if (_partyStatements is not null && TryMapStatementPartyType(counterparty, out var statementPartyType))
+        {
+            try
+            {
+                var statement = await _partyStatements.GetStatementAsync(
+                    new PartyRef(statementPartyType, id),
+                    new PartyStatementFilter { IncludeOperationalColumns = false },
+                    HttpContext.RequestAborted);
+                var closing = statement.Summary.ClosingBalance;
+                return Json(new
+                {
+                    available = true,
+                    name = statement.PartyInfo.Name,
+                    amountText = statement.Summary.ClosingBalanceAbsolute.ToString("N2") + " " + statement.Summary.BaseCurrencyCode,
+                    label = statement.Summary.ClosingBalanceMeaning,
+                    tone = closing > 0m ? "positive" : closing < 0m ? "negative" : "zero"
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return Json(new { available = false });
+            }
+        }
+
         decimal net;
         string? name;
         string label;
@@ -2318,6 +2401,28 @@ public class PaymentsController : Controller
             label,
             tone
         });
+    }
+
+    private static bool TryMapStatementPartyType(
+        PaymentCounterpartyType counterparty,
+        out PartyStatementPartyType partyType)
+    {
+        partyType = counterparty switch
+        {
+            PaymentCounterpartyType.Customer => PartyStatementPartyType.Customer,
+            PaymentCounterpartyType.Supplier => PartyStatementPartyType.Supplier,
+            PaymentCounterpartyType.ServiceProvider => PartyStatementPartyType.ServiceProvider,
+            PaymentCounterpartyType.Employee => PartyStatementPartyType.Employee,
+            PaymentCounterpartyType.Driver => PartyStatementPartyType.Driver,
+            PaymentCounterpartyType.Sarraf => PartyStatementPartyType.Sarraf,
+            _ => default
+        };
+        return counterparty is PaymentCounterpartyType.Customer
+            or PaymentCounterpartyType.Supplier
+            or PaymentCounterpartyType.ServiceProvider
+            or PaymentCounterpartyType.Employee
+            or PaymentCounterpartyType.Driver
+            or PaymentCounterpartyType.Sarraf;
     }
 
     private async Task PopulateLookupsAsync(

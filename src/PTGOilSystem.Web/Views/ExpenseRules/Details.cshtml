@@ -4,7 +4,7 @@
     var isBaseCurrency = string.Equals(Model.Currency, "USD", StringComparison.OrdinalIgnoreCase);
 }
 
-<div class="ak-form-page ak-detail-page">
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((ViewData["Title"]?.ToString() ?? "جزئیات Rule مصرف", false,
                        "ویرایش", "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
@@ -68,9 +68,9 @@
                                     <span asp-validation-for="Generation.ContractId" class="ak-field-error"></span>
                                 </div>
                                 <div class="ak-field">
-                                    <label asp-for="Generation.ShipmentId" class="ak-label"></label>
+                                    <label asp-for="Generation.ShipmentId" class="ak-label">محموله</label>
                                     <select asp-for="Generation.ShipmentId" asp-items="ViewBag.Shipments" class="ak-input">
-                                        <option value="">بدون Shipment</option>
+                                        <option value="">بدون محموله</option>
                                     </select>
                                     <span asp-validation-for="Generation.ShipmentId" class="ak-field-error"></span>
                                 </div>
@@ -116,9 +116,9 @@
                             <div class="ak-note">
                                 <div>
                                     <ul class="ak-list mb-0">
-                                        <li>برای <code>Flat</code> فقط مرجع عملیاتی لازم است.</li>
-                                        <li>برای <code>PerMt</code> باید <code>QuantityMt</code> وارد شود.</li>
-                                        <li>برای <code>Percent</code> باید <code>BaseAmountUsd</code> وارد شود.</li>
+                                        <li>برای مبلغ ثابت فقط مرجع عملیاتی لازم است.</li>
+                                        <li>برای محاسبه بر اساس وزن، مقدار به تُن وارد شود.</li>
+                                        <li>برای محاسبه درصدی، مبلغ مبنا وارد شود.</li>
                                     </ul>
                                 </div>
                             </div>
@@ -143,10 +143,10 @@
                         <th>@UiText.T(Context,"تاریخ","Date")</th>
                         <th class="text-end">مبلغ منبع</th>
                         <th>@UiText.T(Context,"ارز","Currency")</th>
-                        <th class="text-end">FX</th>
+                        <th class="text-end">نرخ ارز</th>
                         <th class="text-end">مبلغ USD</th>
                         <th>@UiText.T(Context,"قرارداد","Contract")</th>
-                        <th>Shipment</th>
+                        <th>محموله</th>
                         <th>دیسپچ</th>
                         <th>شرح</th>
                         <th></th>

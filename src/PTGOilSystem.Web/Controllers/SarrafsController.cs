@@ -5,6 +5,8 @@ using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Sarrafs;
 using PTGOilSystem.Web.Models.Shared;
+using PTGOilSystem.Web.Models.PartyStatements;
+using PTGOilSystem.Web.Services.PartyStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
@@ -12,9 +14,13 @@ namespace PTGOilSystem.Web.Controllers;
 public class SarrafsController : Controller
 {
     private readonly ApplicationDbContext _db;
+    private readonly IPartyStatementReadService? _partyStatements;
 
-    public SarrafsController(ApplicationDbContext db)
-        => _db = db;
+    public SarrafsController(ApplicationDbContext db, IPartyStatementReadService? partyStatements = null)
+    {
+        _db = db;
+        _partyStatements = partyStatements;
+    }
 
     public async Task<IActionResult> Index(string? search = null)
     {
@@ -322,7 +328,7 @@ public class SarrafsController : Controller
         // تسویه‌های In (دریافت از طریق صراف) بدهی را کم می‌کنند — هم‌سو با مانده صورت‌حساب خطی.
         var postedOut = posted.Where(s => s.Direction == SarrafSettlementDirection.Out).ToList();
         var postedIn = posted.Where(s => s.Direction == SarrafSettlementDirection.In).ToList();
-        return View(new SarrafDetailsViewModel
+        var model = new SarrafDetailsViewModel
         {
             Id = sarraf.Id,
             Name = sarraf.Name,
@@ -351,7 +357,17 @@ public class SarrafsController : Controller
             Payments = payments,
             CustomerHawalas = customerHawalas,
             StatementRows = BuildSarrafStatementRows(settlements, payments, viaSarrafPayables)
-        });
+        };
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.Sarraf, id),
+                new PartyStatementFilter { IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
+        return View(model);
     }
 
     // صورت‌حساب خطی صراف (فقط نمایش/خواندنی). مانده فقط از تسویه‌های Posted و پرداخت‌ها ساخته می‌شود.

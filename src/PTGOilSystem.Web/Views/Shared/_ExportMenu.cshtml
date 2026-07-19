@@ -1,0 +1,44 @@
+@model PTGOilSystem.Web.Services.Exports.ExportMenuModel
+@using Microsoft.AspNetCore.Routing
+@using PTGOilSystem.Web.Helpers
+@{
+    var routeValues = new RouteValueDictionary();
+    foreach (var item in Context.Request.Query)
+    {
+        if (!string.Equals(item.Key, "page", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(item.Key, "format", StringComparison.OrdinalIgnoreCase))
+        {
+            routeValues[item.Key] = item.Value.ToString();
+        }
+    }
+    routeValues["format"] = "excel";
+    var excelUrl = Url.Action(Model.Action, Model.Controller, routeValues);
+    routeValues["format"] = "pdf";
+    var pdfUrl = Url.Action(Model.Action, Model.Controller, routeValues);
+}
+
+<div class="dropdown ak-export-menu" data-export-menu>
+    <button type="button"
+            class="btn btn-light ak-secondary-action dropdown-toggle"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            title="@UiText.T(Context, "دریافت خروجی", "Export")">
+        <i class="bi bi-download" aria-hidden="true"></i>
+        <span>@UiText.T(Context, "خروجی", "Export")</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+            <a class="dropdown-item" href="@excelUrl" data-export-link>
+                <i class="bi bi-file-earmark-excel" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "خروجی Excel", "Excel export")</span>
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="@pdfUrl" data-export-link>
+                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                <span>@UiText.T(Context, "خروجی PDF", "PDF export")</span>
+            </a>
+        </li>
+    </ul>
+</div>
+

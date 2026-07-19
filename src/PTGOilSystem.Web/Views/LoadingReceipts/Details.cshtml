@@ -1,6 +1,7 @@
 @using PTGOilSystem.Web.Models.Entities
 @model PTGOilSystem.Web.Models.Loading.LoadingReceiptDetailsViewModel
 @{
+    string T(string fa, string en) => UiText.T(Context, fa, en);
     var returnUrl = ViewBag.ReturnUrl as string;
     var currentReturnUrl = Context.Request.Path + Context.Request.QueryString;
     var loadingDetailsUrl = Url.Action("Details", "Loading", new { id = Model.LoadingRegisterId }) ?? "/Loading";
@@ -103,16 +104,46 @@
     var receiptJourneyUrl = Url.Action("Index", "ContractJourney", new { contractId = Model.ContractId }) ?? "#";
     var receiptEditUrl = Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }) ?? "#";
 
+    ViewData["AkHeaderStatus"] = allocBalanced ? T("تخصیص متوازن", "Allocation balanced") : T("اختلاف تخصیص", "Allocation mismatch");
+    ViewData["AkHeaderStatusState"] = allocBalanced ? "is-active" : "is-warning";
+    ViewData["AkHeaderContext"] = $"{Model.ContractNumber} · {Model.ProductName} · {Model.ReceiptDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = receiptEditUrl, Icon = "bi-pencil" },
+        new() { Label = T("نمای قرارداد", "Contract journey"), Href = receiptJourneyUrl, Icon = "bi-diagram-3" }
+    };
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("بارگیری ثبت شد", "Loading registered"), Date = Model.LoadingDate.ToDisplayDate(), Icon = "bi-box-arrow-up", Meta = $"{NumberDisplay.Quantity(Model.LoadedQuantityMt)} MT" },
+        new() { Title = T("رسید ثبت شد", "Receipt recorded"), Date = Model.ReceiptDate.ToDisplayDate(), Icon = "bi-box-arrow-in-down", State = "is-current", Meta = $"{NumberDisplay.Quantity(Model.ReceivedQuantityMt)} MT" }
+    };
+    if (Model.ArrivalDate.HasValue) timelineItems.Add(new AkTimelineItem { Title = T("رسیدن ثبت شد", "Arrival recorded"), Date = Model.ArrivalDate.Value.ToDisplayDate(), Icon = "bi-geo-alt" });
+    if (Model.LeakDate.HasValue) timelineItems.Add(new AkTimelineItem { Title = T("نشتی ثبت شد", "Leak recorded"), Date = Model.LeakDate.Value.ToDisplayDate(), Icon = "bi-droplet" });
+    timelineItems.AddRange(Model.LossItems.OrderBy(item => item.EventDate).Select(item => new AkTimelineItem { Title = T("کسری ثبت شد", "Loss recorded"), Date = item.EventDate.ToDisplayDate(), Icon = "bi-exclamation-diamond", Href = Url.Action("Details", "LossEvents", new { id = item.Id, returnUrl = currentReturnUrl }), Meta = $"{NumberDisplay.Quantity(item.ChargeableLossMt)} MT" }));
+    var relatedRecords = new List<AkRelatedRecord>
+    {
+        new() { TypeLabel = T("بارگیری", "Loading"), Label = $"LD-{Model.LoadingRegisterId:0000}", Href = loadingDetailsUrl, KeyValue = Model.ProductName, Icon = "bi-box-arrow-up" },
+        new() { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, Href = receiptJourneyUrl, Icon = "bi-file-earmark-text" },
+        new() { TypeLabel = T("حرکت موجودی", "Inventory movement"), Label = $"#{Model.InventoryMovementId}", Icon = "bi-arrow-left-right" }
+    };
+    foreach (var allocation in Model.Allocations.Where(item => item.TruckDispatchId.HasValue || item.SalesTransactionId.HasValue))
+    {
+        if (allocation.TruckDispatchId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("ارسال با موتر", "Truck dispatch"), Label = $"DSP-{allocation.TruckDispatchId.Value:0000}", Href = Url.Action("Details", "Dispatch", new { id = allocation.TruckDispatchId.Value, returnUrl = currentReturnUrl }), KeyValue = $"{NumberDisplay.Quantity(allocation.QuantityMt)} MT", Icon = "bi-truck" });
+        if (allocation.SalesTransactionId.HasValue) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("فروش", "Sale"), Label = $"#{allocation.SalesTransactionId.Value}", Href = Url.Action("Details", "Sales", new { id = allocation.SalesTransactionId.Value, returnUrl = currentReturnUrl }), KeyValue = $"{NumberDisplay.Quantity(allocation.QuantityMt)} MT", Icon = "bi-receipt" });
+    }
+    var nextActions = new List<AkHeaderMenuItem>();
+    if (Model.RemainingToReceiveMt > 0) nextActions.Add(new AkHeaderMenuItem { Label = T("رسید جدید", "New receipt"), Href = Url.Action("Create", new { loadingId = Model.LoadingRegisterId, returnUrl = backUrl }), Icon = "bi-box-arrow-in-down" });
+
     ViewData["Title"] = pageTitle;
     ViewData["HideSectionTabs"] = true;
     ViewData["ModalDesignSystemAssets"] = true;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
 
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
          model="@((pageTitle, false,
-                   UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", receiptEditUrl, (string?)null,
+                    Model.RemainingToReceiveMt > 0 ? T("رسید جدید", "New receipt") : (string?)null, "bi-box-arrow-in-down", Model.RemainingToReceiveMt > 0 ? Url.Action("Create", new { loadingId = Model.LoadingRegisterId, returnUrl = backUrl }) : null, (string?)null,
                    UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", backUrl))" />
 
     <div class="ak-page-actions">
@@ -133,53 +164,11 @@
         }
     </div>
 
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-section-desc">مقدار این رسید</span>
-            <strong class="ak-num">@NumberDisplay.Quantity(Model.ReceivedQuantityMt) MT</strong>
-            <div>
-                <span class="text-muted">نوع رسید</span>
-                <span class="ak-num">@receiptDestinationText</span>
-            </div>
-        </div>
-        <div class="ak-field">
-            <span class="ak-section-desc">جمع دریافت بارگیری</span>
-            <strong class="ak-num">@NumberDisplay.Quantity(Model.TotalReceivedQuantityMt) MT</strong>
-            <div>
-                <span class="text-muted">سهم این رسید</span>
-                <span class="ak-num">@receiptProgressPercent.ToString("N0")%</span>
-            </div>
-        </div>
-        <div class="ak-field">
-            <span class="ak-section-desc">باقی‌مانده بارگیری</span>
-            @if (Model.RemainingToReceiveMt > 0)
-            {
-                <span class="ak-status is-inactive"><i class="bi bi-hourglass-split"></i> @NumberDisplay.Quantity(Model.RemainingToReceiveMt) MT</span>
-            }
-            else
-            {
-                <span class="ak-status is-active"><i class="bi bi-check-circle"></i> تکمیل</span>
-            }
-            <div>
-                <span class="text-muted">جمع تخصیص</span>
-                <span class="ak-num">@NumberDisplay.Quantity(Model.TotalAllocatedQuantityMt) MT</span>
-            </div>
-        </div>
-        <div class="ak-field">
-            <span class="ak-section-desc">اختلاف تخصیص</span>
-            @if (allocBalanced)
-            {
-                <span class="ak-status is-active"><i class="bi bi-check-circle"></i> @NumberDisplay.Quantity(Model.AllocationDifferenceMt) MT</span>
-            }
-            else
-            {
-                <span class="ak-status is-inactive"><i class="bi bi-exclamation-triangle"></i> @NumberDisplay.Quantity(Model.AllocationDifferenceMt) MT</span>
-            }
-            <div>
-                <span class="text-muted">کسری قابل محاسبه</span>
-                <span class="ak-num @(hasChargeable ?"" : "")">@NumberDisplay.Quantity(lossChargeableTotal) MT</span>
-            </div>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های رسید", "Receipt metrics")">
+        <vc:stat-card title="@T("مقدار این رسید", "Receipt quantity")" value="@NumberDisplay.Quantity(Model.ReceivedQuantityMt)" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@T("جمع دریافت", "Total received")" value="@NumberDisplay.Quantity(Model.TotalReceivedQuantityMt)" unit="MT" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@T("باقی‌مانده", "Remaining")" value="@NumberDisplay.Quantity(Model.RemainingToReceiveMt)" unit="MT" avatar="stock-shortage"></vc:stat-card>
+        <vc:stat-card title="@T("اختلاف تخصیص", "Allocation difference")" value="@NumberDisplay.Quantity(Model.AllocationDifferenceMt)" unit="MT" avatar="losses"></vc:stat-card>
     </section>
 
     <div class="ak-form-grid">
@@ -315,7 +304,7 @@
                         <strong>@receiptDestinationText</strong>
                     </div>
                     <div class="ak-num">
-                        <strong>@(isDirectDispatchReceipt ? "بدون Stock" : isMixedReceipt ? "Line-based" : "Inventory")</strong>
+                        <strong>@(isDirectDispatchReceipt ? T("بدون ورود به موجودی", "No inventory entry") : isMixedReceipt ? T("بر اساس خط تخصیص", "Allocation based") : T("ثبت موجودی", "Inventory entry"))</strong>
                         <span>@(pendingDispatchTrace ? "در انتظار ارسال با موتر" : "ثبت شده")</span>
                     </div>
                 </div>
@@ -336,11 +325,21 @@
                     </div>
                     <div class="ak-num">
                         <strong>#@Model.Id</strong>
-                        <span>Loading #@Model.LoadingRegisterId</span>
+                        <span>@T("بارگیری", "Loading") #@Model.LoadingRegisterId</span>
                     </div>
                 </div>
             </div>
         </section>
     </div>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="receipt-timeline-title">
+        <h2 class="ak-section-title" id="receipt-timeline-title">@T("روند رسید", "Receipt timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+    <section class="ak-form-section ak-detail-section" aria-labelledby="receipt-related-title">
+        <h2 class="ak-section-title" id="receipt-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+        <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+    </section>
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 
 </div>

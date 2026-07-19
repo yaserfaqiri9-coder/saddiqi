@@ -64,9 +64,10 @@
 
     /* ---- Layout metrics ---- */
     --layout-rail: 56px;            /* Akaunting toolbar rail */
-    --layout-navpanel: 248px;       /* Akaunting main menu panel */
-    --layout-sidebar: 304px;        /* rail 56 + panel 248 */
-    --layout-sidebar-mini: 56px;    /* collapsed = icon rail only */
+    --layout-navpanel: 232px;       /* compact main menu panel */
+    --layout-sidebar: 288px;        /* desktop sidebar shell */
+    --layout-shell-gap: 6px;        /* sidebar to main content */
+    --layout-sidebar-mini: 64px;    /* collapsed icon rail: roomier click targets */
     --layout-nav-mobile: 304px;
     --layout-header: 56px;
     --layout-header-mobile: 52px;

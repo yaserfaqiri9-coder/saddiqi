@@ -5,108 +5,149 @@ using PTGOilSystem.Web.Controllers;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Models.Accounting;
 using PTGOilSystem.Web.Models.Entities;
+using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Accounting;
+using PTGOilSystem.Web.Services.Audit;
 using Xunit;
 
 namespace PTGOilSystem.Web.Tests;
 
 public class ChartOfAccountsTests
 {
+    private const int OwnerCompanyId = 10;
+    private const int OtherCompanyId = 20;
+
     [Fact]
-    public async Task BuildAsync_EmptyDatabase_ReturnsEmptyStateModel()
+    public async Task BuildAsync_NoOwnerConfigured_ReturnsEmptyOwnerState()
     {
         await using var db = NewDb();
-        var model = await new ChartOfAccountsReadService(db).BuildAsync(null, null, 1);
+        // یک شرکت بدون IsSystemOwner: هنوز مالکی تعیین نشده است.
+        db.Companies.Add(NewCompany(OwnerCompanyId, "OWNER", isOwner: false));
+        db.Accounts.Add(NewAccount(1, OwnerCompanyId, "1100", "Cash"));
+        await db.SaveChangesAsync();
 
-        Assert.Empty(model.Companies);
-        Assert.Null(model.SelectedCompanyId);
+        var model = await NewReadService(db).BuildAsync(null, 1);
+
+        Assert.Null(model.OwnerCompanyId);
         Assert.Empty(model.Items);
         Assert.Equal(0, model.TotalCount);
-        Assert.Equal(1, model.CurrentPage);
-        Assert.Equal(1, model.PageCount);
     }
 
     [Fact]
-    public async Task BuildAsync_ReturnsOnlySelectedCompany_AndProjectsParentDetails()
+    public async Task BuildAsync_OwnerConfigured_ReturnsOnlyOwnerAccounts_AndProjectsParent()
     {
         await using var db = NewDb();
-        var parent = NewAccount(1, 10, "1100", "Cash Control");
+        db.Companies.AddRange(
+            NewCompany(OwnerCompanyId, "OWNER", isOwner: true),
+            NewCompany(OtherCompanyId, "OTHER", isOwner: false));
+        var parent = NewAccount(1, OwnerCompanyId, "1100", "Cash Control");
         db.Accounts.AddRange(
             parent,
-            NewAccount(2, 10, "1110", "Petty Cash", parent),
-            NewAccount(3, 20, "1100", "Other Company Cash"));
+            NewAccount(2, OwnerCompanyId, "1110", "Petty Cash", parent),
+            NewAccount(3, OtherCompanyId, "1100", "Other Company Cash"));
         await db.SaveChangesAsync();
 
-        var model = await new ChartOfAccountsReadService(db)
-            .BuildAsync(companyId: 10, search: "Petty", page: 1);
+        var model = await NewReadService(db).BuildAsync(search: "Petty", page: 1);
 
+        Assert.Equal(OwnerCompanyId, model.OwnerCompanyId);
         var row = Assert.Single(model.Items);
-        Assert.Equal(10, row.CompanyId);
+        Assert.Equal(OwnerCompanyId, row.CompanyId);
         Assert.Equal("1110", row.Code);
-        Assert.Equal(1, row.ParentAccountId);
         Assert.Equal("1100", row.ParentCode);
-        Assert.Equal("Cash Control", row.ParentName);
-        Assert.DoesNotContain(model.Items, item => item.CompanyId == 20);
+        Assert.DoesNotContain(model.Items, item => item.CompanyId == OtherCompanyId);
     }
 
     [Fact]
-    public async Task BuildAsync_AppliesServerPageSize()
+    public async Task Create_Post_RecordsOwnerCompany_WithNoCompanyIdFromUser()
     {
         await using var db = NewDb();
-        db.Accounts.AddRange(Enumerable.Range(1, 25)
-            .Select(id => NewAccount(id, 10, $"{id:0000}", $"Account {id:00}")));
+        db.Companies.Add(NewCompany(OwnerCompanyId, "OWNER", isOwner: true));
         await db.SaveChangesAsync();
 
-        var service = new ChartOfAccountsReadService(db);
-        var first = await service.BuildAsync(10, null, 1);
-        var second = await service.BuildAsync(10, null, 2);
+        var controller = NewController(db);
+        var form = new ChartOfAccountsCreateForm { Code = "4100", Name = "Sales", AccountType = AccountType.Revenue, NormalBalance = NormalBalance.Credit };
 
-        Assert.Equal(20, first.Items.Count);
-        Assert.Equal(5, second.Items.Count);
-        Assert.Equal(25, first.TotalCount);
-        Assert.Equal(2, first.PageCount);
-        Assert.Equal(2, second.CurrentPage);
+        var result = await controller.Create(form);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var account = Assert.Single(db.Accounts);
+        Assert.Equal(OwnerCompanyId, account.CompanyId);
+        Assert.Equal("4100", account.Code);
     }
 
     [Fact]
-    public async Task Controller_Index_ReturnsDedicatedViewModel()
+    public async Task Create_Post_RejectsForeignParentAccount()
     {
         await using var db = NewDb();
-        db.Accounts.Add(NewAccount(1, 10, "1100", "Cash Control"));
+        db.Companies.AddRange(
+            NewCompany(OwnerCompanyId, "OWNER", isOwner: true),
+            NewCompany(OtherCompanyId, "OTHER", isOwner: false));
+        db.Accounts.Add(NewAccount(99, OtherCompanyId, "1000", "Foreign Root"));
         await db.SaveChangesAsync();
 
-        var controller = new ChartOfAccountsController(new ChartOfAccountsReadService(db));
-        var result = await controller.Index(10, null, 1);
+        var controller = NewController(db);
+        var form = new ChartOfAccountsCreateForm { Code = "1010", Name = "Child", ParentAccountId = 99 };
 
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ChartOfAccountsIndexViewModel>(view.Model);
-        Assert.Equal(10, model.SelectedCompanyId);
-        Assert.Single(model.Items);
+        var result = await controller.Create(form);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.True(controller.ModelState.ContainsKey(nameof(ChartOfAccountsCreateForm.ParentAccountId)));
+        Assert.Empty(db.Accounts.Where(a => a.CompanyId == OwnerCompanyId));
     }
 
     [Fact]
-    public void Implementation_UsesAccountingAccountsProjection_AndNeverLegacyLedgerEntries()
+    public async Task Create_Post_RejectsDuplicateCodeWithinOwner()
+    {
+        await using var db = NewDb();
+        db.Companies.Add(NewCompany(OwnerCompanyId, "OWNER", isOwner: true));
+        db.Accounts.Add(NewAccount(1, OwnerCompanyId, "1100", "Cash"));
+        await db.SaveChangesAsync();
+
+        var controller = NewController(db);
+        var form = new ChartOfAccountsCreateForm { Code = "1100", Name = "Duplicate" };
+
+        var result = await controller.Create(form);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.True(controller.ModelState.ContainsKey(nameof(ChartOfAccountsCreateForm.Code)));
+        Assert.Single(db.Accounts);
+    }
+
+    [Fact]
+    public void Implementation_IsOwnerScoped_AndHasNoCompanySelectionUi()
     {
         var service = ReadRepoFile("src/PTGOilSystem.Web/Services/Accounting/ChartOfAccountsReadService.cs");
-        var view = ReadRepoFile("src/PTGOilSystem.Web/Views/ChartOfAccounts/Index.cshtml");
+        var indexView = ReadRepoFile("src/PTGOilSystem.Web/Views/ChartOfAccounts/Index.cshtml");
+        var createView = ReadRepoFile("src/PTGOilSystem.Web/Views/ChartOfAccounts/Create.cshtml");
 
-        Assert.Contains("db.Accounts.AsNoTracking()", service);
-        Assert.Contains(".Select(account => new ChartOfAccountsRowViewModel", service);
-        Assert.Contains(".Skip((currentPage - 1) * PageSize)", service);
-        Assert.Contains(".Take(PageSize)", service);
+        Assert.Contains("FindOwnerCompanyIdAsync", service);
         Assert.DoesNotContain("LedgerEntries", service);
-        Assert.DoesNotContain("LedgerEntries", view);
-        Assert.Contains("ChartOfAccountsIndexViewModel", view);
-        Assert.Contains("name=\"companyId\"", view);
-        Assert.Contains("name=\"q\"", view);
-        Assert.Contains("_Pagination", view);
-        Assert.Contains("هنوز سرفصل حسابی ثبت نشده است", view);
+        // فیلتر/انتخاب شرکت از UI حذف شده است.
+        Assert.DoesNotContain("name=\"companyId\"", indexView);
+        Assert.DoesNotContain("asp-for=\"CompanyId\"", createView);
+    }
+
+    private static ChartOfAccountsReadService NewReadService(ApplicationDbContext db)
+        => new(db, new SystemCompanyProvider(db));
+
+    private static ChartOfAccountsController NewController(ApplicationDbContext db)
+    {
+        var controller = new ChartOfAccountsController(
+            NewReadService(db), db, new SystemCompanyProvider(db), new NoOpAuditService());
+        controller.TempData = new Microsoft.AspNetCore.Mvc.ViewFeatures.TempDataDictionary(
+            new Microsoft.AspNetCore.Http.DefaultHttpContext(),
+            new NoOpTempDataProvider());
+        return controller;
     }
 
     private static ApplicationDbContext NewDb()
         => new(new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+
+    private static Company NewCompany(int id, string code, bool isOwner)
+        => new() { Id = id, Code = code, Name = code, Country = "AF", IsActive = true, IsSystemOwner = isOwner };
 
     private static Account NewAccount(int id, int companyId, string code, string name, Account? parent = null)
         => new()
@@ -145,5 +186,28 @@ public class ChartOfAccountsTests
         }
 
         throw new FileNotFoundException($"Repository file not found: {relativePath}");
+    }
+
+    private sealed class NoOpAuditService : IAuditService
+    {
+        public Task LogAsync(string entityName, int entityId, AuditAction action, int? actorUserId = null, string? diff = null, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task LogAndSaveAsync(string entityName, int entityId, AuditAction action, int? actorUserId = null, string? diff = null, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task LogActivityAsync(AuditLogEntryInput entry, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task LogActivityAndSaveAsync(AuditLogEntryInput entry, CancellationToken ct = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class NoOpTempDataProvider : Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(Microsoft.AspNetCore.Http.HttpContext context)
+            => new Dictionary<string, object?>();
+
+        public void SaveTempData(Microsoft.AspNetCore.Http.HttpContext context, IDictionary<string, object?> values) { }
     }
 }

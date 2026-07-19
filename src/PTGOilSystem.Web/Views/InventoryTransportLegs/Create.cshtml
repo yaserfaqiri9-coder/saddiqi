@@ -212,7 +212,7 @@
         <section class="ak-form-section">
             <div class="ak-section-head">
                 <h2><i class="bi bi-upload" aria-hidden="true"></i>@UiText.T(Context, "۱. منبع انتقال", "1. Transfer source")</h2>
-                <button type="button" class="ak-secondary-action" data-add-transport-allocation-row>
+                <button type="button" class="btn btn-light ak-secondary-action" data-add-transport-allocation-row>
                     <i class="bi bi-plus-lg" aria-hidden="true"></i>
                     @UiText.T(Context, "افزودن ردیف", "Add row")
                 </button>
@@ -444,10 +444,6 @@
 
         <footer class="ak-footer-actions">
             <a href="@cancelUrl" class="btn btn-light ak-secondary-action is-neutral">@UiText.T(Context, "انصراف", "Cancel")</a>
-            <button type="button" class="btn btn-light ak-secondary-action is-outline" onclick="window.print()">
-                <i class="bi bi-printer" aria-hidden="true"></i>
-                @UiText.T(Context, "ثبت و چاپ لیست", "Save and print list")
-            </button>
             <button type="submit" class="btn btn-light ak-secondary-action is-primary">
                 <i class="bi bi-check2" aria-hidden="true"></i>
                 @UiText.T(Context, "ثبت انتقال", "Save transfer")

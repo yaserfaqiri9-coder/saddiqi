@@ -20,7 +20,7 @@ using ServiceProviderEntity = PTGOilSystem.Web.Models.Entities.ServiceProvider;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class ExpensesController : Controller
+public partial class ExpensesController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly ICurrencyConversionService _currencyConversion;
@@ -402,6 +402,7 @@ public class ExpensesController : Controller
     public async Task<IActionResult> Index([FromQuery] ExpenseIndexFilterViewModel? filter = null, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         filter ??= new ExpenseIndexFilterViewModel();
 
         var query = _db.ExpenseTransactions
@@ -443,8 +444,8 @@ public class ExpensesController : Controller
         var expenses = await query
             .OrderByDescending(e => e.ExpenseDate)
             .ThenByDescending(e => e.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(e => new ExpenseListItemViewModel
             {
                 Id = e.Id,

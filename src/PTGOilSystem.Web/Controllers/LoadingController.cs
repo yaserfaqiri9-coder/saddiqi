@@ -18,7 +18,7 @@ using ServiceProviderEntity = PTGOilSystem.Web.Models.Entities.ServiceProvider;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class LoadingController : Controller
+public partial class LoadingController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IAuditService _audit;
@@ -682,6 +682,7 @@ public class LoadingController : Controller
         int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         var normalizedQuery = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
         ViewData["q"] = normalizedQuery;
         ViewData["contractId"] = contractId;
@@ -728,8 +729,8 @@ public class LoadingController : Controller
         var loadings = await query
             .OrderByDescending(l => l.LoadingDate)
             .ThenByDescending(l => l.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(l => new
             {
                 l.Id,
@@ -1868,6 +1869,15 @@ public class LoadingController : Controller
 
         await PopulateLoadingExpenseLinesAsync(model.ExpenseEditor, loading);
         await PopulateLoadingExpenseLookupsAsync(model.ExpenseEditor);
+        model.LoadingExpenseTotalUsd = model.ExpenseEditor.Lines.Count > 0
+            ? model.ExpenseEditor.Lines.Sum(line => line.AmountUsd)
+            : (model.TransportExpenseUsd ?? 0m)
+              + (model.WarehouseExpenseUsd ?? 0m)
+              + (model.OtherExpenseUsd ?? 0m)
+              + (model.RailwayExpenseUsd ?? 0m);
+        model.CustomsTotalUsd = model.CustomsItems.Sum(item => item.TotalUsd);
+        model.ChargeableLossTotalMt = model.LossItems.Sum(item => item.ChargeableLossMt);
+        model.LoadingCostsGrandTotalUsd = model.LoadingExpenseTotalUsd + model.CustomsTotalUsd;
         return View(model);
     }
 

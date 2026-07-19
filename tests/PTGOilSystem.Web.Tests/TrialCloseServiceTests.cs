@@ -293,7 +293,7 @@ public class TrialCloseServiceTests
         var options = Options.Create(new AccountingOptions { Enabled = true });
         var calendar = new FiscalCalendarService(db);
         var guard = new PeriodGuard(db, calendar);
-        var posting = new AccountingPostingService(db, guard, options);
+        var posting = new AccountingPostingService(db, guard, options, new SystemCompanyProvider(db));
         var checklist = new ClosingChecklistService(db, options, new AccountingReadinessService(db, options));
         return new TrialCloseService(db, checklist, posting);
     }
@@ -309,7 +309,7 @@ public class TrialCloseServiceTests
 
     private static void Seed(ApplicationDbContext db, bool includeNextYear = true)
     {
-        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true });
+        db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG", IsActive = true, IsSystemOwner = true });
 
         for (var i = 0; i < 20; i++)
         {

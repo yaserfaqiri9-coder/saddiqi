@@ -37,12 +37,19 @@ body.boltz-shell.app-shell-authenticated :where(.note-card, .detail-note, .print
     --ak-detail-padding-x: 32px;
     --ak-detail-section-gap: 24px;
     --ak-detail-header-gap: 20px;
-    --ak-detail-radius: 10px;
-    --ak-detail-divider: #ECECEC;
-    --ak-detail-bg: #FCFCFC;
-    --ak-detail-surface: #FFFFFF;
-    --ak-detail-text: #424242;
-    --ak-detail-muted: #7B7B7B;
+    --ak-detail-radius: var(--ptg-radius-card, 8px);
+    --ak-detail-divider: var(--divider, #E5E7EB);
+    --ak-detail-bg: var(--background-default, #FCFCFC);
+    --ak-detail-surface: var(--background-paper, #FFFFFF);
+    --ak-detail-soft: var(--background-neutral, #F5F7FA);
+    --ak-detail-text: var(--text-primary, #424242);
+    --ak-detail-muted: var(--text-secondary, #7B7B7B);
+    --ak-detail-sticky-shadow: 0 -8px 20px rgba(0, 0, 0, .08);
+}
+
+:root[data-theme="dark"],
+[data-bs-theme="dark"] {
+    --ak-detail-sticky-shadow: 0 -8px 24px rgba(0, 0, 0, .32);
 }
 
 /* The general Akaunting canvas is intentionally narrow. Detail pages need
@@ -53,7 +60,7 @@ body.boltz-shell.app-shell-authenticated.action-details .ptg-page > .boltz-conte
     padding-inline: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page {
+:where(.ak-detail-page) {
     display: grid;
     align-content: start;
     gap: var(--ak-detail-section-gap);
@@ -65,11 +72,11 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page {
     color: var(--ak-detail-text);
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page :where(*) {
+:where(.ak-detail-page) :where(*) {
     min-width: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-header {
+.action-details .ak-detail-page :where(.ak-detail-header) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -79,13 +86,13 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     border-bottom: 1px solid var(--ak-detail-divider);
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-header-main {
+.action-details .ak-detail-page :where(.ak-detail-header-main) {
     display: grid;
     gap: 6px;
     flex: 1 1 auto;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-title {
+.action-details .ak-detail-page :where(.ak-detail-title) {
     display: block;
     margin: 0;
     color: var(--ak-detail-text);
@@ -95,7 +102,7 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     letter-spacing: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-subtitle {
+.action-details .ak-detail-page :where(.ak-detail-subtitle) {
     margin: 0;
     padding: 0;
     border: 0;
@@ -105,7 +112,7 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     line-height: 1.7;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-actions {
+.action-details .ak-detail-page :where(.ak-detail-actions) {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -114,22 +121,22 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     margin: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-status {
+.action-details .ak-detail-page :where(.ak-detail-status) {
     display: inline-flex;
     align-items: center;
     width: fit-content;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary {
+:where(.ak-detail-page) :where(.ak-detail-summary) {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin: 0;
     padding: 0;
     border: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary > :where(.ak-field, article, div) {
+:where(.ak-detail-page) :where(.ak-detail-summary) > :where(.ak-field, article, div) {
     min-height: 92px;
     padding: 16px 18px;
     border: 1px solid var(--ak-detail-divider);
@@ -138,34 +145,34 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     box-shadow: none;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary :where(.ak-label, dt, .summary-tile-label) {
+:where(.ak-detail-page) :where(.ak-detail-summary) :where(.ak-label, dt, .summary-tile-label) {
     color: var(--ak-detail-muted);
     font-size: 12px;
     font-weight: 500;
     line-height: 1.55;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary :where(.ak-num, dd, strong, .summary-tile-value) {
+:where(.ak-detail-page) :where(.ak-detail-summary) :where(.ak-num, dd, strong, .summary-tile-value) {
     color: var(--ak-detail-text);
     font-size: 20px;
     font-weight: 790;
     line-height: 1.4;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-tabs {
+:where(.ak-detail-page) :where(.ak-detail-tabs) {
     width: 100%;
     margin: 0;
     border-bottom-color: var(--ak-detail-divider);
     background: transparent;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-content {
+:where(.ak-detail-page) :where(.ak-detail-content) {
     display: grid;
     gap: var(--ak-detail-section-gap);
     width: 100%;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-section {
+:where(.ak-detail-page) :where(.ak-detail-section) {
     margin: 0;
     padding: 20px;
     border: 1px solid var(--ak-detail-divider);
@@ -175,7 +182,7 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
 }
 
 /* Nested sections stay flat so specialty pages do not become cards in cards. */
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-section .ak-detail-section {
+:where(.ak-detail-page) :where(.ak-detail-section) :where(.ak-detail-section) {
     margin: 0;
     padding: 0;
     border: 0;
@@ -183,7 +190,7 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     background: transparent;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-section-header {
+:where(.ak-detail-page) :where(.ak-detail-section-header) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -193,47 +200,68 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     border-bottom: 1px solid var(--ak-detail-divider);
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-section-body {
+:where(.ak-detail-page) :where(.ak-detail-section-header) > :where(h2, .h2) {
+    margin: 0;
+    color: var(--ak-detail-text);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.55;
+}
+
+:where(.ak-detail-page) :where(.ak-detail-section-body) {
     padding: 0;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page :where(.ak-table-wrap, .table-responsive) {
+:where(.ak-detail-page) :where(.ak-table-wrap, .table-responsive) {
     width: 100%;
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-table {
+:where(.ak-detail-page) :where(.ak-detail-table) {
     width: 100%;
     table-layout: auto;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-table:has(tr > :nth-child(5)) {
+:where(.ak-detail-page) :where(.ak-detail-table):has(tr > :nth-child(5)) {
     min-width: 680px;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-table > thead > tr > th {
+:where(.ak-detail-page) :where(.ak-detail-table) > thead > tr > th {
     height: 44px;
     padding: 11px 12px;
-    background: #F7F8FA;
+    background: var(--ak-detail-soft);
     color: var(--ak-detail-muted);
     font-size: 13px;
     font-weight: 730;
     vertical-align: middle;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-table > tbody > tr > td {
+:where(.ak-detail-page) :where(.ak-detail-table) > tbody > tr > td {
     min-height: 48px;
     padding: 12px;
     vertical-align: middle;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-table :where(.ak-num, [dir="ltr"]) {
+:where(.ak-detail-page) :where(.ak-detail-table) :where(.ak-num, [dir="ltr"]) {
     font-variant-numeric: tabular-nums;
 }
 
-body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-empty-state {
+:where(.ak-detail-page) :where(.ak-breakdown-toggle) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+:where(.ak-detail-page) :where(.ak-breakdown-row) > td {
+    background: var(--ak-detail-soft);
+    color: var(--ak-detail-text);
+}
+
+:where(.ak-detail-page) :where(.ak-detail-empty-state) {
     padding: 40px 16px;
     color: var(--ak-detail-muted);
     text-align: center;
@@ -243,14 +271,10 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
     :root {
         --ak-detail-padding-x: 24px;
     }
-
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    }
 }
 
 @media (max-width: 991.98px) {
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary {
+    :where(.ak-detail-page) :where(.ak-detail-summary) {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -261,30 +285,442 @@ body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-deta
         --ak-detail-section-gap: 16px;
     }
 
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-header {
+    .action-details .ak-detail-page :where(.ak-detail-header) {
         align-items: stretch;
         flex-direction: column;
     }
 
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-actions {
+    .action-details .ak-detail-page :where(.ak-detail-actions) {
         width: 100%;
         justify-content: flex-start;
-        overflow-x: auto;
+        flex-wrap: wrap;
+        overflow: visible;
         padding-bottom: 2px;
     }
 
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-section {
+    :where(.ak-detail-page) :where(.ak-detail-section) {
         padding: 16px;
     }
 }
 
 @media (max-width: 575.98px) {
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-summary {
-        grid-template-columns: minmax(0, 1fr);
+    :where(.ak-detail-page) :where(.ak-detail-summary) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
     }
 
-    body.boltz-shell.app-shell-authenticated.action-details .ak-detail-page .ak-detail-title {
+    :where(.ak-detail-page) :where(.ak-detail-summary) > :where(.ak-field, article, div) {
+        min-height: 84px;
+        padding: 12px;
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-summary) :where(.ak-num, dd, strong, .summary-tile-value) {
+        font-size: 17px;
+    }
+
+    .action-details .ak-detail-page :where(.ak-detail-title) {
         font-size: 22px;
+    }
+}
+
+/* ===================================================================
+   AK Detail v2 shared primitives
+   Low-specificity component rules; feature pages provide data, not skins.
+   =================================================================== */
+.action-details .ak-detail-page :where(.ak-detail-title-row) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-details .ak-detail-page :where(.ak-detail-status).is-warning {
+    background: var(--ptg-warning-soft);
+    color: var(--ptg-warning-text);
+}
+
+.action-details .ak-detail-page :where(.ak-detail-status).is-danger {
+    background: var(--ptg-danger-soft);
+    color: var(--ptg-danger-text);
+}
+
+.action-details .ak-detail-page :where(.ak-header-kebab) :where(.dropdown-menu) {
+    min-width: 12rem;
+    text-align: start;
+}
+
+.action-details .ak-detail-page :where(.ak-header-kebab) :where(.dropdown-item) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-details .ak-detail-page :where(.ak-kebab-toggle) {
+    inline-size: 38px;
+    justify-content: center;
+    padding-inline: 0;
+}
+
+/* Timeline */
+:where(.ak-detail-page) :where(.ak-timeline) {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-item) {
+    position: relative;
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 64px;
+    padding-block-end: 16px;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-item:not(:last-child))::after {
+    position: absolute;
+    inset-block: 31px 0;
+    inset-inline-start: 15px;
+    inline-size: 1px;
+    background: var(--ak-detail-divider);
+    content: "";
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-dot) {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    inline-size: 31px;
+    block-size: 31px;
+    border: 1px solid var(--ak-detail-divider);
+    border-radius: 50%;
+    background: var(--ak-detail-surface);
+    color: var(--ak-detail-muted);
+    font-size: 13px;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-item.is-current) :where(.ak-timeline-dot) {
+    border-color: var(--ptg-primary);
+    background: var(--ptg-primary-soft);
+    color: var(--ptg-primary);
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-item.is-muted) {
+    opacity: .68;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-body) {
+    padding-block-start: 3px;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-head) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-title) {
+    color: var(--ak-detail-text);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.6;
+}
+
+:where(.ak-detail-page) a.ak-timeline-title:hover {
+    color: var(--ptg-primary-dark);
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-date) {
+    flex: 0 0 auto;
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+:where(.ak-detail-page) :where(.ak-timeline-meta) {
+    margin: 3px 0 0;
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    line-height: 1.65;
+}
+
+/* Related records */
+:where(.ak-detail-page) :where(.ak-related) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+:where(.ak-detail-page) :where(.ak-related-item) {
+    min-width: 0;
+}
+
+:where(.ak-detail-page) :where(.ak-related-link) {
+    display: grid;
+    grid-template-columns: auto minmax(0, auto) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--ak-detail-divider);
+    border-radius: var(--ak-detail-radius);
+    background: var(--ak-detail-surface);
+    color: var(--ak-detail-text);
+}
+
+:where(.ak-detail-page) a.ak-related-link:hover {
+    border-color: var(--ptg-primary);
+    background: var(--ak-detail-soft);
+}
+
+:where(.ak-detail-page) :where(.ak-related-link.is-static) {
+    color: var(--ak-detail-text);
+}
+
+:where(.ak-detail-page) :where(.ak-related-link > i, .ak-related-type) {
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+}
+
+:where(.ak-detail-page) :where(.ak-related-label) {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+:where(.ak-detail-page) :where(.ak-related-value) {
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Compact server pager */
+:where(.ak-detail-page) :where(.ak-detail-pager) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-block-start: 14px;
+}
+
+:where(.ak-detail-page) :where(.ak-detail-pager-link, .ak-detail-pager-state) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 5px 10px;
+    border: 1px solid var(--ak-detail-divider);
+    border-radius: var(--ptg-radius-input, 8px);
+    background: var(--ak-detail-surface);
+    font-size: 12px;
+    line-height: 1;
+}
+
+:where(.ak-detail-page) a.ak-detail-pager-link:hover {
+    border-color: var(--ptg-primary);
+    background: var(--ptg-primary-soft);
+}
+
+:where(.ak-detail-page) :where(.ak-detail-pager-link.is-disabled) {
+    color: var(--text-disabled);
+    cursor: not-allowed;
+    opacity: .72;
+}
+
+:where(.ak-detail-page) :where(.ak-detail-pager-state) {
+    min-width: 64px;
+    color: var(--ak-detail-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* End-of-page actions are normal flow on desktop and sticky only on mobile. */
+:where(.ak-detail-page) :where(.ak-detail-actionbar) {
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 12px 0;
+    border-top: 1px solid var(--ak-detail-divider);
+}
+
+:where(.ak-detail-page) :where(.ak-detail-actionbar) :where(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+:where(.ak-detail-page) :where(
+    .ak-kebab-toggle,
+    .ak-detail-pager-link,
+    .ak-timeline-title,
+    .ak-related-link,
+    .ak-detail-actionbar .btn
+):focus-visible {
+    outline: 2px solid var(--ptg-primary);
+    outline-offset: 2px;
+    box-shadow: none !important;
+}
+
+/* Shared priority columns: P1 is always visible; P2 hides below 768px,
+   P3 below 1200px. Either class or data attribute is supported. */
+@media (max-width: 1199.98px) {
+    :where(.ak-detail-page) :where(.ak-table, .ak-detail-table) :where(
+        .ak-col-priority-3,
+        .ak-col-p3,
+        [data-column-priority="3"]
+    ) {
+        display: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    :where(.ak-detail-page) :where(.ak-table, .ak-detail-table) :where(
+        .ak-col-priority-2,
+        .ak-col-p2,
+        [data-column-priority="2"]
+    ) {
+        display: none;
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-actionbar) {
+        position: sticky;
+        z-index: 1020;
+        inset-block-end: 0;
+        justify-content: stretch;
+        margin-inline: -8px;
+        padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+        border: 1px solid var(--ak-detail-divider);
+        border-block-end: 0;
+        border-radius: var(--ak-detail-radius) var(--ak-detail-radius) 0 0;
+        background: var(--ak-detail-surface);
+        box-shadow: var(--ak-detail-sticky-shadow);
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-actionbar) :where(.btn) {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+    }
+
+    :where(.ak-detail-page) :where(.ak-timeline-head) {
+        align-items: start;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    :where(.ak-detail-page) :where(.ak-related) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .action-details .ak-detail-page :where(.ak-detail-header) {
+        padding-block-start: 0;
+    }
+
+    .action-details .ak-detail-page :where(.ak-detail-actions) :where(.ak-primary-action, .ak-secondary-action) {
+        flex: 1 0 auto;
+        justify-content: center;
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-section-header) {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-pager) {
+        justify-content: center;
+    }
+
+    /* Bootstrap-compatible, full-screen-ish detail modals on small phones. */
+    :where(body.action-details) :where(.modal-dialog) {
+        width: calc(100vw - 12px);
+        max-width: none;
+        min-height: calc(100dvh - 12px);
+        margin: 6px auto;
+    }
+
+    :where(body.action-details) :where(.modal-content) {
+        max-height: calc(100dvh - 12px);
+        border-radius: var(--ak-detail-radius);
+    }
+}
+
+@media print {
+    :where(html, body) {
+        background: #FFF !important;
+        color: #000 !important;
+    }
+
+    :where(.ak-detail-page) {
+        display: block;
+        max-width: none;
+        padding: 0;
+        color: #000;
+    }
+
+    :where(.ak-detail-page) :where(
+        .ak-detail-summary,
+        .ak-stat-grid,
+        .ak-detail-actions,
+        .ak-detail-actionbar,
+        .ak-detail-pager,
+        .ak-detail-tabs,
+        .ak-header-kebab,
+        .no-print
+    ) {
+        display: none !important;
+    }
+
+    .action-details .ak-detail-page :where(.ak-detail-header) {
+        margin-block-end: 14px;
+        padding: 0 0 10px;
+        border-color: #BDBDBD;
+    }
+
+    :where(.ak-detail-page) :where(.ak-detail-section) {
+        break-inside: avoid;
+        margin-block-end: 14px;
+        padding: 0;
+        border: 0;
+        background: #FFF;
+    }
+
+    :where(.ak-detail-page) :where(.ak-table-wrap, .table-responsive) {
+        overflow: visible;
+    }
+
+    :where(.ak-detail-page) :where(.ak-table, .ak-detail-table) {
+        min-width: 0 !important;
+        color: #000;
+    }
+
+    :where(.ak-detail-page) :where(.ak-table, .ak-detail-table) :where(
+        .ak-col-priority-2,
+        .ak-col-priority-3,
+        .ak-col-p2,
+        .ak-col-p3,
+        [data-column-priority]
+    ) {
+        display: table-cell;
+    }
+
+    :where(.ak-detail-page) :where(.ak-timeline-dot, .ak-related-link) {
+        background: #FFF;
+        color: #000;
     }
 }
 
@@ -808,5 +1244,298 @@ body.boltz-shell.controller-customsdeclarations.action-details .boltz-content .c
     ).action-details .boltz-content .loading-details-simple-page .loading-detail-record-row {
         grid-template-columns: minmax(0, 1fr);
         gap: .35rem;
+    }
+}
+
+/* =====================================================================
+   Contract journey — compact header essentials, collapsible full specs,
+   and per-tab shared stat-card grids. Uses the shared --ak-detail-* tokens
+   so light/dark and RTL follow the rest of the detail system.
+   ===================================================================== */
+.ak-detail-page .ak-detail-essentials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    margin: 0;
+    padding: 0;
+}
+.ak-detail-page .ak-detail-essentials > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+.ak-detail-page .ak-detail-essentials dt {
+    margin: 0;
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+.ak-detail-page .ak-detail-essentials dd {
+    margin: 0;
+    color: var(--ak-detail-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.ak-detail-page .ak-detail-fold {
+    border: 1px solid var(--ak-detail-divider);
+    border-radius: var(--ak-detail-radius);
+    background: var(--ak-detail-surface);
+}
+.ak-detail-page .ak-detail-fold > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    color: var(--ak-detail-text);
+    font-size: 13px;
+    font-weight: 600;
+}
+.ak-detail-page .ak-detail-fold > summary::-webkit-details-marker { display: none; }
+.ak-detail-page .ak-detail-fold > summary .ak-detail-fold-caret {
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    transition: transform .15s ease;
+}
+.ak-detail-page .ak-detail-fold[open] > summary .ak-detail-fold-caret { transform: rotate(-90deg); }
+.ak-detail-page .ak-detail-fold-body {
+    padding: 4px 16px 14px;
+    border-top: 1px solid var(--ak-detail-divider);
+}
+.ak-detail-page .ak-detail-fold-body .ak-list { margin: 0; }
+
+/* Per-tab stat grid sits directly under the tab rail — keep it tight. */
+.ak-detail-page .ak-detail-content .ak-stat-grid { margin: 0 0 6px; }
+.ak-detail-page .ak-stat-note {
+    margin: 6px 0 0;
+    color: var(--ak-detail-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* Full-specs fold: text value rows must sit label-start / value-end like the
+   numeric rows (were reading as centered), and the block should be shorter. */
+.ak-detail-page .ak-detail-fold-body { padding: 2px 16px 10px; }
+.ak-detail-page .ak-detail-fold-body .ak-list-row { padding: 6px 0; }
+.ak-detail-page .ak-detail-fold-body .ak-list-row dd:not(.ak-num) { text-align: end; }
+
+/* Larger, more legible stat numbers on the contract journey page only. */
+[data-contract-journey-page] .ak-stat-card__value { font-size: clamp(26px, 2vw, 32px); }
+[data-contract-journey-page] .ak-stat-card__value--compact { font-size: clamp(22px, 1.7vw, 27px); }
+[data-contract-journey-page] .ak-stat-card__value--dense { font-size: clamp(18px, 1.4vw, 22px); }
+[data-contract-journey-page] .ak-stat-card__value--ultra { font-size: clamp(14px, 1.1vw, 17px); }
+
+/* All list headers on the contract journey page: title at the start (right)
+   and the add / primary action at the end (left) — matching the inline tabs
+   that already use .ak-detail-section-header. Only heads that actually carry a
+   primary action are affected, so redundant in-form heads stay untouched. */
+[data-contract-journey-page] .ak-section-head:not(.ak-detail-section-header):has(.ak-primary-action) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Summary tab — larger, brand-coloured figures in the key/value stat lists.
+   Values that already carry a success/danger tone keep their colour. */
+[data-contract-journey-page] .ak-summary-page .ak-list-row dd.ak-num {
+    font-size: 16px;
+    font-weight: 700;
+}
+[data-contract-journey-page] .ak-summary-page .ak-list-row dd.ak-num:not(.text-success):not(.text-danger) {
+    color: var(--ptg-primary);
+}
+
+/* Contract-lifecycle (and other detail) tables: pin each numeric value to the
+   same side as its numeric header so figures sit directly under their titles. */
+[data-contract-journey-page] .ak-detail-table > thead > tr > th.ak-col-num,
+[data-contract-journey-page] .ak-detail-table > tbody > tr > td.ak-num {
+    text-align: left;
+}
+
+/* ===== Contract lifecycle — panel cards (summary tab) =====
+   Layout: icon tile · title with rule · rows of [numeral][label][value chip].
+   Each row is one pill whose gradient runs from the brand green on the badge
+   side to silver on the value side. Pure CSS (no images, no script). */
+.ak-cycle {
+    display: grid;
+    gap: 14px;
+}
+
+.ak-cycle-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 1.5px 1.5px, rgba(255, 255, 255, .5) 1.5px, transparent 1.6px) 0 0 / 12px 12px,
+        linear-gradient(255deg, #E3EFDC 0%, #CFE3C4 55%, #C2DAB5 100%);
+}
+
+.ak-cycle-icon {
+    flex: 0 0 62px;
+    align-self: center;
+    display: grid;
+    place-items: center;
+    height: 62px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px rgba(94, 143, 68, .2);
+    font-size: 28px;
+    line-height: 1;
+    color: #5E8F44;
+}
+
+.ak-cycle-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ak-cycle-title {
+    margin: 0 0 10px;
+    padding-bottom: 7px;
+    border-bottom: 2px solid rgba(94, 143, 68, .35);
+    font-size: 16px;
+    font-weight: 700;
+    color: #33502A;
+}
+
+.ak-cycle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    margin-top: 8px;
+    padding: 3px 5px;
+    border-radius: 999px;
+    background: linear-gradient(to left, #5E8F44 0%, #5E8F44 46%, #D3DFCB 80%, #F4F7F1 100%);
+}
+
+.ak-cycle-num {
+    flex: 0 0 26px;
+    display: grid;
+    place-items: center;
+    height: 26px;
+    border-radius: 50%;
+    background: #3D6B27;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ak-cycle-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ak-cycle-value {
+    flex: 0 0 auto;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #fff;
+    color: #3F6A2A;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ak-cycle-value.is-loss {
+    color: var(--error-main, #CC0000);
+}
+
+@media (max-width: 575.98px) {
+    .ak-cycle-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .ak-cycle-icon {
+        flex-basis: 46px;
+        height: 46px;
+        font-size: 21px;
+    }
+
+    .ak-cycle-label {
+        font-size: 12px;
+    }
+
+    .ak-cycle-value {
+        padding: 3px 9px;
+        font-size: 12px;
+    }
+}
+
+/* ==========================================================================
+ * Transport-leg / dispatch details ([data-transport-details]).
+ * 1) Header identity strip: the info fields flow in the grid while the
+ *    vehicle illustration sits compact on the side (was a 640px image
+ *    dumped inside a 36px .ak-page-icon box, breaking the header).
+ * 2) Action bar: the .ak-page-actions links/buttons carry the shared
+ *    Bootstrap .btn look, compact like the party-details toolbar.
+ * ======================================================================== */
+[data-transport-details] .ak-detail-section:has(> .itl-vehicle-art) {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+[data-transport-details] .ak-detail-section:has(> .itl-vehicle-art) > .ak-form-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+[data-transport-details] .itl-vehicle-art {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(120px, 14vw, 176px);
+}
+
+[data-transport-details] .itl-vehicle-art img {
+    width: 100%;
+    height: auto;
+    max-height: 60px;
+    object-fit: contain;
+    opacity: 0.9;
+}
+
+/* Action toolbar buttons: shared .btn look, compact + wrapping. */
+[data-transport-details] .ak-page-actions {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+[data-transport-details] .ak-page-actions .btn {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+[data-transport-details] .ak-page-actions .ak-form {
+    margin: 0;
+}
+
+@media (max-width: 640px) {
+    [data-transport-details] .ak-detail-section:has(> .itl-vehicle-art) {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 12px;
+    }
+    [data-transport-details] .itl-vehicle-art {
+        width: 100%;
     }
 }

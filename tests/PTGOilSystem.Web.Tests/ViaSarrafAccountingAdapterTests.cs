@@ -195,7 +195,7 @@ public sealed class ViaSarrafAccountingAdapterTests(AccountingPostgreSqlFixture 
         });
         return new ViaSarrafAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             options,
             NullLogger<ViaSarrafAccountingAdapter>.Instance);

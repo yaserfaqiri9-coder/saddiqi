@@ -5,6 +5,9 @@
     var hasFilters = ViewData["isActive"] != null;
     var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var activeCount = items.Count(item => item.IsActive);
+    var inactiveCount = items.Count - activeCount;
+    var symbolCount = items.Count(item => !string.IsNullOrWhiteSpace(item.Symbol));
 }
 
 <div class="ak-list-page">
@@ -13,6 +16,13 @@
                        UiText.T(Context, "ارز جدید", "New currency"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار ارزها", "Currency statistics")">
+        <vc:stat-card title="@UiText.T(Context, "تعداد ارزها", "Currencies")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "ارز", "currencies")" avatar="cash"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ارزهای فعال", "Active currencies")" value="@activeCount.ToString("N0")" unit="@UiText.T(Context, "ارز", "currencies")" avatar="receivables"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ارزهای غیرفعال", "Inactive currencies")" value="@inactiveCount.ToString("N0")" unit="@UiText.T(Context, "ارز", "currencies")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "دارای نماد", "With symbol")" value="@symbolCount.ToString("N0")" unit="@UiText.T(Context, "ارز", "currencies")" avatar="payments"></vc:stat-card>
+    </section>
 
     @{
         var currenciesIsActive = ViewData["isActive"] is bool curAct ? (curAct ? "true" : "false") : null;

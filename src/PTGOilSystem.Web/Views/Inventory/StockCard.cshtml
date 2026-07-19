@@ -28,6 +28,7 @@
                     <div class="ak-detail-toolbar-actions">
                         <button type="submit" class="btn ak-primary-action">@UiText.T(Context,"اعمال فیلتر","Apply Filter")</button>
                         <a asp-action="StockCard" class="btn ak-secondary-action">@UiText.T(Context,"پاک‌کردن","Clear")</a>
+                        <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("StockCardExport"))" />
                     </div>
                 </div>
             </form>

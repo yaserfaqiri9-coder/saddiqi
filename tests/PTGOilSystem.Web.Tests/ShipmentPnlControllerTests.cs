@@ -20,7 +20,9 @@ public class ShipmentPnlControllerTests
 
         Assert.Contains("ak-form-page", view);
         Assert.Contains("_AkPageHeader.cshtml", view);
-        Assert.Contains("ptg-tabs-rail ak-detail-tabs no-print", view);
+        Assert.Contains("_DetailsTabs.cshtml", view);
+        Assert.Contains("Context.Request.Query[\"tab\"]", view);
+        Assert.DoesNotContain("data-shipment-file-tabs", view);
         Assert.Contains("tab-content ak-detail-content ak-tab-content", view);
         Assert.Contains("ak-summary", view);
         Assert.Contains("بار داخل کشتی", view);

@@ -447,7 +447,7 @@ public sealed class SalesAccountingAdapterTests(AccountingPostgreSqlFixture fixt
         });
         return new SalesAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             new InventoryValuationService(db),
             options,

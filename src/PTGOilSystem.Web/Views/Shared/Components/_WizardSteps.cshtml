@@ -1,0 +1,34 @@
+@model PTGOilSystem.Web.Models.Shared.WizardStepsViewModel
+@{
+    var railClass = "ptg-tabs-rail ptg-wizard-steps" +
+        (string.IsNullOrWhiteSpace(Model.CssClass) ? string.Empty : $" {Model.CssClass}");
+}
+
+<nav class="@railClass" aria-label="@Model.AriaLabel" data-wizard-steps>
+    @foreach (var step in Model.Steps)
+    {
+        var stepClass = "ptg-tab-item ptg-wizard-step" + (step.IsActive ? " is-active" : string.Empty);
+        if (step.IsInteractive)
+        {
+            if (Model.StepDataAttribute == "data-step-tab")
+            {
+                <button type="button" class="@stepClass" data-step-tab="@step.Number" aria-current="@(step.IsActive ? "step" : null)">
+                    <span class="ptg-wizard-step__number" aria-hidden="true">@step.Number</span><span class="ptg-wizard-step__label">@step.Label</span>
+                </button>
+            }
+            else
+            {
+                <button type="button" class="@stepClass" data-step-btn="@step.Number" aria-current="@(step.IsActive ? "step" : null)">
+                    <span class="ptg-wizard-step__number" aria-hidden="true">@step.Number</span><span class="ptg-wizard-step__label">@step.Label</span>
+                </button>
+            }
+        }
+        else
+        {
+            <span class="@stepClass" aria-current="@(step.IsActive ? "step" : null)">
+                <span class="ptg-wizard-step__number" aria-hidden="true">@step.Number</span>
+                <span class="ptg-wizard-step__label">@step.Label</span>
+            </span>
+        }
+    }
+</nav>

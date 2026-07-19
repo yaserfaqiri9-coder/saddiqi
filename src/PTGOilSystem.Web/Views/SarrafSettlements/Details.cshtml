@@ -1,29 +1,31 @@
 @model SarrafSettlementDetailsViewModel
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] = "جزئیات تسویه صراف";
     ViewData["HideSectionTabs"] = true;
     var returnUrl = ViewBag.ReturnUrl as string;
     var backUrl = returnUrl ?? Url.Action("Index") ?? "/SarrafSettlements";
+    var statusState = Model.Status == SarrafSettlementStatus.Posted ? "is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "is-warning";
+    ViewData["AkHeaderStatus"] = Model.StatusName;
+    ViewData["AkHeaderStatusState"] = statusState;
+    ViewData["AkHeaderContext"] = $"{Model.SarrafName} · {Model.ReferenceNumber ?? $"#{Model.Id}"}";
+    var settlementMenu = new List<AkHeaderMenuItem>();
+    if (Model.LedgerEntryId.HasValue)
+    {
+        settlementMenu.Add(new AkHeaderMenuItem { Label = "دفتر کل تأمین‌کننده", Href = Url.Action("Details", "Ledger", new { id = Model.LedgerEntryId.Value }), Icon = "bi-journal-text" });
+    }
+    if (Model.ExchangeDifferenceLedgerEntryId.HasValue)
+    {
+        settlementMenu.Add(new AkHeaderMenuItem { Label = "دفتر کل اختلاف", Href = Url.Action("Details", "Ledger", new { id = Model.ExchangeDifferenceLedgerEntryId.Value }), Icon = "bi-journal-text" });
+    }
+    ViewData["AkHeaderKebab"] = settlementMenu;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@(($"تسویه صراف #{Model.Id}", false,
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        "بازگشت", "bi-arrow-right", (string?)backUrl))" />
-
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.Status == SarrafSettlementStatus.Posted ?"is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@Model.StatusName</span>
-        <span class="ak-note">@Model.SarrafName — @(Model.ReferenceNumber ?? $"#{Model.Id}")</span>
-        @if (Model.LedgerEntryId.HasValue)
-        {
-            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.LedgerEntryId.Value" class="btn btn-light">Ledger تأمین‌کننده</a>
-        }
-        @if (Model.ExchangeDifferenceLedgerEntryId.HasValue)
-        {
-            <a asp-controller="Ledger" asp-action="Details" asp-route-id="@Model.ExchangeDifferenceLedgerEntryId.Value" class="btn btn-light">Ledger اختلاف</a>
-        }
-    </div>
 
     <div class="ak-stat-grid" aria-label="آمار تسویه صراف">
         <vc:stat-card title="درخواست شرکت" value="@Model.RequestedAmountUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
@@ -51,8 +53,8 @@
                 <div class="ak-list-row"><dt>وضعیت</dt><dd><span class="ak-status @(Model.Status == SarrafSettlementStatus.Posted ?"is-active" : Model.Status == SarrafSettlementStatus.Cancelled ? "is-inactive" : "")">@Model.StatusName</span></dd></div>
                 <div class="ak-list-row"><dt>رفتار اختلاف</dt><dd>@Model.DifferenceTreatmentName</dd></div>
                 <div class="ak-list-row"><dt>نوع اختلاف</dt><dd>@Model.DifferenceTypeName</dd></div>
-                <div class="ak-list-row"><dt>Ledger تأمین‌کننده</dt><dd>@(Model.LedgerEntryId.HasValue ? $"#{Model.LedgerEntryId}" : "-")</dd></div>
-                <div class="ak-list-row"><dt>Ledger سود/زیان</dt><dd>@(Model.ExchangeDifferenceLedgerEntryId.HasValue ? $"#{Model.ExchangeDifferenceLedgerEntryId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>دفتر کل تأمین‌کننده</dt><dd>@(Model.LedgerEntryId.HasValue ? $"#{Model.LedgerEntryId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>دفتر کل سود/زیان</dt><dd>@(Model.ExchangeDifferenceLedgerEntryId.HasValue ? $"#{Model.ExchangeDifferenceLedgerEntryId}" : "-")</dd></div>
                 <div class="ak-list-row"><dt>ثبت قطعی</dt><dd>@(Model.PostedAtUtc?.ToDisplayDateTime() ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>لغو</dt><dd>@(Model.CancelledAtUtc?.ToDisplayDateTime() ?? "-")</dd></div>
             </dl>

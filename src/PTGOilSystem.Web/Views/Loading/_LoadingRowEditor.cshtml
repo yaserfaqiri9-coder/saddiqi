@@ -23,6 +23,22 @@
     var logisticsMode = !string.IsNullOrEmpty(selectedOperationalAssetValue)
         ? "owned"
         : !string.IsNullOrEmpty(selectedLogisticsServiceProviderValue) ? "free" : "";
+    // Only this row's own selection is rendered; the full provider/asset catalogues live
+    // once per page (#loading-provider-catalog / #loading-asset-catalog) and the script
+    // copies them into a row on demand. Emitting them per row made a few thousand
+    // imported rows explode into hundreds of thousands of <option> elements.
+    var selectedLogisticsServiceProviderText = string.IsNullOrEmpty(selectedLogisticsServiceProviderValue)
+        ? null
+        : logisticsServiceProviderOptions.FirstOrDefault(o => string.Equals(o.Value, selectedLogisticsServiceProviderValue, StringComparison.Ordinal))?.Text;
+    var selectedOperationalAssetText = string.IsNullOrEmpty(selectedOperationalAssetValue)
+        ? null
+        : operationalAssetOptions.FirstOrDefault(o => string.Equals(o.Value, selectedOperationalAssetValue, StringComparison.Ordinal))?.Text;
+    var selectedLogisticsItemText = logisticsMode == "owned"
+        ? selectedOperationalAssetText
+        : logisticsMode == "free" ? selectedLogisticsServiceProviderText : null;
+    var selectedLogisticsItemValue = logisticsMode == "owned"
+        ? selectedOperationalAssetValue
+        : logisticsMode == "free" ? selectedLogisticsServiceProviderValue : "";
     var isRubSettlement = string.Equals(Model.Row.SettlementCurrencyCode, "RUB", StringComparison.OrdinalIgnoreCase);
     var rubLoadingAmount = Model.Row.AmountRubAtRubLock
         ?? (isRubSettlement && Model.Row.RubPerUsdRate.HasValue && Model.Row.LoadingPriceUsd.HasValue
@@ -150,7 +166,7 @@
                    />
         </td>
 
-        <td class="ak-col-num">
+        <td class="ak-col-num loading-price-cell">
             <input name="@($"{prefix}.LoadingPriceUsd")"
                    value="@(Model.Row.LoadingPriceUsd > 0 ? Model.Row.LoadingPriceUsd.Value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : null)"
                    class="ak-input ak-num"
@@ -159,7 +175,7 @@
             <span class="ak-section-desc" data-row-premium-display></span>
         </td>
 
-        <td class="ak-col-num fw-bold">
+        <td class="ak-col-num fw-bold loading-value-cell">
             <span data-row-loading-value>@(Model.Row.LoadingPriceUsd.HasValue ? $"$ {NumberDisplay.Money(loadingValue)}" : "در انتظار نرخ")</span>
         </td>
 
@@ -171,7 +187,7 @@
             <span data-row-frub-amount-text>@(Model.Row.SettlementValueRub.HasValue ? $"₽ {NumberDisplay.Money(Model.Row.SettlementValueRub.Value)}" : "-")</span>
         </td>
 
-        <td class="ak-col-num @fxRubCellCss" data-loading-rub-column>
+        <td class="ak-col-num loading-rub-rate-cell @fxRubCellCss" data-loading-rub-column>
             <input name="@($"{prefix}.RubPerUsdRate")"
                    value="@(Model.Row.RubPerUsdRate > 0 ? Model.Row.RubPerUsdRate.Value.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture) : null)"
                    class="ak-input ak-num"
@@ -180,7 +196,7 @@
             <span class="ak-section-desc" data-row-rub-status-text>@rubRateNote</span>
         </td>
 
-        <td class="ak-col-num fw-bold @fxRubCellCss" data-loading-rub-column>
+        <td class="ak-col-num fw-bold loading-rub-value-cell @fxRubCellCss" data-loading-rub-column>
             <span data-row-rub-value>@rubStatusText</span>
         </td>
 
@@ -201,19 +217,9 @@
                                 data-row-logistics-display
                                 aria-label="انتخاب ترانسپورت">
                             <option value=""></option>
-                            @if (logisticsMode == "owned")
+                            @if (!string.IsNullOrEmpty(selectedLogisticsItemValue))
                             {
-                                foreach (var option in operationalAssetOptions)
-                                {
-                                    <option value="@option.Value" selected="@(string.Equals(option.Value, selectedOperationalAssetValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
-                                }
-                            }
-                            else if (logisticsMode == "free")
-                            {
-                                foreach (var option in logisticsServiceProviderOptions)
-                                {
-                                    <option value="@option.Value" selected="@(string.Equals(option.Value, selectedLogisticsServiceProviderValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
-                                }
+                                <option value="@selectedLogisticsItemValue" selected="selected">@selectedLogisticsItemText</option>
                             }
                         </select>
                     </div>
@@ -224,9 +230,9 @@
                         aria-hidden="true"
                         tabindex="-1">
                     <option value=""></option>
-                    @foreach (var option in logisticsServiceProviderOptions)
+                    @if (!string.IsNullOrEmpty(selectedLogisticsServiceProviderValue))
                     {
-                        <option value="@option.Value" selected="@(string.Equals(option.Value, selectedLogisticsServiceProviderValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                        <option value="@selectedLogisticsServiceProviderValue" selected="selected">@selectedLogisticsServiceProviderText</option>
                     }
                 </select>
                 <select name="@($"{prefix}.OperationalAssetId")"
@@ -235,9 +241,9 @@
                         aria-hidden="true"
                         tabindex="-1">
                     <option value=""></option>
-                    @foreach (var option in operationalAssetOptions)
+                    @if (!string.IsNullOrEmpty(selectedOperationalAssetValue))
                     {
-                        <option value="@option.Value" selected="@(string.Equals(option.Value, selectedOperationalAssetValue, StringComparison.Ordinal) ? "selected" : null)">@option.Text</option>
+                        <option value="@selectedOperationalAssetValue" selected="selected">@selectedOperationalAssetText</option>
                     }
                 </select>
             </div>

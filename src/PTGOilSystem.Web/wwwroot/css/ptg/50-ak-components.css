@@ -275,7 +275,8 @@
  * Partials: Views/Shared/Partials/_PersonCell.cshtml, _Capsule.cshtml.
  * Tokens only, no !important; row height unchanged (avatar < cell box).
  * ============================================================= */
-.ptg-person-cell {
+.ptg-person-cell,
+.ptg-list-entity-cell {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -284,7 +285,8 @@
 
 /* 28px indigo disc; avatar sits at the name's inline-start, so it lands
    on the right in RTL and the left in LTR without any per-direction rule. */
-.ptg-person-avatar {
+.ptg-person-avatar,
+.ptg-list-row-avatar {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -297,9 +299,16 @@
     overflow: hidden;
 }
 
-.ptg-person-avatar > .bi {
+.ptg-person-avatar > .bi,
+.ptg-list-row-avatar > .bi {
     font-size: 15px;
     line-height: 1;
+}
+
+.ptg-list-entity-content {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ptg-person-avatar-img {
@@ -449,6 +458,22 @@ a.ptg-person-name:focus-visible {
 
 .ak-row-menu .dropdown-item.ak-danger {
     color: var(--ptg-danger-text);
+}
+
+/* Operations lists: per-row action buttons stay hidden until the row is
+   hovered, keyboard-focused, or selected — same rhythm as the Loading tab's
+   hover action box. Selected rows keep them visible for touch (no hover). */
+[data-operations-list] .ak-table > tbody > tr > td .ak-row-menu {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--ptg-motion-fast, 150ms) ease-out;
+}
+
+[data-operations-list] .ak-table > tbody > tr:hover > td .ak-row-menu,
+[data-operations-list] .ak-table > tbody > tr:focus-within > td .ak-row-menu,
+[data-operations-list] .ak-table > tbody > tr.is-selected > td .ak-row-menu {
+    opacity: 1;
+    visibility: visible;
 }
 
 /* ============================================================= *
@@ -1810,6 +1835,95 @@ select.ak-input {
     display: grid;
 }
 
+/* Contract journey / receipts: keep the awaiting-loadings list full width while
+   collapsed, then open the bulk receipt form beside it on desktop. */
+[data-bulk-receipt-form].ak-form {
+    max-width: none;
+}
+
+.ak-bulk-receipt-workspace {
+    min-width: 0;
+}
+
+[data-bulk-receipt-form].is-bulk-receipt-open .ak-bulk-receipt-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(360px, 2fr);
+    gap: 24px;
+    align-items: start;
+}
+
+/* The client table pager is injected between the table and the panel at runtime.
+   Pin all three explicitly so that pager insertion cannot push the form down. */
+[data-bulk-receipt-form].is-bulk-receipt-open .ak-bulk-receipt-workspace > .ak-table-wrap {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+[data-bulk-receipt-form].is-bulk-receipt-open .ak-bulk-receipt-workspace > .ptg-client-pager {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+[data-bulk-receipt-form].is-bulk-receipt-open [data-bulk-receipt-panel] {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    padding-block: 0;
+    padding-inline-start: 24px;
+    border-inline-start: 1px solid var(--divider);
+}
+
+[data-bulk-receipt-form].is-bulk-receipt-open [data-bulk-receipt-panel] .ak-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+}
+
+[data-bulk-receipt-panel] .ak-toggle-field .form-check-input:checked {
+    border-color: #6EA152;
+    background-color: #6EA152;
+}
+
+[data-bulk-receipt-panel] .ak-toggle-field .form-check-input:focus {
+    border-color: #6EA152;
+    box-shadow: 0 0 0 .2rem rgba(110, 161, 82, .18);
+}
+
+[data-bulk-receipt-panel] .ak-save.btn-primary {
+    --_bg: #6EA152;
+    --_fg: #fff;
+    --_bg-h: #53793E;
+    --_bd: #6EA152;
+    --_sh: rgba(110, 161, 82, .28);
+    width: auto !important;
+    min-width: 170px !important;
+    padding-inline: 22px;
+    white-space: nowrap;
+}
+
+[data-bulk-receipt-panel] .ak-save.btn-primary:hover,
+[data-bulk-receipt-panel] .ak-save.btn-primary:focus-visible {
+    --_bg: #53793E;
+    --_bd: #53793E;
+}
+
+@media (max-width: 1100px) {
+    [data-bulk-receipt-form].is-bulk-receipt-open .ak-bulk-receipt-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    [data-bulk-receipt-form].is-bulk-receipt-open .ak-bulk-receipt-workspace > :is(.ak-table-wrap, .ptg-client-pager, [data-bulk-receipt-panel]) {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    [data-bulk-receipt-form].is-bulk-receipt-open [data-bulk-receipt-panel] {
+        padding-block: 20px 0;
+        padding-inline-start: 0;
+        border-block-start: 1px solid var(--divider);
+        border-inline-start: 0;
+    }
+}
+
 /* ============================================================= *
  * Party profile pages (Suppliers/Customers/Sarrafs/… Details)
  * Flat, account-first. No hero, no avatar card{
@@ -2432,6 +2546,163 @@ select.ak-input {
     .ak-date-pop { transition-duration: 0s; }
 }
 
+/* =============================================================
+ * GROUP OPERATION WORKSPACE
+ * Shared wide canvas for batch/group forms. The first wizard step
+ * follows the desktop reference: large working list + compact live
+ * summary at its side. Business fields and bindings stay untouched.
+ * ============================================================= */
+
+.boltz-content-body:has(.ak-group-operation-page) {
+    width: 100%;
+    max-width: none;
+}
+
+.ak-group-operation-page {
+    --ak-form-content-wide-max: 1760px;
+    --ak-form-page-gutter: clamp(10px, 1.25vw, 22px);
+}
+
+.ak-group-operation-page:has(> form.ak-form) > form.ak-form,
+.ak-group-operation-page:has(> form.ak-form) > .ak-page-header,
+.ak-group-operation-page > form.ak-form,
+.ak-group-operation-page > .ak-page-header,
+.ak-group-operation-page > .ptg-tabs-rail,
+.ak-group-operation-page > .ak-form-section {
+    width: 100%;
+    max-width: none;
+}
+
+.ak-group-operation-page .ak-form {
+    max-width: none;
+}
+
+.ak-group-wizard-page > form.ak-form {
+    overflow: hidden;
+    border: 1px solid var(--divider);
+    border-radius: 12px;
+    background: var(--background-paper, #fff);
+}
+
+.ak-group-wizard-page > form.ak-form > :is(.ak-page-header, .ptg-wizard-steps, [data-step-panel], footer) {
+    margin-inline: 0;
+}
+
+.ak-group-wizard-page > form.ak-form > .ak-page-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--divider);
+}
+
+.ak-group-wizard-page > form.ak-form > .ptg-wizard-steps {
+    margin-block: 0 18px;
+    padding: 8px 14px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+}
+
+.ak-group-wizard-page > form.ak-form > [data-step-panel] {
+    padding-inline: clamp(14px, 1.4vw, 22px);
+}
+
+.ak-group-wizard-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(230px, 17vw, 290px);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+.ak-group-wizard-main {
+    min-width: 0;
+}
+
+.ak-group-wizard-workspace > :is(.ak-group-wizard-main, .ak-group-wizard-summary),
+.ak-group-wizard-workspace > .ak-group-wizard-main > .ak-form-section,
+.ak-group-wizard-summary > .ak-form-section {
+    margin-bottom: 0;
+}
+
+.ak-group-wizard-main > .ak-form-section {
+    padding: 18px;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.ak-group-wizard-summary {
+    position: sticky;
+    top: calc(var(--ptg-topbar-height, 64px) + 16px);
+    padding: 16px;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.ak-group-wizard-summary > .ak-form-section {
+    padding: 0;
+    border: 0;
+}
+
+.ak-group-wizard-summary .ak-section-title {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 14px;
+}
+
+.ak-group-wizard-summary .ak-list-row {
+    padding-block: 10px;
+}
+
+.ak-group-wizard-summary .ak-list-row strong {
+    color: var(--ptg-primary, #1976d2);
+}
+
+.ak-group-wizard-page > form.ak-form > footer.ak-form-section {
+    margin: 0;
+    padding: 14px 22px;
+    border-top: 1px solid var(--divider);
+    background: #f8fafc;
+}
+
+@media (max-width: 1099.98px) {
+    .ak-group-wizard-workspace {
+        grid-template-columns: minmax(0, 1fr) 230px;
+    }
+}
+
+@media (max-width: 899.98px) {
+    .ak-group-wizard-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ak-group-wizard-summary {
+        position: static;
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ak-group-operation-page {
+        --ak-form-page-gutter: 8px;
+    }
+
+    .ak-group-wizard-page > form.ak-form {
+        border-radius: 8px;
+    }
+
+    .ak-group-wizard-page > form.ak-form > .ak-page-header,
+    .ak-group-wizard-page > form.ak-form > [data-step-panel],
+    .ak-group-wizard-page > form.ak-form > footer.ak-form-section {
+        padding-inline: 12px;
+    }
+
+    .ak-group-wizard-main > .ak-form-section,
+    .ak-group-wizard-summary {
+        padding: 12px;
+    }
+}
+
 /* Forms carry no section headings: the page/modal header already names the
    record, and repeating a big title inside the form only adds noise. Markup
    stays (partials + tests unchanged) — only the visual head is dropped, and
@@ -2445,7 +2716,8 @@ select.ak-input {
    The rule above would hide those controls, leaving the awaiting-loadings table
    with no way to open the form. Keep this one head visible (scoped to the bulk
    form only, so every other in-form head stays hidden as intended). */
-.ak-form[data-bulk-receipt-form] .ak-section-head {
+.ak-form[data-bulk-receipt-form] .ak-section-head,
+.ak-form[data-loading-expense-form] .ak-section-head {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -2469,15 +2741,21 @@ select.ak-input {
  * ============================================================= */
 [data-loading-create-page].loading-import-workbook {
     --lic-table-min: 1440px;
-    --lic-row-h: 58px;
+    --lic-row-h: 76px;
+}
+
+/* The outer content canvas has a global 1145px desktop cap. Release it only
+   for Loading/Create so the wide line-item form can use the available space. */
+body.boltz-shell.app-shell-authenticated.controller-loading.action-create .ptg-page > .boltz-content-body {
+    max-width: none;
 }
 
 /* Wide canvas — this page only. Lift the shared 1040px table-form
-   cap to ~1560px and drop the form's 1000px max-width guard so the
+   cap to ~1760px and drop the form's 1000px max-width guard so the
    column can actually use the space beside the sidebar. */
 .ak-form-page:has(> form[data-loading-create-form]) {
-    --ak-form-content-wide-max: 1560px;
-    --ak-form-page-gutter: clamp(16px, 2.4vw, 36px);
+    --ak-form-content-wide-max: 1760px;
+    --ak-form-page-gutter: clamp(12px, 1.5vw, 24px);
 }
 
 .ak-form-page:has(> form[data-loading-create-form]) > form.ak-form,
@@ -2606,8 +2884,48 @@ select.ak-input {
     display: block;
     margin-top: 3px;
     font-size: 11.5px;
+    line-height: 1.25;
     white-space: normal;
-    max-width: 150px;
+    max-width: 100%;
+}
+
+/* Keep price/ruble helper copy inside its own cell. These cells sit directly
+   beside computed totals, so visible overflow makes the helper appear on top
+   of the loading value / ruble equivalent. */
+.loading-import-workbook .ak-table td:is(.loading-price-cell, .loading-rub-rate-cell) {
+    overflow: hidden;
+}
+
+.loading-import-workbook .ak-table td:is(.loading-price-cell, .loading-rub-rate-cell) .ak-section-desc {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin-top: 4px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    text-align: center;
+}
+
+/* Isolate calculated money values from neighbouring RTL helper text. */
+.loading-import-workbook .ak-table td:is(.loading-value-cell, .loading-rub-value-cell) {
+    overflow: hidden;
+}
+
+.loading-import-workbook .ak-table td:is(.loading-value-cell, .loading-rub-value-cell) > span {
+    display: block;
+    width: 100%;
+    min-width: 108px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: end;
 }
 
 /* Sticky index (#) + actions columns so the row stays anchored while
@@ -2764,8 +3082,21 @@ select.ak-input {
 }
 
 .loading-import-workbook .lic-footer-count {
+    margin-inline-end: auto;
     font-size: 13px;
     color: var(--ptg-muted);
+}
+
+.loading-import-workbook :is(#excelFilePickBtn, #excelImportBtn) {
+    min-height: 38px;
+    white-space: nowrap;
+}
+
+.loading-import-workbook #excelFileName {
+    max-width: min(320px, 100%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .loading-import-workbook .lic-footer-count strong {
@@ -2796,4 +3127,97 @@ select.ak-input {
     .loading-import-workbook .lic-search {
         min-width: 0;
     }
+}
+
+/* --------------------------------------------------------------------------
+ * Grouped inventory-transport vehicle grid ([data-vehicle-table]).
+ * Editable multi-row transport table: give each in-cell control a readable
+ * min-width so driver / carrier / company-asset names are never clipped,
+ * keep every control the same height, and confine horizontal scroll to the
+ * table wrap (never the page). Mirrors the proven .loading-import-workbook
+ * pattern, scoped so no other form is affected.
+ * ------------------------------------------------------------------------ */
+[data-inv-transport-form] .ak-table-wrap:has([data-vehicle-table]) {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+[data-inv-transport-form] [data-vehicle-table] {
+    min-width: 1180px;
+}
+
+[data-inv-transport-form] [data-vehicle-table] > thead > tr > th,
+[data-inv-transport-form] [data-vehicle-table] > tbody > tr > td {
+    padding: 8px 8px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* In-cell controls: consistent height + comfortable base width. */
+[data-inv-transport-form] [data-vehicle-table] td .ak-input {
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    min-width: 118px;
+}
+
+/* Wide text/select columns: driver (4), carrier (6), company/asset (7). */
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(4) .ak-input,
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(7) .ak-input {
+    min-width: 178px;
+}
+
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(6) .ak-input {
+    min-width: 148px;
+}
+
+/* Vehicle plate/wagon column (2) sits a bit wider than numeric fields. */
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(2) .ak-input {
+    min-width: 150px;
+}
+
+/* Short numeric columns only need the base width. */
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(5) .ak-input,
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(8) .ak-input,
+[data-inv-transport-form] [data-vehicle-table] td:nth-child(9) .ak-input {
+    min-width: 104px;
+}
+
+/* Company + asset selects share one cell; only one shows at a time. */
+[data-inv-transport-form] [data-vehicle-table] td [data-provider][hidden],
+[data-inv-transport-form] [data-vehicle-table] td [data-asset][hidden] {
+    display: none;
+}
+
+/* Computed freight-total cell reads as end-aligned text. */
+[data-inv-transport-form] [data-vehicle-table] td [data-freight-usd] {
+    display: inline-block;
+    min-width: 92px;
+    text-align: end;
+}
+
+/* Delete-row action column stays tight. */
+[data-inv-transport-form] [data-vehicle-table] > thead > tr > th:last-child,
+[data-inv-transport-form] [data-vehicle-table] > tbody > tr > td:last-child {
+    width: 44px;
+    text-align: center;
+}
+
+/* Vehicle action toolbar: one tidy wrapping row, controls vertically centred. */
+[data-inv-transport-form] [data-vehicle-import] {
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 10px;
+}
+
+/* Header stays aligned above data while the middle scrolls. */
+[data-inv-transport-form] [data-vehicle-table] > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--ptg-surface-subtle, #FAFAFC);
+    font-size: 12.5px;
+    font-weight: 600;
 }

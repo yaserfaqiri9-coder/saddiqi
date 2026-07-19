@@ -15,7 +15,7 @@ using PTGOilSystem.Web.Services;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class ReportsController : Controller
+public partial class ReportsController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IPurchaseAggregationService _purchaseAggregation;
@@ -312,7 +312,8 @@ public class ReportsController : Controller
     private async Task<ReceivablesPayablesReportViewModel> BuildReceivablesPayablesReportAsync(ManagementReportFilterViewModel filter)
     {
         var ledgerQuery = _db.LedgerEntries.AsNoTracking().AsQueryable();
-        if (filter.FromDate.HasValue) ledgerQuery = ledgerQuery.Where(l => l.EntryDate >= filter.FromDate.Value.Date);
+        // گزارش مانده باید ماندهٔ تجمعی تا تاریخ پایان را نشان دهد؛ FromDate فقط مرز دورهٔ
+        // گردش است و نباید Opening Balance را از مانده حذف کند.
         if (filter.ToDate.HasValue) ledgerQuery = ledgerQuery.Where(l => l.EntryDate <= filter.ToDate.Value.Date);
         if (filter.ContractId.HasValue) ledgerQuery = ledgerQuery.Where(l => l.ContractId == filter.ContractId.Value);
 
@@ -338,10 +339,12 @@ public class ReportsController : Controller
                 PartyType = "Customer",
                 PartyId = r.CustomerId,
                 PartyName = string.IsNullOrWhiteSpace(r.PartyName) ? "-" : r.PartyName,
-                DebitUsd = r.DebitUsd,
-                CreditUsd = r.CreditUsd,
+                // Policy مشتری: Credit قدیمی Ledger = فروش/Statement Debit و
+                // Debit قدیمی Ledger = دریافت/Statement Credit.
+                DebitUsd = r.CreditUsd,
+                CreditUsd = r.DebitUsd,
                 LastEntryDate = r.LastEntryDate,
-                BalanceKind = r.CreditUsd - r.DebitUsd >= 0m ? "طلب از مشتری" : "بدهی به مشتری",
+                BalanceKind = r.DebitUsd - r.CreditUsd >= 0m ? "اعتبار / پیش‌پرداخت مشتری" : "طلب از مشتری",
                 DetailsController = "Customers"
             }));
         }
@@ -401,29 +404,85 @@ public class ReportsController : Controller
 
         if (!filter.CustomerId.HasValue && !filter.SupplierId.HasValue)
         {
-            var sarrafPayments = await ApplyPaymentFilters(_db.PaymentTransactions.AsNoTracking(), filter)
+            var sarrafPaymentQuery = _db.PaymentTransactions.AsNoTracking().Where(p => p.SarrafId.HasValue);
+            var sarrafSettlementQuery = _db.SarrafSettlements.AsNoTracking()
+                .Where(s => s.Status == SarrafSettlementStatus.Posted);
+            var sarrafViaQuery = _db.LedgerEntries.AsNoTracking()
+                .Where(l => l.SourceType == PaymentsController.ViaSarrafPayableLedgerSourceType);
+            if (filter.ToDate.HasValue)
+            {
+                var end = filter.ToDate.Value.Date.AddDays(1);
+                sarrafPaymentQuery = sarrafPaymentQuery.Where(p => p.PaymentDate < end);
+                sarrafSettlementQuery = sarrafSettlementQuery.Where(s => s.SettlementDate < end);
+                sarrafViaQuery = sarrafViaQuery.Where(l => l.EntryDate < end);
+            }
+            if (filter.ContractId.HasValue)
+            {
+                sarrafPaymentQuery = sarrafPaymentQuery.Where(p => p.ContractId == filter.ContractId.Value);
+                sarrafSettlementQuery = sarrafSettlementQuery.Where(s => s.ContractId == filter.ContractId.Value);
+                sarrafViaQuery = sarrafViaQuery.Where(l => l.ContractId == filter.ContractId.Value);
+            }
+
+            var sarrafPayments = await sarrafPaymentQuery
                 .Where(p => p.SarrafId.HasValue)
-                .GroupBy(p => new { p.SarrafId, PartyName = p.Sarraf != null ? p.Sarraf.Name : "" })
+                .GroupBy(p => p.SarrafId!.Value)
                 .Select(g => new
                 {
-                    g.Key.SarrafId,
-                    g.Key.PartyName,
-                    InflowUsd = g.Where(p => p.Direction == PaymentDirection.In).Sum(p => p.AmountUsd),
-                    OutflowUsd = g.Where(p => p.Direction == PaymentDirection.Out).Sum(p => p.AmountUsd),
+                    SarrafId = g.Key,
+                    DebitUsd = g.Where(p => p.Direction == PaymentDirection.Out).Sum(p => p.AmountUsd),
+                    CreditUsd = g.Where(p => p.Direction == PaymentDirection.In).Sum(p => p.AmountUsd),
                     LastEntryDate = g.Max(p => (DateTime?)p.PaymentDate)
                 })
                 .ToListAsync();
 
-            rows.AddRange(sarrafPayments.Select(r => new ReceivablePayableRowViewModel
+            var sarrafSettlements = await sarrafSettlementQuery
+                .GroupBy(s => s.SarrafId)
+                .Select(g => new
+                {
+                    SarrafId = g.Key,
+                    DebitUsd = g.Where(s => s.Direction == SarrafSettlementDirection.In).Sum(s => s.SarrafChargedAmountUsd),
+                    CreditUsd = g.Where(s => s.Direction == SarrafSettlementDirection.Out).Sum(s => s.SarrafChargedAmountUsd),
+                    LastEntryDate = g.Max(s => (DateTime?)s.SettlementDate)
+                })
+                .ToListAsync();
+
+            var sarrafVia = await sarrafViaQuery
+                .GroupBy(l => l.SourceId)
+                .Select(g => new
+                {
+                    SarrafId = g.Key,
+                    CreditUsd = g.Sum(l => l.AmountUsd),
+                    LastEntryDate = g.Max(l => (DateTime?)l.EntryDate)
+                })
+                .ToListAsync();
+
+            var sarrafIds = sarrafPayments.Select(x => x.SarrafId)
+                .Concat(sarrafSettlements.Select(x => x.SarrafId))
+                .Concat(sarrafVia.Select(x => x.SarrafId))
+                .Distinct()
+                .ToList();
+            var sarrafNames = await _db.Sarrafs.AsNoTracking()
+                .Where(s => sarrafIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+
+            rows.AddRange(sarrafIds.Select(sarrafId =>
             {
-                PartyType = "Sarraf",
-                PartyId = r.SarrafId,
-                PartyName = string.IsNullOrWhiteSpace(r.PartyName) ? "-" : r.PartyName,
-                DebitUsd = r.InflowUsd,
-                CreditUsd = r.OutflowUsd,
-                LastEntryDate = r.LastEntryDate,
-                BalanceKind = r.OutflowUsd - r.InflowUsd >= 0m ? "پرداخت خالص به صراف" : "دریافت خالص از صراف",
-                DetailsController = "Sarrafs"
+                var payment = sarrafPayments.FirstOrDefault(x => x.SarrafId == sarrafId);
+                var settlement = sarrafSettlements.FirstOrDefault(x => x.SarrafId == sarrafId);
+                var via = sarrafVia.FirstOrDefault(x => x.SarrafId == sarrafId);
+                var debit = (payment?.DebitUsd ?? 0m) + (settlement?.DebitUsd ?? 0m);
+                var credit = (payment?.CreditUsd ?? 0m) + (settlement?.CreditUsd ?? 0m) + (via?.CreditUsd ?? 0m);
+                return new ReceivablePayableRowViewModel
+                {
+                    PartyType = "Sarraf",
+                    PartyId = sarrafId,
+                    PartyName = sarrafNames.GetValueOrDefault(sarrafId, "-"),
+                    DebitUsd = debit,
+                    CreditUsd = credit,
+                    LastEntryDate = new[] { payment?.LastEntryDate, settlement?.LastEntryDate, via?.LastEntryDate }.Max(),
+                    BalanceKind = credit - debit >= 0m ? "قابل پرداخت به صراف" : "طلب شرکت از صراف",
+                    DetailsController = "Sarrafs"
+                };
             }));
         }
 

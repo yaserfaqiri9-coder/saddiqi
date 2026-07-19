@@ -22,41 +22,37 @@ namespace PTGOilSystem.Web.Controllers;
 public class ReopenFiscalYearController(
     IReopenFiscalYearService reopen,
     ApplicationDbContext db,
+    ISystemCompanyProvider systemCompany,
     ICurrentUserContext currentUser) : Controller
 {
     private bool HasReopenPermission
         => User.HasClaim(AppClaimTypes.Permission, AppPermissions.ReopenFiscalYear);
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(int? companyId, int? fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int? fiscalYearId, CancellationToken cancellationToken)
     {
-        var companies = await db.Companies.AsNoTracking()
-            .Where(c => c.IsActive).OrderBy(c => c.Code)
-            .Select(c => new { c.Id, c.Name }).ToListAsync(cancellationToken);
-
-        var selectedCompany = companyId is int cid && companies.Any(c => c.Id == cid)
-            ? cid : companies.Select(c => (int?)c.Id).FirstOrDefault();
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var ownerName = await db.Companies.AsNoTracking()
+            .Where(c => c.Id == ownerCompanyId).Select(c => c.Name).FirstAsync(cancellationToken);
 
         // فقط سال‌های بسته قابل بازگشایی‌اند.
-        var years = selectedCompany is int scid
-            ? await db.FiscalYears.AsNoTracking()
-                .Where(y => y.CompanyId == scid && y.Status == FiscalYearStatus.Closed)
-                .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
-                .Select(y => new { y.Id, y.Name, y.Status }).ToListAsync(cancellationToken)
-            : new();
+        var years = await db.FiscalYears.AsNoTracking()
+            .Where(y => y.CompanyId == ownerCompanyId && y.Status == FiscalYearStatus.Closed)
+            .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
+            .Select(y => new { y.Id, y.Name, y.Status }).ToListAsync(cancellationToken);
 
         var selectedYear = fiscalYearId is int fyid && years.Any(y => y.Id == fyid)
             ? fyid : years.Select(y => (int?)y.Id).FirstOrDefault();
 
         var yearRow = years.FirstOrDefault(y => y.Id == selectedYear);
 
-        var precheck = selectedCompany is int c2 && selectedYear is int y2
-            ? await reopen.PrecheckAsync(c2, y2, cancellationToken)
+        var precheck = selectedYear is int y2
+            ? await reopen.PrecheckAsync(ownerCompanyId, y2, cancellationToken)
             : null;
 
         return View(new ReopenPageViewModel(
-            companies.Select(c => new ClosingChecklistCompanyOption(c.Id, c.Name, c.Id == selectedCompany)).ToList(),
-            selectedCompany,
+            new List<ClosingChecklistCompanyOption> { new(ownerCompanyId, ownerName, true) },
+            ownerCompanyId,
             years.Select(y => new ClosingChecklistYearOption(y.Id, y.Name, y.Id == selectedYear)).ToList(),
             selectedYear, yearRow?.Name, yearRow?.Status.ToString(), HasReopenPermission, precheck));
     }
@@ -64,10 +60,11 @@ public class ReopenFiscalYearController(
     [HttpPost("do")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Reopen(
-        int companyId, int fiscalYearId, string reason, string confirmation, CancellationToken cancellationToken)
+        int fiscalYearId, string reason, string confirmation, CancellationToken cancellationToken)
     {
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
         var result = await reopen.ReopenAsync(
-            companyId, fiscalYearId, currentUser.UserId, reason, confirmation, HasReopenPermission, cancellationToken);
+            ownerCompanyId, fiscalYearId, currentUser.UserId, reason, confirmation, HasReopenPermission, cancellationToken);
 
         TempData[result.Status == ReopenResultStatus.Succeeded ? "ok" : "err"] =
             result.Status switch
@@ -78,6 +75,6 @@ public class ReopenFiscalYearController(
                     + (result.Blockers.Count > 0 ? " — " + string.Join("، ", result.Blockers) : "")
             };
 
-        return RedirectToAction(nameof(Index), new { companyId, fiscalYearId });
+        return RedirectToAction(nameof(Index), new { fiscalYearId });
     }
 }

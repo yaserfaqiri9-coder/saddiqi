@@ -525,7 +525,7 @@ public sealed class Stage8AccountingAdapterTests(AccountingPostgreSqlFixture fix
         };
 
     private static AccountingPostingService CreatePostingService(ApplicationDbContext db)
-        => new(db, new PeriodGuard(db, new FiscalCalendarService(db)), Options.Create(EnabledOptions()));
+        => new(db, new PeriodGuard(db, new FiscalCalendarService(db)), Options.Create(EnabledOptions()), new SystemCompanyProvider(db));
 
     private static InventoryLossAccountingAdapter CreateLossAdapter(ApplicationDbContext db)
         => new(

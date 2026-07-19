@@ -21,29 +21,26 @@ namespace PTGOilSystem.Web.Controllers;
 public class TrialCloseController(
     ITrialCloseService trialClose,
     ApplicationDbContext db,
+    ISystemCompanyProvider systemCompany,
     ICurrentUserContext currentUser) : Controller
 {
     [HttpGet("")]
-    public async Task<IActionResult> Index(int? companyId, int? fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int? fiscalYearId, CancellationToken cancellationToken)
     {
-        var companies = await db.Companies.AsNoTracking()
-            .Where(c => c.IsActive).OrderBy(c => c.Code)
-            .Select(c => new { c.Id, c.Name }).ToListAsync(cancellationToken);
+        // شرکت همیشه شرکتِ مالک است؛ از URL یا فرم پذیرفته نمی‌شود.
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var ownerName = await db.Companies.AsNoTracking()
+            .Where(c => c.Id == ownerCompanyId).Select(c => c.Name).FirstAsync(cancellationToken);
 
-        var selectedCompany = companyId is int cid && companies.Any(c => c.Id == cid)
-            ? cid : companies.Select(c => (int?)c.Id).FirstOrDefault();
-
-        var years = selectedCompany is int scid
-            ? await db.FiscalYears.AsNoTracking().Where(y => y.CompanyId == scid)
-                .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
-                .Select(y => new { y.Id, y.Name }).ToListAsync(cancellationToken)
-            : new();
+        var years = await db.FiscalYears.AsNoTracking().Where(y => y.CompanyId == ownerCompanyId)
+            .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
+            .Select(y => new { y.Id, y.Name }).ToListAsync(cancellationToken);
 
         var selectedYear = fiscalYearId is int fyid && years.Any(y => y.Id == fyid)
             ? fyid : years.Select(y => (int?)y.Id).FirstOrDefault();
 
-        var preview = selectedCompany is int c2 && selectedYear is int y2
-            ? await trialClose.PreviewAsync(c2, y2, cancellationToken)
+        var preview = selectedYear is int y2
+            ? await trialClose.PreviewAsync(ownerCompanyId, y2, cancellationToken)
             : null;
 
         var runs = selectedYear is int y3
@@ -58,46 +55,49 @@ public class TrialCloseController(
             : new List<TrialCloseRunRow>();
 
         return View(new TrialClosePageViewModel(
-            companies.Select(c => new ClosingChecklistCompanyOption(c.Id, c.Name, c.Id == selectedCompany)).ToList(),
-            selectedCompany,
+            new List<ClosingChecklistCompanyOption> { new(ownerCompanyId, ownerName, true) },
+            ownerCompanyId,
             years.Select(y => new ClosingChecklistYearOption(y.Id, y.Name, y.Id == selectedYear)).ToList(),
             selectedYear, preview, runs));
     }
 
     [HttpGet("preview")]
-    public async Task<IActionResult> Preview(int companyId, int fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Preview(int fiscalYearId, CancellationToken cancellationToken)
     {
-        var preview = await trialClose.PreviewAsync(companyId, fiscalYearId, cancellationToken);
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var preview = await trialClose.PreviewAsync(ownerCompanyId, fiscalYearId, cancellationToken);
         return preview is null ? NotFound() : Json(preview);
     }
 
     [HttpPost("run")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RunTrialClose(
-        int companyId, int fiscalYearId, bool acknowledgeWarnings, CancellationToken cancellationToken)
+        int fiscalYearId, bool acknowledgeWarnings, CancellationToken cancellationToken)
     {
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
         var result = await trialClose.RunTrialCloseAsync(
-            companyId, fiscalYearId, currentUser.UserId, acknowledgeWarnings, cancellationToken);
+            ownerCompanyId, fiscalYearId, currentUser.UserId, acknowledgeWarnings, cancellationToken);
 
         if (result.Status == TrialCloseResultStatus.Succeeded)
             TempData["ok"] = $"Trial Close ثبت شد (Run #{result.CloseRunId}).";
         else
             TempData["err"] = result.FailureCode ?? "Trial Close ممکن نیست.";
 
-        return RedirectToAction(nameof(Index), new { companyId, fiscalYearId });
+        return RedirectToAction(nameof(Index), new { fiscalYearId });
     }
 
     [HttpPost("apply-revaluation")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApplyRevaluation(int companyId, int fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> ApplyRevaluation(int fiscalYearId, CancellationToken cancellationToken)
     {
-        var result = await trialClose.ApplyRevaluationAsync(companyId, fiscalYearId, currentUser.UserId, cancellationToken);
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var result = await trialClose.ApplyRevaluationAsync(ownerCompanyId, fiscalYearId, currentUser.UserId, cancellationToken);
 
         if (result.Status == TrialCloseResultStatus.Succeeded)
             TempData["ok"] = $"تسعیر پایان دوره اعمال شد ({result.RevaluationJournalIds.Count} سند).";
         else
             TempData["err"] = result.FailureCode ?? "اعمال تسعیر ممکن نیست.";
 
-        return RedirectToAction(nameof(Index), new { companyId, fiscalYearId });
+        return RedirectToAction(nameof(Index), new { fiscalYearId });
     }
 }

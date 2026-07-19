@@ -126,8 +126,12 @@ function Set-LocalRunnerEnvironment {
     $env:DOTNET_TieredPGO = "0"
     $env:DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER = "1"
 
-    $env:ASPNETCORE_ENVIRONMENT = "Development"
+    $env:ASPNETCORE_ENVIRONMENT = $(if ($Watch) { "Development" } else { "Production" })
+    $env:ASPNETCORE_URLS = "http://localhost:5000"
     $env:ConnectionStrings__DefaultConnection = "Host=$DbHost;Port=$DbPort;Username=$DbUsername;Password=$DbPassword;Database=$Database;SSL Mode=Prefer;Trust Server Certificate=true"
+    # Database updates are explicit through -ApplyMigrations/-MigrateOnly.
+    # Normal and watch startup must never repeat migration discovery implicitly.
+    $env:PTG_AUTO_MIGRATE = "false"
     $env:PTG_BOOTSTRAP_ADMIN_USERNAME = $BootstrapAdminUsername
     $env:PTG_BOOTSTRAP_ADMIN_FULLNAME = $BootstrapAdminFullName
 
@@ -158,8 +162,40 @@ function Invoke-LocalEfDatabaseUpdate {
     }
 }
 
+function Test-LocalBuildRequired {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDllPath
+    )
+
+    if (-not (Test-Path -LiteralPath $OutputDllPath)) {
+        return $true
+    }
+
+    $outputTime = (Get-Item -LiteralPath $OutputDllPath).LastWriteTimeUtc
+    $buildInputs = Get-ChildItem -LiteralPath $ProjectDirectory -Recurse -File |
+        Where-Object {
+            $isSourceFile = $_.Extension -in @('.cs', '.cshtml', '.csproj', '.props', '.targets')
+            $isGeneratedFile = $_.FullName -match '[\\/](bin|obj)[\\/]'
+            $isSourceFile -and -not $isGeneratedFile
+        }
+
+    foreach ($inputFile in $buildInputs) {
+        if ($inputFile.LastWriteTimeUtc -gt $outputTime) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $projectPath = Join-Path $repoRoot "src/PTGOilSystem.Web/PTGOilSystem.Web.csproj"
+$projectDirectory = Split-Path $projectPath -Parent
+$outputDllPath = Join-Path $projectDirectory "bin/Debug/net8.0/PTGOilSystem.Web.dll"
 $dbPasswordSource = "parameter"
 
 if ($MigrateOnly) {
@@ -237,7 +273,6 @@ try {
     }
 
     if ($Watch) {
-        $env:ASPNETCORE_URLS = "http://localhost:5000"
         $env:DOTNET_WATCH_RESTART_ON_RUDE_EDIT = "1"
         Write-Host "Starting application in WATCH mode (auto reload on file changes)..."
         Write-Host "URL: $env:ASPNETCORE_URLS  -  Press Ctrl+C to stop."
@@ -245,8 +280,30 @@ try {
         & dotnet watch --project $projectPath --non-interactive run --no-restore
     }
     else {
-        Write-Host "Starting application..."
-        & dotnet run --project $projectPath --no-restore
+        if (Test-LocalBuildRequired -ProjectDirectory $projectDirectory -OutputDllPath $outputDllPath) {
+            Write-Host "Application sources changed; running one safe incremental build..."
+            & dotnet build $projectPath --no-restore -p:UseAppHost=false -p:UseSharedCompilation=false -p:DebugType=none -p:DebugSymbols=false -m:1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Web project build failed with exit code $LASTEXITCODE."
+            }
+        }
+        else {
+            Write-Host "Application build is current; skipping compilation."
+        }
+
+        if (-not (Test-Path -LiteralPath $outputDllPath)) {
+            throw "Web application output was not found: $outputDllPath"
+        }
+
+        Write-Host "Starting application without an implicit rebuild..."
+        Write-Host "URL: $env:ASPNETCORE_URLS  -  Press Ctrl+C to stop."
+        Push-Location $projectDirectory
+        try {
+            & dotnet $outputDllPath
+        }
+        finally {
+            Pop-Location
+        }
     }
     exit $LASTEXITCODE
 }

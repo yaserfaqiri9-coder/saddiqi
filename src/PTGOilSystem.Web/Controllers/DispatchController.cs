@@ -21,7 +21,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class DispatchController : Controller
+public partial class DispatchController : Controller
 {
     private const string DispatchFreightExpenseCode = DispatchFreightExpenseSync.DispatchFreightExpenseCode;
     private readonly ApplicationDbContext _db;
@@ -727,6 +727,7 @@ public class DispatchController : Controller
     public async Task<IActionResult> Index([FromQuery] DispatchIndexFilterViewModel? filter = null, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         filter ??= new DispatchIndexFilterViewModel();
 
         var query = _db.TruckDispatches
@@ -750,8 +751,8 @@ public class DispatchController : Controller
         var items = await query
             .OrderByDescending(d => d.DispatchDate)
             .ThenByDescending(d => d.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(d => new DispatchListItemViewModel
             {
                 Id = d.Id,
@@ -2837,7 +2838,10 @@ public class DispatchController : Controller
             DeliveryInventoryReference = deliveryMovement?.ReferenceDocument,
             DeliveryReceipts = deliveryReceipts,
             Customs = customs,
-            Expenses = expenses
+            Expenses = expenses,
+            DeliveryReceivedTotalMt = deliveryReceipts.Sum(receipt => receipt.ReceivedQuantityMt),
+            CustomsTotalUsd = customs.Sum(item => item.TotalUsd),
+            ExpenseTotalUsd = expenses.Sum(item => item.AmountUsd)
         });
     }
 }

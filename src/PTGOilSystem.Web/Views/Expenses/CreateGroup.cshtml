@@ -1,5 +1,6 @@
 @model PTGOilSystem.Web.Models.Expenses.GroupExpenseCreateViewModel
 @using PTGOilSystem.Web.Models.Expenses
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] ="ثبت مصرف گروهی";
     ViewData["HideSectionTabs"] = true;
@@ -11,7 +12,7 @@
         Model.Items?.Select(i => new { kind = i.Kind, id = i.Id, manualAmount = i.ManualAmount }) ?? Enumerable.Empty<object>());
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-group-operation-page ak-group-wizard-page">
     @* data-no-spa: spa-nav submit را در capture قطع می‌کند و handler ساخت Items اجرا نمی‌شد.
        novalidate: fx-rate-field روی input نرخ required می‌گذارد؛ در مرحله ۳ آن input مخفی است و
        native validation مرورگر submit را بی‌صدا بلاک می‌کرد (invalid control not focusable). *@
@@ -31,22 +32,16 @@
                     <p>ثبت یک مصرف برای چند عملیات به صورت همزمان</p>
                 </div>
             </div>
-            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
+            <a href="@cancelUrl" class="btn btn-light ak-secondary-action" aria-label="بستن"><i class="bi bi-x-lg"></i></a>
         </header>
 
-        <nav class="ptg-tabs-rail" aria-label="مراحل">
-            <button type="button" class="ptg-tabs-link is-active" data-step-btn="1"><span>1</span> انتخاب عملیات</button>
-            <span></span>
-            <button type="button" class="ptg-tabs-link" data-step-btn="2"><span>2</span> مشخصات مصرف</button>
-            <span></span>
-            <button type="button" class="ptg-tabs-link" data-step-btn="3"><span>3</span> بررسی و ثبت</button>
-        </nav>
+        <partial name="~/Views/Shared/Components/_WizardSteps.cshtml" model="@(new WizardStepsViewModel("مراحل ثبت مصرف گروهی", "data-step-btn", new[] { new WizardStepItem(1, "انتخاب عملیات", true), new WizardStepItem(2, "مشخصات مصرف"), new WizardStepItem(3, "بررسی و ثبت") }))" />
 
         <div asp-validation-summary="All" class="alert alert-danger ak-form-alert"></div>
 
         <!-- مرحله ۱: انتخاب عملیات -->
-        <section class="ak-form-section" data-step-panel="1">
-            <div>
+        <section class="ak-form-section ak-group-wizard-workspace" data-step-panel="1">
+            <div class="ak-group-wizard-main">
                 <div class="ak-form-section">
                     <h2 class="ak-section-title">انتخاب عملیات در جریان</h2>
                     <div class="ak-form-grid">
@@ -127,7 +122,7 @@
                 </div>
             </div>
 
-            <aside class="ak-form-section">
+            <aside class="ak-form-section ak-group-wizard-summary">
                 <div class="ak-form-section ak-list">
                     <h2 class="ak-section-title">خلاصه انتخاب</h2>
                     <div class="ak-list-row">
@@ -690,6 +685,8 @@
                 var bn = parseInt(b.dataset.stepBtn, 10);
                 b.classList.toggle('is-active', bn === n);
                 b.classList.toggle('is-done', bn < n);
+                if (bn === n) b.setAttribute('aria-current', 'step');
+                else b.removeAttribute('aria-current');
             });
             $('btnPrev').hidden = n === 1;
             $('btnNext').hidden = n === 3;

@@ -45,9 +45,7 @@
         }
         <div class="ak-list-toolbar">
             <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="caFilter" />
-            <a class="btn btn-light ak-secondary-action" href="@(Url.Action("Csv"))@(Context.Request.QueryString)">
-                <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>CSV</span>
-            </a>
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
         </div>
 
         <div class="ak-table-wrap">
@@ -112,7 +110,7 @@
     ViewData["CreateFormId"] = "cashAccountsCreateForm";
     ViewData["CreateModalTitle"] = "حساب نقد / بانک جدید";
     ViewData["CreateModalSubtitle"] = "حساب واقعی پول را برای دریافت، پرداخت و گزارش‌های مالی ثبت کنید.";
-    ViewData["CreateModalDialogClass"] = "modal-lg";
+    ViewData["CreateModalDialogClass"] = "modal-lg cash-account-create-dialog";
     ViewData["CreateModalVariant"] = "cash-account";
     ViewData["CreateModalSubmitText"] = "ذخیره حساب";
     ViewData["CreateFormPartialPath"] = "/Views/CashAccounts/_CreateForm.cshtml";

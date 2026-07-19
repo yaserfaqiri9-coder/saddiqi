@@ -1229,7 +1229,8 @@ public partial class ShipmentPnlController : Controller
                     Description = $"حمل #{leg.Id}",
                     ContractNumber = contract?.ContractNumber,
                     AllocationQuantityMt = leg.QuantityMt,
-                    SourceKey = $"RECEIPT-FREIGHT:{leg.Id}"
+                    SourceKey = $"RECEIPT-FREIGHT:{leg.Id}",
+                    ExpenseTypeCategory = "Transport"
                 });
                 rollups[shipmentId].TotalOperationalExpensesUsd += legPnl.ReceiptFreightExpenseUsd;
             }
@@ -1385,7 +1386,8 @@ public partial class ShipmentPnlController : Controller
                 AllocationQuantityMt = expense.TransportLeg?.QuantityMt
                     ?? expense.TruckDispatch?.LoadedQuantityMt
                     ?? 0m,
-                SourceKey = ExpenseDisplaySourceKey(expense.Description, expense.Id)
+                SourceKey = ExpenseDisplaySourceKey(expense.Description, expense.Id),
+                ExpenseTypeCategory = expense.ExpenseType?.Category
             });
             rollups[shipmentId].TotalOperationalExpensesUsd += expense.AmountUsd;
         }

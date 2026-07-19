@@ -6,7 +6,16 @@
 <div class="ak-form-page ak-list-page" data-operations-list>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "پرونده‌های کشتی / محموله‌ها", "Shipment files"), true, UiText.T(Context, "ثبت محموله", "New shipment"), "bi-plus-lg", Url.Action("Create", "Shipments"), (string?)null, (string?)null, (string?)null, (string?)null))" />
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار محموله‌ها", "Shipment statistics")">
+        <vc:stat-card title="@UiText.T(Context, "کل محموله‌ها", "Total shipments")" value="@Model.TotalCount.ToString("N0")" unit="@UiText.T(Context, "محموله", "shipments")" avatar="shipments"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مقدار این صفحه", "Quantity on this page")" value="@NumberDisplay.Quantity(Model.Items.Sum(x => x.QuantityMt))" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "فروش‌های مرتبط", "Related sales")" value="@Model.Items.Sum(x => x.RelatedSalesCount).ToString("N0")" unit="@UiText.T(Context, "فروش", "sales")" avatar="sales-value"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "نتیجه این صفحه", "Page result")" value="@Model.Items.Sum(x => x.GrossMarginUsd).ToString("N0")" unit="USD" avatar="profit-loss" state="@(Model.Items.Sum(x => x.GrossMarginUsd) < 0m ? "warning" : null)"></vc:stat-card>
+    </section>
     <div class="ak-list">
+        <div class="ak-list-toolbar justify-content-end">
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
+        </div>
         <div class="ak-table-wrap">
             <table class="ak-table">
                 <thead>
@@ -16,7 +25,6 @@
                         <th>@UiText.T(Context,"جنس و مسیر","Product & route")</th>
                         <th>@UiText.T(Context,"مقدار","Quantity")</th>
                         <th>@UiText.T(Context,"وضعیت فعالیت","Activity")</th>
-                        <th>@UiText.T(Context,"نتیجه مالی","Financial result")</th>
                         <th class="col-actions">@UiText.T(Context,"عملیات","Operations")</th>
                     </tr>
                 </thead>
@@ -38,7 +46,6 @@
                                 <span class="ak-label">@UiText.T(Context,"حمل","Transport") @item.RelatedTransportLegCount · @UiText.T(Context,"فروش","Sales") @item.RelatedSalesCount</span>
                                 <span class="ak-section-desc">@UiText.T(Context,"مصرف","Expense") @item.RelatedExpensesCount</span>
                             </td>
-                            <td class="col-status"><span class="ak-status @(item.GrossMarginUsd >= 0m ?"is-active" : "is-inactive")" dir="ltr">@item.GrossMarginUsd.ToString("N2") USD</span></td>
                             <td class="col-actions">
                                 <div class="ak-row-menu">
                                     <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-light ak-secondary-action" title="@UiText.T(Context,"باز کردن پرونده","Open file")" aria-label="@UiText.T(Context,"باز کردن پرونده","Open file")"><i class="bi bi-eye" aria-hidden="true"></i></a>
@@ -50,7 +57,7 @@
                     @if (!Model.Items.Any())
                     {
                         <tr>
-                            <td colspan="7">
+                            <td colspan="6">
                                 <div class="ak-empty">
                                     <i class="bi bi-box-seam"></i>
                                     @UiText.T(Context,"هنوز پرونده‌ای برای نمایش پیدا نشد","No shipment files found yet")
@@ -59,18 +66,6 @@
                         </tr>
                     }
                 </tbody>
-                @if (Model.Items.Any())
-                {
-                    <tfoot>
-                        <tr class="ak-table-total">
-                            <td colspan="3" class="fw-bold">@UiText.T(Context, "مجموع کل", "Grand Total")</td>
-                            <td class="col-ltr fw-bold">@(((decimal)ViewBag.SumQuantity).ToString("N2")) MT</td>
-                            <td></td>
-                            <td class="col-ltr fw-bold">@(((decimal)ViewBag.SumGrossMargin).ToString("N2"))</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                }
             </table>
         </div>
 

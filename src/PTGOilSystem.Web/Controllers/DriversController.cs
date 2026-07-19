@@ -6,6 +6,8 @@ using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Audit;
+using PTGOilSystem.Web.Models.PartyStatements;
+using PTGOilSystem.Web.Services.PartyStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
@@ -14,11 +16,13 @@ public class DriversController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly IAuditService _audit;
+    private readonly IPartyStatementReadService? _partyStatements;
 
-    public DriversController(ApplicationDbContext db, IAuditService audit)
+    public DriversController(ApplicationDbContext db, IAuditService audit, IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
         _audit = audit;
+        _partyStatements = partyStatements;
     }
 
     public async Task<IActionResult> Index(string? q, bool? isActive, int? selectedId = null, string? detailTab = null, int page = 1)
@@ -73,6 +77,16 @@ public class DriversController : Controller
         ViewData["DriverFreightCreditUsd"] = freightCreditUsd;
         ViewData["DriverShortageDebitUsd"] = shortageDebitUsd;
         ViewData["DriverNetOwedUsd"] = freightCreditUsd - shortageDebitUsd;
+
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.Driver, id),
+                new PartyStatementFilter { IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
 
         return View(item);
     }

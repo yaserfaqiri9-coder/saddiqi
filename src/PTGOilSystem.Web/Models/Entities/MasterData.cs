@@ -64,6 +64,13 @@ public class Company : BaseEntity
     [MaxLength(300)] public string? Address { get; set; }
     public bool IsActive { get; set; } = true;
     [MaxLength(1000)] public string? Notes { get; set; }
+
+    /// <summary>
+    /// شرکتِ مالکِ سیستم و صاحبِ دفاترِ مالی. دقیقاً یک شرکت باید true باشد؛ یک ایندکسِ یکتای
+    /// جزئی (partial unique) روی همین فیلد وجودِ بیش از یک مالک را در سطح دیتابیس هم می‌بندد.
+    /// مالک‌بودن فقط از این فیلد خوانده می‌شود — نه از IsActive و نه از شناسهٔ هاردکد.
+    /// </summary>
+    public bool IsSystemOwner { get; set; }
 }
 
 public enum ServiceProviderType

@@ -512,6 +512,7 @@ public class SuppliersControllerTests
         db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG" });
         db.Products.Add(new Product { Id = 1, Code = "GO", Name = "Gas Oil" });
         db.Suppliers.Add(new Supplier { Id = 1, Code = "SU001", Name = "Petrogaz" });
+        db.Sarrafs.Add(new Sarraf { Id = 3, Name = "Noorzad", IsActive = true });
         db.Contracts.Add(new Contract
         {
             Id = 1,
@@ -542,6 +543,7 @@ public class SuppliersControllerTests
         db.SarrafSettlements.Add(new SarrafSettlement
         {
             Id = 1,
+            SarrafId = 3,
             SupplierId = 1,
             ContractId = 1,
             SettlementDate = new DateTime(2026, 1, 3),
@@ -617,6 +619,7 @@ public class SuppliersControllerTests
         db.Companies.Add(new Company { Id = 1, Code = "PTG", Name = "PTG" });
         db.Products.Add(new Product { Id = 1, Code = "GO", Name = "Gas Oil" });
         db.Suppliers.Add(new Supplier { Id = 1, Code = "SU001", Name = "Petrogaz" });
+        db.Sarrafs.Add(new Sarraf { Id = 3, Name = "Noorzad", IsActive = true });
         db.Contracts.Add(new Contract
         {
             Id = 1,
@@ -647,6 +650,7 @@ public class SuppliersControllerTests
         db.SarrafSettlements.Add(new SarrafSettlement
         {
             Id = 1,
+            SarrafId = 3,
             SupplierId = 1,
             ContractId = 1,
             SettlementDate = new DateTime(2026, 1, 3),

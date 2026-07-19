@@ -4,7 +4,7 @@
     var isLastActiveAdmin = ViewBag.IsLastActiveAdmin as bool? == true;
 }
 
-<div class="ak-form-page ak-detail-page">
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "جزئیات کاربر", "User details"), false,
                        UiText.T(Context, "ویرایش", "Edit"), "bi-pencil",

@@ -10,6 +10,12 @@
         || !string.IsNullOrEmpty(ViewData["to"]?.ToString());
     var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var currencyPairCount = items
+        .Select(item => $"{item.BaseCurrency}/{item.QuoteCurrency}")
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Count();
+    var rateDateCount = items.Select(item => item.RateDate.Date).Distinct().Count();
+    var sourcedRateCount = items.Count(item => !string.IsNullOrWhiteSpace(item.Source));
 }
 
 <div class="ak-list-page">
@@ -18,6 +24,13 @@
                        UiText.T(Context, "نرخ جدید", "New rate"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار نرخ ارز", "FX rate statistics")">
+        <vc:stat-card title="@UiText.T(Context, "تعداد نرخ‌ها", "Rates")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "نرخ", "rates")" avatar="average-price"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "جفت‌های ارزی", "Currency pairs")" value="@currencyPairCount.ToString("N0")" unit="@UiText.T(Context, "جفت", "pairs")" avatar="cash"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "روزهای ثبت نرخ", "Rate dates")" value="@rateDateCount.ToString("N0")" unit="@UiText.T(Context, "روز", "dates")" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "نرخ‌های دارای منبع", "Rates with source")" value="@sourcedRateCount.ToString("N0")" unit="@UiText.T(Context, "نرخ", "rates")" avatar="purchase-requests"></vc:stat-card>
+    </section>
 
     @{
         var fxBaseOptions = (baseCurrencies ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>())

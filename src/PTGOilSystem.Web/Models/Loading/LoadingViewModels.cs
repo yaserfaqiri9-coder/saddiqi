@@ -326,6 +326,13 @@ public sealed class LoadingDetailsViewModel
     public IReadOnlyList<LoadingReceiptListItemViewModel> ReceiptItems { get; init; } = [];
     public IReadOnlyList<LossEventSummaryItem> LossItems { get; init; } = [];
     public IReadOnlyList<LoadingCustomsSummaryItem> CustomsItems { get; init; } = [];
+
+    // Presentation-ready totals for Details. Keeping these aggregates outside
+    // Razor prevents the view from becoming a second financial calculation path.
+    public decimal LoadingExpenseTotalUsd { get; set; }
+    public decimal CustomsTotalUsd { get; set; }
+    public decimal ChargeableLossTotalMt { get; set; }
+    public decimal LoadingCostsGrandTotalUsd { get; set; }
 }
 
 public sealed class LoadingRubleRateEditViewModel

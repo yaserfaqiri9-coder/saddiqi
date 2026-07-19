@@ -69,9 +69,10 @@ public class UnitConversionSupportStructureTests
 
         Assert.Contains("asp-for=\"UnitId\"", combinedForms);
         Assert.Contains("asp-for=\"SecondaryUnitId\"", combinedForms);
-        Assert.Contains("asp-for=\"SecondaryUnitConversionNote\"", combinedForms);
+        Assert.DoesNotContain("asp-for=\"SecondaryUnitConversionNote\"", combinedForms);
         Assert.Contains("محاسبات موجودی هنوز با واحد عملیاتی فعلی سیستم انجام می‌شود", combinedForms);
         Assert.Contains("SecondaryUnit", details);
+        Assert.Contains("SecondaryUnitConversionNote", details);
     }
 
     [Fact]

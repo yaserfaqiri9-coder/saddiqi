@@ -6,6 +6,9 @@
     var hasFilters = !string.IsNullOrWhiteSpace((string?)ViewData["calculationKind"]) || ViewData["isActive"] != null;
     var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var activeCount = items.Count(item => item.IsActive);
+    var usedRuleCount = items.Count(item => item.UsageCount > 0);
+    var totalUsageCount = items.Sum(item => item.UsageCount);
     string CalculationText(string kind) => kind switch
     {
         ExpenseRuleCalculationKinds.Flat => "مبلغ ثابت",
@@ -21,6 +24,13 @@
                        UiText.T(Context, "قاعده جدید", "New rule"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار قواعد مصرف", "Expense rule statistics")">
+        <vc:stat-card title="@UiText.T(Context, "تعداد قواعد", "Rules")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "قاعده", "rules")" avatar="expenses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "قواعد فعال", "Active rules")" value="@activeCount.ToString("N0")" unit="@UiText.T(Context, "قاعده", "rules")" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "قواعد استفاده‌شده", "Rules in use")" value="@usedRuleCount.ToString("N0")" unit="@UiText.T(Context, "قاعده", "rules")" avatar="purchase-contracts"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مجموع استفاده", "Total usage")" value="@totalUsageCount.ToString("N0")" unit="@UiText.T(Context, "بار", "uses")" avatar="purchase-requests"></vc:stat-card>
+    </section>
 
     @{
         var expRulesIsActive = ViewData["isActive"] is bool erAct ? (erAct ? "true" : "false") : null;

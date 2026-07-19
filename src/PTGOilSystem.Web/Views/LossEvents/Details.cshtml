@@ -11,11 +11,35 @@
     var inventoryStatus = Model.AffectsInventory ? T("اثر دارد", "Affects inventory") : T("اثر ندارد", "No impact");
     var hasChargeable = Model.ChargeableLossMt > 0m;
 
+    ViewData["AkHeaderStatus"] = hasChargeable ? T("قابل محاسبه", "Chargeable") : T("داخل حد مجاز", "Within tolerance");
+    ViewData["AkHeaderStatusState"] = hasChargeable ? "is-warning" : "is-active";
+    ViewData["AkHeaderContext"] = $"{LossEventStageLabels.ToPersian(Model.Stage)} · {Model.ProductName} · {Model.EventDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), Icon = "bi-pencil-square" },
+        new() { Label = T("کسری جدید", "New loss"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("کسری ثبت شد", "Loss recorded"), Date = Model.EventDate.ToDisplayDate(), Icon = "bi-exclamation-diamond", State = "is-current", Meta = $"{Model.ChargeableLossMt:N4} MT" }
+    };
+    var relatedRecords = new List<AkRelatedRecord>();
+    if (!string.IsNullOrWhiteSpace(Model.ContractNumber)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, Icon = "bi-file-earmark-text" });
+    if (!string.IsNullOrWhiteSpace(Model.ShipmentCode)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("محموله", "Shipment"), Label = Model.ShipmentCode, Icon = "bi-box-seam" });
+    if (!string.IsNullOrWhiteSpace(Model.LoadingRegisterLabel)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("بارگیری", "Loading"), Label = Model.LoadingRegisterLabel, Icon = "bi-box-arrow-up" });
+    if (!string.IsNullOrWhiteSpace(Model.LoadingReceiptLabel)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("رسید بارگیری", "Loading receipt"), Label = Model.LoadingReceiptLabel, Icon = "bi-box-arrow-in-down" });
+    if (!string.IsNullOrWhiteSpace(Model.TruckDispatchLabel)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("ارسال با موتر", "Truck dispatch"), Label = Model.TruckDispatchLabel, Icon = "bi-truck" });
+    if (!string.IsNullOrWhiteSpace(Model.SalesLabel)) relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("فروش", "Sale"), Label = Model.SalesLabel, Icon = "bi-receipt" });
+    var nextActions = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("کسری جدید", "New loss"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+
     ViewData["Title"] = T("جزئیات کسری", "Loss Event Details");
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات کسری", "Loss details") + $" #{Model.Id}", false,
                        T("ویرایش", "Edit"), "bi-pencil-square",
@@ -36,27 +60,11 @@
         </div>
     </div>
 
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-label">@T("مرحله", "Stage")</span>
-            <strong>@LossEventStageLabels.ToPersian(Model.Stage)</strong>
-            <span class="ak-section-desc">@T("تاریخ", "Date"): @Model.EventDate.ToDisplayDate()</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("اختلاف", "Difference") (MT)</span>
-            <strong class="ak-num">@Model.DifferenceQuantityMt.ToString("N4")</strong>
-            <span class="ak-section-desc">@T("جنس", "Product"): @Model.ProductName</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("کسری قابل محاسبه", "Chargeable loss") (MT)</span>
-            <strong class="ak-num">@Model.ChargeableLossMt.ToString("N4")</strong>
-            <span class="ak-section-desc">@T("مجاز", "Allowable"): @Model.AllowableLossMt.ToString("N4") MT</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("مسئولیت", "Responsibility")</span>
-            <strong>@(Model.ResponsiblePartyName ?? "-")</strong>
-            <span class="ak-section-desc">@T("اثر بر موجودی", "Inventory impact"): @inventoryStatus</span>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های کسری", "Loss metrics")">
+        <vc:stat-card title="@T("مورد انتظار", "Expected")" value="@Model.ExpectedQuantityMt.ToString("N4")" unit="MT" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@T("واقعی", "Actual")" value="@Model.ActualQuantityMt.ToString("N4")" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@T("تفاوت", "Difference")" value="@Model.DifferenceQuantityMt.ToString("N4")" unit="MT" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@T("قابل محاسبه", "Chargeable")" value="@Model.ChargeableLossMt.ToString("N4")" unit="MT" avatar="stock-shortage"></vc:stat-card>
     </section>
 
     <div class="ak-form-grid">
@@ -68,7 +76,7 @@
                 <div class="ak-list-row"><dt>@T("مرحله", "Stage")</dt><dd>@LossEventStageLabels.ToPersian(Model.Stage)</dd></div>
                 <div class="ak-list-row"><dt>@T("جنس", "Product")</dt><dd>@Model.ProductName</dd></div>
                 <div class="ak-list-row"><dt>@T("قرارداد", "Contract")</dt><dd>@(Model.ContractNumber ?? "-")</dd></div>
-                <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("محموله", "Shipment")</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("مرجع", "Reference")</dt><dd>@(Model.Reference ?? "-")</dd></div>
             </dl>
         </section>
@@ -106,9 +114,22 @@
                 <div class="ak-list-row"><dt>@T("نام", "Name")</dt><dd>@(Model.ResponsiblePartyName ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("برخورد مالی", "Financial treatment")</dt><dd>@(Model.FinancialTreatment ?? "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("اثر بر موجودی", "Inventory impact")</dt><dd>@inventoryStatus</dd></div>
-                <div class="ak-list-row"><dt>InventoryMovement</dt><dd>@(Model.InventoryMovementId.HasValue ? $"#{Model.InventoryMovementId}" : "-")</dd></div>
+                <div class="ak-list-row"><dt>@T("حرکت موجودی", "Inventory movement")</dt><dd>@(Model.InventoryMovementId.HasValue ? $"#{Model.InventoryMovementId}" : "-")</dd></div>
                 <div class="ak-list-row"><dt>@T("یادداشت", "Notes")</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? T("یادداشتی ثبت نشده است.", "No notes recorded.") : Model.Notes)</dd></div>
             </dl>
         </section>
     </div>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="loss-timeline-title">
+        <h2 class="ak-section-title" id="loss-timeline-title">@T("روند سند", "Document timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+    @if (relatedRecords.Count > 0)
+    {
+        <section class="ak-form-section ak-detail-section" aria-labelledby="loss-related-title">
+            <h2 class="ak-section-title" id="loss-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+            <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+        </section>
+    }
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 </div>

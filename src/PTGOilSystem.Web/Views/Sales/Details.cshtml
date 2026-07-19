@@ -9,7 +9,13 @@
         : Url.Action("Index", "Sales") ?? "/Sales";
     var currentReturnUrl = Context.Request.Path + Context.Request.QueryString;
     var contractText = SalesContractText.Display(Model.ContractNumber);
-    var stockSourceText = Model.StockSourceType?.ToString() ?? T("ثبت نشده", "Not set");
+    var stockSourceText = Model.StockSourceType?.ToString() switch
+    {
+        "Wagon" => T("واگن", "Wagon"),
+        "Stock" => T("انبار / مخزن", "Stock"),
+        "Tank" => T("تانک", "Tank"),
+        _ => T("ثبت نشده", "Not set")
+    };
     var ledgerRecorded = Model.LedgerEntryId.HasValue;
     var hasInventoryTrace = Model.InventoryMovementId.HasValue
         || Model.LoadingReceiptId.HasValue
@@ -22,15 +28,47 @@
             : T("ثبت نشده", "No trace");
     var isSameCurrency = string.Equals(Model.Currency, "USD", StringComparison.OrdinalIgnoreCase);
 
+    ViewData["AkHeaderStatus"] = Model.IsCancelled ? T("لغو شده", "Cancelled") : T("تکمیل شده", "Completed");
+    ViewData["AkHeaderStatusState"] = Model.IsCancelled ? "is-danger" : "is-active";
+    ViewData["AkHeaderContext"] = $"{Model.CustomerName} · {contractText} · {Model.SaleDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("ویرایش", "Edit"), Href = Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), Icon = "bi-pencil-square" },
+        new() { Label = T("فاکتور دوم", "Alternate invoice"), Href = Url.Action("Invoice", new { id = Model.Id, template = "fawad" }), Icon = "bi-receipt-cutoff" },
+        new() { Label = T("فروش جدید", "New sale"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+    var timelineItems = new List<AkTimelineItem>
+    {
+        new() { Title = T("فروش ثبت شد", "Sale recorded"), Date = Model.SaleDate.ToDisplayDate(), Timestamp = Model.CreatedAtUtc, Icon = "bi-cart-check", State = Model.IsCancelled ? "is-muted" : "is-current", Meta = $"{Model.TotalUsd:N2} USD" }
+    };
+    var relatedRecords = new List<AkRelatedRecord>();
+    if (!string.IsNullOrWhiteSpace(Model.ContractNumber))
+    {
+        relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("قرارداد", "Contract"), Label = Model.ContractNumber, KeyValue = Model.ProductName, Icon = "bi-file-earmark-text" });
+    }
+    if (!string.IsNullOrWhiteSpace(Model.ShipmentCode))
+    {
+        relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("محموله", "Shipment"), Label = Model.ShipmentCode, Icon = "bi-box-seam" });
+    }
+    if (Model.LedgerEntryId.HasValue)
+    {
+        relatedRecords.Add(new AkRelatedRecord { TypeLabel = T("سند دفتر کل", "Ledger entry"), Label = $"#{Model.LedgerEntryId.Value}", KeyValue = $"{Model.TotalUsd:N2} USD", Icon = "bi-journal-text" });
+    }
+    var nextActions = new List<AkHeaderMenuItem>
+    {
+        new() { Label = T("نمایش فاکتور", "View invoice"), Href = Url.Action("Invoice", new { id = Model.Id, template = "faisal" }), Icon = "bi-receipt" },
+        new() { Label = T("فروش جدید", "New sale"), Href = Url.Action("Create", new { returnUrl = backUrl }), Icon = "bi-plus-lg" }
+    };
+
     ViewData["Title"] = T("جزئیات فروش", "Sale Details");
     ViewData["HideSectionTabs"] = true;
 }
 
-<div class="ak-form-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((T("جزئیات فروش", "Sale details") + " " + Model.InvoiceNumber, false,
-                       T("ویرایش", "Edit"), "bi-pencil-square",
-                       Url.Action("Edit", new { id = Model.Id, returnUrl = currentReturnUrl }), (string?)null,
+                       T("نمایش فاکتور", "View invoice"), "bi-receipt",
+                       Url.Action("Invoice", new { id = Model.Id, template = "faisal" }), (string?)null,
                        T("بازگشت", "Back"), "bi-arrow-right", (string?)backUrl))" />
 
     <div class="ak-page-actions">
@@ -66,27 +104,11 @@
         </div>
     </div>
 
-    <section class="ak-form-section ak-detail-section ak-form-grid">
-        <div class="ak-field">
-            <span class="ak-label">@T("تاریخ فروش", "Sale date")</span>
-            <strong>@Model.SaleDate.ToDisplayDate()</strong>
-            <span class="ak-section-desc">@T("مرحله فروش", "Sale stage"): @SaleStageLabels.ToPersian(Model.SaleStage)</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("مشتری", "Customer")</span>
-            <strong>@Model.CustomerName</strong>
-            <span class="ak-section-desc">@T("قرارداد", "Contract"): @contractText</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("شماره فاکتور", "Invoice no.")</span>
-            <strong>@Model.InvoiceNumber</strong>
-            <span class="ak-section-desc">@T("شماره داخلی", "Internal id"): #@Model.Id</span>
-        </div>
-        <div class="ak-field">
-            <span class="ak-label">@T("مبلغ قابل دریافت", "Amount due")</span>
-            <strong class="ak-num">@Model.TotalUsd.ToString("N2") USD</strong>
-            <span class="ak-section-desc">@T("ثبت‌کننده", "Recorded by"): @(Model.CreatedByName ?? "-") · @Model.CreatedAtUtc.ToDisplayDateTime()</span>
-        </div>
+    <section class="ak-stat-grid no-print" aria-label="@T("شاخص‌های فروش", "Sale metrics")">
+        <vc:stat-card title="@T("مقدار فروش", "Sale quantity")" value="@NumberDisplay.Quantity(Model.QuantityMt)" unit="MT" avatar="sold-quantity"></vc:stat-card>
+        <vc:stat-card title="@T("قیمت واحد", "Unit price")" value="@Model.UnitPriceUsd.ToString("N2")" unit="USD/MT" avatar="profit-loss"></vc:stat-card>
+        <vc:stat-card title="@T("مبلغ قابل دریافت", "Amount due")" value="@Model.TotalUsd.ToString("N2")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="@T("وضعیت دفتر", "Ledger status")" value="@(ledgerRecorded ? T("ثبت‌شده", "Recorded") : T("در انتظار", "Pending"))" unit="" avatar="ledger"></vc:stat-card>
     </section>
 
     <section class="ak-form-section ak-detail-section">
@@ -157,7 +179,7 @@
             <div class="ak-list-row"><dt>@T("ترمینال منبع", "Source terminal")</dt><dd>@(Model.SourceTerminalName ?? "-")</dd></div>
             <div class="ak-list-row"><dt>@T("مخزن منبع", "Source tank")</dt><dd>@(Model.SourceStorageTankCode ?? "-")</dd></div>
             <div class="ak-list-row"><dt>@T("قرارداد خرید منبع", "Source purchase")</dt><dd>@(Model.SourcePurchaseContractNumber ?? "-")</dd></div>
-            <div class="ak-list-row"><dt>Shipment</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
+            <div class="ak-list-row"><dt>@T("محموله", "Shipment")</dt><dd>@(Model.ShipmentCode ?? "-")</dd></div>
             <div class="ak-list-row"><dt>@T("مقصد", "Destination")</dt><dd>@(Model.DestinationName ?? "-")</dd></div>
             <div class="ak-list-row"><dt>@T("سریال تکت", "Ticket serial")</dt><dd>@(Model.TicketSerialNumber ?? "-")</dd></div>
             <div class="ak-list-row"><dt>@T("ردیابی موجودی", "Inventory trace")</dt><dd>@inventoryStatus</dd></div>
@@ -167,4 +189,17 @@
             <p class="ak-note">@Model.Notes</p>
         }
     </section>
+
+    <section class="ak-form-section ak-detail-section" aria-labelledby="sale-timeline-title">
+        <h2 class="ak-section-title" id="sale-timeline-title">@T("روند سند", "Document timeline")</h2>
+        <partial name="~/Views/Shared/Partials/_DetailTimeline.cshtml" model="@((IReadOnlyList<AkTimelineItem>)timelineItems)" />
+    </section>
+    @if (relatedRecords.Count > 0)
+    {
+        <section class="ak-form-section ak-detail-section" aria-labelledby="sale-related-title">
+            <h2 class="ak-section-title" id="sale-related-title">@T("رکوردهای مرتبط", "Related records")</h2>
+            <partial name="~/Views/Shared/Partials/_RelatedRecords.cshtml" model="@((IReadOnlyList<AkRelatedRecord>)relatedRecords)" />
+        </section>
+    }
+    <partial name="~/Views/Shared/Partials/_DetailActionBar.cshtml" model="@((IReadOnlyList<AkHeaderMenuItem>)nextActions)" />
 </div>

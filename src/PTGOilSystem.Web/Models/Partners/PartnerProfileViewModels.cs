@@ -36,6 +36,7 @@ public sealed class PartnerProfileViewModel
     public decimal PurchaseCostUsd { get; init; }
     public decimal OperationalExpensesUsd { get; init; }
     public decimal TotalCostUsd { get; init; }
+    public decimal PartnerTotalCostUsd { get; init; }
     public decimal GrossProfitUsd { get; init; }
     public decimal PartnerGrossProfitUsd { get; init; }
     public decimal CashInUsd { get; init; }

@@ -1,5 +1,6 @@
 @using System.Globalization
 @using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Shared
 @model PTGOilSystem.Web.Models.InventoryTransport.InventoryTransportGroupTransferViewModel
 @{
     ViewData["Title"] = "انتقال گروهی از حمل‌های در جریان";
@@ -10,10 +11,10 @@
     var cancelUrl = !string.IsNullOrWhiteSpace(Model.ReturnUrl) ? Model.ReturnUrl : Url.Action("Index");
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-group-operation-page ak-group-wizard-page">
     <div class="ak-page-header">
         <div class="ak-page-actions">
-            <a href="@cancelUrl" class="ak-secondary-action" aria-label="بازگشت" title="بازگشت">
+            <a href="@cancelUrl" class="btn btn-light ak-secondary-action" aria-label="بازگشت" title="بازگشت">
                 <i class="bi bi-arrow-right" aria-hidden="true"></i>
                 <span>بازگشت</span>
             </a>
@@ -26,13 +27,7 @@
         <form asp-action="GroupTransfer" method="get" class="ak-form-section ak-form">
             <div class="ak-section-body p-4 p-md-5">
                 <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-                <div class="ptg-tabs-rail mb-4" aria-label="مراحل انتقال">
-                    <span class="ptg-tab-item is-active">۱ انتخاب کشتی</span>
-                    <span class="ptg-tab-item">۲ واگن‌ها</span>
-                    <span class="ptg-tab-item">۳ موترها</span>
-                    <span class="ptg-tab-item">۴ تقسیم</span>
-                    <span class="ptg-tab-item">۵ پیش‌نمایش</span>
-                </div>
+                <partial name="~/Views/Shared/Components/_WizardSteps.cshtml" model="@(new WizardStepsViewModel("مراحل انتقال گروهی", "data-step-tab", new[] { new WizardStepItem(1, "انتخاب کشتی", true, false), new WizardStepItem(2, "واگن‌ها", false, false), new WizardStepItem(3, "موترها", false, false), new WizardStepItem(4, "تقسیم", false, false), new WizardStepItem(5, "پیش‌نمایش", false, false) }, "mb-4"))" />
                 <h2 class="h5 mb-3">محموله یا کشتی مبدأ را انتخاب کنید</h2>
                 <p class="text-muted small mb-4">فقط محموله‌هایی نمایش داده می‌شوند که واگن در جریان (بارگیری‌شده و هنوز تخلیه‌نشده) دارند.</p>
                 <div class="ak-form-grid g-4">
@@ -66,12 +61,7 @@
             <div class="ak-section-body p-4 p-md-5">
                 <div asp-validation-summary="All" class="alert alert-danger ak-form-alert" role="alert"></div>
 
-                <div class="ptg-tabs-rail mb-4" aria-label="مراحل انتقال">
-                    <button type="button" class="ptg-tab-item" data-step-tab="2">۲ واگن‌ها</button>
-                    <button type="button" class="ptg-tab-item" data-step-tab="3">۳ موترها</button>
-                    <button type="button" class="ptg-tab-item" data-step-tab="4">۴ تقسیم</button>
-                    <button type="button" class="ptg-tab-item" data-step-tab="5">۵ پیش‌نمایش</button>
-                </div>
+                <partial name="~/Views/Shared/Components/_WizardSteps.cshtml" model="@(new WizardStepsViewModel("مراحل انتقال گروهی", "data-step-tab", new[] { new WizardStepItem(2, "واگن‌ها"), new WizardStepItem(3, "موترها"), new WizardStepItem(4, "تقسیم"), new WizardStepItem(5, "پیش‌نمایش") }, "mb-4"))" />
 
                 <div class="transfer-summary-bar mb-4">
                     <div><span class="text-muted small d-block">کشتی</span><strong>@Model.ShipmentName</strong></div>
@@ -527,7 +517,13 @@
             function showStep(step) {
                 current = Math.max(STEP_MIN, Math.min(STEP_MAX, step));
                 panels.forEach(function (p) { p.classList.toggle('d-none', p.getAttribute('data-step') !== String(current)); });
-                tabs.forEach(function (t) { t.classList.toggle('is-active', t.getAttribute('data-step-tab') === String(current)); });
+                tabs.forEach(function (t) {
+                    var tabStep = parseInt(t.getAttribute('data-step-tab'), 10);
+                    t.classList.toggle('is-active', tabStep === current);
+                    t.classList.toggle('is-done', tabStep < current);
+                    if (tabStep === current) t.setAttribute('aria-current', 'step');
+                    else t.removeAttribute('aria-current');
+                });
                 if (activeStepInput) { activeStepInput.value = current; }
                 btnPrev.classList.toggle('d-none', current === STEP_MIN);
                 btnNext.classList.toggle('d-none', current === STEP_MAX);

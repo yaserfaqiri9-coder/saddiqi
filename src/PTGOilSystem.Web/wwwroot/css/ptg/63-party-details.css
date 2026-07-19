@@ -1,0 +1,190 @@
+/* =============================================================
+ * Counterparty details
+ * Compact, shared profile composition for every .ak-party-page.
+ * Presentation only: no financial or workflow behavior lives here.
+ * ============================================================= */
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page {
+    --ak-detail-max-width: 1360px;
+    --ak-detail-padding-x: clamp(16px, 2.2vw, 28px);
+    --ak-detail-section-gap: 14px;
+    --ak-detail-header-gap: 14px;
+    --ptg-tabs-space-above: 0;
+    --ptg-tabs-space-below: 2px;
+    --ptg-tabs-horizontal-padding: 13px;
+    --ptg-tabs-top-padding: 8px;
+    --ptg-tabs-bottom-padding: 7px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 16px;
+    row-gap: 14px;
+    padding-block: 4px 36px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > * {
+    grid-column: 1 / -1;
+}
+
+/* Title, primary actions and profile tools share one short first row. */
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-detail-header {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 38px;
+    padding: 0;
+    border-bottom: 0;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-header-main {
+    gap: 2px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-title {
+    font-size: clamp(20px, 1.55vw, 24px);
+    font-weight: 680;
+    line-height: 1.3;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-header .btn,
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions .btn {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    justify-content: flex-end;
+    min-width: max-content;
+    margin: 0;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions .ak-status,
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions .ak-note {
+    white-space: nowrap;
+}
+
+/* The navigation sits immediately under the compact toolbar. */
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-detail-tabs {
+    margin-block: 0 2px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-form-grid {
+    column-gap: 14px;
+    row-gap: 14px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-section {
+    margin: 0;
+    padding: 16px;
+    border-radius: 8px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-section-head {
+    margin-bottom: 12px;
+    padding-bottom: 9px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-section-title {
+    font-size: 15px;
+    font-weight: 650;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-section-desc {
+    max-width: 72ch;
+    margin-top: 3px;
+    line-height: 1.45;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-list-row {
+    grid-template-columns: minmax(7.5rem, .72fr) minmax(0, 1.28fr);
+    gap: 12px;
+    padding: 8px 0;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-list-row dt {
+    font-size: 12.5px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-list-row dd {
+    overflow-wrap: anywhere;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-table > thead > tr > th {
+    height: 38px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-table > tbody > tr > td {
+    min-height: 42px;
+    padding: 9px 10px;
+}
+
+body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-empty-state {
+    padding: 24px 14px;
+}
+
+@media (max-width: 1199.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 12px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-detail-header,
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions {
+        grid-column: 1;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-detail-header {
+        grid-row: 1;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions {
+        grid-row: 2;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page {
+        --ak-detail-section-gap: 12px;
+        padding-block-start: 0;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-detail-header {
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--ak-detail-divider);
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-actions,
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page > .ak-page-actions {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 575.98px) {
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-header .ak-secondary-action span {
+        display: none;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-detail-section {
+        padding: 14px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.action-details .ak-party-page .ak-list-row {
+        grid-template-columns: minmax(6.5rem, .8fr) minmax(0, 1.2fr);
+        gap: 10px;
+    }
+}

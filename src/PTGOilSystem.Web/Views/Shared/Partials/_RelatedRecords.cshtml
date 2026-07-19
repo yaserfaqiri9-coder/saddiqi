@@ -1,0 +1,47 @@
+@*
+    Shared related-records chips (AK Detail v2 zone 6).
+    Only existing relations are passed in — the partial renders nothing when
+    the list is empty, so pages never show always-empty relation rows.
+    Model: IReadOnlyList<AkRelatedRecord>
+*@
+@model IReadOnlyList<PTGOilSystem.Web.Models.Shared.AkRelatedRecord>
+@if (Model is { Count: > 0 })
+{
+    <ul class="ak-related" aria-label="@UiText.T(Context, "رکوردهای مرتبط", "Related records")">
+        @foreach (var record in Model)
+        {
+            <li class="ak-related-item">
+                @if (!string.IsNullOrWhiteSpace(record.Href))
+                {
+                    <a class="ak-related-link" href="@record.Href" aria-label="@record.AccessibleLabel">
+                        @if (!string.IsNullOrWhiteSpace(record.Icon))
+                        {
+                            <i class="bi @record.Icon" aria-hidden="true"></i>
+                        }
+                        <span class="ak-related-type">@record.TypeLabel</span>
+                        <span class="ak-related-label">@record.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(record.KeyValue))
+                        {
+                            <span class="ak-related-value" dir="auto">@record.KeyValue</span>
+                        }
+                    </a>
+                }
+                else
+                {
+                    <span class="ak-related-link is-static">
+                        @if (!string.IsNullOrWhiteSpace(record.Icon))
+                        {
+                            <i class="bi @record.Icon" aria-hidden="true"></i>
+                        }
+                        <span class="ak-related-type">@record.TypeLabel</span>
+                        <span class="ak-related-label">@record.Label</span>
+                        @if (!string.IsNullOrWhiteSpace(record.KeyValue))
+                        {
+                            <span class="ak-related-value" dir="auto">@record.KeyValue</span>
+                        }
+                    </span>
+                }
+            </li>
+        }
+    </ul>
+}

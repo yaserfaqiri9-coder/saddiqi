@@ -422,6 +422,9 @@ public sealed class DispatchDetailsViewModel
     public IReadOnlyList<DispatchDeliveryReceiptItemViewModel> DeliveryReceipts { get; init; } = [];
     public IReadOnlyList<DispatchCustomsItemViewModel> Customs { get; init; } = [];
     public IReadOnlyList<DispatchExpenseItemViewModel> Expenses { get; init; } = [];
+    public decimal DeliveryReceivedTotalMt { get; init; }
+    public decimal CustomsTotalUsd { get; init; }
+    public decimal ExpenseTotalUsd { get; init; }
 }
 
 public sealed class DispatchCustomsItemViewModel

@@ -10,6 +10,7 @@ using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
+using PTGOilSystem.Web.Services.Exports;
 using PTGOilSystem.Web.Services.Audit;
 
 namespace PTGOilSystem.Web.Controllers;
@@ -158,6 +159,43 @@ public class CashAccountsController : Controller
                 item.Branch,
                 item.Notes
             }));
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
+    public async Task<IActionResult> Export(string? format, [FromQuery] CashAccountIndexFilterViewModel? filter = null)
+    {
+        filter ??= new CashAccountIndexFilterViewModel();
+        var items = await ApplyIndexFilter(_db.CashAccounts.AsNoTracking(), filter)
+            .OrderBy(account => account.Code)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        return TabularExportSupport.File(this, format, new TabularExportDocument
+        {
+            FileNameStem = "PTG_Cash_Accounts",
+            TitleFa = "حساب‌های نقدی و بانکی",
+            TitleEn = "Cash and Bank Accounts",
+            KnownRowCount = items.Count,
+            Filters =
+            [
+                new("جستجو", "Search", filter.Query),
+                new("ارز", "Currency", filter.Currency),
+                new("نوع حساب", "Account type", filter.AccountType?.ToString()),
+                new("وضعیت", "Status", filter.IsActive?.ToString())
+            ],
+            Columns =
+            [
+                new("کد", "Code", Width: 13), new("نام", "Name", Width: 22), new("نوع حساب", "Account type", Width: 16),
+                new("ارز", "Currency", Width: 10), new("وضعیت", "Status", Width: 12), new("شماره حساب", "Account number", Width: 20),
+                new("بانک", "Bank", Width: 20), new("شعبه", "Branch", Width: 17), new("یادداشت", "Notes", Width: 28, Wrap: true)
+            ],
+            Rows = items.Select(item => new TabularExportRow(
+            [
+                TabularExportCell.Text(item.Code), TabularExportCell.Text(item.Name), TabularExportCell.Text(CashAccountTypeLabels.ToPersian(item.AccountType)),
+                TabularExportCell.Text(item.Currency), TabularExportCell.Text(item.IsActive ? "فعال" : "غیرفعال"),
+                TabularExportCell.Text(item.AccountNumber), TabularExportCell.Text(item.BankName), TabularExportCell.Text(item.Branch),
+                TabularExportCell.Text(item.Notes)
+            ]))
+        });
     }
 
     public async Task<IActionResult> Details(int id)

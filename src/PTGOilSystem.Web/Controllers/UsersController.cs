@@ -64,6 +64,7 @@ public class UsersController : Controller
         ViewData["CurrentPage"] = page;
         ViewData["PageCount"] = pageCount;
         ViewData["TotalCount"] = totalCount;
+        await PopulateRolesAsync();
 
         return View(await query
             .OrderBy(u => u.Username)

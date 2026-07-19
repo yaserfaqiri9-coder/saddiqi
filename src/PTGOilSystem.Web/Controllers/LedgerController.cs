@@ -13,6 +13,7 @@ using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Models.Sarrafs;
 using PTGOilSystem.Web.Models.Sales;
 using PTGOilSystem.Web.Services;
+using PTGOilSystem.Web.Services.Exports;
 
 namespace PTGOilSystem.Web.Controllers;
 
@@ -116,6 +117,69 @@ public partial class LedgerController : Controller
                 CsvExportSupport.Date(r.EntryDate), r.SideName, CsvExportSupport.Decimal(r.AmountUsd), r.Currency, r.Description,
                 r.SourceType, r.SourceId.ToString(), r.Reference, r.ContractNumber, r.CustomerName, r.SupplierName, r.EmployeeName, r.ShipmentCode
             }));
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.CsvExport)]
+    public async Task<IActionResult> Export(string? format, [FromQuery] LedgerIndexFilterViewModel? filter = null)
+    {
+        filter ??= new LedgerIndexFilterViewModel();
+        if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
+        {
+            TempData["error"] = UiText.T(HttpContext,
+                "برای خروجی، تعیین «از تاریخ» و «تا تاریخ» الزامی است.",
+                "From date and to date are required for export.");
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        var exportFormat = TabularExportSupport.ParseFormat(format);
+        var exportService = HttpContext.RequestServices.GetRequiredService<ITabularExportService>();
+        var query = ApplyLedgerFilter(_db.LedgerEntries.AsNoTracking(), filter);
+        var totalCount = await query.CountAsync(HttpContext.RequestAborted);
+        var limit = exportService.GetRowLimit(exportFormat);
+        if (totalCount > limit)
+        {
+            TempData["error"] = UiText.T(HttpContext,
+                $"تعداد اطلاعات زیاد است ({totalCount:N0})؛ بازه تاریخ یا فیلترها را محدود کنید. سقف مجاز: {limit:N0}.",
+                $"There are too many records ({totalCount:N0}). Narrow the date range or filters. Maximum: {limit:N0}.");
+            return RedirectToAction(nameof(Index), filter);
+        }
+
+        var rows = await BuildLedgerRowsAsync(filter);
+        return TabularExportSupport.File(this, format, new TabularExportDocument
+        {
+            FileNameStem = "PTG_Ledger",
+            TitleFa = "دفتر کل",
+            TitleEn = "General Ledger",
+            KnownRowCount = totalCount,
+            ForceLandscape = true,
+            Filters =
+            [
+                new("از تاریخ", "From date", filter.FromDate?.ToString("yyyy-MM-dd")),
+                new("تا تاریخ", "To date", filter.ToDate?.ToString("yyyy-MM-dd")),
+                new("نوع منبع", "Source type", filter.SourceType),
+                new("مرجع", "Reference", filter.Reference),
+                new("قرارداد", "Contract", filter.ContractId?.ToString()),
+                new("مشتری", "Customer", filter.CustomerId?.ToString()),
+                new("تأمین‌کننده", "Supplier", filter.SupplierId?.ToString())
+            ],
+            Columns =
+            [
+                new("تاریخ", "Date", TabularExportValueType.Date, 13), new("سمت", "Side", Width: 11),
+                new("مبلغ USD", "Amount USD", TabularExportValueType.Number, 16), new("ارز", "Currency", Width: 10),
+                new("شرح", "Description", Width: 30, Wrap: true), new("نوع منبع", "Source type", Width: 18),
+                new("شناسه منبع", "Source ID", TabularExportValueType.Integer, 12), new("مرجع", "Reference", Width: 18),
+                new("قرارداد", "Contract", Width: 16), new("مشتری", "Customer", Width: 18),
+                new("تأمین‌کننده", "Supplier", Width: 18), new("کارمند", "Employee", Width: 17), new("محموله", "Shipment", Width: 16)
+            ],
+            Rows = rows.Select(row => new TabularExportRow(
+            [
+                TabularExportCell.Date(row.EntryDate), TabularExportCell.Text(row.SideName), TabularExportCell.Number(row.AmountUsd),
+                TabularExportCell.Text(row.Currency), TabularExportCell.Text(row.Description), TabularExportCell.Text(row.SourceType),
+                TabularExportCell.Integer(row.SourceId), TabularExportCell.Text(row.Reference), TabularExportCell.Text(row.ContractNumber),
+                TabularExportCell.Text(row.CustomerName), TabularExportCell.Text(row.SupplierName), TabularExportCell.Text(row.EmployeeName),
+                TabularExportCell.Text(row.ShipmentCode)
+            ]))
+        });
     }
 
     private static IQueryable<LedgerEntry> ApplyLedgerFilter(

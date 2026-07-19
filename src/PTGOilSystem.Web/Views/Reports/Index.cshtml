@@ -1,45 +1,52 @@
 @model PTGOilSystem.Web.Models.Reports.ReportHubViewModel
 @{
-    ViewData["Title"] = UiText.T(Context, "گزارش‌های مالی", "Financial Reports");
+    ViewData["Title"] = UiText.T(Context, "گزارش‌ها", "Reports");
 
-    var reports = new[]
+    // Akaunting-style grouped report hub. Static links only — no calculation here.
+    var groups = new[]
     {
-        new { Controller = "Reports", Action = "CompanyOverview", TitleFa = "سود و زیان شرکت", TitleEn = "Company Profit & Loss", DescriptionFa = "درآمد، قیمت خرید، مصارف، ضایعات، اختلاف ارز و سود یا زیان خالص.", DescriptionEn = "Revenue, purchase cost, expenses, losses, exchange difference and net result.", Icon = "bi-graph-up-arrow" },
-        new { Controller = "Reports", Action = "CashFlow", TitleFa = "جریان نقدی", TitleEn = "Cash Flow", DescriptionFa = "ورودی و خروجی واقعی پول بر اساس روزنامه و حساب‌های نقدی/بانکی.", DescriptionEn = "Actual cash inflow and outflow from journal and cash or bank accounts.", Icon = "bi-cash-stack" },
-        new { Controller = "Reports", Action = "ReceivablesPayables", TitleFa = "دریافتنی‌ها و پرداختنی‌ها", TitleEn = "Receivables & Payables", DescriptionFa = "طلب مشتریان و بدهی تأمین‌کنندگان در یک گزارش هماهنگ.", DescriptionEn = "Customer receivables and supplier payables in one coordinated report.", Icon = "bi-people" },
-        new { Controller = "Reports", Action = "InventoryOperations", TitleFa = "موجودی و عملیات", TitleEn = "Inventory & Operations", DescriptionFa = "مقدار موجودی، گردش‌ها و موارد عملیاتی نیازمند بررسی.", DescriptionEn = "Inventory quantities, movements and operational items requiring attention.", Icon = "bi-box-seam" },
-        new { Controller = "Reports", Action = "ContractPnl", TitleFa = "سود و زیان قرارداد و محموله", TitleEn = "Contract & Shipment P&L", DescriptionFa = "درآمد، بهای خرید، مصارف، ضایعات، صراف و اختلاف ارز هر قرارداد.", DescriptionEn = "Revenue, purchase cost, expenses, losses, sarraf and exchange difference by contract.", Icon = "bi-file-earmark-spreadsheet" }
+        new
+        {
+            TitleFa = "مالی و حساب‌داری",
+            TitleEn = "Accounting",
+            Items = new[]
+            {
+                new { Action = "CompanyOverview", TitleFa = "نمای کلی مالی", TitleEn = "Company Overview", DescriptionFa = "درآمد، قیمت خرید، مصارف، ضایعات و سود یا زیان خالص شرکت.", DescriptionEn = "Company revenue, cost, expenses, losses and net result.", Icon = "bi-clipboard-data" },
+                new { Action = "ContractPnl", TitleFa = "سود و زیان قراردادها", TitleEn = "Contract P&L", DescriptionFa = "درآمد، بهای خرید، مصارف، ضایعات و اختلاف ارز هر قرارداد.", DescriptionEn = "Revenue, cost, expenses, losses and FX by contract.", Icon = "bi-file-earmark-bar-graph" },
+                new { Action = "ReceivablesPayables", TitleFa = "دریافتنی‌ها و پرداختنی‌ها", TitleEn = "Receivables & Payables", DescriptionFa = "طلب مشتریان و بدهی تأمین‌کنندگان در یک نگاه.", DescriptionEn = "Customer receivables and supplier payables at a glance.", Icon = "bi-people" }
+            }
+        },
+        new
+        {
+            TitleFa = "نقدینگی و عملیات",
+            TitleEn = "Cash & Operations",
+            Items = new[]
+            {
+                new { Action = "CashFlow", TitleFa = "جریان نقدی", TitleEn = "Cash Flow", DescriptionFa = "ورودی و خروجی واقعی پول از روزنامه و حساب‌های نقدی.", DescriptionEn = "Actual cash inflow and outflow from journal and cash accounts.", Icon = "bi-cash-stack" },
+                new { Action = "InventoryOperations", TitleFa = "موجودی و عملیات", TitleEn = "Inventory & Operations", DescriptionFa = "مقدار موجودی، گردش‌ها و موارد عملیاتی نیازمند بررسی.", DescriptionEn = "Inventory quantities, movements and operational items to review.", Icon = "bi-box-seam" },
+                new { Action = "Warnings", TitleFa = "مغایرت‌ها", TitleEn = "Reconciliation & Warnings", DescriptionFa = "مواردی که برای اصلاح دفتر کل، موجودی یا اسناد نیاز به اقدام دارند.", DescriptionEn = "Ledger, inventory and document issues needing action.", Icon = "bi-exclamation-triangle" }
+            }
+        }
     };
 }
 
-<div class="ak-reports-page finance-workspace-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
-    <header class="finance-report-header">
-        <div>
-            <h1 class="ak-reports-title">@UiText.T(Context, "گزارش‌های مالی", "Financial Reports")</h1>
-            <p class="finance-page-lead">@UiText.T(Context, "گزارش‌های اصلی بر پایه داده ثبت‌شده؛ هر موضوع فقط یک مسیر روشن دارد.", "Core reports based on posted data, with one clear route per topic.")</p>
-        </div>
-        <a class="btn btn-light ak-secondary-action" asp-controller="Reconciliation" asp-action="Index">
-            <i class="bi bi-check2-square" aria-hidden="true"></i>
-            <span>@UiText.T(Context, "کنترل مغایرت‌ها", "Reconciliation checks")</span>
-        </a>
-    </header>
-
-    <section class="finance-report-list" aria-label="@UiText.T(Context, "گزارش‌های موجود", "Available reports")">
-        @foreach (var report in reports)
-        {
-            <a class="finance-report-link" asp-controller="@report.Controller" asp-action="@report.Action">
-                <span class="finance-report-link-icon" aria-hidden="true"><i class="bi @report.Icon"></i></span>
-                <span class="finance-report-link-copy">
-                    <strong>@UiText.T(Context, report.TitleFa, report.TitleEn)</strong>
-                    <small>@UiText.T(Context, report.DescriptionFa, report.DescriptionEn)</small>
-                </span>
-                <i class="bi bi-chevron-left finance-report-link-arrow" aria-hidden="true"></i>
-            </a>
-        }
-    </section>
-
-    <p class="finance-source-note">
-        <i class="bi bi-shield-check" aria-hidden="true"></i>
-        @UiText.T(Context, "اعداد این مسیرها از اسناد و گردش‌های موجود سیستم خوانده می‌شوند؛ این صفحه محاسبه تازه‌ای ایجاد نمی‌کند.", "These routes read existing documents and movements; this page creates no new calculation.")
-    </p>
+<div class="akrep-page finance-workspace-page" dir="@(UiText.IsEn(Context) ? "ltr" : "rtl")">
+    @foreach (var group in groups)
+    {
+        <section class="akrep-group" aria-label="@UiText.T(Context, group.TitleFa, group.TitleEn)">
+            <h2 class="akrep-group-title">@UiText.T(Context, group.TitleFa, group.TitleEn)</h2>
+            <div class="akrep-grid">
+                @foreach (var item in group.Items)
+                {
+                    <a class="akrep-item" asp-controller="Reports" asp-action="@item.Action">
+                        <span class="akrep-ico" aria-hidden="true"><i class="bi @item.Icon"></i></span>
+                        <span class="akrep-copy">
+                            <strong>@UiText.T(Context, item.TitleFa, item.TitleEn)</strong>
+                            <small>@UiText.T(Context, item.DescriptionFa, item.DescriptionEn)</small>
+                        </span>
+                    </a>
+                }
+            </div>
+        </section>
+    }
 </div>

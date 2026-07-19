@@ -27,6 +27,10 @@
     <partial name="~/Views/Shared/_AkSearchFilter.cshtml"
              model="@AkSearchFilterModel.SearchOnly("q", q, UiText.T(Context, "جستجو یا فیلتر نتایج...", "Search or filter results..."))" />
 
+    <div class="d-flex justify-content-end mb-2 no-print">
+        <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
+    </div>
+
     <div class="ak-list">
         <div class="ak-table-wrap">
             <table class="ak-table">

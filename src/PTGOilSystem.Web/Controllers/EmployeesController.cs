@@ -12,6 +12,8 @@ using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Audit;
 using PTGOilSystem.Web.Services.Employees;
 using PTGOilSystem.Web.Services.Exceptions;
+using PTGOilSystem.Web.Models.PartyStatements;
+using PTGOilSystem.Web.Services.PartyStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
@@ -32,17 +34,20 @@ public class EmployeesController : Controller
     private readonly IAuditService _audit;
     private readonly IEmployeeSalaryService _salaryService;
     private readonly IWebHostEnvironment _environment;
+    private readonly IPartyStatementReadService? _partyStatements;
 
     public EmployeesController(
         ApplicationDbContext db,
         IAuditService audit,
         IEmployeeSalaryService salaryService,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
         _audit = audit;
         _salaryService = salaryService;
         _environment = environment;
+        _partyStatements = partyStatements;
     }
 
     public async Task<IActionResult> Index([FromQuery] EmployeeIndexFilterViewModel? filter = null, int page = 1)
@@ -430,7 +435,7 @@ public class EmployeesController : Controller
             })
             .ToListAsync();
 
-        return View(new EmployeeDetailsViewModel
+        var model = new EmployeeDetailsViewModel
         {
             Id = employee.Id,
             EmployeeCode = employee.EmployeeCode,
@@ -457,7 +462,17 @@ public class EmployeesController : Controller
             Transactions = transactions.Select(ToTransactionListItem).ToList(),
             RoznamchaPayments = roznamchaPayments,
             AuditItems = auditItems
-        });
+        };
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.Employee, id),
+                new PartyStatementFilter { IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
+        return View(model);
     }
 
     [Authorize(Policy = AuthPolicies.ManageData)]

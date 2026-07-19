@@ -373,6 +373,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Unit>().HasIndex(u => u.Code).IsUnique();
         modelBuilder.Entity<Partner>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<Company>().HasIndex(c => c.Code).IsUnique();
+        // فقط یک شرکت می‌تواند مالکِ سیستم باشد؛ ایندکسِ یکتای جزئی این قید را در دیتابیس تضمین می‌کند.
+        modelBuilder.Entity<Company>().HasIndex(c => c.IsSystemOwner)
+            .IsUnique()
+            .HasFilter("\"IsSystemOwner\" = true");
         modelBuilder.Entity<ServiceProviderEntity>().HasIndex(p => p.Code);
         modelBuilder.Entity<ServiceProviderEntity>().HasIndex(p => new { p.IsActive, p.Name });
         modelBuilder.Entity<OperationalAsset>().HasIndex(a => a.AssetCode).IsUnique();

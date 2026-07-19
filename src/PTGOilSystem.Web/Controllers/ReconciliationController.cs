@@ -26,7 +26,15 @@ public partial class ReconciliationController : Controller
         _purchaseAggregation = purchaseAggregation ?? new PurchaseAggregationService(db);
     }
 
-    public async Task<IActionResult> Index()
+    public IActionResult Index() => View(new ReconciliationIndexViewModel());
+
+    // Reconciliation counts are computed lazily, off the initial navigation.
+    // Each badge needs the full reconciliation logic (not a cheap COUNT(*)), so
+    // building all of them inline put ~46 sequential queries on the page-load
+    // critical path. The Index page now renders instantly and fetches the badges
+    // from here via AJAX, with a local spinner per card. No count logic changed.
+    [HttpGet]
+    public async Task<IActionResult> Summary()
     {
         var openContracts = await BuildOpenContractsAsync();
         var openShipments = await BuildOpenShipmentsAsync();
@@ -38,28 +46,36 @@ public partial class ReconciliationController : Controller
         var suspenseMoney = await BuildSuspenseMoneyAsync();
         var lossEventsCount = await _db.LossEvents.AsNoTracking().CountAsync();
 
-        return View(new ReconciliationIndexViewModel
+        var openContractsCount = openContracts.Rows.Count;
+        var openShipmentsCount = openShipments.ShipmentsWithoutSales.Count
+            + openShipments.ShipmentsWithoutExpenses.Count
+            + openShipments.DispatchesWithoutReceipt.Count;
+        var missingLedgerCount = missingLedger.SalesWithoutLedger.Count
+            + missingLedger.ExpensesWithoutLedger.Count
+            + missingLedger.PaymentsWithoutLedger.Count
+            + missingLedger.DirectSaleIssueCount
+            + missingLedger.DirectDispatchIssueCount
+            + missingLedger.InventoryIntegrityIssueCount
+            + missingLedger.SupplierPaymentIssueCount
+            + missingLedger.ServiceProviderIssueCount
+            + missingLedger.SarrafSettlementIssueCount
+            + missingLedger.OperationalAssetIssueCount;
+        var nonZeroBalancesCount = balances.ContractBalances.Count
+            + balances.CustomerBalances.Count
+            + balances.SupplierBalances.Count;
+
+        return Json(new
         {
-            OpenContractsCount = openContracts.Rows.Count,
-            ShipmentsWithoutSalesCount = openShipments.ShipmentsWithoutSales.Count,
-            ShipmentsWithoutExpensesCount = openShipments.ShipmentsWithoutExpenses.Count,
-            DispatchesWithoutReceiptCount = openShipments.DispatchesWithoutReceipt.Count,
-            MissingLedgerCount = missingLedger.SalesWithoutLedger.Count
-                + missingLedger.ExpensesWithoutLedger.Count
-                + missingLedger.PaymentsWithoutLedger.Count
-                + missingLedger.DirectSaleIssueCount
-                + missingLedger.DirectDispatchIssueCount
-                + missingLedger.InventoryIntegrityIssueCount
-                + missingLedger.SupplierPaymentIssueCount
-                + missingLedger.ServiceProviderIssueCount
-                + missingLedger.SarrafSettlementIssueCount
-                + missingLedger.OperationalAssetIssueCount,
-            NonZeroBalancesCount = balances.ContractBalances.Count + balances.CustomerBalances.Count + balances.SupplierBalances.Count,
-            LossEventsCount = lossEventsCount,
-            IncompleteAfterReceiptCount = incompleteAfterReceipt.TotalCount,
-            EmployeeIssueCount = employeeIssues.TotalCount,
-            RoznamchaIssueCount = roznamchaIssues.TotalCount,
-            SuspenseMoneyCount = suspenseMoney.TotalCount
+            openContracts = openContractsCount,
+            openShipments = openShipmentsCount,
+            incompleteAfterReceipt = incompleteAfterReceipt.TotalCount,
+            missingLedger = missingLedgerCount,
+            nonZeroBalances = nonZeroBalancesCount,
+            financeIssues = missingLedgerCount + nonZeroBalancesCount,
+            lossEvents = lossEventsCount,
+            employeeIssues = employeeIssues.TotalCount,
+            roznamchaIssues = roznamchaIssues.TotalCount,
+            suspenseMoney = suspenseMoney.TotalCount
         });
     }
 

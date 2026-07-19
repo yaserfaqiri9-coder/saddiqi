@@ -1315,11 +1315,14 @@
 .ptg-havatar-ring {
     width: 2.5rem;
     height: 2.5rem;
-    padding: 0;
-    border: 0;
+    padding: 2px;
+    border: 1px solid var(--divider);
     border-radius: 999px;
-    background: transparent;
+    background: var(--background-neutral);
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     cursor: pointer;
     transition: box-shadow var(--layout-transition);
 }
@@ -1331,12 +1334,12 @@
 .ptg-havatar-ring img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
     image-rendering: auto;
     border-radius: 999px;
-    border: 1px solid var(--divider);
-    background: var(--background-neutral);
+    border: 0;
+    background: transparent;
 }
 .ptg-havatar-logout { margin: 0; padding: 0; }
 .ptg-havatar-logout .dropdown-item { width: 100%; text-align: inherit; }

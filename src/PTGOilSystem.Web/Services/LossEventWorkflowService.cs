@@ -250,6 +250,95 @@ public sealed class LossEventWorkflowService : ILossEventWorkflowService
         LossEventSubmission submission,
         CancellationToken ct = default)
     {
+        var results = await CreateBatchAsync([submission], ct);
+        return results[0];
+    }
+
+    /// <summary>
+    /// ثبت گروهی رویدادهای ضایعات با تعداد ثابت SaveChanges (مستقل از تعداد ردیف).
+    ///
+    /// مسیر تک‌ردیفی <see cref="CreateAsync"/> هم از همین متد عبور می‌کند تا هرگز دو مسیر با
+    /// رفتار متفاوت وجود نداشته باشد. ترتیب ورودی عیناً حفظ می‌شود، چون همان ترتیبِ منطقیِ
+    /// تخصیص است و شناسه‌ها و ردیف‌های Audit بر اساس آن تولید می‌شوند.
+    ///
+    /// تعداد رفت‌وبرگشت‌ها ثابت است:
+    ///   1) AddRange رویدادها و ذخیره، برای گرفتن LossEvent.Id که Audit و FK حرکت انبار به آن نیاز دارند.
+    ///   2) فقط اگر حرکت انبار لازم باشد: AddRange حرکت‌ها و ذخیره، برای گرفتن InventoryMovement.Id.
+    ///   3) ذخیره نهایی برای ردیف‌های Audit و مقداردهی LossEvent.InventoryMovementId.
+    ///
+    /// این متد تراکنش باز یا Commit نمی‌کند؛ در تراکنش فراخوان اجرا می‌شود و خطای هر ردیف
+    /// باعث Rollback کل عملیات فراخوان می‌شود.
+    /// </summary>
+    public async Task<IReadOnlyList<LossEventWorkflowResult>> CreateBatchAsync(
+        IReadOnlyList<LossEventSubmission> submissions,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(submissions);
+        if (submissions.Count == 0)
+        {
+            return Array.Empty<LossEventWorkflowResult>();
+        }
+
+        var pending = new List<PendingLossEvent>(submissions.Count);
+        foreach (var submission in submissions)
+        {
+            pending.Add(await BuildPendingLossEventAsync(submission, ct));
+        }
+
+        _db.LossEvents.AddRange(pending.Select(p => p.Event));
+        await _db.SaveChangesAsync(ct);
+
+        var movementRows = pending.Where(p => p.Movement is not null).ToList();
+        if (movementRows.Count > 0)
+        {
+            foreach (var row in movementRows)
+            {
+                row.Movement!.Notes = BuildInventoryNotes(
+                    row.Submission.Stage,
+                    $"LossEventId={row.Event.Id}"
+                        + (string.IsNullOrWhiteSpace(row.Submission.Notes) ? string.Empty : $" | {row.Submission.Notes}"));
+            }
+
+            _db.InventoryMovements.AddRange(movementRows.Select(r => r.Movement!));
+            await _db.SaveChangesAsync(ct);
+
+            foreach (var row in movementRows)
+            {
+                row.Event.InventoryMovementId = row.Movement!.Id;
+            }
+        }
+
+        foreach (var row in pending)
+        {
+            await WriteCreateAuditAsync(row, ct);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        var results = new List<LossEventWorkflowResult>(pending.Count);
+        foreach (var row in pending)
+        {
+            if (_lossAccounting is not null)
+            {
+                await _lossAccounting.TryPostLossAsync(row.Event, ct);
+            }
+
+            results.Add(new LossEventWorkflowResult(row.Event, row.Movement, row.Metrics));
+        }
+
+        return results;
+    }
+
+    private sealed record PendingLossEvent(
+        LossEventSubmission Submission,
+        LossEvent Event,
+        InventoryMovement? Movement,
+        LossEventComputation Metrics);
+
+    private async Task<PendingLossEvent> BuildPendingLossEventAsync(
+        LossEventSubmission submission,
+        CancellationToken ct)
+    {
         NormalizeSubmission(submission);
         var metrics = ComputeMetrics(
             submission.ExpectedQuantityMt,
@@ -273,10 +362,18 @@ public sealed class LossEventWorkflowService : ILossEventWorkflowService
                 Notes = BuildInventoryNotes(submission.Stage, submission.Notes)
             };
 
+            // کنترل کفایت موجودی به‌ازای هر حرکت باقی می‌ماند: یک قاعده کسب‌وکاری است که باید
+            // اثر تجمعی حرکت‌های قبلی همین دسته را هم ببیند، پس دسته‌ای‌کردن آن رفتار را عوض می‌کند.
             await _stock.EnsureSufficientStockForMovementAsync(movement, ct);
         }
 
-        var lossEvent = new LossEvent
+        var lossEvent = BuildLossEvent(submission, metrics);
+        return new PendingLossEvent(submission, lossEvent, movement, metrics);
+    }
+
+    private static LossEvent BuildLossEvent(LossEventSubmission submission, LossEventComputation metrics)
+    {
+        return new LossEvent
         {
             Stage = submission.Stage,
             ProductId = submission.ProductId,
@@ -303,21 +400,13 @@ public sealed class LossEventWorkflowService : ILossEventWorkflowService
             Reference = submission.Reference,
             Notes = submission.Notes
         };
+    }
 
-        _db.LossEvents.Add(lossEvent);
-        await _db.SaveChangesAsync(ct);
-
-        if (movement is not null)
-        {
-            movement.Notes = BuildInventoryNotes(
-                submission.Stage,
-                $"LossEventId={lossEvent.Id}" + (string.IsNullOrWhiteSpace(submission.Notes) ? string.Empty : $" | {submission.Notes}"));
-            _db.InventoryMovements.Add(movement);
-            await _db.SaveChangesAsync(ct);
-
-            lossEvent.InventoryMovementId = movement.Id;
-            await _db.SaveChangesAsync(ct);
-        }
+    private async Task WriteCreateAuditAsync(PendingLossEvent row, CancellationToken ct)
+    {
+        var submission = row.Submission;
+        var lossEvent = row.Event;
+        var movement = row.Movement;
 
         await _audit.LogAsync(
             nameof(LossEvent),
@@ -363,15 +452,6 @@ public sealed class LossEventWorkflowService : ILossEventWorkflowService
                     ("ReferenceDocument", movement.ReferenceDocument),
                     ("LossEventStage", submission.Stage)));
         }
-
-        await _db.SaveChangesAsync(ct);
-
-        if (_lossAccounting is not null)
-        {
-            await _lossAccounting.TryPostLossAsync(lossEvent, ct);
-        }
-
-        return new LossEventWorkflowResult(lossEvent, movement, metrics);
     }
 
     private static bool CanAffectInventory(LossEventStage stage)

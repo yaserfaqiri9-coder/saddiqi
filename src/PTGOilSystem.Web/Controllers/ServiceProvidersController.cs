@@ -8,6 +8,8 @@ using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Models.ServiceProviders;
 using PTGOilSystem.Web.Security;
+using PTGOilSystem.Web.Models.PartyStatements;
+using PTGOilSystem.Web.Services.PartyStatements;
 using ServiceProviderEntity = PTGOilSystem.Web.Models.Entities.ServiceProvider;
 
 namespace PTGOilSystem.Web.Controllers;
@@ -16,10 +18,12 @@ namespace PTGOilSystem.Web.Controllers;
 public class ServiceProvidersController : Controller
 {
     private readonly ApplicationDbContext _db;
+    private readonly IPartyStatementReadService? _partyStatements;
 
-    public ServiceProvidersController(ApplicationDbContext db)
+    public ServiceProvidersController(ApplicationDbContext db, IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
+        _partyStatements = partyStatements;
     }
 
     public async Task<IActionResult> Index(string? q = null, int page = 1)
@@ -120,7 +124,17 @@ public class ServiceProvidersController : Controller
     public async Task<IActionResult> Details(int id)
     {
         var model = await BuildProfileAsync(id);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.ServiceProvider, id),
+                new PartyStatementFilter { IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
+        return View(model);
     }
 
     [Authorize(Policy = AuthPolicies.ManageData)]

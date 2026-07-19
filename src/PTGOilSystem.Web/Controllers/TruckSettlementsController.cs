@@ -23,7 +23,7 @@ namespace PTGOilSystem.Web.Controllers;
 // موترِ خودِ شرکت (دارایی عملیاتی) کرایهٔ بیرونی ندارد؛ کرایهٔ خالص به‌عنوان مصرفِ همان حمل با
 // OperationalAssetId ثبت می‌شود که در پروفایل دارایی «عواید کرایه» شمرده می‌شود (بدون لجر — طلب خارجی نیست).
 [Authorize]
-public class TruckSettlementsController : Controller
+public partial class TruckSettlementsController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly ICurrencyConversionService _currencyConversion;

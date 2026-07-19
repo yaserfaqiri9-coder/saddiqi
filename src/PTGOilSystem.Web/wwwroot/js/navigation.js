@@ -20,9 +20,10 @@
     function initializeShellNavigation() {
         if (!document.body || document.body.dataset.shellReady === "true") return;
 
-        // Restore sidebar collapsed state (expanded two-layer sidebar is the default).
+        // Restore compact state on desktop only. Smaller screens use the
+        // complete sidebar as an off-canvas drawer.
         try {
-            if (localStorage.getItem("ptg-sidebar-collapsed") === "1") {
+            if (window.innerWidth >= 1200 && localStorage.getItem("ptg-sidebar-collapsed") === "1") {
                 document.body.classList.add("is-sidebar-collapsed");
             } else {
                 document.body.classList.remove("is-sidebar-collapsed");
@@ -35,7 +36,7 @@
             button.dataset.shellToggleReady = "true";
 
             button.addEventListener("click", function () {
-                if (window.innerWidth >= 992) {
+                if (window.innerWidth >= 1200) {
                     document.body.classList.toggle("is-sidebar-collapsed");
                     try {
                         localStorage.setItem("ptg-sidebar-collapsed",
@@ -62,6 +63,14 @@
             button.dataset.navGroupReady = "true";
 
             button.addEventListener("click", function () {
+                // Expand the compact rail before opening a labeled submenu.
+                if (window.innerWidth >= 1200 && document.body.classList.contains("is-sidebar-collapsed")) {
+                    document.body.classList.remove("is-sidebar-collapsed");
+                    try {
+                        localStorage.setItem("ptg-sidebar-collapsed", "0");
+                    } catch (_) {}
+                }
+
                 var group = button.closest("[data-nav-group]");
                 if (!group) return;
 
@@ -84,7 +93,7 @@
         if (window.PTG.shellResizeReady !== true) {
             window.PTG.shellResizeReady = true;
             window.addEventListener("resize", function () {
-                if (window.innerWidth >= 992) {
+                if (window.innerWidth >= 1200) {
                     closeShellNavigation();
                 } else {
                     document.body.classList.remove("is-sidebar-collapsed");

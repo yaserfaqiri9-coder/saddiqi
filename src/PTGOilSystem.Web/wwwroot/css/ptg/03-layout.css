@@ -38,6 +38,19 @@ body.boltz-shell.app-shell-authenticated .ptg-app {
     scrollbar-color: rgba(143, 145, 165, .42) transparent;
 }
 
+/* Keep the desktop sidebar flush with the viewport edge while preserving the
+   page gutter on the content side. Logical spacing supports both RTL and LTR. */
+@media (min-width: 1200px) {
+    body.boltz-shell.app-shell-authenticated .ptg-app {
+        padding-inline-start: 0;
+        gap: var(--layout-shell-gap);
+    }
+
+    body.boltz-shell.app-shell-authenticated .boltz-topbar-start {
+        margin-inline-start: calc(0px - var(--layout-shell-gap));
+    }
+}
+
 body.boltz-shell.app-shell-authenticated .ptg-app::-webkit-scrollbar {
     width: 7px;
 }

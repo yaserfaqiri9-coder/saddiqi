@@ -1,19 +1,19 @@
 @model DailyFxRate
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] = UiText.T(Context, "جزئیات نرخ ارز", "Daily FX Rate Details");
+    ViewData["AkHeaderContext"] = $"{Model.BaseCurrency}/{Model.QuoteCurrency} · {Model.RateDate.ToDisplayDate()}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = UiText.T(Context, "ویرایش", "Edit"), Href = Url.Action("Edit", new { id = Model.Id }), Icon = "bi-pencil" }
+    };
 }
 
-<div class="ak-form-page ak-detail-page">
-    <div class="ak-page-header ak-detail-header">
-        <div class="ak-page-heading ak-detail-header-main">
-<h1 class="ak-page-title ak-detail-title">@UiText.T(Context, "جزئیات نرخ ارز", "Daily FX Rate Details")</h1>
-            <p class="ak-note ak-detail-subtitle">@UiText.T(Context, "نرخ ثبت‌شده بین ارز پایه و ارز مقصد با منبع آن.", "Registered rate between the base and quote currency with its source.")</p>
-        </div>
-        <div class="ak-page-actions ak-detail-actions">
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn ak-primary-action">@UiText.T(Context, "ویرایش", "Edit")</a>
-            <a asp-action="Index" class="btn ak-secondary-action">@UiText.T(Context, "بازگشت", "Back")</a>
-        </div>
-    </div>
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جزئیات نرخ ارز", "Daily FX Rate Details"), false,
+                       (string?)null, (string?)null, (string?)null, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
 
     <div class="summary-strip ak-detail-summary">
         <div class="summary-tile"><div class="summary-tile-label">@UiText.T(Context, "تاریخ", "Date")</div><div class="summary-tile-value">@Model.RateDate.ToDisplayDate()</div></div>

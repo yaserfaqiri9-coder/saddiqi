@@ -9,8 +9,6 @@
                        (string?)null, (string?)null, (string?)null, (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Details", "ContractJourney", new { contractId })))" />
     <p class="ak-note">قرارداد: <strong>@ViewBag.ContractNumber</strong> — جنس: <strong>@ViewBag.ProductName</strong></p>
-    <div class="ak-page-actions"><button type="button" class="btn ak-secondary-action" onclick="window.print()">چاپ</button></div>
-
     @if (!Model.Any())
     {
         <div class="ak-empty"><i class="bi bi-info-circle-fill"></i><div>هیچ رکورد بارگیری برای این قرارداد ثبت نشده است.</div></div>

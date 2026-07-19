@@ -1512,7 +1512,7 @@ public class ReportsControllerTests
         Assert.Equal(800m, balances.CustomerReceivableUsd);
         Assert.Equal(600m, balances.SupplierPayableUsd);
         Assert.Equal(250m, balances.ServiceProviderPayableUsd);
-        Assert.Equal(300m, balances.SarrafBalanceUsd);
+        Assert.Equal(-300m, balances.SarrafBalanceUsd);
 
         var inventory = Assert.IsType<InventoryOperationsReportViewModel>(
             Assert.IsType<ViewResult>(await controller.InventoryOperations(filter)).Model);

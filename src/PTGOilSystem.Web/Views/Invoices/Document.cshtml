@@ -41,7 +41,10 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="~/css/boltz-invoice.css" asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/boltz-invoice.css"
+          asp-append-version="true"
+          data-ptg-page-asset="invoice-document" />
 }
 
 <div class="boltz-invoice-page @($"boltz-invoice-{Model.Tone}")" dir="@pageDirection">
@@ -59,10 +62,6 @@
             <i class="bi bi-arrow-right"></i>
             @T("بازگشت", "Back")
         </a>
-        <button type="button" class="btn btn-primary" onclick="window.print()">
-            <i class="bi bi-printer"></i>
-            @T("چاپ سند", "Print")
-        </button>
     </div>
 
     <article class="boltz-invoice-card">

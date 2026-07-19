@@ -24,8 +24,8 @@
 <div class="ak-list-page finance-workspace-page chart-of-accounts-page">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "سرفصل حساب‌ها", "Chart of Accounts"), false,
-                       UiText.T(Context, "دفتر کل", "General Ledger"), "bi-journal-text", Url.Action("Index", "Ledger"), (string?)null,
-                       (string?)null, (string?)null, (string?)null))" />
+                       UiText.T(Context, "حساب جدید", "New account"), "bi-plus-lg", Url.Action("Create", "ChartOfAccounts"), (string?)null,
+                       UiText.T(Context, "دفتر کل", "General Ledger"), "bi-journal-text", Url.Action("Index", "Ledger")))" />
 
     <p class="finance-page-lead">
         @UiText.T(Context,
@@ -35,22 +35,6 @@
 
     <section class="ak-list" aria-label="@UiText.T(Context, "فهرست سرفصل حساب‌ها", "Chart of accounts list")">
         <form method="get" class="coa-toolbar" role="search">
-            <label class="coa-field">
-                <span>@UiText.T(Context, "شرکت", "Company")</span>
-                <select class="form-select" name="companyId" disabled="@(!Model.Companies.Any() ? "disabled" : null)">
-                    @if (!Model.Companies.Any())
-                    {
-                        <option>@UiText.T(Context, "هیچ شرکتی دارای حساب نیست", "No company has accounts")</option>
-                    }
-                    @foreach (var company in Model.Companies)
-                    {
-                        <option value="@company.CompanyId" selected="@(company.IsSelected ? "selected" : null)">
-                            @UiText.T(Context, $"شرکت #{company.CompanyId}", $"Company #{company.CompanyId}")
-                        </option>
-                    }
-                </select>
-            </label>
-
             <label class="coa-field coa-search-field">
                 <span>@UiText.T(Context, "جستجو", "Search")</span>
                 <input class="form-control"
@@ -59,28 +43,28 @@
                        value="@Model.Search"
                        autocomplete="off"
                        placeholder="@UiText.T(Context, "کد، نام یا حساب والد…", "Code, name or parent account…")"
-                       disabled="@(!Model.Companies.Any() ? "disabled" : null)" />
+                       disabled="@(Model.OwnerCompanyId is null ? "disabled" : null)" />
             </label>
 
             <div class="coa-toolbar-actions">
-                <button type="submit" class="btn btn-primary" disabled="@(!Model.Companies.Any() ? "disabled" : null)">
+                <button type="submit" class="btn btn-primary" disabled="@(Model.OwnerCompanyId is null ? "disabled" : null)">
                     @UiText.T(Context, "نمایش", "Show")
                 </button>
                 @if (!string.IsNullOrWhiteSpace(Model.Search))
                 {
-                    <a class="btn btn-light" asp-action="Index" asp-route-companyId="@Model.SelectedCompanyId">
+                    <a class="btn btn-light" asp-action="Index">
                         @UiText.T(Context, "پاک‌کردن", "Clear")
                     </a>
                 }
             </div>
         </form>
 
-        @if (!Model.Companies.Any())
+        @if (Model.OwnerCompanyId is null)
         {
             <div class="ak-empty coa-empty">
                 <i class="bi bi-diagram-3" aria-hidden="true"></i>
-                <strong>@UiText.T(Context, "هنوز سرفصل حسابی ثبت نشده است", "No chart of accounts exists yet")</strong>
-                <span>@UiText.T(Context, "برای نمایش، باید حسابی در هسته حسابداری جدید موجود باشد.", "An account must exist in the new accounting core before it can be displayed here.")</span>
+                <strong>@UiText.T(Context, "شرکت مالک سیستم تعیین نشده است", "The system owner company is not configured")</strong>
+                <span>@UiText.T(Context, "تا وقتی شرکت مالک تعیین نشود، سرفصل حساب‌ها قابل نمایش یا ایجاد نیست.", "Until an owner company is configured, the chart of accounts cannot be shown or created.")</span>
             </div>
         }
         else if (!Model.Items.Any())
@@ -146,8 +130,8 @@
             <footer class="coa-list-footer">
                 <span>
                     @UiText.T(Context,
-                        $"{Model.TotalCount:N0} حساب برای شرکت #{Model.SelectedCompanyId}",
-                        $"{Model.TotalCount:N0} accounts for company #{Model.SelectedCompanyId}")
+                        $"{Model.TotalCount:N0} حساب",
+                        $"{Model.TotalCount:N0} accounts")
                 </span>
                 @await Html.PartialAsync("_Pagination", (Model.CurrentPage, Model.PageCount))
             </footer>

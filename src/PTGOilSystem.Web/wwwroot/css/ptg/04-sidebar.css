@@ -1,15 +1,11 @@
 /*
- * PTG sidebar — Akaunting two-rail model.
+ * PTG sidebar — compact menu panel.
  *
- *   .ak-rail      56px   #DCE2F9   global toolbar (brand + quick actions + logout)
- *   .ak-navpanel  248px  #F2F4FC   main menu (icon + label + inline submenus)
+ *   .ak-navpanel  232px  #F2F4FC   main menu (icon + label + inline submenus)
  *   ------------------------------------------------------------------
- *   desktop sidebar column = 304px  (rail 56 + panel 248)
+ *   desktop sidebar column = 288px
  *
- * The panel is 248px, not 224px: at 224px a group row left only ~90px for the
- * label, so Persian items ("طرف حساب‌ها", "تعاریف پایه") hit the ellipsis.
- *
- * Collapsed (desktop): the 248px panel is dropped; only the 56px rail remains.
+ * Collapsed (desktop): the panel becomes a 64px icon rail.
  * Mobile / tablet: the whole sidebar becomes an off-canvas drawer.
  * All geometry uses logical properties so RTL keeps the sidebar on the right,
  * with the rail on the outer edge and the panel toward the content.
@@ -156,7 +152,7 @@ body.boltz-shell.app-shell-authenticated .ak-rail-btn-danger:focus-visible {
 }
 
 /* ============================================================= *
- * 224px menu panel
+ * 232px menu panel
  * ============================================================= */
 body.boltz-shell.app-shell-authenticated .sidebar-panel,
 body.boltz-shell.app-shell-authenticated .ak-navpanel {
@@ -175,7 +171,7 @@ body.boltz-shell.app-shell-authenticated .boltz-sidebar-scroll {
     min-block-size: 100vh;
     max-block-size: 100vh;
     gap: 18px;
-    padding: 22px 12px;
+    padding: 22px 6px;
     background: transparent;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -252,9 +248,9 @@ body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link {
     justify-content: flex-start;
     inline-size: 100%;
     min-block-size: 44px;
-    gap: 10px;
+    gap: 6px;
     padding-block: 6px;
-    padding-inline: 10px;
+    padding-inline: 6px;
     border: 0 !important;
     border-radius: 8px;
     background: transparent !important;
@@ -268,12 +264,12 @@ body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link {
                 color var(--ptg-motion-fast) ease-out;
 }
 
-/* Icon container 32px with a 24px glyph */
+/* Compact icon container leaves more room for Persian labels. */
 body.boltz-shell.app-shell-authenticated .ptg-nav-ic {
     display: grid;
     place-items: center;
-    flex: 0 0 28px;
-    inline-size: 28px;
+    flex: 0 0 24px;
+    inline-size: 24px;
     block-size: 28px;
     margin: 0;
     background: transparent !important;
@@ -285,8 +281,8 @@ body.boltz-shell.app-shell-authenticated .ptg-nav-ic {
 
 body.boltz-shell.app-shell-authenticated .ptg-nav-ic > svg {
     display: block;
-    inline-size: 22px;
-    block-size: 22px;
+    inline-size: 20px;
+    block-size: 20px;
     color: var(--ptg-sidebar-icon);
     stroke-width: 1.9;
 }
@@ -294,12 +290,15 @@ body.boltz-shell.app-shell-authenticated .ptg-nav-ic > svg {
 body.boltz-shell.app-shell-authenticated .boltz-nav-link > span,
 body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link span {
     flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-inline-size: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: break-word;
     color: var(--ptg-sidebar-ink) !important;
     font-size: 15px;
     font-weight: 500;
+    line-height: 1.35;
     letter-spacing: 0;
 }
 
@@ -308,15 +307,15 @@ body.boltz-shell.app-shell-authenticated .ptg-nav-arrow {
     display: grid;
     place-items: center;
     flex: 0 0 auto;
-    inline-size: 18px;
+    inline-size: 14px;
     block-size: 18px;
     color: var(--primary-light);
     transition: transform 0.3s ease;
 }
 
 body.boltz-shell.app-shell-authenticated .ptg-nav-arrow > svg {
-    inline-size: 16px;
-    block-size: 16px;
+    inline-size: 14px;
+    block-size: 14px;
 }
 
 body.boltz-shell.app-shell-authenticated .ptg-has-sub.is-open > .boltz-nav-group-toggle .ptg-nav-arrow {
@@ -387,7 +386,7 @@ body.boltz-shell.app-shell-authenticated .boltz-nav-sub::before {
     content: "";
     position: absolute;
     inset-block: 4px;
-    inset-inline-start: 19px;
+    inset-inline-start: 15px;
     inline-size: 1px;
     background: var(--ptg-sidebar-line);
 }
@@ -401,20 +400,22 @@ body.boltz-shell.app-shell-authenticated .boltz-nav-sublink {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-block-size: 34px;
     margin-block-start: 2px;
     padding-block: 5px;
-    padding-inline-start: 36px;
-    padding-inline-end: 8px;
+    padding-inline-start: 28px;
+    padding-inline-end: 4px;
     border-radius: 8px;
     color: #6C6E88;
     font-size: 14px;
     font-weight: 500;
     text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: break-word;
+    line-height: 1.35;
     transition: background-color var(--ptg-motion-fast) ease-out,
                 color var(--ptg-motion-fast) ease-out;
 }
@@ -422,9 +423,9 @@ body.boltz-shell.app-shell-authenticated .boltz-nav-sublink {
 /* horizontal tick joining the connector line to the item */
 body.boltz-shell.app-shell-authenticated .ptg-nav-dot {
     position: absolute;
-    inset-inline-start: 19px;
+    inset-inline-start: 15px;
     inset-block-start: 50%;
-    inline-size: 10px;
+    inline-size: 8px;
     block-size: 1px;
     transform: translateY(-50%);
     background: var(--ptg-sidebar-line);
@@ -445,7 +446,7 @@ body.boltz-shell.app-shell-authenticated .boltz-nav-sublink.is-active {
 
 body.boltz-shell.app-shell-authenticated .boltz-nav-sublink.is-active .ptg-nav-dot {
     background: var(--ptg-sidebar-accent);
-    inline-size: 12px;
+    inline-size: 10px;
 }
 
 /* ---- Footer (change password / logout) ---- */
@@ -477,15 +478,61 @@ body.boltz-shell.app-shell-authenticated .boltz-sidebar-foot-link-danger:focus-v
 }
 
 /* ============================================================= *
- * Collapsed (desktop ≥992): drop the 224px panel, keep the rail.
+ * Collapsed (desktop >=1200): keep the menu as a 64px icon rail.
  * ============================================================= */
-@media (min-width: 992px) {
+@media (min-width: 1200px) {
     body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-sidebar {
         inline-size: var(--layout-sidebar-mini);
     }
 
     body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ak-navpanel {
+        display: flex;
+        flex-basis: var(--layout-sidebar-mini);
+        inline-size: var(--layout-sidebar-mini);
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-sidebar-scroll {
+        gap: 10px;
+        padding: 14px 6px 12px;
+        overflow-x: hidden;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-brand {
         display: none;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-nav-link,
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-sidebar-foot-link {
+        justify-content: center;
+        min-block-size: 48px;
+        gap: 0;
+        padding-inline: 6px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-nav-ic {
+        flex-basis: 32px;
+        inline-size: 32px;
+        block-size: 32px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-nav-ic > svg {
+        inline-size: 24px;
+        block-size: 24px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-nav-link > span,
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-sidebar-foot-link span,
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .ptg-nav-arrow,
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-nav-sub {
+        display: none;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-sidebar-foot {
+        padding-block-start: 8px;
+    }
+
+    body.boltz-shell.app-shell-authenticated.is-sidebar-collapsed .boltz-sidebar-foot form {
+        inline-size: 100%;
     }
 }
 

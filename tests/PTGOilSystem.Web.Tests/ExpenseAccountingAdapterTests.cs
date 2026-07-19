@@ -390,7 +390,7 @@ public sealed class ExpenseAccountingAdapterTests(AccountingPostgreSqlFixture fi
         });
         return new ExpenseAccountingAdapter(
             db,
-            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options),
+            new AccountingPostingService(db, new PeriodGuard(db, new FiscalCalendarService(db)), options, new SystemCompanyProvider(db)),
             new AccountingJournalNumberGenerator(),
             options,
             NullLogger<ExpenseAccountingAdapter>.Instance);

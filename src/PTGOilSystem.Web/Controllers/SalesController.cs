@@ -508,6 +508,7 @@ public partial class SalesController : Controller
     public async Task<IActionResult> Index([FromQuery] SalesIndexFilterViewModel? filter = null, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
         filter ??= new SalesIndexFilterViewModel();
 
         var query = _db.SalesTransactions
@@ -558,8 +559,8 @@ public partial class SalesController : Controller
         var items = await query
             .OrderByDescending(s => s.SaleDate)
             .ThenByDescending(s => s.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(s => new SalesListItemViewModel
             {
                 Id = s.Id,

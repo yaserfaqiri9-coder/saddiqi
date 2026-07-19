@@ -23,40 +23,33 @@ namespace PTGOilSystem.Web.Controllers;
 [Route("accounting/closing-checklist")]
 public class ClosingChecklistController(
     IClosingChecklistService checklist,
-    ApplicationDbContext db) : Controller
+    ApplicationDbContext db,
+    ISystemCompanyProvider systemCompany) : Controller
 {
     [HttpGet("")]
-    public async Task<IActionResult> Index(int? companyId, int? fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(int? fiscalYearId, CancellationToken cancellationToken)
     {
-        var companies = await db.Companies.AsNoTracking()
-            .Where(c => c.IsActive)
-            .OrderBy(c => c.Code)
-            .Select(c => new { c.Id, c.Name })
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var ownerName = await db.Companies.AsNoTracking()
+            .Where(c => c.Id == ownerCompanyId).Select(c => c.Name).FirstAsync(cancellationToken);
+
+        var years = await db.FiscalYears.AsNoTracking()
+            .Where(y => y.CompanyId == ownerCompanyId)
+            .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
+            .Select(y => new { y.Id, y.Name })
             .ToListAsync(cancellationToken);
-
-        var selectedCompany = companyId is int cid && companies.Any(c => c.Id == cid)
-            ? cid
-            : companies.Select(c => (int?)c.Id).FirstOrDefault();
-
-        var years = selectedCompany is int scid
-            ? await db.FiscalYears.AsNoTracking()
-                .Where(y => y.CompanyId == scid)
-                .OrderByDescending(y => y.StartDate).ThenByDescending(y => y.Id)
-                .Select(y => new { y.Id, y.Name })
-                .ToListAsync(cancellationToken)
-            : new();
 
         var selectedYear = fiscalYearId is int fyid && years.Any(y => y.Id == fyid)
             ? fyid
             : years.Select(y => (int?)y.Id).FirstOrDefault();
 
-        var report = selectedCompany is int c2 && selectedYear is int y2
-            ? await checklist.BuildAsync(c2, y2, cancellationToken)
+        var report = selectedYear is int y2
+            ? await checklist.BuildAsync(ownerCompanyId, y2, cancellationToken)
             : null;
 
         var model = new ClosingChecklistPageViewModel(
-            companies.Select(c => new ClosingChecklistCompanyOption(c.Id, c.Name, c.Id == selectedCompany)).ToList(),
-            selectedCompany,
+            new List<ClosingChecklistCompanyOption> { new(ownerCompanyId, ownerName, true) },
+            ownerCompanyId,
             years.Select(y => new ClosingChecklistYearOption(y.Id, y.Name, y.Id == selectedYear)).ToList(),
             selectedYear,
             report);
@@ -65,17 +58,19 @@ public class ClosingChecklistController(
     }
 
     [HttpGet("json")]
-    public async Task<IActionResult> Json(int companyId, int fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Json(int fiscalYearId, CancellationToken cancellationToken)
     {
-        var report = await checklist.BuildAsync(companyId, fiscalYearId, cancellationToken);
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var report = await checklist.BuildAsync(ownerCompanyId, fiscalYearId, cancellationToken);
         return report is null ? NotFound() : Json(report);
     }
 
     [HttpGet("csv")]
     [EnableRateLimiting(RateLimitPolicies.CsvExport)]
-    public async Task<IActionResult> Csv(int companyId, int fiscalYearId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Csv(int fiscalYearId, CancellationToken cancellationToken)
     {
-        var report = await checklist.BuildAsync(companyId, fiscalYearId, cancellationToken);
+        var ownerCompanyId = await systemCompany.GetOwnerCompanyIdAsync(cancellationToken);
+        var report = await checklist.BuildAsync(ownerCompanyId, fiscalYearId, cancellationToken);
         if (report is null)
             return NotFound();
 
@@ -97,7 +92,7 @@ public class ClosingChecklistController(
         }
 
         var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
-        return File(bytes, "text/csv", $"closing-checklist-{companyId}-{fiscalYearId}.csv");
+        return File(bytes, "text/csv", $"closing-checklist-{ownerCompanyId}-{fiscalYearId}.csv");
     }
 
     // نقل‌قول‌گذاری استاندارد CSV: هر فیلد در گیومه، و گیومهٔ داخلی دوبار می‌شود.

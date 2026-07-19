@@ -1,53 +1,68 @@
 @model PTGOilSystem.Web.Models.Employees.EmployeeDetailsViewModel
 @using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] = "پروفایل کارمند";
     ViewData["HideSectionTabs"] = true;
     var notRecorded = "ثبت نشده";
     var summary = Model.Summary;
+    var activeTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeTab = activeTab is "finance" or "activity" ? activeTab : "overview";
+    var showOverview = activeTab == "overview";
+    var showFinance = activeTab == "finance";
+    var showActivity = activeTab == "activity";
 
-    var bal = summary.BalanceUsd;
-    var balanceLabel = bal > 0 ? "قابل پرداخت به کارمند" : bal < 0 ? "بدهی کارمند به شرکت" : "حساب تسویه است";
+    var officialSummary = ViewData["PartyStatementSummary"] as PTGOilSystem.Web.Models.PartyStatements.PartyStatementSummary;
+    var bal = officialSummary?.ClosingBalance ?? summary.BalanceUsd;
+    var balanceLabel = officialSummary?.ClosingBalanceMeaning
+        ?? (bal > 0 ? "قابل پرداخت به کارمند" : bal < 0 ? "بدهی کارمند به شرکت" : "حساب تسویه است");
     var balanceClass = bal > 0 ? "ak-num" : bal < 0 ? "ak-num" : "";
 
     var dates = new List<DateTime>();
     dates.AddRange(Model.Transactions.Select(t => t.TransactionDate));
     dates.AddRange(Model.RoznamchaPayments.Select(p => p.PaymentDate));
     var lastActivity = dates.Count > 0 ? dates.Max() : (DateTime?)null;
-    var recentTx = Model.Transactions.Take(5).ToList();
+    const int transactionPageSize = 8;
+    var transactionPageCount = Math.Max(1, (int)Math.Ceiling(Model.Transactions.Count / (double)transactionPageSize));
+    var transactionPage = Context.Request.Query.TryGetValue("transactionPage", out var transactionPageRaw)
+        && int.TryParse(transactionPageRaw.FirstOrDefault(), out var requestedTransactionPage)
+        ? Math.Clamp(requestedTransactionPage, 1, transactionPageCount)
+        : 1;
+    var recentTx = Model.Transactions
+        .OrderByDescending(row => row.TransactionDate)
+        .Skip((transactionPage - 1) * transactionPageSize)
+        .Take(transactionPageSize)
+        .ToList();
 
     var salaryUrl = Url.Action("CreateSalaryTransaction", new { id = Model.Id, returnUrl = Context.Request.Path }) ?? "#";
     var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
     var indexUrl = Url.Action("Index") ?? "#";
+    ViewData["AkHeaderStatus"] = Model.IsActive ? "فعال" : "غیرفعال";
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = $"کد: {Model.EmployeeCode} · {balanceLabel}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = "صورت‌حساب رسمی", Href = Url.Action("Employee", "PartyStatements", new { id = Model.Id }), Icon = "bi-file-earmark-text" },
+        new() { Label = "ویرایش", Href = editUrl, Icon = "bi-pencil" }
+    };
 
     var employeeTabs = new[]
     {
-        "#employee-overview|خلاصه حساب|bi-grid-1x2|active",
-        "#employee-finance|معاش و پرداخت‌ها|bi-cash-stack|",
-        "#employee-activity|فعالیت و یادداشت|bi-clock-history|"
+        $"overview|خلاصه حساب|bi-grid-1x2|{(showOverview ? "active" : "")}",
+        $"finance|معاش و پرداخت‌ها|bi-cash-stack|{(showFinance ? "active" : "")}",
+        $"activity|فعالیت و یادداشت|bi-clock-history|{(showActivity ? "active" : "")}"
     };
 }
 
-<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.FullName, false,
                        "ثبت تراکنش معاش", "bi-plus-lg", salaryUrl, (string?)null,
                        "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
 
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
-        <div class="dropdown ak-row-menu">
-            <button type="button" class="ak-row-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="عملیات">
-                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="@editUrl"><i class="bi bi-pencil"></i> ویرایش</a></li>
-                <li><a class="dropdown-item" href="@salaryUrl"><i class="bi bi-plus-lg"></i> ثبت تراکنش معاش</a></li>
-            </ul>
-        </div>
-    </div>
+    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل کارمند", employeeTabs)" />
 
-    <div class="ak-form-grid">
+    <div class="ak-form-grid" hidden="@(!showOverview)">
         <section class="ak-form-section ak-detail-section">
             <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات هویتی", (string?)null))" />
             <dl class="ak-list">
@@ -80,10 +95,8 @@
         </section>
     </div>
 
-    <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های پروفایل کارمند", employeeTabs)" />
-
     @* ===== تب ۱: خلاصه — آخرین تراکنش‌ها ===== *@
-    <section id="employee-overview" class="ak-form-section ak-detail-section">
+    <section id="employee-overview" class="ak-form-section ak-detail-section" hidden="@(!showOverview)">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("آخرین تراکنش‌های معاش", "پنج تراکنش آخر."))" />
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">
@@ -116,10 +129,11 @@
                 </tbody>
             </table>
         </div>
+        <partial name="~/Views/Shared/Partials/_DetailPager.cshtml" model="@((transactionPage, transactionPageCount, "transactionPage", (string?)"employee-overview"))" />
     </section>
 
     @* ===== تب ۲: معاش و پرداخت‌ها ===== *@
-    <section id="employee-finance" class="ak-form-section ak-detail-section">
+    <section id="employee-finance" class="ak-form-section ak-detail-section" hidden="@(!showFinance)">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("تراکنش‌های معاش", $"{Model.Transactions.Count:N0}"))" />
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">
@@ -224,7 +238,7 @@
     </section>
 
     @* ===== تب ۳: فعالیت و یادداشت ===== *@
-    <section id="employee-activity" class="ak-form-section ak-detail-section">
+    <section id="employee-activity" class="ak-form-section ak-detail-section" hidden="@(!showActivity)">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("فعالیت‌های ثبت‌شده", $"{Model.AuditItems.Count:N0}"))" />
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">

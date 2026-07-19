@@ -1,0 +1,36 @@
+@model IReadOnlyList<PTGOilSystem.Web.Models.PartyStatements.PartyStatementRow>
+@{
+    string Money(decimal? value) => value.HasValue ? value.Value.ToString("N2") : "—";
+}
+
+<div class="ak-table-wrap">
+    <table class="ak-table ak-detail-table">
+        <thead>
+            <tr>
+                <th>تاریخ</th>
+                <th>مرجع</th>
+                <th class="ak-col-grow">شرح</th>
+                <th class="ak-col-num">بدهکار USD</th>
+                <th class="ak-col-num">بستانکار USD</th>
+                <th class="ak-col-num">مانده USD</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model)
+        {
+            <tr>
+                <td>@row.Date.ToDisplayDate()</td>
+                <td>@(row.Reference ?? "—")</td>
+                <td class="ak-col-grow">@row.Description</td>
+                <td class="ak-col-num ak-num">@Money(row.DebitBase)</td>
+                <td class="ak-col-num ak-num">@Money(row.CreditBase)</td>
+                <td class="ak-col-num ak-num">@Money(row.RunningBalance)</td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="6"><div class="ak-empty ak-detail-empty-state"><i class="bi bi-journal-text"></i> هنوز حرکت مالی ثبت نشده است.</div></td></tr>
+        }
+        </tbody>
+    </table>
+</div>

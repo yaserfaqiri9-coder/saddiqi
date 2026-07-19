@@ -6,6 +6,9 @@ namespace PTGOilSystem.Web.Infrastructure.RateLimiting;
 /// </summary>
 public static class RateLimitPolicies
 {
+    /// <summary>ورود: جلوگیری از ارسال هم‌زمان و درخواست‌های پیاپی از یک IP.</summary>
+    public const string Login = "login";
+
     /// <summary>خروجی‌های CSV — سنگین‌ترین مسیرها از نظر حافظه و زمان.</summary>
     public const string CsvExport = "csv-export";
 

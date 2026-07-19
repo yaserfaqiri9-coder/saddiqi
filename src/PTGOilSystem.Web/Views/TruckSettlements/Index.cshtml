@@ -18,6 +18,7 @@
             <h1 class="ak-page-title">@UiText.T(Context, "تسویهٔ کرایه موترها", "Truck Freight Settlement")</h1>
         </div>
         <div class="ak-page-actions">
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
             <button type="button" class="btn btn-light ak-secondary-action" id="tsToolsToggle" aria-expanded="false" aria-controls="tsToolsPanel">
                 <i class="bi bi-sliders" aria-hidden="true"></i>
                 <span>@UiText.T(Context, "ابزارها", "Tools")</span>
@@ -28,6 +29,12 @@
             </button>
         </div>
     </header>
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار تسویه موترها", "Truck settlement statistics")">
+        <vc:stat-card title="@UiText.T(Context, "ردیف‌های آماده تسویه", "Rows ready to settle")" value="@Model.Rows.Count.ToString("N0")" unit="@UiText.T(Context, "ردیف", "rows")" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مقدار باقی‌مانده", "Remaining quantity")" value="@NumberDisplay.Quantity(Model.Rows.Sum(x => x.RemainingQuantityMt))" unit="MT" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "حمل موجودی", "Inventory transports")" value="@Model.Rows.Count(x => x.Kind == TruckSettlementSourceKind.Leg).ToString("N0")" unit="@UiText.T(Context, "حمل", "transports")" avatar="transported"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ارسال موتر", "Truck dispatches")" value="@Model.Rows.Count(x => x.Kind != TruckSettlementSourceKind.Leg).ToString("N0")" unit="@UiText.T(Context, "ارسال", "dispatches")" avatar="shipments"></vc:stat-card>
+    </section>
     <div class="ak-list">
         @* ابزارها و آپلود اکسل: دکمهٔ باز/بسته «ابزارها» در هدر صفحه است (tsToolsToggle).
            پنل زیر بیرون از فرمِ تسویه می‌ماند چون خودش فرمِ آپلود دارد و فرم‌ها تودرتو نمی‌شوند. *@
@@ -137,8 +144,7 @@
                         {
                             var row = Model.Rows[i];
                             var input = Model.Inputs[i];
-                            <tr class="ak-list-row"
-                                data-ts-row="@row.RowKey"
+                            <tr data-ts-row="@row.RowKey"
                                 data-ts-row-index="@i"
                                 data-ts-row-kind="@((int)row.Kind)"
                                 data-ts-remaining="@DecimalRequired(row.RemainingQuantityMt)"

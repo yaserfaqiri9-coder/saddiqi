@@ -152,7 +152,6 @@
 
         <footer class="ak-footer-actions no-print">
             <button type="submit" class="btn ak-primary-action" data-submit-action><i class="bi bi-floppy"></i>@T("ثبت همه بارگیری‌ها", "Save all loadings")</button>
-            <button type="button" class="btn ak-secondary-action is-outline" data-print-list><i class="bi bi-printer"></i>@T("ثبت و چاپ لیست بارگیری", "Save and print loading list")</button>
             <a href="@cancelUrl" class="btn ak-secondary-action is-neutral">@T("انصراف", "Cancel")</a>
         </footer>
     </form>
@@ -257,11 +256,6 @@
                 } catch {
                     status.textContent = 'اجازه خواندن Clipboard داده نشد؛ جدول اکسل را مستقیم داخل اولین خانه Paste کنید.';
                 }
-            });
-            form.querySelector('[data-print-list]')?.addEventListener('click', () => {
-                if (!form.reportValidity()) return;
-                window.print();
-                form.requestSubmit(form.querySelector('[data-submit-action]'));
             });
             bindRows();
             refresh();

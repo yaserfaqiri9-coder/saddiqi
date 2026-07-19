@@ -267,6 +267,9 @@
 }
 
 @media (max-width: 899px) {
+    .ak-detail-page .ak-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .ak-stat-card__value--compact { font-size: 20px; }
     .ak-stat-card__value--dense { font-size: 17px; }
     .ak-stat-card__value--ultra { font-size: 14px; }
@@ -274,6 +277,9 @@
 
 @media (max-width: 599px) {
     .ak-stat-grid { grid-template-columns: minmax(0, 1fr); }
+    .ak-detail-page .ak-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .ak-stat-card {
         height: 110px;
         min-height: 106px;

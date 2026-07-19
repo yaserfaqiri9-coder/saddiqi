@@ -1,6 +1,7 @@
 @model PTGOilSystem.Web.Models.StorageTanks.StorageTankDetailsViewModel
 @using System.Globalization
 @using PTGOilSystem.Web.Models.Entities
+@using PTGOilSystem.Web.Models.Shared
 @using PTGOilSystem.Web.Models.StorageTanks
 @{
     ViewData["Title"] = UiText.T(Context, "جزئیات مخزن", "Tank Details");
@@ -13,7 +14,6 @@
         : $"/Inventory/StockCard?Filter.TerminalId={Model.TerminalId}";
     var fillPercentValue = Math.Max(0m, Math.Min(100m, Model.FillPercent));
     const int storageLedgerPageSize = 7;
-    const int contractMovementModalPageSize = 7;
     var storageLedgerTotalCount = Model.Movements.Count;
     var storageLedgerPageCount = Math.Max(1, (int)Math.Ceiling(storageLedgerTotalCount / (double)storageLedgerPageSize));
     var storageLedgerPage = Math.Min(ReadPositivePage("tankLedgerPage"), storageLedgerPageCount);
@@ -32,32 +32,6 @@
         }
 
         return page;
-    }
-
-    IEnumerable<int> PageWindow(int current, int total)
-    {
-        var start = Math.Max(1, current - 2);
-        var end = Math.Min(total, start + 4);
-        if (end - start < 4)
-        {
-            start = Math.Max(1, end - 4);
-        }
-
-        for (var i = start; i <= end; i++)
-        {
-            yield return i;
-        }
-    }
-
-    string StorageLedgerPageUrl(int page)
-    {
-        var queryParts = Context.Request.Query
-            .Where(kv => !string.Equals(kv.Key, "tankLedgerPage", StringComparison.OrdinalIgnoreCase))
-            .SelectMany(kv => kv.Value.Select(value => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(value ?? string.Empty)}"))
-            .ToList();
-
-        queryParts.Add($"tankLedgerPage={page}");
-        return $"{Context.Request.Path}?{string.Join("&", queryParts)}#tank-ledger";
     }
 
     IReadOnlyList<StorageTankMovementRowViewModel> MovementRowsFor(StorageTankContractStockBreakdownRowViewModel row, string kind)
@@ -174,28 +148,41 @@
 
     var activeContractCount = Model.ContractStockBreakdownRows.Count(row => row.BalanceQuantityMt > 0m);
     var tankStatusText = Model.IsActive ? UiText.T(Context, "فعال", "Active") : UiText.T(Context, "غیرفعال", "Inactive");
+    var activeTankTab = Context.Request.Query["tab"].ToString().Trim().ToLowerInvariant();
+    activeTankTab = activeTankTab == "ledger" ? "ledger" : "summary";
+    var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
+    ViewData["AkHeaderStatus"] = tankStatusText;
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = $"{Model.TankCode} · {UiText.T(Context, "ترمینال", "Terminal")}: {Model.TerminalName}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = UiText.T(Context, "تسویه مخزن", "Settle Tank"), Href = Url.Action("SettleFinal", new { id = Model.Id }), Icon = "bi-check2-circle" },
+        new() { Label = UiText.T(Context, "ویرایش", "Edit"), Href = editUrl, Icon = "bi-pencil" }
+    };
     var tankTabs = new[]
     {
-        "#tank-summary|قراردادها|bi-database|active",
-        "#tank-ledger|ورودی/خروجی|bi-arrow-left-right"
+        $"summary|قراردادها|bi-database|{(activeTankTab == "summary" ? "active" : "")}",
+        $"ledger|ورودی/خروجی|bi-arrow-left-right|{(activeTankTab == "ledger" ? "active" : "")}"
     };
 }
 
-<div class="ak-form-page ak-detail-page">
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "جزئیات مخزن", "Tank Details") + " " + tankName, false,
-                       UiText.T(Context, "ویرایش", "Edit"), "bi-pencil", (string?)Url.Action("Edit", new { id = Model.Id }), (string?)null,
+                       UiText.T(Context, "کارت موجودی", "Stock Card"), "bi-card-list", stockCardUrl, (string?)null,
                        UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
 
     <partial name="~/Views/Shared/Partials/_DetailsTabs.cshtml" model="@("بخش‌های مخزن", tankTabs)" />
 
-    <section class="ak-footer-actions" aria-label="@UiText.T(Context, "عملیات مخزن", "Tank Actions")">
-        <a asp-action="SettleFinal" asp-route-id="@Model.Id" class="btn btn-light ak-secondary-action">@UiText.T(Context, "تسویه مخزن", "Settle Tank")</a>
-        <a href="@stockCardUrl" class="btn btn-light ak-secondary-action">@UiText.T(Context, "کارت موجودی", "Stock Card")</a>
-        <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">@UiText.T(Context, "چاپ", "Print")</button>
+    @* شاخص‌های کلیدی مخزن — همان کارت آماری مشترک؛ درصد پُری از fillPercentValue موجود می‌آید. *@
+    <section class="ak-stat-grid" aria-label="@UiText.T(Context, "شاخص‌های کلیدی مخزن", "Tank key indicators")">
+        <vc:stat-card title="@UiText.T(Context, "درصد پُری مخزن", "Tank fill level")" value="@FormatQuantity(fillPercentValue)" unit="%" avatar="tank-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "موجودی دفتری", "Book inventory")" value="@FormatQuantity(Model.CurrentQuantityMt)" unit="@unitText" avatar="total-inventory"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ظرفیت خالی", "Empty capacity")" value="@FormatQuantity(Model.EmptyQuantityMt)" unit="@unitText" avatar="unloaded"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "قراردادهای فعال", "Active contracts")" value="@activeContractCount.ToString("N0")" unit="@UiText.T(Context, "قرارداد", "contracts")" avatar="purchase-contracts"></vc:stat-card>
     </section>
 
-    <section id="tank-summary" class="ak-form-section ak-detail-section">
+    <section id="tank-summary" class="ak-form-section ak-detail-section" hidden="@(activeTankTab != "summary")">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "خلاصه مخزن", "Tank Summary"), (string?)null))
             <dl class="ak-list">
                 <div class="ak-list-row">
@@ -222,7 +209,7 @@
             </dl>
     </section>
 
-    <section id="tank-contracts" class="ak-form-section ak-detail-section" data-ak-tab="tank-summary">
+    <section id="tank-contracts" class="ak-form-section ak-detail-section" hidden="@(activeTankTab != "summary")">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "قراردادهای دارای موجودی", "Contracts With Inventory"), (string?)UiText.T(Context, "برای مشاهده جزئیات حرکات، روی مقادیر کلیک کنید", "Click values to view movement details")))
         <div class="ak-table-wrap">
             <table class="ak-table ak-detail-table">
@@ -283,7 +270,7 @@
         </div>
     </section>
 
-    <section class="ak-form-section ak-detail-section" id="tank-ledger">
+    <section class="ak-form-section ak-detail-section" id="tank-ledger" hidden="@(activeTankTab != "ledger")">
         @await Html.PartialAsync("~/Views/Shared/Components/Ak/_AkSectionHead.cshtml", (UiText.T(Context, "آخرین حرکات (دفتر ورود/خروج)", "Recent Movements"), (string?)null))
         <a href="@stockCardUrl" class="btn btn-light ak-secondary-action">@UiText.T(Context, "مشاهده همه", "View All")</a>
         <div class="ak-table-wrap">
@@ -321,19 +308,8 @@
                 </tbody>
             </table>
         </div>
-        @if (storageLedgerPageCount > 1)
-        {
-            <nav class="ak-pager" aria-label="@UiText.T(Context, "صفحه‌بندی دفتر ورود و خروج مخزن", "Tank ledger pagination")">
-                <a class="@(storageLedgerPage == 1 ?"is-disabled" : null)" href="@(storageLedgerPage == 1 ? "#" : StorageLedgerPageUrl(storageLedgerPage - 1))">@UiText.T(Context, "قبلی", "Prev")</a>
-                <div>
-                    @foreach (var pageNumber in PageWindow(storageLedgerPage, storageLedgerPageCount))
-                    {
-                        <a class="@(pageNumber == storageLedgerPage ?"is-active" : null)" href="@StorageLedgerPageUrl(pageNumber)">@pageNumber</a>
-                    }
-                </div>
-                <a class="@(storageLedgerPage == storageLedgerPageCount ?"is-disabled" : null)" href="@(storageLedgerPage == storageLedgerPageCount ? "#" : StorageLedgerPageUrl(storageLedgerPage + 1))">@UiText.T(Context, "بعدی", "Next")</a>
-            </nav>
-        }
+        <partial name="~/Views/Shared/Partials/_DetailPager.cshtml"
+                 model="@((storageLedgerPage, storageLedgerPageCount, "tankLedgerPage", (string?)"tank-ledger"))" />
     </section>
     @foreach (var contractRow in Model.ContractStockBreakdownRows.Select((value, index) => new { value, index }))
     {
@@ -350,7 +326,6 @@
                 _ => $"{modalBaseId}Balance"
             };
             var modalLabelId = $"{modalId}Label";
-            var modalPageCount = Math.Max(1, (int)Math.Ceiling(modalRows.Count / (double)contractMovementModalPageSize));
             <div class="modal fade" id="@modalId" tabindex="-1" aria-labelledby="@modalLabelId" aria-hidden="true" data-storage-contract-modal>
                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                     <div class="modal-content ak-modal-content">
@@ -400,25 +375,6 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                @if (modalRows.Count > contractMovementModalPageSize)
-                                {
-                                    <nav class="ak-pager"
-                                         aria-label="@UiText.T(Context, "صفحه‌بندی حرکات قرارداد", "Contract movement pagination")"
-                                         data-st-modal-pager
-                                         data-page-size="@contractMovementModalPageSize"
-                                         data-label-page="@UiText.T(Context, "صفحه", "Page")"
-                                         data-label-of="@UiText.T(Context, "از", "of")">
-                                        <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-prev>@UiText.T(Context, "قبلی", "Prev")</button>
-                                        <div aria-hidden="false">
-                                            @for (var modalPage = 1; modalPage <= modalPageCount; modalPage++)
-                                            {
-                                                <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-page="@modalPage">@modalPage</button>
-                                            }
-                                        </div>
-                                        <span data-st-modal-status></span>
-                                        <button type="button" class="btn btn-light ak-secondary-action" data-st-modal-next>@UiText.T(Context, "بعدی", "Next")</button>
-                                    </nav>
-                                }
                             }
                             else
                             {

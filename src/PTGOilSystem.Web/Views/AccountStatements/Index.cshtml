@@ -43,15 +43,7 @@
         <div class="ak-list-toolbar">
             <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="stmtFilter" />
             <div class="ak-list-toolbar-actions">
-                <a asp-action="Csv"
-                   asp-route-FromDate="@Model.Filter.FromDate?.ToHtmlDateInput()"
-                   asp-route-ToDate="@Model.Filter.ToDate?.ToHtmlDateInput()"
-                   asp-route-SourceCurrencyCode="@Model.Filter.SourceCurrencyCode"
-                   asp-route-ContractId="@Model.Filter.ContractId"
-                   asp-route-CustomerId="@Model.Filter.CustomerId"
-                   asp-route-SupplierId="@Model.Filter.SupplierId"
-                   asp-route-Reference="@Model.Filter.Reference"
-                   class="btn btn-light ak-secondary-action"><i class="bi bi-filetype-csv" aria-hidden="true"></i><span>CSV</span></a>
+                <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
             </div>
         </div>
 

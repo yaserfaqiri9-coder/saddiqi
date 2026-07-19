@@ -5,6 +5,9 @@
     var hasFilters = ViewData["isActive"] != null;
     var hasSearch = !string.IsNullOrWhiteSpace((string?)ViewData["q"]) || hasFilters;
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var activeCount = items.Count(item => item.IsActive);
+    var inactiveCount = items.Count - activeCount;
+    var locatedCount = items.Count(item => !string.IsNullOrWhiteSpace(item.Location));
 }
 
 <div class="ak-list-page">
@@ -13,6 +16,13 @@
                        UiText.T(Context, "ترمینال جدید", "New terminal"), "bi-plus-lg",
                        (string?)Url.Action("Create", new { returnUrl }), (string?)null,
                        (string?)null, (string?)null, (string?)null))" />
+
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار ترمینال‌ها", "Terminal statistics")">
+        <vc:stat-card title="@UiText.T(Context, "تعداد ترمینال‌ها", "Terminals")" value="@items.Count.ToString("N0")" unit="@UiText.T(Context, "ترمینال", "terminals")" avatar="unloaded"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ترمینال‌های فعال", "Active terminals")" value="@activeCount.ToString("N0")" unit="@UiText.T(Context, "ترمینال", "terminals")" avatar="loading"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "ترمینال‌های غیرفعال", "Inactive terminals")" value="@inactiveCount.ToString("N0")" unit="@UiText.T(Context, "ترمینال", "terminals")" avatar="losses"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "دارای موقعیت", "With location")" value="@locatedCount.ToString("N0")" unit="@UiText.T(Context, "ترمینال", "terminals")" avatar="shipments"></vc:stat-card>
+    </section>
 
     @{
         var terminalsIsActive = ViewData["isActive"] is bool termAct ? (termAct ? "true" : "false") : null;

@@ -1,21 +1,27 @@
 @model Company
+@using PTGOilSystem.Web.Models.Shared
 @{
     ViewData["Title"] = "جزئیات شرکت";
     ViewData["HideSectionTabs"] = true;
     var notRecorded = "ثبت نشده";
     var editUrl = Url.Action("Edit", new { id = Model.Id }) ?? "#";
     var indexUrl = Url.Action("Index") ?? "#";
+    var officialSummary = ViewData["PartyStatementSummary"] as PTGOilSystem.Web.Models.PartyStatements.PartyStatementSummary;
+    var statementUrl = Url.Action("Company", "PartyStatements", new { id = Model.Id }) ?? "#";
+    ViewData["AkHeaderStatus"] = Model.IsActive ? "فعال" : "غیرفعال";
+    ViewData["AkHeaderStatusState"] = Model.IsActive ? "is-active" : "is-inactive";
+    ViewData["AkHeaderContext"] = string.IsNullOrWhiteSpace(Model.Code) ? Model.Country : $"{Model.Code} · {Model.Country}";
+    ViewData["AkHeaderKebab"] = new List<AkHeaderMenuItem>
+    {
+        new() { Label = "ویرایش", Href = editUrl, Icon = "bi-pencil" }
+    };
 }
 
-<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl">
+<div class="ak-form-page ak-party-page ak-detail-page" dir="rtl" data-ak-detail-v2="true">
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((Model.Name, false,
-                       "ویرایش", "bi-pencil", editUrl, (string?)null,
+                       "صورت‌حساب رسمی", "bi-file-earmark-text", statementUrl, (string?)null,
                        "بازگشت به فهرست", "bi-arrow-right", (string?)indexUrl))" />
-
-    <div class="ak-page-actions">
-        <span class="ak-status @(Model.IsActive ?"is-active" : "is-inactive")">@(Model.IsActive ? "فعال" : "غیرفعال")</span>
-    </div>
 
     <section class="ak-form-section ak-detail-section">
         <partial name="~/Views/Shared/Components/Ak/_AkSectionHead.cshtml" model="@(("اطلاعات شرکت", (string?)null))" />
@@ -28,6 +34,10 @@
             <div class="ak-list-row"><dt>وضعیت</dt><dd>@(Model.IsActive ? "فعال" : "غیرفعال")</dd></div>
             <div class="ak-list-row"><dt>یادداشت</dt><dd>@(string.IsNullOrWhiteSpace(Model.Notes) ? notRecorded : Model.Notes)</dd></div>
             <div class="ak-list-row"><dt>تاریخ ایجاد</dt><dd>@Model.CreatedAtUtc.ToDisplayDateTime()</dd></div>
+            @if (officialSummary is not null)
+            {
+                <div class="ak-list-row"><dt>مانده حساب</dt><dd class="ak-num">@officialSummary.ClosingBalanceAbsolute.ToString("N2") @officialSummary.BaseCurrencyCode — @officialSummary.ClosingBalanceMeaning</dd></div>
+            }
         </dl>
     </section>
 </div>

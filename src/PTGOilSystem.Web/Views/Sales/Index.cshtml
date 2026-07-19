@@ -17,6 +17,12 @@
 <div class="ak-form-page ak-list-page" data-operations-list>
     <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
              model="@((UiText.T(Context, "فاکتورهای فروش", "Sales invoices"), true, UiText.T(Context, "ثبت فاکتور فروش", "New sales invoice"), "bi-plus-lg", Url.Action("Create"), (string?)null, UiText.T(Context, "ثبت فروش گروهی", "Group sale"), "bi-collection", Url.Action("CreateGroup")))" />
+    <section class="ak-stat-grid mb-3" aria-label="@UiText.T(Context, "آمار فروش", "Sales statistics")">
+        <vc:stat-card title="@UiText.T(Context, "کل فاکتورها", "Total invoices")" value="@Model.TotalCount.ToString("N0")" unit="@UiText.T(Context, "فاکتور", "invoices")" avatar="sales-value"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مقدار این صفحه", "Quantity on this page")" value="@NumberDisplay.Quantity(items.Sum(x => x.QuantityMt))" unit="MT" avatar="sold-quantity"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "فروش این صفحه", "Sales on this page")" value="@items.Sum(x => x.TotalUsd).ToString("N0")" unit="USD" avatar="payments"></vc:stat-card>
+        <vc:stat-card title="@UiText.T(Context, "مشتریان این صفحه", "Customers on this page")" value="@items.Select(x => x.CustomerName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Count().ToString("N0")" unit="@UiText.T(Context, "مشتری", "customers")" avatar="customers"></vc:stat-card>
+    </section>
     <div class="ak-list">
         @{
             List<AkFilterOption> SalesOpts(object? s) => (s as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
@@ -37,6 +43,7 @@
         }
         <div class="ak-list-toolbar">
             <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="salesFilter" />
+            <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("Export"))" />
         </div>
 
         <div class="ak-table-wrap">
@@ -63,15 +70,24 @@
                             </td>
                             <td>
                                 <span>@item.CustomerName</span>
-                                <span class="ak-note">@(string.IsNullOrWhiteSpace(item.CompanyName) ? "-" : item.CompanyName)</span>
+                                @if (!string.IsNullOrWhiteSpace(item.CompanyName))
+                                {
+                                    <span class="ak-section-desc">@item.CompanyName</span>
+                                }
                             </td>
                             <td>
-                                <span class="col-ltr">@(string.IsNullOrWhiteSpace(item.ContractNumber) ? "-" : item.ContractNumber)</span>
-                                <span class="ak-note">@item.ProductName@(string.IsNullOrWhiteSpace(item.DestinationName) ? "" : " · " + item.DestinationName)</span>
+                                @{
+                                    var saleContractNo = string.Equals(item.ContractNumber, SalesContractText.WithoutSalesContract, StringComparison.Ordinal) ? null : item.ContractNumber;
+                                }
+                                <span class="col-ltr">@(string.IsNullOrWhiteSpace(saleContractNo) ? "-" : saleContractNo)</span>
+                                @if (!string.IsNullOrWhiteSpace(item.ProductName))
+                                {
+                                    <span class="ak-section-desc">@item.ProductName@(string.IsNullOrWhiteSpace(item.DestinationName) ? "" : " · " + item.DestinationName)</span>
+                                }
                             </td>
                             <td>
                                 <span class="col-ltr">@item.TotalInCurrency.ToString("N2") @item.Currency</span>
-                                <span class="ak-note col-ltr">@NumberDisplay.Quantity(item.QuantityMt) MT</span>
+                                <span class="ak-section-desc col-ltr">@NumberDisplay.Quantity(item.QuantityMt) MT</span>
                             </td>
                             <td class="col-status"><span class="ak-status is-info">@SaleStageLabels.ToPersian(item.SaleStage)</span></td>
                             <td class="col-actions">

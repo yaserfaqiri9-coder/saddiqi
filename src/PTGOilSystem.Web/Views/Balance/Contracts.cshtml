@@ -43,12 +43,7 @@
         <div class="ak-list-toolbar">
             <partial name="~/Views/Shared/_AkSearchFilter.cshtml" model="balContFilter" />
             <div class="ak-list-toolbar-actions">
-                <a class="btn btn-light ak-secondary-action" href="@(Url.Action("ContractsCsv"))@(Context.Request.QueryString)">
-                    <i class="bi bi-filetype-csv" aria-hidden="true"></i><span>Export CSV</span>
-                </a>
-                <button type="button" class="btn btn-light ak-secondary-action" onclick="window.print()">
-                    <i class="bi bi-printer" aria-hidden="true"></i><span>@UiText.T(Context,"چاپ","Print")</span>
-                </button>
+                <partial name="~/Views/Shared/_ExportMenu.cshtml" model="@(new PTGOilSystem.Web.Services.Exports.ExportMenuModel("ContractsExport"))" />
             </div>
         </div>
 

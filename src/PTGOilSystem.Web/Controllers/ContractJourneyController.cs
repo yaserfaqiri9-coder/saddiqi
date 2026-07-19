@@ -1042,7 +1042,8 @@ public class ContractJourneyController : Controller
         var hasDispatchIds = dispatchIds.Count > 0;
         var expenseEntities = await ExpenseQuery()
             .Where(e => e.ContractId == contractId
-                || (hasShipmentIds && e.ShipmentId.HasValue && shipmentIds.Contains(e.ShipmentId.Value))
+                || (hasShipmentIds && e.ShipmentId.HasValue && shipmentIds.Contains(e.ShipmentId.Value)
+                    && (e.ContractId == null || e.ContractId == contractId))
                 || (hasDispatchIds && e.TruckDispatchId.HasValue && dispatchIds.Contains(e.TruckDispatchId.Value))
                 || (hasInventoryTransportLegIds && e.TransportLegId.HasValue && inventoryTransportLegIds.Contains(e.TransportLegId.Value))
                 || (hasLoadingIds && e.LoadingRegisterId.HasValue && loadingIds.Contains(e.LoadingRegisterId.Value)))

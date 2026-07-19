@@ -7,7 +7,7 @@
         : Url.Action("Index");
 }
 
-<div class="ak-form-page">
+<div class="ak-form-page ak-group-operation-page">
     <div class="ak-page-header">
         <div class="ak-page-heading">
 <h1 class="ak-page-title">ثبت مصارف گمرکی</h1>
@@ -96,9 +96,10 @@
                 </details>
             </section>
 
-            <section class="ak-form-section">
-                <h2 class="ak-section-title">ردیف‌های مصارف</h2>
-                <div class="ak-table-wrap">
+            <section class="ak-form-section ak-group-wizard-workspace" data-customs-batch-workspace>
+                <div class="ak-group-wizard-main">
+                    <h2 class="ak-section-title">ردیف‌های مصارف</h2>
+                    <div class="ak-table-wrap">
                     <table class="ak-table align-middle">
                         <thead class="table-light">
                             <tr>
@@ -131,11 +132,29 @@
                             }
                         </tbody>
                     </table>
+                    </div>
+                    @if (!Model.Rows.Any())
+                    {
+                        <div class="alert alert-warning">هیچ نوع مصرف فعالی تعریف نشده است. ابتدا انواع مصرف را اضافه کنید.</div>
+                    }
                 </div>
-                @if (!Model.Rows.Any())
-                {
-                    <div class="alert alert-warning">هیچ نوع مصرف فعالی تعریف نشده است. ابتدا انواع مصرف را اضافه کنید.</div>
-                }
+                <aside class="ak-form-section ak-group-wizard-summary" aria-label="خلاصه مصارف گمرکی">
+                    <div class="ak-form-section ak-list">
+                        <h2 class="ak-section-title">خلاصه مصارف</h2>
+                        <div class="ak-list-row">
+                            <span>انواع مصرف موجود</span>
+                            <strong class="ak-num">@Model.Rows.Count</strong>
+                        </div>
+                        <div class="ak-list-row">
+                            <span>ردیف‌های مبلغ‌دار</span>
+                            <strong class="ak-num" data-customs-filled-count>0</strong>
+                        </div>
+                        <div class="ak-list-row">
+                            <span>مجموع مبلغ</span>
+                            <strong class="ak-num"><span data-customs-total>0.00</span> <span data-customs-currency>—</span></strong>
+                        </div>
+                    </div>
+                </aside>
             </section>
 
             <div class="ak-note mb-3">
@@ -159,4 +178,24 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/fx-rate-field.js" asp-append-version="true" defer></script>
+    <script>
+        (() => {
+            const workspace = document.querySelector('[data-customs-batch-workspace]');
+            if (!workspace) return;
+            const amounts = Array.from(workspace.querySelectorAll('input[name$=".Amount"]'));
+            const filled = workspace.querySelector('[data-customs-filled-count]');
+            const total = workspace.querySelector('[data-customs-total]');
+            const currency = workspace.querySelector('[data-customs-currency]');
+            const currencySelect = document.getElementById('currencySelect');
+            const render = () => {
+                const values = amounts.map(input => Number.parseFloat(input.value) || 0);
+                filled.textContent = values.filter(value => value > 0).length.toLocaleString('fa-IR');
+                total.textContent = values.reduce((sum, value) => sum + value, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                currency.textContent = currencySelect?.value || '—';
+            };
+            amounts.forEach(input => input.addEventListener('input', render));
+            currencySelect?.addEventListener('change', render);
+            render();
+        })();
+    </script>
 }

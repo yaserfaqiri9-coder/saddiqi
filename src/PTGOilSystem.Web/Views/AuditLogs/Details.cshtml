@@ -2,22 +2,20 @@
 @model ActivityLogDetailsViewModel
 @{
     ViewData["Title"] = UiText.T(Context,"جزئیات لاگ","Log Details");
+    ViewData["AkHeaderStatus"] = Model.ResultLabel;
+    ViewData["AkHeaderStatusState"] = Model.IsSuccess ? "is-active" : "is-danger";
+    ViewData["AkHeaderContext"] = Model.HumanSummary;
+    var relatedUrl = !string.IsNullOrWhiteSpace(Model.RelatedController) && Model.RelatedId.HasValue
+        ? Url.Action(Model.RelatedAction, Model.RelatedController, new { id = Model.RelatedId })
+        : null;
 }
 
-<div class="ak-form-page ak-detail-page">
-    <div class="ak-page-header ak-detail-header">
-        <div class="ak-page-heading ak-detail-header-main">
-<h1 class="ak-page-title ak-detail-title">@UiText.T(Context,"جزئیات فعالیت","Activity Details")</h1>
-            <p class="ak-note ak-detail-subtitle">@Model.HumanSummary</p>
-        </div>
-        <div class="ak-page-actions ak-detail-actions">
-            <a asp-action="Index" class="btn ak-secondary-action">@UiText.T(Context,"بازگشت","Back")</a>
-            @if (!string.IsNullOrWhiteSpace(Model.RelatedController) && Model.RelatedId.HasValue)
-            {
-                <a asp-controller="@Model.RelatedController" asp-action="@Model.RelatedAction" asp-route-id="@Model.RelatedId" class="btn ak-primary-action">@UiText.T(Context,"مشاهده سند","Open record")</a>
-            }
-        </div>
-    </div>
+<div class="ak-form-page ak-detail-page" data-ak-detail-v2="true">
+    <partial name="~/Views/Shared/Components/Ak/_AkPageHeader.cshtml"
+             model="@((UiText.T(Context, "جزئیات فعالیت", "Activity Details"), false,
+                       string.IsNullOrWhiteSpace(relatedUrl) ? (string?)null : UiText.T(Context, "مشاهده سند", "Open record"),
+                       "bi-box-arrow-up-left", relatedUrl, (string?)null,
+                       UiText.T(Context, "بازگشت", "Back"), "bi-arrow-right", (string?)Url.Action("Index")))" />
 
     <section class="ak-summary ak-detail-summary" aria-label="@UiText.T(Context,"خلاصه جزئیات","Details summary")">
         <article class="ak-field">
@@ -31,10 +29,6 @@
         <article class="ak-field">
             <span>@UiText.T(Context,"عملیات","Action")</span>
             <strong>@Model.ActionDisplay</strong>
-        </article>
-        <article class="ak-field">
-            <span>@UiText.T(Context,"اهمیت","Severity")</span>
-            <strong>@Model.SeverityLabel</strong>
         </article>
         <article class="ak-field">
             <span>@UiText.T(Context,"نتیجه","Result")</span>
@@ -62,11 +56,11 @@
                 <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"سند و نتیجه","Record & Result")</div>
                 <div>
                     <dl class="ak-list">
-                        <div class="ak-list-row"><dt>Log ID</dt><dd>#@Model.Id</dd></div>
-                        <div class="ak-list-row"><dt>@UiText.T(Context,"Module","Module")</dt><dd>@(Model.Module ??"-")</dd></div>
-                        <div class="ak-list-row"><dt>Entity</dt><dd>@Model.EntityName</dd></div>
-                        <div class="ak-list-row"><dt>RecordId</dt><dd>@(Model.EntityId > 0 ? Model.EntityId.ToString() :"-")</dd></div>
-                        <div class="ak-list-row"><dt>Action</dt><dd>@Model.Action</dd></div>
+                        <div class="ak-list-row"><dt>شناسه گزارش</dt><dd>#@Model.Id</dd></div>
+                        <div class="ak-list-row"><dt>بخش</dt><dd>@(Model.Module ??"-")</dd></div>
+                        <div class="ak-list-row"><dt>نوع رکورد</dt><dd>@Model.EntityName</dd></div>
+                        <div class="ak-list-row"><dt>شناسه رکورد</dt><dd>@(Model.EntityId > 0 ? Model.EntityId.ToString() :"-")</dd></div>
+                        <div class="ak-list-row"><dt>عملیات</dt><dd>@Model.Action</dd></div>
                         <div class="ak-list-row"><dt>@UiText.T(Context,"نتیجه","Result")</dt><dd><span class="ak-status @(Model.IsSuccess ?"is-active" :"is-inactive")">@Model.ResultLabel</span></dd></div>
                         <div class="ak-list-row"><dt>@UiText.T(Context,"کد پاسخ","Status")</dt><dd>@(Model.StatusCode?.ToString() ??"-")</dd></div>
                     </dl>
@@ -76,7 +70,7 @@
 
         <div class="ak-field ak-col-full">
             <div class="ak-form-section ak-detail-section">
-                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"تغییرات Before / After","Before / After")</div>
+                <div class="ak-section-head ak-detail-section-header">@UiText.T(Context,"تغییرات قبل / بعد","Before / After")</div>
                 <div>
                     @if (Model.Changes.Any())
                     {
@@ -117,7 +111,7 @@
                     <dl class="ak-list">
                         <div class="ak-list-row"><dt>HTTP</dt><dd>@(Model.HttpMethod ??"-")</dd></div>
                         <div class="ak-list-row"><dt>@UiText.T(Context,"مسیر","Path")</dt><dd><code>@(Model.RequestPath ??"-")</code></dd></div>
-                        <div class="ak-list-row"><dt>@UiText.T(Context,"Controller/Action","Controller/Action")</dt><dd>@(string.IsNullOrWhiteSpace(Model.ControllerName) ?"-" : $"{Model.ControllerName}/{Model.ActionName}")</dd></div>
+                        <div class="ak-list-row"><dt>@UiText.T(Context,"مسیر سیستم","System route")</dt><dd>@(string.IsNullOrWhiteSpace(Model.ControllerName) ?"-" : $"{Model.ControllerName}/{Model.ActionName}")</dd></div>
                         <div class="ak-list-row"><dt>@UiText.T(Context,"مدت","Duration")</dt><dd>@(Model.DurationMs.HasValue ? $"{Model.DurationMs.Value:N0} ms" :"-")</dd></div>
                     </dl>
                 </div>
@@ -140,7 +134,7 @@
         {
             <div class="ak-field ak-col-full">
                 <div class="ak-form-section ak-detail-section">
-                    <div class="ak-section-head ak-detail-section-header">Diff</div>
+                    <div class="ak-section-head ak-detail-section-header">تفاوت‌ها</div>
                     <div>
                         <pre class="ak-note mb-0">@(Model.Diff)</pre>
                     </div>
@@ -152,7 +146,7 @@
         {
             <div class="ak-field ak-col-full">
                 <div class="ak-form-section ak-detail-section">
-                    <div class="ak-section-head ak-detail-section-header">Metadata</div>
+                    <div class="ak-section-head ak-detail-section-header">اطلاعات تکمیلی</div>
                     <div>
                         <pre class="ak-note mb-0" dir="ltr">@Model.MetadataJson</pre>
                     </div>

@@ -42,7 +42,8 @@
                     </div>
                 </div>
 
-                <div class="ak-table-wrap">
+                <div class="ak-bulk-receipt-workspace">
+                    <div class="ak-table-wrap">
                     <table class="ak-table">
                         <thead>
                             <tr>
@@ -85,10 +86,10 @@
                             }
                         </tbody>
                     </table>
-                </div>
+                    </div>
 
-                @* فرم ثبت رسید گروهی — زیر جدول، پیش‌فرض مخفی *@
-                <div id="bulkReceiptPanel-@Model.ContractId" class="ak-section-body" data-bulk-receipt-panel hidden>
+                    @* فرم ثبت رسید گروهی — پهلوی لیست، پیش‌فرض مخفی *@
+                    <div id="bulkReceiptPanel-@Model.ContractId" class="ak-section-body" data-bulk-receipt-panel hidden>
                     <div class="ak-form-grid">
                         <div class="ak-field">
                             <label class="ak-label" for="bulkReceiptDate-@Model.ContractId">@T("تاریخ رسید", "Receipt date")</label>
@@ -172,6 +173,7 @@
                         <button type="submit" class="btn btn-primary ak-save">
                             @T("ثبت و تایید رسید", "Save receipt")
                         </button>
+                    </div>
                     </div>
                 </div>
             </section>

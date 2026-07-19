@@ -20,7 +20,7 @@ using PTGOilSystem.Web.Services.Exceptions;
 namespace PTGOilSystem.Web.Controllers;
 
 [Authorize]
-public class InventoryTransportLegsController : Controller
+public partial class InventoryTransportLegsController : Controller
 {
     // پیشوند یادداشت رسیدهای «همراه» موتر چندواگنه در انتقال گروهی؛ پیوند لغو گروهی به رسید اصلی.
     private const string GroupTransferCompanionNotePrefix = "[انتقال همراه رسید #";
@@ -76,6 +76,7 @@ public class InventoryTransportLegsController : Controller
     public async Task<IActionResult> Index(InventoryTransportLegIndexFilterViewModel filter, int page = 1)
     {
         const int pageSize = 5;
+        var exportAll = page <= 0;
 
         var query = _db.InventoryTransportLegs
             .AsNoTracking()
@@ -129,8 +130,8 @@ public class InventoryTransportLegsController : Controller
         var items = await query
             .OrderByDescending(l => l.LoadedDate)
             .ThenByDescending(l => l.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip(exportAll ? 0 : (page - 1) * pageSize)
+            .Take(exportAll ? totalCount : pageSize)
             .Select(l => new InventoryTransportLegListItemViewModel
             {
                 Id = l.Id,

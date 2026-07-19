@@ -10,6 +10,8 @@ using PTGOilSystem.Web.Security;
 using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.Audit;
 using PTGOilSystem.Web.Services.DeleteSafety;
+using PTGOilSystem.Web.Models.PartyStatements;
+using PTGOilSystem.Web.Services.PartyStatements;
 
 namespace PTGOilSystem.Web.Controllers;
 
@@ -20,17 +22,20 @@ public class PartnersController : Controller
     private readonly IAuditService _audit;
     private readonly MasterDataDeleteSafetyService _deleteSafety;
     private readonly IPurchaseAggregationService _purchaseAggregation;
+    private readonly IPartyStatementReadService? _partyStatements;
 
     public PartnersController(
         ApplicationDbContext db,
         IAuditService audit,
         MasterDataDeleteSafetyService deleteSafety,
-        IPurchaseAggregationService? purchaseAggregation = null)
+        IPurchaseAggregationService? purchaseAggregation = null,
+        IPartyStatementReadService? partyStatements = null)
     {
         _db = db;
         _audit = audit;
         _deleteSafety = deleteSafety;
         _purchaseAggregation = purchaseAggregation ?? new PurchaseAggregationService(db);
+        _partyStatements = partyStatements;
     }
 
     public async Task<IActionResult> Index(string? q, int page = 1)
@@ -69,7 +74,17 @@ public class PartnersController : Controller
     public async Task<IActionResult> Details(int id, int? contractId = null, string? tab = null)
     {
         var item = await BuildPartnerProfileAsync(id, contractId, tab);
-        return item is null ? NotFound() : View(item);
+        if (item is null) return NotFound();
+        if (_partyStatements is not null)
+        {
+            var statement = await _partyStatements.GetStatementAsync(
+                new PartyRef(PartyStatementPartyType.Partner, id),
+                new PartyStatementFilter { ContractId = contractId, IncludeOperationalColumns = false },
+                HttpContext.RequestAborted);
+            ViewData["PartyStatementSummary"] = statement.Summary;
+            ViewData["PartyStatementRecentRows"] = statement.Rows.Where(r => !r.IsOpeningBalance).Reverse().Take(5).ToList();
+        }
+        return View(item);
     }
 
     [Authorize(Policy = AuthPolicies.ManageData)]
@@ -572,6 +587,7 @@ public class PartnersController : Controller
             PurchaseCostUsd = contractSummaries.Sum(c => c.PurchaseCostUsd),
             OperationalExpensesUsd = contractSummaries.Sum(c => c.OperationalExpensesUsd),
             TotalCostUsd = contractSummaries.Sum(c => c.TotalCostUsd),
+            PartnerTotalCostUsd = contractSummaries.Sum(c => c.TotalCostUsd * c.SharePercent / 100m),
             GrossProfitUsd = contractSummaries.Sum(c => c.GrossProfitUsd),
             PartnerGrossProfitUsd = contractSummaries.Sum(c => c.PartnerGrossProfitUsd),
             CashInUsd = contractSummaries.Sum(c => c.CashInUsd),
