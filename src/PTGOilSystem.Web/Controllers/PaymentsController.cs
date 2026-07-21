@@ -3052,13 +3052,16 @@ public class PaymentsController : Controller
 
     private async Task<IActionResult> CreateViaSarrafAsync(PaymentCreateViewModel model)
     {
-        // تأمین‌کنندهٔ «پرداخت» (Out): مسیر خام و آزمودهٔ فعلی (دو LedgerEntry مستقیم) دست‌نخورده می‌ماند
-        // تا صورت‌حساب‌هایی که SourceType=ViaSarrafSupplier* را می‌خوانند نشکنند.
-        // بقیهٔ حالت‌ها — مشتری/شرکت خدماتی/راننده/کارمند و نیز تأمین‌کنندهٔ «دریافت/برگشت» (In) —
-        // از موتور عمومی SarrafSettlement عبور می‌کنند (سمت دفتر کل درست بر اساس جهت).
+        // تأمین‌کنندهٔ «پرداخت» (Out) با یک نرخ: مسیر خام و آزمودهٔ فعلی (دو LedgerEntry مستقیم)
+        // دست‌نخورده می‌ماند تا صورت‌حساب‌هایی که SourceType=ViaSarrafSupplier* را می‌خوانند نشکنند.
+        // بقیهٔ حالت‌ها — مشتری/شرکت خدماتی/راننده/کارمند، تأمین‌کنندهٔ «دریافت/برگشت» (In)، و
+        // حالت دو‌نرخی (نرخ خرید شرکت ≠ نرخ قبول تأمین‌کننده) — از موتور عمومی SarrafSettlement
+        // عبور می‌کنند که هر دو نرخ و تفاوت آن‌ها را از قبل می‌شناسد.
         var counterpartyType = model.SarrafCounterpartyType ?? SarrafSettlementCounterpartyType.Supplier;
         var directionIsOut = (model.SarrafDirection ?? SarrafSettlementDirection.Out) == SarrafSettlementDirection.Out;
-        if (counterpartyType != SarrafSettlementCounterpartyType.Supplier || !directionIsOut)
+        if (counterpartyType != SarrafSettlementCounterpartyType.Supplier
+            || !directionIsOut
+            || HasDistinctSarrafCompanyRate(model))
         {
             return await CreateViaSarrafGeneralAsync(model);
         }
@@ -3233,9 +3236,14 @@ public class PaymentsController : Controller
             ? "RUB"
             : SystemCurrency.Normalize(model.SarrafSupplierCurrency);
         model.SarrafSupplierCurrency = currency;
+        // نرخ خرید ارز توسط شرکت (سمت صراف) از نرخ قبول طرف مقابل جداست. اگر کاربر آن را
+        // وارد نکرده باشد، همان نرخ طرف مقابل به‌کار می‌رود و تفاوت صفر می‌شود — یعنی رفتار
+        // تک‌نرخیِ قبلی بدون تغییر. وارد کردن نرخ متفاوت، سناریوی تفاوت نرخ ارز را فعال می‌کند.
         model.SarrafCompanyPerUsdRate = SystemCurrency.IsBaseCurrency(currency)
             ? 1m
-            : model.SarrafSupplierPerUsdRate;
+            : (model.SarrafCompanyPerUsdRate is > 0m
+                ? model.SarrafCompanyPerUsdRate
+                : model.SarrafSupplierPerUsdRate);
 
         // کمیسیون ViaSarraf (اختیاری) برای طرف‌های عمومی — مانند مسیر تأمین‌کننده صندوق دست نمی‌خورد؛
         // به‌عنوان مصرف در P&L ثبت و به بدهی صراف اضافه می‌شود. جهت (پرداخت/دریافت) اثری بر کمیسیون ندارد.
@@ -3290,6 +3298,10 @@ public class PaymentsController : Controller
                     ("SarrafCurrency", settlement.SarrafCurrency),
                     ("ReferenceNumber", settlement.ReferenceNumber),
                     ("LedgerEntryId", settlement.LedgerEntryId)));
+
+            // تفاوت نرخ ارز (نرخ خرید شرکت در برابر نرخ قبول طرف مقابل) — مصرف واقعی، بدون خروج نقدی.
+            // مستقل از کمیسیون است و اگر هر دو نرخ یکسان باشند اصلاً ساخته نمی‌شود.
+            await PostSarrafFxDifferenceAsync(settlement);
 
             if (commission is not null && commissionType is not null)
             {
@@ -4136,8 +4148,12 @@ public class PaymentsController : Controller
             SourceType = "Expense",
             SourceId = expense.Id,
             Reference = reference,
-            ContractId = contractId,
-            SupplierId = supplierId
+            // عمداً بدون SupplierId و بدون ContractId: مصرفِ کمیسیون بدهیِ تأمین‌کننده نیست و نباید
+            // در صورت‌حساب او دیده شود. LedgerEntryOwnership.SupplierOwned سطر را با هر کدام از
+            // این دو (SupplierId، یا قراردادِ خریدِ همان تأمین‌کننده) برمی‌داشت، پس هر دو خالی می‌مانند.
+            // ردیابیِ قرارداد روی خودِ ExpenseTransaction محفوظ است و گزارش‌های مصرف آن را می‌بینند.
+            ContractId = null,
+            SupplierId = null
         };
         var sarrafPayableLedger = new LedgerEntry
         {
@@ -4154,7 +4170,11 @@ public class PaymentsController : Controller
             SourceType = ViaSarrafPayableLedgerSourceType,
             SourceId = sarrafId,
             Reference = reference,
-            ContractId = contractId
+            // بدهیِ کمیسیون به صراف است، نه پرداختِ قراردادِ تأمین‌کننده. با داشتنِ قرارداد و
+            // نداشتنِ هیچ FK طرف، LedgerEntryOwnership.SupplierOwned آن را «مالِ تأمین‌کننده»
+            // می‌شمرد و صورت‌حساب رسمیِ او را به‌اندازهٔ کمیسیون کم می‌کرد. مانده و صورت‌حساب
+            // صراف از SourceId (شناسهٔ صراف) خوانده می‌شود و دست‌نخورده می‌ماند.
+            ContractId = null
         };
         _db.LedgerEntries.AddRange(expenseLedger, sarrafPayableLedger);
         await _db.SaveChangesAsync();
@@ -4170,6 +4190,253 @@ public class PaymentsController : Controller
                 ("AmountUsd", expense.AmountUsd),
                 ("SarrafId", sarrafId)));
         await _db.SaveChangesAsync();
+    }
+
+    // ===================== تفاوت نرخ ارز حواله صراف (FX Difference) =====================
+    // مفهومی جدا از کمیسیون: هیچ پول اضافه‌ای پرداخت نشده؛ فقط شرکت ارز را با نرخی خریده که
+    // با نرخ قبولِ طرف مقابل فرق دارد.
+    //   CompanyCostUsd      = مبلغ ارز ÷ نرخ خرید شرکت      → حساب صراف (SarrafChargedAmountUsd)
+    //   SupplierAcceptedUsd = مبلغ ارز ÷ نرخ قبول تأمین‌کننده → حساب تأمین‌کننده (سطر خود Settlement)
+    //   FxDifferenceUsd     = CompanyCostUsd − SupplierAcceptedUsd → مصرف (P&L)
+    // موتور محاسبه همان SarrafSettlementService است؛ اینجا فقط سمتِ مصرفِ تفاوت ثبت می‌شود.
+    // هیچ PaymentTransaction ساخته نمی‌شود، پس صندوق/بانک دست نمی‌خورد.
+
+    public const string SarrafFxDifferenceExpenseCode = "FX_DIFFERENCE";
+
+    private static string BuildSarrafFxDifferenceMarker(int settlementId)
+        => $"[SS-{settlementId}]";
+
+    // ExpenseTypeِ تفاوت نرخ را پیدا یا (یک‌بار) می‌سازد. بدون hardcode کردن Id — همان الگوی کمیسیون.
+    private async Task<ExpenseType> EnsureFxDifferenceExpenseTypeAsync()
+    {
+        var existing = await _db.ExpenseTypes
+            .FirstOrDefaultAsync(e => e.IsActive
+                && (e.Category == "FxDifference" || e.Code == SarrafFxDifferenceExpenseCode));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var created = new ExpenseType
+        {
+            Code = SarrafFxDifferenceExpenseCode,
+            Name = "FX Difference",
+            NamePersian = "تفاوت نرخ ارز",
+            Category = "FxDifference",
+            IsActive = true
+        };
+        _db.ExpenseTypes.Add(created);
+        await _db.SaveChangesAsync();
+        return created;
+    }
+
+    // سطر درآمدِ «سود تفاوت نرخ ارز». معادلِ درآمدی برای ExpenseTransactionِ سمت ضرر؛
+    // چون سیستم موجودیتِ درآمد (IncomeTransaction) ندارد، سود با یک سطر بستانکارِ دفتر ثبت می‌شود.
+    public const string SarrafFxGainLedgerSourceType = "SarrafFxGain";
+
+    // نتیجهٔ تفاوت نرخ از دید شرکت. مبنا همان DifferenceAmountUsd سرویس است:
+    //   DifferenceAmountUsd = CompanyCostUsd − SupplierAcceptedUsd
+    //   مثبت → شرکت بیشتر خرج کرده از آنچه تأمین‌کننده قبول کرده → ضرر
+    //   منفی → تأمین‌کننده بیشتر از هزینهٔ شرکت قبول کرده → سود
+    private static bool IsSarrafFxLoss(SarrafSettlement settlement)
+        => settlement.DifferenceType is SarrafSettlementDifferenceType.SupplierShortfall
+            or SarrafSettlementDifferenceType.Loss;
+
+    // تفاوت نرخ یک تسویهٔ صراف را با وضعیت فعلیِ همان تسویه «تطبیق» می‌دهد:
+    // اول هر ثبت قبلیِ همین تسویه پاک می‌شود، بعد سمت درست ساخته می‌شود. بنابراین
+    // فراخوانی دوباره رکورد تکراری نمی‌سازد و تغییر جهت (ضرر ↔ سود) هم امن است.
+    // internal است تا تست بتواند هر دو رفتار را مستقیم بسنجد.
+    internal async Task PostSarrafFxDifferenceAsync(SarrafSettlement settlement)
+    {
+        // idempotency و امنیتِ تغییر جهت: ثبت قبلیِ همین تسویه (هر سمتی که بوده) برداشته می‌شود.
+        await RemoveSarrafFxDifferenceAsync(settlement.Id);
+
+        var amountUsd = decimal.Round(Math.Abs(settlement.DifferenceAmountUsd), 4, MidpointRounding.AwayFromZero);
+        if (amountUsd <= 0m || settlement.DifferenceType == SarrafSettlementDifferenceType.None)
+        {
+            // بدون تفاوت: نه مصرف، نه درآمد، نه سطر دفتر.
+            return;
+        }
+
+        // تفاوتِ شناسایی‌شده به‌عنوان سود/زیان تبادله، سند مخصوص خودش را در SarrafSettlementService
+        // می‌گیرد؛ ثبت دوبارهٔ آن اینجا یعنی دوباره‌شماری، پس فقط حالت AcceptedAmountOnly ثبت می‌شود.
+        if (settlement.DifferenceTreatment != SarrafSettlementDifferenceTreatment.AcceptedAmountOnly)
+        {
+            return;
+        }
+
+        var marker = BuildSarrafFxDifferenceMarker(settlement.Id);
+        var companyRate = settlement.SarrafRate;
+        var counterpartyRate = settlement.SupplierRate ?? 0m;
+        var isLoss = IsSarrafFxLoss(settlement);
+        var headline = isLoss ? "ضرر تفاوت نرخ ارز حواله صراف" : "سود تفاوت نرخ ارز حواله صراف";
+        var description = $"{headline} {marker} — نرخ شرکت {companyRate:0.####} در برابر نرخ طرف مقابل {counterpartyRate:0.####}";
+
+        if (isLoss)
+        {
+            await PostSarrafFxLossAsync(settlement, amountUsd, description);
+        }
+        else
+        {
+            await PostSarrafFxGainAsync(settlement, amountUsd, description);
+        }
+
+        // برچسب دلیل تفاوت (فقط ثبت/نمایش؛ هیچ منطق مالی به آن وابسته نیست).
+        var tracked = await _db.SarrafSettlements.FirstOrDefaultAsync(s => s.Id == settlement.Id);
+        if (tracked is not null && tracked.DifferenceReason is null)
+        {
+            tracked.DifferenceReason = DifferenceReason.FxDifference;
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    // ضرر: مصرف واقعی + سطر بدهکار. هیچ PaymentTransaction نقدی ساخته نمی‌شود.
+    private async Task PostSarrafFxLossAsync(SarrafSettlement settlement, decimal amountUsd, string description)
+    {
+        var fxType = await EnsureFxDifferenceExpenseTypeAsync();
+
+        var expense = new ExpenseTransaction
+        {
+            ExpenseTypeId = fxType.Id,
+            // عمداً بدون قرارداد: گزارش سود و زیان مدیریتی تفاوتِ نرخ را از خودِ
+            // SarrafSettlement.DifferenceType می‌خواند (SarrafSupplierShortfallUsd)، پس بستنِ
+            // این مصرف به قرارداد باعث می‌شد همان ضرر بار دوم در GeneralExpenseCostUsd شمرده شود.
+            // ردیابیِ تسویه در Description و Reference نگه داشته می‌شود.
+            ContractId = null,
+            ExpenseDate = settlement.SettlementDate,
+            Amount = amountUsd,
+            Currency = SystemCurrency.BaseCurrencyCode,
+            AppliedFxRateToUsd = 1m,
+            AmountUsd = amountUsd,
+            Description = description
+        };
+        _db.ExpenseTransactions.Add(expense);
+        await _db.SaveChangesAsync();
+
+        _db.LedgerEntries.Add(BuildSarrafFxDifferenceLedger(
+            settlement,
+            amountUsd,
+            description,
+            LedgerSide.Debit,
+            sourceType: "Expense",
+            sourceId: expense.Id));
+        await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            nameof(ExpenseTransaction),
+            expense.Id,
+            AuditAction.Insert,
+            diff: AuditDiffFormatter.ForCreate(
+                ("Type", "SarrafFxLoss"),
+                ("AmountUsd", expense.AmountUsd),
+                ("SarrafSettlementId", settlement.Id),
+                ("CompanyRate", settlement.SarrafRate),
+                ("CounterpartyRate", settlement.SupplierRate)));
+    }
+
+    // سود: سطر بستانکارِ درآمد. نه مصرف ساخته می‌شود، نه مبلغ منفی، نه کاهش هزینه.
+    private async Task PostSarrafFxGainAsync(SarrafSettlement settlement, decimal amountUsd, string description)
+    {
+        var gainLedger = BuildSarrafFxDifferenceLedger(
+            settlement,
+            amountUsd,
+            description,
+            LedgerSide.Credit,
+            sourceType: SarrafFxGainLedgerSourceType,
+            sourceId: settlement.Id);
+        _db.LedgerEntries.Add(gainLedger);
+        await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            nameof(LedgerEntry),
+            gainLedger.Id,
+            AuditAction.Insert,
+            diff: AuditDiffFormatter.ForCreate(
+                ("Type", "SarrafFxGain"),
+                ("Side", gainLedger.Side),
+                ("AmountUsd", gainLedger.AmountUsd),
+                ("SarrafSettlementId", settlement.Id),
+                ("CompanyRate", settlement.SarrafRate),
+                ("CounterpartyRate", settlement.SupplierRate)));
+    }
+
+    // سطر دفترِ تفاوت نرخ — هر دو سمت یک شکل ساخته می‌شوند تا فقط Side و SourceType فرق کند.
+    // نه SupplierId دارد نه ContractId: تفاوت نرخ بدهیِ تأمین‌کننده نیست و نباید مانده یا
+    // صورت‌حساب او و مانده قرارداد را جابه‌جا کند (LedgerEntryOwnership.SupplierOwned هر دو را می‌خواند).
+    private static LedgerEntry BuildSarrafFxDifferenceLedger(
+        SarrafSettlement settlement,
+        decimal amountUsd,
+        string description,
+        LedgerSide side,
+        string sourceType,
+        int sourceId)
+        => new()
+        {
+            EntryDate = settlement.SettlementDate,
+            Side = side,
+            AmountUsd = amountUsd,
+            Currency = SystemCurrency.BaseCurrencyCode,
+            SourceAmount = amountUsd,
+            SourceCurrencyCode = SystemCurrency.BaseCurrencyCode,
+            AppliedFxRateToUsd = 1m,
+            AppliedFxRateDate = settlement.SettlementDate,
+            AppliedFxRateSource = "Sarraf settlement FX difference",
+            Description = description,
+            SourceType = sourceType,
+            SourceId = sourceId,
+            Reference = settlement.ReferenceNumber,
+            ContractId = null,
+            SupplierId = null
+        };
+
+    // ثبت‌های تفاوت نرخِ یک تسویه را برمی‌دارد (هر سمتی که باشد). برای ثبت دوباره و تغییر جهت.
+    private async Task RemoveSarrafFxDifferenceAsync(int settlementId)
+    {
+        var marker = BuildSarrafFxDifferenceMarker(settlementId);
+
+        var expenses = await _db.ExpenseTransactions
+            .Where(e => e.Description != null && e.Description.Contains(marker))
+            .ToListAsync();
+        if (expenses.Count > 0)
+        {
+            var expenseIds = expenses.Select(e => e.Id).ToList();
+            var expenseLedgers = await _db.LedgerEntries
+                .Where(l => l.SourceType == "Expense" && expenseIds.Contains(l.SourceId))
+                .ToListAsync();
+            _db.LedgerEntries.RemoveRange(expenseLedgers);
+            _db.ExpenseTransactions.RemoveRange(expenses);
+        }
+
+        var gainLedgers = await _db.LedgerEntries
+            .Where(l => l.SourceType == SarrafFxGainLedgerSourceType && l.Description.Contains(marker))
+            .ToListAsync();
+        if (gainLedgers.Count > 0)
+        {
+            _db.LedgerEntries.RemoveRange(gainLedgers);
+        }
+
+        if (expenses.Count > 0 || gainLedgers.Count > 0)
+        {
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    // آیا کاربر نرخ خرید ارز توسط شرکت را جدا و متفاوت از نرخ قبول طرف مقابل وارد کرده است؟
+    // فقط در این حالت مسیر دو‌نرخی (SarrafSettlementService) فعال می‌شود تا رفتار تک‌نرخیِ
+    // موجود و داده‌های قبلی دست‌نخورده بمانند.
+    private static bool HasDistinctSarrafCompanyRate(PaymentCreateViewModel model)
+    {
+        var currency = string.IsNullOrWhiteSpace(model.SarrafSupplierCurrency)
+            ? "USD"
+            : SystemCurrency.Normalize(model.SarrafSupplierCurrency);
+        if (SystemCurrency.IsBaseCurrency(currency))
+        {
+            return false;
+        }
+
+        var companyRate = model.SarrafCompanyPerUsdRate ?? 0m;
+        var counterpartyRate = model.SarrafSupplierPerUsdRate ?? 0m;
+        return companyRate > 0m && counterpartyRate > 0m && companyRate != counterpartyRate;
     }
 
     // اعتبارسنجی حساب پرداخت کمیسیون (نقد/بانک). Id حساب نهایی را برمی‌گرداند.

@@ -25,6 +25,11 @@
     // فیلدها و پنل خلاصهٔ «پرداخت از طریق صراف» (محاسبهٔ زنده، فقط نمایشی).
     const sarrafSupplierAmountInput = document.getElementById("SarrafSupplierAmount");
     const sarrafSupplierRateInput = document.getElementById("SarrafSupplierPerUsdRate");
+    const sarrafCompanyRateInput = document.getElementById("SarrafCompanyPerUsdRate");
+    const sarrafCompanyRateField = document.querySelector("[data-sarraf-company-rate-field]");
+    const sarrafFxDiffField = document.querySelector("[data-sarraf-fxdiff-field]");
+    const sarrafSingleRateNote = document.querySelector("[data-sarraf-single-rate-note]");
+    const sarrafDualRateNote = document.querySelector("[data-sarraf-dual-rate-note]");
     const sarrafCurrencySelect = document.getElementById("sarrafCurrency");
     const sarrafSummaryPanel = document.querySelector("[data-sarraf-summary]");
     const sarrafSummaryHold = document.querySelector("[data-sarraf-summary-hold]");
@@ -608,6 +613,9 @@
         if (sarrafRateField) {
             sarrafRateField.hidden = isUsd;
         }
+        if (sarrafCompanyRateField) {
+            sarrafCompanyRateField.hidden = isUsd;
+        }
         if (sarrafSupplierRateInput) {
             if (isUsd) {
                 sarrafSupplierRateInput.required = false;
@@ -623,12 +631,47 @@
             return;
         }
 
+        // نرخ خرید ارز توسط شرکت اختیاری است. اگر خالی یا برابر نرخ طرف حساب باشد، همان حالت
+        // تک‌نرخیِ قبلی است و تفاوتی ثبت نمی‌شود.
+        const companyRateRaw = (!isUsd && sarrafCompanyRateInput) ? Number(sarrafCompanyRateInput.value) : 0;
+        const companyRate = Number.isFinite(companyRateRaw) && companyRateRaw > 0 ? companyRateRaw : rate;
+        const acceptedUsd = amount / rate;
+        const companyCostUsd = amount / companyRate;
+        // نتیجه از دید شرکت: قبول‌شده منهای هزینهٔ واقعی. مثبت = سود، منفی = ضرر.
+        const fxResultUsd = acceptedUsd - companyCostUsd;
+        const hasFxDifference = companyRate !== rate && Math.abs(fxResultUsd) >= 0.005;
+        const isGain = fxResultUsd > 0;
+
         const display = formatMoney(amount, currency);
-        const usdDisplay = formatMoney(amount / rate, "USD");
+        const acceptedUsdDisplay = formatMoney(acceptedUsd, "USD");
+        const companyUsdDisplay = formatMoney(companyCostUsd, "USD");
+        const differenceDisplay = formatMoney(Math.abs(fxResultUsd), "USD");
         setAllText(Array.from(document.querySelectorAll("[data-sarraf-supplier-amount]")), display);
         setAllText(Array.from(document.querySelectorAll("[data-sarraf-payable-amount]")), display);
-        setAllText(Array.from(document.querySelectorAll("[data-sarraf-supplier-usd]")), usdDisplay);
-        setAllText(Array.from(document.querySelectorAll("[data-sarraf-payable-usd]")), usdDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-supplier-usd]")), acceptedUsdDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-payable-usd]")), companyUsdDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-usd]")), differenceDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-amount]")), differenceDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-accepted]")), acceptedUsdDisplay);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-company]")), companyUsdDisplay);
+
+        const resultLabel = hasFxDifference
+            ? (isGain ? "سود تفاوت نرخ ارز" : "ضرر تفاوت نرخ ارز")
+            : "بدون تفاوت نرخ";
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-label]")), resultLabel);
+        setAllText(Array.from(document.querySelectorAll("[data-sarraf-fxdiff-title]")), resultLabel + ".");
+        setAllText(
+            Array.from(document.querySelectorAll("[data-sarraf-fxdiff-hint]")),
+            isGain ? "به‌عنوان درآمد ثبت می‌شود؛ صندوق زیاد نمی‌شود." : "به‌عنوان مصرف ثبت می‌شود؛ صندوق کم نمی‌شود.");
+        setAllText(
+            Array.from(document.querySelectorAll("[data-sarraf-fxdiff-effect]")),
+            isGain
+                ? "این مبلغ به‌عنوان درآمد در سود و زیان ثبت می‌شود."
+                : "این مبلغ به‌عنوان مصرف در سود و زیان ثبت می‌شود.");
+
+        if (sarrafFxDiffField) { sarrafFxDiffField.hidden = !hasFxDifference; }
+        if (sarrafSingleRateNote) { sarrafSingleRateNote.hidden = hasFxDifference; }
+        if (sarrafDualRateNote) { sarrafDualRateNote.hidden = !hasFxDifference; }
         showSarrafSummaryVariant("hold");
     }
 
@@ -654,7 +697,7 @@
         syncSarrafSummary();
     }
 
-    [sarrafSupplierAmountInput, sarrafSupplierRateInput].forEach(el => {
+    [sarrafSupplierAmountInput, sarrafSupplierRateInput, sarrafCompanyRateInput].forEach(el => {
         if (el) {
             el.addEventListener("input", syncSarrafSummary);
             el.addEventListener("change", syncSarrafSummary);
