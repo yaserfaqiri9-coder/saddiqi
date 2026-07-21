@@ -72,6 +72,7 @@ public static class UiText
             "SarrafSettlementCancel" => "لغو تسویه صراف",
             "SarrafSettlementEditReversal" => "برگشت ویرایش تسویه صراف",
             "SarrafSettlementExchangeDifference" => "تفاوت نرخ تسویه صراف",
+            "SarrafFxGain" => "سود تفاوت نرخ ارز",
             _ => sourceType
         };
     }

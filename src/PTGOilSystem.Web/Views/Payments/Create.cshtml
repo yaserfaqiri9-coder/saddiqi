@@ -447,11 +447,19 @@
                         </div>
 
                         <div class="ak-field" data-sarraf-rate-field>
-                            <label asp-for="SarrafSupplierPerUsdRate" class="ak-label"><i class="bi bi-arrow-left-right"></i> نرخ دالر</label>
+                            <label asp-for="SarrafSupplierPerUsdRate" class="ak-label"><i class="bi bi-arrow-left-right"></i> نرخ قبول طرف حساب</label>
                             <input asp-for="SarrafSupplierPerUsdRate" id="SarrafSupplierPerUsdRate" class="ak-input ak-num"
-                                   placeholder="مثلاً ۹۲" autocomplete="off" />
-                            <small class="form-text text-muted">برای RUB: هر ۱ دالر چند روبل حساب شود.</small>
+                                   placeholder="مثلاً ۷۹٫۳۱۴۶" autocomplete="off" />
+                            <small class="form-text text-muted">هر ۱ دالر چند واحد ارز، طبق حساب تأمین‌کننده.</small>
                             <span asp-validation-for="SarrafSupplierPerUsdRate" class="field-validation-error"></span>
+                        </div>
+
+                        <div class="ak-field" data-sarraf-company-rate-field>
+                            <label asp-for="SarrafCompanyPerUsdRate" class="ak-label"><i class="bi bi-cart-check"></i> نرخ خرید ارز توسط شرکت</label>
+                            <input asp-for="SarrafCompanyPerUsdRate" id="SarrafCompanyPerUsdRate" class="ak-input ak-num"
+                                   placeholder="مثلاً ۷۶" autocomplete="off" />
+                            <small class="form-text text-muted">اگر خالی بماند، همان نرخ طرف حساب استفاده می‌شود و تفاوتی ثبت نمی‌شود.</small>
+                            <span asp-validation-for="SarrafCompanyPerUsdRate" class="field-validation-error"></span>
                         </div>
                     </div>
 
@@ -518,10 +526,27 @@
                             <strong class="ak-num" data-sarraf-payable-amount>—</strong>
                             <small class="text-muted" data-sarraf-payable-usd>—</small>
                         </div>
+                        <div class="ak-field" data-sarraf-fxdiff-field hidden>
+                            <span class="ak-label"><i class="bi bi-arrow-left-right"></i> <span data-sarraf-fxdiff-label>تفاوت نرخ ارز</span></span>
+                            <strong class="ak-num" data-sarraf-fxdiff-usd>—</strong>
+                            <small class="text-muted" data-sarraf-fxdiff-hint>صندوق کم یا زیاد نمی‌شود.</small>
+                        </div>
                     </div>
 
-                    <div class="ak-note" role="status">
-                        <span><i class="bi bi-shield-check"></i> <strong>یک نرخ، بدون تفاوت.</strong> همین نرخ برای حساب طرف حساب و حساب صراف استفاده می‌شود.</span>
+                    <div class="ak-note" role="status" data-sarraf-single-rate-note>
+                        <span><i class="bi bi-shield-check"></i> <strong>بدون تفاوت نرخ.</strong> همین نرخ برای حساب طرف حساب و حساب صراف استفاده می‌شود.</span>
+                    </div>
+
+                    <div class="ak-note" role="status" data-sarraf-dual-rate-note hidden>
+                        <span>
+                            <i class="bi bi-info-circle"></i>
+                            <strong data-sarraf-fxdiff-title>نتیجه تفاوت نرخ</strong>
+                            هزینه واقعی شرکت <span data-sarraf-fxdiff-company>—</span>،
+                            مبلغ قبول‌شده تأمین‌کننده <span data-sarraf-fxdiff-accepted>—</span>،
+                            تفاوت <span data-sarraf-fxdiff-amount>—</span>.
+                            <span data-sarraf-fxdiff-effect>—</span>
+                            این کمیسیون نیست و هیچ پرداخت نقدی جدا نمی‌سازد.
+                        </span>
                     </div>
                 </section>
             </div>

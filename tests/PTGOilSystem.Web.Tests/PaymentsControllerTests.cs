@@ -1442,6 +1442,389 @@ public class PaymentsControllerTests
         Assert.Contains("Sarraf A", row.RelatedTo);
     }
 
+    // ===================== تفاوت نرخ ارز حواله صراف (شیت commission فایل Petrogas) =====================
+    // شرکت ارز را با یک نرخ می‌خرد و تأمین‌کننده همان ارز را با نرخ دیگری قبول می‌کند.
+    // تفاوت، کمیسیون نقدی نیست: هیچ پول جداگانه‌ای پرداخت نشده، پس فقط مصرف ثبت می‌شود.
+
+    private static async Task<PaymentsController> BuildDualRateFixtureAsync(ApplicationDbContext db)
+    {
+        SeedReferenceData(db);
+        db.Suppliers.Add(new Supplier { Id = 2, Name = "SOLVEX FZE", IsActive = true });
+        db.Sarrafs.Add(new Sarraf { Id = 1, Name = "Noorzad Dubai", IsActive = true });
+        db.Contracts.Add(new Contract
+        {
+            Id = 7,
+            ContractNumber = "20000-MT-DIESEL",
+            ContractType = ContractType.Purchase,
+            CompanyId = 1,
+            SupplierId = 2,
+            ProductId = 1,
+            QuantityMt = 20_000m,
+            Currency = "USD",
+            ContractDate = new DateTime(2025, 12, 1)
+        });
+        await db.SaveChangesAsync();
+        return BuildPaymentsController(db);
+    }
+
+    private static PaymentCreateViewModel BuildDualRateModel(
+        DateTime date,
+        decimal rubAmount,
+        decimal companyRate,
+        decimal supplierRate,
+        string reference,
+        int? contractId = 7)
+        => new()
+        {
+            PaymentDate = date,
+            PaymentMethod = PaymentMethod.ViaSarraf,
+            SarrafId = 1,
+            SupplierId = 2,
+            ContractId = contractId,
+            SarrafSupplierAmount = rubAmount,
+            SarrafSupplierCurrency = "RUB",
+            SarrafSupplierPerUsdRate = supplierRate,
+            SarrafCompanyPerUsdRate = companyRate,
+            Reference = reference
+        };
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_Receipt665_MatchesExcelNumbers()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        var result = await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+        Assert.IsType<RedirectToActionResult>(result);
+
+        var settlement = await db.SarrafSettlements.SingleAsync();
+        // ستون Our Payment شیت commission = 2,631,578.9474
+        Assert.Equal(2_631_578.9474m, settlement.SarrafChargedAmountUsd);
+        // ستون Their Received = T-Credit شیت 2026 = 2,521,603.8409
+        Assert.Equal(2_521_603.8409m, settlement.SupplierAcceptedAmountUsd);
+        // ستون Difference = 109,975.1065
+        Assert.Equal(109_975.1065m, settlement.DifferenceAmountUsd);
+        Assert.Equal(SarrafSettlementDifferenceType.SupplierShortfall, settlement.DifferenceType);
+        Assert.Equal(SarrafSettlementDifferenceTreatment.AcceptedAmountOnly, settlement.DifferenceTreatment);
+        Assert.Equal(DifferenceReason.FxDifference, settlement.DifferenceReason);
+
+        // تست ۱ — حساب تأمین‌کننده فقط SupplierAcceptedUsd می‌گیرد.
+        var supplierLedger = await db.LedgerEntries
+            .SingleAsync(l => l.SourceType == SarrafSettlementService.SupplierLedgerSourceType);
+        Assert.Equal(LedgerSide.Debit, supplierLedger.Side);
+        Assert.Equal(2_521_603.8409m, supplierLedger.AmountUsd);
+        Assert.Equal(2, supplierLedger.SupplierId);
+        Assert.Equal(7, supplierLedger.ContractId);
+        Assert.Equal("RUB", supplierLedger.SourceCurrencyCode);
+        Assert.Equal(200_000_000m, supplierLedger.SourceAmount);
+
+        // تست ۳ — تفاوت به‌عنوان مصرف ثبت شده است.
+        var expense = await db.ExpenseTransactions.SingleAsync();
+        Assert.Equal(109_975.1065m, expense.AmountUsd);
+        Assert.Equal("USD", expense.Currency);
+        var expenseType = await db.ExpenseTypes.SingleAsync(t => t.Id == expense.ExpenseTypeId);
+        Assert.Equal(PaymentsController.SarrafFxDifferenceExpenseCode, expenseType.Code);
+
+        // تست ۴ — هیچ خروج نقدی ساخته نشده است.
+        Assert.Equal(0, await db.PaymentTransactions.CountAsync());
+
+        // تست ۵ و ۶ — سطر مصرف نه SupplierId دارد نه ContractId، پس مالکیت تأمین‌کننده آن را برنمی‌دارد.
+        var expenseLedger = await db.LedgerEntries.SingleAsync(l => l.SourceType == "Expense");
+        Assert.Equal(LedgerSide.Debit, expenseLedger.Side);
+        Assert.Equal(109_975.1065m, expenseLedger.AmountUsd);
+        Assert.Null(expenseLedger.SupplierId);
+        Assert.Null(expenseLedger.ContractId);
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_Receipt681_MatchesExcelNumbers()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        var result = await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 29), 300_000_000m, 76m, 77.6923m, "681"));
+        Assert.IsType<RedirectToActionResult>(result);
+
+        var settlement = await db.SarrafSettlements.SingleAsync();
+        Assert.Equal(3_947_368.4211m, settlement.SarrafChargedAmountUsd);
+        Assert.Equal(3_861_386.5209m, settlement.SupplierAcceptedAmountUsd);
+        Assert.Equal(85_981.9002m, settlement.DifferenceAmountUsd);
+
+        var expense = await db.ExpenseTransactions.SingleAsync();
+        Assert.Equal(85_981.9002m, expense.AmountUsd);
+        Assert.Equal(0, await db.PaymentTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_SupplierStatementExcludesFxDifference()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+
+        // تست ۵ — صورت‌حساب تأمین‌کننده فقط مبلغ قبول‌شده را می‌بیند، نه تفاوت نرخ را.
+        var supplierResult = await new SuppliersController(db, new AuditService(db), new MasterDataDeleteSafetyService(db))
+            .Details(2, tab: "statement");
+        var supplierView = Assert.IsType<ViewResult>(supplierResult);
+        var supplier = Assert.IsType<SupplierProfileViewModel>(supplierView.Model);
+
+        Assert.All(supplier.StatementRows, r => Assert.NotEqual(109_975.1065m, r.DebitUsd ?? 0m));
+        Assert.Equal(2_521_603.8409m, supplier.StatementRows.Sum(r => r.DebitUsd ?? 0m));
+
+        // تست ۷ — پرداخت قرارداد فقط SupplierAcceptedUsd است و تفاوت مانده را جابه‌جا نمی‌کند.
+        var contract = Assert.Single(supplier.Contracts);
+        Assert.Equal(2_521_603.8409m, contract.PaidUsd);
+        Assert.Equal(2_521_603.8409m, contract.LedgerDebitUsd);
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_SarrafStatementUsesCompanyCost()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+
+        // تست ۲ و ۶ — بدهی به صراف با نرخ خرید شرکت است، یعنی تفاوت نرخ داخل آن دیده می‌شود.
+        var sarrafResult = await new SarrafsController(db).Details(1);
+        var sarrafView = Assert.IsType<ViewResult>(sarrafResult);
+        var sarraf = Assert.IsType<SarrafDetailsViewModel>(sarrafView.Model);
+        Assert.Equal(2_631_578.9474m, sarraf.ChargedUsd);
+        Assert.Equal(2_521_603.8409m, sarraf.AcceptedUsd);
+        Assert.Equal(109_975.1065m, sarraf.SupplierShortfallUsd);
+    }
+
+    [Fact]
+    public async Task PostSarrafFxDifference_IsIdempotent_ForSameSettlement()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+        var settlement = await db.SarrafSettlements.SingleAsync();
+
+        // تست ۹ — پردازش دوبارهٔ همان تسویه مصرف تکراری نمی‌سازد.
+        await controller.PostSarrafFxDifferenceAsync(settlement);
+
+        Assert.Equal(1, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(1, await db.LedgerEntries.CountAsync(l => l.SourceType == "Expense"));
+    }
+
+    // ===================== سود تفاوت نرخ ارز (FxResult = Accepted − CompanyCost > 0) =====================
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_Gain_CreatesIncomeNotExpense()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // نرخ خرید شرکت ۸۲ (ارزان‌تر) در برابر نرخ قبول تأمین‌کننده ۷۹٫۳۱۴۶ → سود.
+        var result = await controller.Create(
+            BuildDualRateModel(new DateTime(2026, 1, 5), 200_000_000m, 82m, 79.3146m, "GAIN-1"));
+        Assert.IsType<RedirectToActionResult>(result);
+
+        var settlement = await db.SarrafSettlements.SingleAsync();
+        Assert.Equal(2_439_024.3902m, settlement.SarrafChargedAmountUsd);   // CompanyCost = 200M / 82
+        Assert.Equal(2_521_603.8409m, settlement.SupplierAcceptedAmountUsd); // 200M / 79.3146
+        // DifferenceAmountUsd سرویس = CompanyCost − Accepted، پس برای سود منفی است.
+        Assert.Equal(-82_579.4507m, settlement.DifferenceAmountUsd);
+
+        // تست ۲ — نوع تفاوت باید Gain باشد، نه SupplierShortfall.
+        Assert.Equal(SarrafSettlementDifferenceType.Gain, settlement.DifferenceType);
+        Assert.Equal(DifferenceReason.FxDifference, settlement.DifferenceReason);
+
+        // هیچ مصرفی ساخته نمی‌شود و هیچ سطر بدهکارِ هزینه‌ای وجود ندارد.
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(0, await db.LedgerEntries.CountAsync(l => l.SourceType == "Expense"));
+
+        // درآمد: یک سطر بستانکار با مبلغ مثبت.
+        var gainLedger = await db.LedgerEntries
+            .SingleAsync(l => l.SourceType == PaymentsController.SarrafFxGainLedgerSourceType);
+        Assert.Equal(LedgerSide.Credit, gainLedger.Side);
+        Assert.Equal(82_579.4507m, gainLedger.AmountUsd);
+        Assert.True(gainLedger.AmountUsd > 0m);
+        Assert.Null(gainLedger.SupplierId);
+        Assert.Null(gainLedger.ContractId);
+
+        // تست ۴ — صندوق دست نمی‌خورد.
+        Assert.Equal(0, await db.PaymentTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_DualRate_Gain_KeepsSupplierSarrafAndContractCorrect()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2026, 1, 5), 200_000_000m, 82m, 79.3146m, "GAIN-1"));
+
+        // تأمین‌کننده فقط مبلغ قبول‌شده؛ سود در صورت‌حساب او دیده نمی‌شود.
+        var supplierResult = await new SuppliersController(db, new AuditService(db), new MasterDataDeleteSafetyService(db))
+            .Details(2, tab: "statement");
+        var supplier = Assert.IsType<SupplierProfileViewModel>(Assert.IsType<ViewResult>(supplierResult).Model);
+        Assert.Equal(2_521_603.8409m, supplier.StatementRows.Sum(r => r.DebitUsd ?? 0m));
+        Assert.All(supplier.StatementRows, r => Assert.NotEqual(82_579.4507m, r.CreditUsd ?? 0m));
+
+        // قرارداد فقط مبلغ قبول‌شده را پرداخت‌شده می‌بیند.
+        var contract = Assert.Single(supplier.Contracts);
+        Assert.Equal(2_521_603.8409m, contract.PaidUsd);
+        Assert.Equal(2_521_603.8409m, contract.LedgerDebitUsd);
+
+        // صراف فقط هزینهٔ واقعی شرکت.
+        var sarraf = Assert.IsType<SarrafDetailsViewModel>(
+            Assert.IsType<ViewResult>(await new SarrafsController(db).Details(1)).Model);
+        Assert.Equal(2_439_024.3902m, sarraf.ChargedUsd);
+        Assert.Equal(82_579.4507m, sarraf.ExchangeGainUsd);
+        Assert.Equal(0m, sarraf.SupplierShortfallUsd);
+    }
+
+    [Fact]
+    public async Task PostSarrafFxDifference_WithNoDifference_CreatesNothing()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // تست ۳ — هزینهٔ شرکت دقیقاً برابر مبلغ قبول‌شده.
+        var settlement = new SarrafSettlement
+        {
+            SettlementDate = new DateTime(2026, 1, 5),
+            SarrafId = 1,
+            SupplierId = 2,
+            SarrafCurrency = "RUB",
+            SarrafRate = 79.3146m,
+            SupplierRate = 79.3146m,
+            DifferenceAmountUsd = 0m,
+            DifferenceType = SarrafSettlementDifferenceType.None,
+            DifferenceTreatment = SarrafSettlementDifferenceTreatment.AcceptedAmountOnly,
+            Status = SarrafSettlementStatus.Posted
+        };
+        db.SarrafSettlements.Add(settlement);
+        await db.SaveChangesAsync();
+
+        await controller.PostSarrafFxDifferenceAsync(settlement);
+
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(0, await db.LedgerEntries.CountAsync(l => l.SourceType == "Expense"));
+        Assert.Equal(0, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.SarrafFxGainLedgerSourceType));
+        Assert.Null(settlement.DifferenceReason);
+    }
+
+    [Fact]
+    public async Task PostSarrafFxDifference_Gain_IsIdempotent()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2026, 1, 5), 200_000_000m, 82m, 79.3146m, "GAIN-1"));
+        var settlement = await db.SarrafSettlements.SingleAsync();
+
+        await controller.PostSarrafFxDifferenceAsync(settlement);
+
+        Assert.Equal(1, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.SarrafFxGainLedgerSourceType));
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+    }
+
+    [Fact]
+    public async Task PostSarrafFxDifference_FlippingLossToGain_ReplacesThePreviousRecord()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // ابتدا ضرر ثبت می‌شود.
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+        var settlement = await db.SarrafSettlements.SingleAsync();
+        Assert.Equal(1, await db.ExpenseTransactions.CountAsync());
+
+        // تست ۵ — جهت به سود برمی‌گردد: ثبت قبلی باید برداشته و سمت درست ساخته شود.
+        settlement.DifferenceAmountUsd = -82_579.4507m;
+        settlement.DifferenceType = SarrafSettlementDifferenceType.Gain;
+        await db.SaveChangesAsync();
+
+        await controller.PostSarrafFxDifferenceAsync(settlement);
+
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(0, await db.LedgerEntries.CountAsync(l => l.SourceType == "Expense"));
+        var gainLedger = await db.LedgerEntries
+            .SingleAsync(l => l.SourceType == PaymentsController.SarrafFxGainLedgerSourceType);
+        Assert.Equal(LedgerSide.Credit, gainLedger.Side);
+        Assert.Equal(82_579.4507m, gainLedger.AmountUsd);
+    }
+
+    [Fact]
+    public async Task FxLossExpense_IsNotAttachedToTheContract_SoPnlDoesNotCountItTwice()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 76m, 79.3146m, "665"));
+
+        // سود و زیان مدیریتی، تفاوت نرخ را از SarrafSettlement.DifferenceType می‌خواند؛
+        // اگر این مصرف به قرارداد بسته می‌شد، همان ضرر بار دوم در GeneralExpenseCostUsd می‌آمد.
+        var expense = await db.ExpenseTransactions.SingleAsync();
+        Assert.Null(expense.ContractId);
+        Assert.Equal(109_975.1065m, expense.AmountUsd);
+
+        var settlement = await db.SarrafSettlements.SingleAsync();
+        Assert.Equal(SarrafSettlementDifferenceType.SupplierShortfall, settlement.DifferenceType);
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_SingleRate_KeepsLegacyPath_NoFxDifference()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // نرخ شرکت برابر نرخ تأمین‌کننده: رفتار قبلی دست‌نخورده می‌ماند.
+        var result = await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 79.3146m, 79.3146m, "665-A"));
+        Assert.IsType<RedirectToActionResult>(result);
+
+        Assert.Empty(await db.SarrafSettlements.ToListAsync());
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(1, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.ViaSarrafSupplierLedgerSourceType));
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_Commission_ExpenseLedgerIsNotSupplierOwned()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // کمیسیون واقعی (نه تفاوت نرخ) — رفتار قبلی حفظ می‌شود، فقط سطر مصرف دیگر
+        // به حساب تأمین‌کننده نمی‌چسبد.
+        var model = BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 79.3146m, 79.3146m, "665-B");
+        model.CommissionEnabled = true;
+        model.CommissionType = PaymentCommissionType.Fixed;
+        model.CommissionFixedAmount = 500m;
+        model.CommissionCurrency = "USD";
+
+        Assert.IsType<RedirectToActionResult>(await controller.Create(model));
+
+        var expenseLedger = await db.LedgerEntries.SingleAsync(l => l.SourceType == "Expense");
+        Assert.Null(expenseLedger.SupplierId);
+        Assert.Null(expenseLedger.ContractId);
+
+        // تست ۸ — کمیسیون همچنان به بدهی صراف اضافه می‌شود و صندوق دست نمی‌خورد.
+        Assert.Equal(0, await db.PaymentTransactions.CountAsync());
+        Assert.Equal(2, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.ViaSarrafPayableLedgerSourceType));
+        var commissionExpense = await db.ExpenseTransactions.SingleAsync();
+        Assert.Equal(500m, commissionExpense.AmountUsd);
+    }
+
     [Fact]
     public async Task Create_Post_ViaSarraf_Usd_ReducesSupplierAndIncreasesSarrafPayable_SameCurrency()
     {
