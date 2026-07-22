@@ -1,0 +1,49 @@
+using System.Linq.Expressions;
+using PTGOilSystem.Web.Models.Entities;
+
+namespace PTGOilSystem.Web.Services.PartyStatements;
+
+/// <summary>
+/// تعریفِ مرکزیِ «کدام LedgerEntry واقعاً متعلق به یک تأمین‌کننده است».
+///
+/// یک سند وقتی متعلق به تأمین‌کننده است که:
+///  ۱) مستقیماً <see cref="LedgerEntry.SupplierId"/> آن همان تأمین‌کننده باشد؛ یا
+///  ۲) legacy: هیچ طرف‌حسابِ مستقلِ دیگری روی سند ست نشده باشد
+///     (ServiceProvider/Driver/Customer/Employee) و صرفاً از طریق
+///     قرارداد خرید به تأمین‌کننده وصل باشد.
+///
+/// شرط (۲) از نشتِ اسنادی مثل کرایهٔ حمل (TRANSPORT-RECEIPT) جلوگیری می‌کند که
+/// طرف واقعی‌شان ServiceProvider/Driver است ولی روی قرارداد خرید ثبت شده‌اند و
+/// پیش‌تر اشتباهاً بدهی تأمین‌کننده را افزایش می‌دادند.
+///
+/// هیچ چیزی در ثبت Ledger/هزینه/حساب حمل‌کننده تغییر نمی‌کند؛ این فقط «انتساب
+/// خواندنیِ» صورت‌حساب/مانده تأمین‌کننده است و به‌صورت Expression نوشته شده تا در
+/// همهٔ Queryهای EF یکسان ترجمه شود (شرطِ پراکنده ساخته نشود).
+/// </summary>
+public static class LedgerEntryOwnership
+{
+    public static Expression<Func<LedgerEntry, bool>> SupplierOwned(int supplierId)
+        => entry =>
+            entry.SupplierId == supplierId
+            || (entry.SupplierId == null
+                && entry.ServiceProviderId == null
+                && entry.DriverId == null
+                && entry.CustomerId == null
+                && entry.EmployeeId == null
+                && entry.Contract != null
+                && entry.Contract.ContractType == ContractType.Purchase
+                && entry.Contract.SupplierId == supplierId);
+
+    public static Expression<Func<LedgerEntry, bool>> SupplierOwnedAny(IReadOnlyCollection<int> supplierIds)
+        => entry =>
+            (entry.SupplierId != null && supplierIds.Contains(entry.SupplierId.Value))
+            || (entry.SupplierId == null
+                && entry.ServiceProviderId == null
+                && entry.DriverId == null
+                && entry.CustomerId == null
+                && entry.EmployeeId == null
+                && entry.Contract != null
+                && entry.Contract.ContractType == ContractType.Purchase
+                && entry.Contract.SupplierId != null
+                && supplierIds.Contains(entry.Contract.SupplierId.Value));
+}

@@ -47,14 +47,49 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
             await AddOperationalColumnsAsync(calculation.PeriodRows, cancellationToken);
         }
 
+        // نمایش روبلی: کاربر ارز روبل را انتخاب کرده تا مانده و جمع‌های روبلیِ واقعی
+        // (به نرخ تاریخی هر سند) نمایش داده شوند. مقادیر USD دست‌نخورده باقی می‌مانند.
+        var presentInRub = IsRubPresentation(filter);
+        foreach (var row in calculation.PeriodRows)
+        {
+            ApplyRubValues(row);
+        }
+
         var resultRows = BuildRunningRows(calculation.OpeningBalance, calculation.PeriodRows, filter.FromDate);
         var totalDebit = calculation.PeriodRows.Sum(r => r.DebitBase ?? 0m);
         var totalCredit = calculation.PeriodRows.Sum(r => r.CreditBase ?? 0m);
         var closing = calculation.OpeningBalance + totalCredit - totalDebit;
+
+        // جمع‌ها و مانده جاری روبلی — فقط از اسناد روبلی؛ اسناد غیرروبلی ارزش روبلی
+        // ندارند و در این محاسبه شرکت نمی‌کنند (در سطر «—» نمایش داده می‌شوند).
+        decimal? openingRub = null, totalDebitRub = null, totalCreditRub = null, closingRub = null;
+        if (presentInRub)
+        {
+            openingRub = calculation.OpeningBalance == 0m ? 0m : null;
+            totalDebitRub = calculation.PeriodRows.Sum(r => r.DebitRub ?? 0m);
+            totalCreditRub = calculation.PeriodRows.Sum(r => r.CreditRub ?? 0m);
+            var runningRub = openingRub ?? 0m;
+            foreach (var row in resultRows)
+            {
+                if (row.IsOpeningBalance)
+                {
+                    row.RunningBalanceRub = openingRub;
+                    continue;
+                }
+                if (row.SignedAmountRub.HasValue)
+                {
+                    runningRub += row.SignedAmountRub.Value;
+                    row.RunningBalanceRub = runningRub;
+                }
+            }
+            closingRub = (openingRub ?? 0m) + totalCreditRub.Value - totalDebitRub.Value;
+        }
+
         var companyInfo = await LoadCompanyInfoAsync(party, filter.ContractId, cancellationToken);
         var periodRows = resultRows.Where(r => !r.IsOpeningBalance).ToList();
         var periodFrom = filter.FromDate?.Date ?? periodRows.FirstOrDefault()?.Date.Date;
         var periodTo = filter.ToDate?.Date ?? periodRows.LastOrDefault()?.Date.Date ?? DateTime.UtcNow.Date;
+        var displayCurrency = presentInRub ? "RUB" : NormalizeCurrency(_options.BaseCurrencyCode);
 
         return new PartyStatementResult
         {
@@ -68,7 +103,7 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
                 StatementDate = DateTime.UtcNow.Date,
                 PeriodFrom = periodFrom,
                 PeriodTo = periodTo,
-                BaseCurrencyCode = NormalizeCurrency(_options.BaseCurrencyCode),
+                BaseCurrencyCode = displayCurrency,
                 GeneratedAtUtc = DateTime.UtcNow
             },
             Summary = new PartyStatementSummary
@@ -78,7 +113,12 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
                 TotalCredit = totalCredit,
                 ClosingBalance = closing,
                 ClosingBalanceMeaning = policy.BalanceMeaning(closing),
-                BaseCurrencyCode = NormalizeCurrency(_options.BaseCurrencyCode)
+                BaseCurrencyCode = displayCurrency,
+                IsRubPresentation = presentInRub,
+                OpeningBalanceRub = openingRub,
+                TotalDebitRub = totalDebitRub,
+                TotalCreditRub = totalCreditRub,
+                ClosingBalanceRub = closingRub
             },
             ColumnOptions = ResolveColumns(periodRows, filter),
             Rows = resultRows,
@@ -152,9 +192,10 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
                 l.CustomerId == party.PartyId
                 || (l.CustomerId == null && l.Contract != null && l.Contract.CustomerId == party.PartyId)
                 || (l.SourceType == "Sale" && _db.SalesTransactions.Any(s => s.Id == l.SourceId && s.CustomerId == party.PartyId))),
-            PartyStatementPartyType.Supplier => query.Where(l =>
-                l.SupplierId == party.PartyId
-                || (l.SupplierId == null && l.Contract != null && l.Contract.SupplierId == party.PartyId)),
+            // انتساب تأمین‌کننده از تعریف مرکزی می‌آید تا اسنادِ متعلق به طرف‌حسابِ دیگر
+            // (مثلاً کرایهٔ حملِ ServiceProvider/Driver روی همان قرارداد خرید) وارد
+            // صورت‌حساب تأمین‌کننده نشوند. رجوع: LedgerEntryOwnership.SupplierOwned.
+            PartyStatementPartyType.Supplier => query.Where(LedgerEntryOwnership.SupplierOwned(party.PartyId)),
             PartyStatementPartyType.ServiceProvider => query.Where(l => l.ServiceProviderId == party.PartyId),
             PartyStatementPartyType.Driver => query.Where(l => l.DriverId == party.PartyId),
             PartyStatementPartyType.Company => query.Where(l =>
@@ -179,8 +220,10 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
                 || (l.SourceType == "Sale" && _db.SalesTransactions.Any(s => s.Id == l.SourceId && s.CompanyId == companyId)));
         }
 
+        // در نمایش روبلی فیلتر ارز اعمال نمی‌شود تا همهٔ اسناد دیده شوند؛ ارزش روبلی
+        // بعداً per-row محاسبه می‌گردد. برای سایر ارزها رفتار فیلتر بدون تغییر است.
         var currency = NormalizeOptionalCurrency(filter.CurrencyCode);
-        if (currency is not null)
+        if (currency is not null && !IsRubPresentation(filter))
         {
             query = query.Where(l =>
                 (l.SourceCurrencyCode != null && l.SourceCurrencyCode == currency)
@@ -276,7 +319,7 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
                 (l.ContractId.HasValue && contractIds.Contains(l.ContractId.Value))
                 || (l.SourceType == "Sale" && saleIds.Contains(l.SourceId)));
         var currency = NormalizeOptionalCurrency(filter.CurrencyCode);
-        if (currency is not null)
+        if (currency is not null && !IsRubPresentation(filter))
         {
             query = query.Where(l =>
                 (l.SourceCurrencyCode != null && l.SourceCurrencyCode == currency)
@@ -345,7 +388,7 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
             .AsNoTracking()
             .Where(t => t.EmployeeId == party.PartyId && !t.IsCancelled);
         var currency = NormalizeOptionalCurrency(filter.CurrencyCode);
-        if (currency is not null)
+        if (currency is not null && !IsRubPresentation(filter))
         {
             query = query.Where(t => t.Currency == currency);
         }
@@ -411,7 +454,7 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
             .AsNoTracking()
             .Where(l => l.SourceType == ViaSarrafPayableLedgerSourceType && l.SourceId == party.PartyId);
         var currencyFilter = NormalizeOptionalCurrency(filter.CurrencyCode);
-        if (currencyFilter is not null)
+        if (currencyFilter is not null && !IsRubPresentation(filter))
         {
             settlementsQuery = settlementsQuery.Where(s => s.SarrafCurrency == currencyFilter);
             paymentsQuery = paymentsQuery.Where(p => p.Currency == currencyFilter);
@@ -717,6 +760,26 @@ public sealed class PartyStatementReadService : IPartyStatementReadService
         => string.Equals(currency, BaseCurrency, StringComparison.OrdinalIgnoreCase)
             ? 1m
             : fxRateToUsd is > 0m ? fxRateToUsd : null;
+
+    // آیا کاربر روبل را برای «نمایش» انتخاب کرده؟ در این حالت به‌جای فیلترِ ارز،
+    // همهٔ اسناد نمایش داده می‌شوند و ارزش روبلی هر سند (نرخ تاریخی خودش) محاسبه می‌شود.
+    private static bool IsRubPresentation(PartyStatementFilter filter)
+        => string.Equals(NormalizeOptionalCurrency(filter.CurrencyCode), "RUB", StringComparison.OrdinalIgnoreCase);
+
+    // ارزش روبلی سطر: فقط برای اسناد ذاتاً روبلی (OriginalCurrency == RUB) که مبلغ
+    // اصلی روبلی‌شان ذخیره شده است. سایر اسناد ارزش روبلیِ تاریخی ندارند و null می‌مانند.
+    private static void ApplyRubValues(PartyStatementRow row)
+    {
+        if (!string.Equals(row.OriginalCurrency, "RUB", StringComparison.OrdinalIgnoreCase)
+            || !row.OriginalAmount.HasValue)
+        {
+            return;
+        }
+
+        var amount = Math.Abs(row.OriginalAmount.Value);
+        row.DebitRub = row.DebitBase.HasValue ? amount : null;
+        row.CreditRub = row.CreditBase.HasValue ? amount : null;
+    }
 
     private static string NormalizeCurrency(string? currency)
         => string.IsNullOrWhiteSpace(currency) ? BaseCurrency : currency.Trim().ToUpperInvariant();
