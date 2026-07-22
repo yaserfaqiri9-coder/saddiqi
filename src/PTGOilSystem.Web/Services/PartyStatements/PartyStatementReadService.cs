@@ -9,7 +9,7 @@ namespace PTGOilSystem.Web.Services.PartyStatements;
 public sealed class PartyStatementReadService : IPartyStatementReadService
 {
     private const string BaseCurrency = "USD";
-    private const string ViaSarrafPayableLedgerSourceType = "SupplierViaSarrafPayable";
+    private const string ViaSarrafPayableLedgerSourceType = LedgerEntryOwnership.ViaSarrafPayableSourceType;
     private readonly ApplicationDbContext _db;
     private readonly IPartyStatementPolicyResolver _policyResolver;
     private readonly PartyStatementOptions _options;

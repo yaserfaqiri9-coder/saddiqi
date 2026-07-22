@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using PTGOilSystem.Web.Controllers;
 using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Models.AccountStatements;
@@ -14,12 +16,14 @@ using PTGOilSystem.Web.Models.Balance;
 using PTGOilSystem.Web.Models.Entities;
 using PTGOilSystem.Web.Models.Ledger;
 using PTGOilSystem.Web.Models.Loading;
+using PTGOilSystem.Web.Models.PartyStatements;
 using PTGOilSystem.Web.Models.Payments;
 using PTGOilSystem.Web.Models.Reconciliation;
 using PTGOilSystem.Web.Models.Sarrafs;
 using PTGOilSystem.Web.Models.Suppliers;
 using PTGOilSystem.Web.Services;
 using PTGOilSystem.Web.Services.DeleteSafety;
+using PTGOilSystem.Web.Services.PartyStatements;
 using Xunit;
 
 namespace PTGOilSystem.Web.Tests;
@@ -1795,6 +1799,156 @@ public class PaymentsControllerTests
         Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
         Assert.Equal(1, await db.LedgerEntries.CountAsync(
             l => l.SourceType == PaymentsController.ViaSarrafSupplierLedgerSourceType));
+    }
+
+    // ===================== صورت‌حساب رسمی در مسیر تک‌نرخی =====================
+    // مسیر legacy دو سطر می‌سازد: پرداخت تأمین‌کننده (Debit) و بدهی صراف (Credit). سطر دوم
+    // ContractId دارد ولی هیچ FK طرف‌حسابی ندارد، پس پیش‌تر مالکیت تأمین‌کننده آن را هم
+    // برمی‌داشت و مانده را صفر می‌کرد.
+
+    private static PartyStatementReadService BuildStatementService(ApplicationDbContext db)
+        => new(db, new PartyStatementPolicyResolver(), Options.Create(new PartyStatementOptions()));
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_SingleRate_SupplierStatementShowsOnlyThePaymentRow()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // نرخ خرید شرکت خالی → مسیر تک‌نرخی legacy.
+        var model = BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 0m, 79.3146m, "665-C");
+        model.SarrafCompanyPerUsdRate = null;
+        Assert.IsType<RedirectToActionResult>(await controller.Create(model));
+
+        var statement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, 2),
+            new PartyStatementFilter());
+
+        var row = Assert.Single(statement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafSupplierLedgerSourceType, row.SourceType);
+        Assert.Equal(2_521_603.8409m, row.CreditBase);
+        Assert.Equal(2_521_603.8409m, statement.Summary.ClosingBalance);
+        Assert.DoesNotContain(statement.Rows,
+            r => r.SourceType == PaymentsController.ViaSarrafPayableLedgerSourceType);
+
+        // هر دو سطر سر جای خودشان‌اند؛ فقط انتساب خواندنی اصلاح شده است.
+        Assert.Equal(1, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.ViaSarrafPayableLedgerSourceType
+                && l.Side == LedgerSide.Credit
+                && l.ContractId == 7));
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_SingleRate_SarrafStatementKeepsTheFullPayable()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        var model = BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 0m, 79.3146m, "665-C");
+        model.SarrafCompanyPerUsdRate = null;
+        Assert.IsType<RedirectToActionResult>(await controller.Create(model));
+
+        var statement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Sarraf, 1),
+            new PartyStatementFilter());
+
+        var row = Assert.Single(statement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafPayableLedgerSourceType, row.SourceType);
+        Assert.Equal(2_521_603.8409m, row.CreditBase);
+        Assert.Equal(2_521_603.8409m, statement.Summary.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_EqualRates_BehaveExactlyLikeSingleRate()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        // دو نرخ برابر: هنوز مسیر تک‌نرخی است و هیچ سود/زیانی ساخته نمی‌شود.
+        Assert.IsType<RedirectToActionResult>(await controller.Create(
+            BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 79.3146m, 79.3146m, "665-D")));
+
+        Assert.Empty(await db.SarrafSettlements.ToListAsync());
+        Assert.Equal(0, await db.ExpenseTransactions.CountAsync());
+        Assert.Equal(0, await db.LedgerEntries.CountAsync(
+            l => l.SourceType == PaymentsController.SarrafFxGainLedgerSourceType));
+
+        var supplierStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, 2),
+            new PartyStatementFilter());
+        var supplierRow = Assert.Single(supplierStatement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafSupplierLedgerSourceType, supplierRow.SourceType);
+        Assert.Equal(2_521_603.8409m, supplierStatement.Summary.ClosingBalance);
+
+        var sarrafStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Sarraf, 1),
+            new PartyStatementFilter());
+        Assert.Equal(2_521_603.8409m, sarrafStatement.Summary.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task Create_Post_ViaSarraf_Commission_DoesNotLeakIntoSupplierStatement()
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        var model = BuildDualRateModel(new DateTime(2025, 12, 23), 200_000_000m, 79.3146m, 79.3146m, "665-E");
+        model.CommissionEnabled = true;
+        model.CommissionType = PaymentCommissionType.Fixed;
+        model.CommissionFixedAmount = 500m;
+        model.CommissionCurrency = "USD";
+        Assert.IsType<RedirectToActionResult>(await controller.Create(model));
+
+        // تأمین‌کننده فقط سطر پرداخت را می‌بیند: نه بدهی صراف، نه کمیسیون.
+        var supplierStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, 2),
+            new PartyStatementFilter());
+        var supplierRow = Assert.Single(supplierStatement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafSupplierLedgerSourceType, supplierRow.SourceType);
+        Assert.Equal(2_521_603.8409m, supplierStatement.Summary.ClosingBalance);
+
+        // صراف هر دو بدهی را نگه می‌دارد: اصل حواله + کمیسیون.
+        var sarrafStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Sarraf, 1),
+            new PartyStatementFilter());
+        Assert.Equal(2, sarrafStatement.Rows.Count(r =>
+            r.SourceType == PaymentsController.ViaSarrafPayableLedgerSourceType));
+        Assert.Equal(2_522_103.8409m, sarrafStatement.Summary.ClosingBalance);
+    }
+
+    [Theory]
+    // ضرر: نرخ خرید شرکت ۷۶ — سود: نرخ خرید شرکت ۸۲. در هر دو حالت صورت‌حساب رسمی
+    // تأمین‌کننده فقط مبلغ قبول‌شده را می‌بیند و رفتار دو‌نرخی دست‌نخورده می‌ماند.
+    [InlineData("76", "2631578.9474")]
+    [InlineData("82", "2439024.3902")]
+    public async Task Create_Post_ViaSarraf_DualRate_StatementsStayUnchanged(
+        string companyRate,
+        string expectedSarrafClosing)
+    {
+        await using var db = new ApplicationDbContext(NewDbOptions());
+        var controller = await BuildDualRateFixtureAsync(db);
+
+        Assert.IsType<RedirectToActionResult>(await controller.Create(
+            BuildDualRateModel(
+                new DateTime(2025, 12, 23),
+                200_000_000m,
+                decimal.Parse(companyRate, CultureInfo.InvariantCulture),
+                79.3146m,
+                "665-F")));
+
+        var supplierStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, 2),
+            new PartyStatementFilter());
+        var supplierRow = Assert.Single(supplierStatement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(SarrafSettlementService.SupplierLedgerSourceType, supplierRow.SourceType);
+        Assert.Equal(2_521_603.8409m, supplierStatement.Summary.ClosingBalance);
+
+        var sarrafStatement = await BuildStatementService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Sarraf, 1),
+            new PartyStatementFilter());
+        Assert.Equal(
+            decimal.Parse(expectedSarrafClosing, CultureInfo.InvariantCulture),
+            sarrafStatement.Summary.ClosingBalance);
     }
 
     [Fact]
