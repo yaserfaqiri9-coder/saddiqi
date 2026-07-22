@@ -16,34 +16,45 @@ namespace PTGOilSystem.Web.Services.PartyStatements;
 /// طرف واقعی‌شان ServiceProvider/Driver است ولی روی قرارداد خرید ثبت شده‌اند و
 /// پیش‌تر اشتباهاً بدهی تأمین‌کننده را افزایش می‌دادند.
 ///
+/// استثنای صریح: سطرِ <c>SupplierViaSarrafPayable</c> هرگز مالِ تأمین‌کننده نیست. این سطر
+/// «بدهیِ شرکت به صراف» است و در مسیر تک‌نرخیِ legacy با ContractId ثبت می‌شود؛ چون هیچ FK
+/// طرف‌حسابی ندارد، شرط (۲) آن را برمی‌داشت و در صورت‌حساب رسمیِ تأمین‌کننده روبه‌روی سطرِ
+/// پرداخت می‌نشست و مانده را صفر می‌کرد. مالکیتِ صراف از SourceId (شناسهٔ صراف) خوانده
+/// می‌شود و دست‌نخورده می‌ماند.
+///
 /// هیچ چیزی در ثبت Ledger/هزینه/حساب حمل‌کننده تغییر نمی‌کند؛ این فقط «انتساب
 /// خواندنیِ» صورت‌حساب/مانده تأمین‌کننده است و به‌صورت Expression نوشته شده تا در
 /// همهٔ Queryهای EF یکسان ترجمه شود (شرطِ پراکنده ساخته نشود).
 /// </summary>
 public static class LedgerEntryOwnership
 {
+    /// <summary>بدهیِ شرکت به صراف؛ فقط در حساب صراف دیده می‌شود، هرگز در حساب تأمین‌کننده.</summary>
+    public const string ViaSarrafPayableSourceType = "SupplierViaSarrafPayable";
+
     public static Expression<Func<LedgerEntry, bool>> SupplierOwned(int supplierId)
         => entry =>
-            entry.SupplierId == supplierId
-            || (entry.SupplierId == null
-                && entry.ServiceProviderId == null
-                && entry.DriverId == null
-                && entry.CustomerId == null
-                && entry.EmployeeId == null
-                && entry.Contract != null
-                && entry.Contract.ContractType == ContractType.Purchase
-                && entry.Contract.SupplierId == supplierId);
+            entry.SourceType != ViaSarrafPayableSourceType
+            && (entry.SupplierId == supplierId
+                || (entry.SupplierId == null
+                    && entry.ServiceProviderId == null
+                    && entry.DriverId == null
+                    && entry.CustomerId == null
+                    && entry.EmployeeId == null
+                    && entry.Contract != null
+                    && entry.Contract.ContractType == ContractType.Purchase
+                    && entry.Contract.SupplierId == supplierId));
 
     public static Expression<Func<LedgerEntry, bool>> SupplierOwnedAny(IReadOnlyCollection<int> supplierIds)
         => entry =>
-            (entry.SupplierId != null && supplierIds.Contains(entry.SupplierId.Value))
-            || (entry.SupplierId == null
-                && entry.ServiceProviderId == null
-                && entry.DriverId == null
-                && entry.CustomerId == null
-                && entry.EmployeeId == null
-                && entry.Contract != null
-                && entry.Contract.ContractType == ContractType.Purchase
-                && entry.Contract.SupplierId != null
-                && supplierIds.Contains(entry.Contract.SupplierId.Value));
+            entry.SourceType != ViaSarrafPayableSourceType
+            && ((entry.SupplierId != null && supplierIds.Contains(entry.SupplierId.Value))
+                || (entry.SupplierId == null
+                    && entry.ServiceProviderId == null
+                    && entry.DriverId == null
+                    && entry.CustomerId == null
+                    && entry.EmployeeId == null
+                    && entry.Contract != null
+                    && entry.Contract.ContractType == ContractType.Purchase
+                    && entry.Contract.SupplierId != null
+                    && supplierIds.Contains(entry.Contract.SupplierId.Value)));
 }

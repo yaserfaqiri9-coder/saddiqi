@@ -406,6 +406,70 @@ public sealed class PartyStatementReadServiceTests
     }
 
     [Fact]
+    public async Task SupplierStatement_ExcludesViaSarrafPayable_EvenWhenItCarriesThePurchaseContract()
+    {
+        await using var db = CreateDb();
+        var company = new Company { Code = "C1", Name = "Company 1" };
+        var supplier = new Supplier { Name = "SOLVEX FZE" };
+        var sarraf = new Sarraf { Name = "Noorzad Dubai" };
+        db.AddRange(company, supplier, sarraf);
+        await db.SaveChangesAsync();
+        var contract = new Contract { ContractNumber = "P-1", ContractType = ContractType.Purchase, CompanyId = company.Id, SupplierId = supplier.Id };
+        db.Add(contract);
+        await db.SaveChangesAsync();
+
+        // همان دو سطری که مسیر تک‌نرخی ViaSarraf می‌سازد.
+        db.LedgerEntries.AddRange(
+            new LedgerEntry
+            {
+                EntryDate = new DateTime(2025, 12, 23),
+                Side = LedgerSide.Debit,
+                AmountUsd = 2_521_603.8409m,
+                Currency = "USD",
+                SupplierId = supplier.Id,
+                ContractId = contract.Id,
+                SourceType = PaymentsController.ViaSarrafSupplierLedgerSourceType,
+                SourceId = sarraf.Id,
+                Description = "پرداخت از طریق صراف برای تأمین‌کننده"
+            },
+            new LedgerEntry
+            {
+                EntryDate = new DateTime(2025, 12, 23),
+                Side = LedgerSide.Credit,
+                AmountUsd = 2_521_603.8409m,
+                Currency = "USD",
+                // بدون SupplierId ولی با ContractId — دقیقاً همان چیزی که پیش‌تر
+                // fallbackِ مالکیت را فریب می‌داد.
+                ContractId = contract.Id,
+                SourceType = PaymentsController.ViaSarrafPayableLedgerSourceType,
+                SourceId = sarraf.Id,
+                Description = "بدهی شرکت به صراف بابت پرداخت به تأمین‌کننده"
+            });
+        await db.SaveChangesAsync();
+
+        var service = BuildService(db);
+        var supplierStatement = await service.GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, supplier.Id),
+            new PartyStatementFilter());
+        var sarrafStatement = await service.GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Sarraf, sarraf.Id),
+            new PartyStatementFilter());
+
+        // تأمین‌کننده فقط سطر پرداخت را دارد و مانده‌اش صفر نمی‌شود.
+        var supplierRow = Assert.Single(supplierStatement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafSupplierLedgerSourceType, supplierRow.SourceType);
+        Assert.Equal(2_521_603.8409m, supplierStatement.Summary.ClosingBalance);
+
+        // بدهی صراف سر جایش است.
+        var sarrafRow = Assert.Single(sarrafStatement.Rows.Where(r => !r.IsOpeningBalance));
+        Assert.Equal(PaymentsController.ViaSarrafPayableLedgerSourceType, sarrafRow.SourceType);
+        Assert.Equal(2_521_603.8409m, sarrafRow.CreditBase);
+
+        // هیچ سطری از دفتر حذف نشده است.
+        Assert.Equal(2, await db.LedgerEntries.CountAsync());
+    }
+
+    [Fact]
     public async Task CarrierStatements_StillShowFreightAssignedToThem()
     {
         await using var db = CreateDb();
