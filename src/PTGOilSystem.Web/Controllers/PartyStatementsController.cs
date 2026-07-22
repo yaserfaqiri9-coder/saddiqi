@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using PTGOilSystem.Web.Data;
 using PTGOilSystem.Web.Infrastructure.RateLimiting;
 using PTGOilSystem.Web.Models.PartyStatements;
 using PTGOilSystem.Web.Services.PartyStatements;
@@ -11,10 +13,12 @@ namespace PTGOilSystem.Web.Controllers;
 public sealed class PartyStatementsController : Controller
 {
     private readonly IPartyStatementReadService _statementService;
+    private readonly ApplicationDbContext _db;
 
-    public PartyStatementsController(IPartyStatementReadService statementService)
+    public PartyStatementsController(IPartyStatementReadService statementService, ApplicationDbContext db)
     {
         _statementService = statementService;
+        _db = db;
     }
 
     [HttpGet("Customers/{id:int}/Statement")]
@@ -87,11 +91,15 @@ public sealed class PartyStatementsController : Controller
         try
         {
             var statement = await _statementService.GetStatementAsync(new PartyRef(partyType, id, filter.CompanyId), filter, ct);
+            var options = await LoadFilterOptionsAsync(partyType, id, ct);
             return View("Document", new PartyStatementViewModel
             {
                 Statement = statement,
                 Filter = filter,
-                IsPrintMode = print
+                IsPrintMode = print,
+                ContractOptions = options.Contracts,
+                CompanyOptions = options.Companies,
+                CurrencyOptions = options.Currencies
             });
         }
         catch (KeyNotFoundException)
@@ -111,8 +119,55 @@ public sealed class PartyStatementsController : Controller
                 IncludeOperationalColumns = filter.IncludeOperationalColumns
             };
             var statement = await _statementService.GetStatementAsync(new PartyRef(partyType, id, fallback.CompanyId), fallback, ct);
-            return View("Document", new PartyStatementViewModel { Statement = statement, Filter = fallback, IsPrintMode = print });
+            var options = await LoadFilterOptionsAsync(partyType, id, ct);
+            return View("Document", new PartyStatementViewModel
+            {
+                Statement = statement,
+                Filter = fallback,
+                IsPrintMode = print,
+                ContractOptions = options.Contracts,
+                CompanyOptions = options.Companies,
+                CurrencyOptions = options.Currencies
+            });
         }
+    }
+
+    // گزینه‌های نوار فیلتر: قراردادهای مرتبط با همین طرف‌حساب، شرکت‌ها و ارزهای فعال.
+    private async Task<(List<PartyStatementFilterOption> Contracts,
+        List<PartyStatementFilterOption> Companies,
+        List<string> Currencies)> LoadFilterOptionsAsync(
+        PartyStatementPartyType partyType,
+        int id,
+        CancellationToken ct)
+    {
+        var contractQuery = _db.Contracts.AsNoTracking().AsQueryable();
+        contractQuery = partyType switch
+        {
+            PartyStatementPartyType.Supplier => contractQuery.Where(x => x.SupplierId == id),
+            PartyStatementPartyType.Customer => contractQuery.Where(x => x.CustomerId == id),
+            PartyStatementPartyType.Company => contractQuery.Where(x => x.CompanyId == id),
+            _ => contractQuery
+        };
+
+        var contracts = await contractQuery
+            .OrderByDescending(x => x.ContractDate)
+            .Select(x => new PartyStatementFilterOption(x.Id, x.ContractNumber))
+            .Take(500)
+            .ToListAsync(ct);
+
+        var companies = await _db.Companies.AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Name)
+            .Select(x => new PartyStatementFilterOption(x.Id, x.NamePersian ?? x.Name))
+            .ToListAsync(ct);
+
+        var currencies = await _db.Currencies.AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Code)
+            .Select(x => x.Code)
+            .ToListAsync(ct);
+
+        return (contracts, companies, currencies);
     }
 
     private static string[] BuildCsvHeaders(PartyStatementColumnOptions columns)

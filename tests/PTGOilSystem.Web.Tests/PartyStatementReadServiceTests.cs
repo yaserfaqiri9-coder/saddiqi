@@ -34,17 +34,20 @@ public sealed class PartyStatementReadServiceTests
     }
 
     [Fact]
-    public void CustomerPolicy_UsesBonexMapping_AndSupplierKeepsPayableMapping()
+    public void CustomerAndSupplierPolicies_ShareTheStatementSideMapping()
     {
         var resolver = new PartyStatementPolicyResolver();
 
         var customer = resolver.Resolve(PartyStatementPartyType.Customer);
         var supplier = resolver.Resolve(PartyStatementPartyType.Supplier);
 
+        // قرارداد نمایشی یک‌دست: ستون بستانکار = آنچه دادیم، بدهکار = آنچه گرفتیم،
+        // مانده مثبت = شرکت پیش‌پرداخت دارد.
         Assert.True(customer.ReverseLegacyLedgerSides);
-        Assert.False(supplier.ReverseLegacyLedgerSides);
+        Assert.True(supplier.ReverseLegacyLedgerSides);
         Assert.Contains("قابل دریافت", customer.BalanceMeaning(-1m));
-        Assert.Contains("بدهکار", supplier.BalanceMeaning(1m));
+        Assert.Contains("پیش‌پرداخت", supplier.BalanceMeaning(1m));
+        Assert.Contains("بدهکار", supplier.BalanceMeaning(-1m));
     }
 
     [Fact]
@@ -81,7 +84,7 @@ public sealed class PartyStatementReadServiceTests
     }
 
     [Fact]
-    public async Task SupplierStatement_UsesCreditForLoading_AndDebitForPayment()
+    public async Task SupplierStatement_UsesDebitForLoading_AndCreditForPayment()
     {
         await using var db = CreateDb();
         var supplier = new Supplier { Name = "BONEX", Code = "SUP-1" };
@@ -120,9 +123,11 @@ public sealed class PartyStatementReadServiceTests
             new PartyRef(PartyStatementPartyType.Supplier, supplier.Id),
             new PartyStatementFilter { IncludeOperationalColumns = false });
 
-        Assert.Equal(35m, statement.Summary.TotalDebit);
-        Assert.Equal(100m, statement.Summary.TotalCredit);
-        Assert.Equal(65m, statement.Summary.ClosingBalance);
+        // بارگیری (Credit دفتر) در ستون بدهکار «گرفته‌شده» و پرداخت (Debit دفتر) در
+        // ستون بستانکار «داده‌شده» می‌نشیند؛ مانده = داده − گرفته = ۳۵ − ۱۰۰.
+        Assert.Equal(100m, statement.Summary.TotalDebit);
+        Assert.Equal(35m, statement.Summary.TotalCredit);
+        Assert.Equal(-65m, statement.Summary.ClosingBalance);
         Assert.True(statement.ColumnOptions.ShowRub);
         Assert.True(statement.ColumnOptions.ShowFxRate);
         Assert.Contains(statement.Rows, row => row.FxRateDisplay == "1 USD = 80 RUB");
@@ -201,7 +206,8 @@ public sealed class PartyStatementReadServiceTests
             new PartyStatementFilter { CurrencyCode = "rub", IncludeOperationalColumns = false });
 
         Assert.Single(statement.Rows);
-        Assert.Equal(50m, statement.Summary.ClosingBalance);
+        // سند بارگیری در ستون بدهکار می‌نشیند، پس مانده منفی (بدهی) است.
+        Assert.Equal(-50m, statement.Summary.ClosingBalance);
         Assert.True(statement.ColumnOptions.ShowRub);
         Assert.False(statement.ColumnOptions.ShowAed);
         Assert.Equal("1 USD = 80 RUB", statement.Rows[0].FxRateDisplay);
@@ -293,8 +299,10 @@ public sealed class PartyStatementReadServiceTests
             new PartyRef(PartyStatementPartyType.Partner, partner.Id),
             new PartyStatementFilter { IncludeOperationalColumns = false });
 
-        Assert.Equal(50m, statement.Summary.TotalCredit);
-        Assert.Equal(50m, statement.Summary.ClosingBalance);
+        // سهم ۲۵٪ از سند ۲۰۰ = ۵۰؛ سند بارگیری (Credit دفتر) در ستون بدهکار می‌نشیند.
+        Assert.Equal(50m, statement.Summary.TotalDebit);
+        Assert.Equal(0m, statement.Summary.TotalCredit);
+        Assert.Equal(-50m, statement.Summary.ClosingBalance);
         Assert.Single(statement.Rows);
     }
 
@@ -316,7 +324,8 @@ public sealed class PartyStatementReadServiceTests
             .ToList();
         var httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
-        var controller = new PartyStatementsController(new StubStatementService(BuildResult(rows)))
+        await using var db = CreateDb();
+        var controller = new PartyStatementsController(new StubStatementService(BuildResult(rows)), db)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext }
         };
@@ -352,6 +361,110 @@ public sealed class PartyStatementReadServiceTests
         Assert.Contains("@media print", css);
         Assert.Contains("@page statement-wide", css);
     }
+
+    [Fact]
+    public async Task SupplierStatement_ExcludesCarrierFreight_ButKeepsSupplierAndLegacyEntries()
+    {
+        await using var db = CreateDb();
+        var company = new Company { Code = "C1", Name = "Company 1" };
+        var supplier = new Supplier { Name = "Real supplier" };
+        var carrier = new ServiceProvider { Name = "Carrier co" };
+        var driver = new Driver { FullName = "Independent driver" };
+        db.AddRange(company, supplier, carrier, driver);
+        await db.SaveChangesAsync();
+        var contract = new Contract { ContractNumber = "P-1", ContractType = ContractType.Purchase, CompanyId = company.Id, SupplierId = supplier.Id };
+        db.Add(contract);
+        await db.SaveChangesAsync();
+
+        db.LedgerEntries.AddRange(
+            // بدهیِ واقعیِ تأمین‌کننده (SupplierId ست) — باید بماند.
+            SupplierEntry(contract.Id, supplier.Id, 1_000m, "USD", 1_000m, 1m, 1),
+            // legacy: بدون طرف‌حسابِ دیگر، فقط از طریق قرارداد خرید — باید بماند.
+            LegacySupplierEntry(contract.Id, 200m, 2),
+            // کرایهٔ حمل با طرف واقعی ServiceProvider — نباید در حساب تأمین‌کننده بیاید.
+            FreightEntry(contract.Id, 1_306.30m, 3, serviceProviderId: carrier.Id),
+            // کرایهٔ حمل با طرف واقعی Driver — نباید در حساب تأمین‌کننده بیاید.
+            FreightEntry(contract.Id, 500m, 4, driverId: driver.Id));
+        await db.SaveChangesAsync();
+
+        var ledgerTotalBefore = await db.LedgerEntries.SumAsync(l => l.AmountUsd);
+
+        var statement = await BuildService(db).GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Supplier, supplier.Id),
+            new PartyStatementFilter { IncludeOperationalColumns = false });
+
+        // کرایه‌های حمل حذف شده‌اند.
+        Assert.DoesNotContain(statement.Rows, r => r.Reference != null && r.Reference.StartsWith("TRANSPORT-RECEIPT", StringComparison.Ordinal));
+        // سند واقعی + legacy مانده‌اند (۲ ردیف).
+        Assert.Equal(2, statement.Rows.Count(r => !r.IsOpeningBalance));
+        // مانده فقط از اسناد واقعیِ تأمین‌کننده: 1000 + 200 = 1200 (کرایهٔ نشتی 1806.30 کنار رفت).
+        // هر دو سند بارگیری‌اند و در ستون بدهکار می‌نشینند، پس مانده منفی (بدهی) است.
+        Assert.Equal(-1_200m, statement.Summary.ClosingBalance);
+        // جمع کل Ledger در دیتابیس تغییر نکرده — فقط انتساب اصلاح شده است.
+        Assert.Equal(3_006.30m, ledgerTotalBefore);
+        Assert.Equal(ledgerTotalBefore, await db.LedgerEntries.SumAsync(l => l.AmountUsd));
+    }
+
+    [Fact]
+    public async Task CarrierStatements_StillShowFreightAssignedToThem()
+    {
+        await using var db = CreateDb();
+        var company = new Company { Code = "C1", Name = "Company 1" };
+        var supplier = new Supplier { Name = "Real supplier" };
+        var carrier = new ServiceProvider { Name = "Carrier co" };
+        var driver = new Driver { FullName = "Independent driver" };
+        db.AddRange(company, supplier, carrier, driver);
+        await db.SaveChangesAsync();
+        var contract = new Contract { ContractNumber = "P-1", ContractType = ContractType.Purchase, CompanyId = company.Id, SupplierId = supplier.Id };
+        db.Add(contract);
+        await db.SaveChangesAsync();
+        db.LedgerEntries.AddRange(
+            FreightEntry(contract.Id, 1_306.30m, 3, serviceProviderId: carrier.Id),
+            FreightEntry(contract.Id, 500m, 4, driverId: driver.Id));
+        await db.SaveChangesAsync();
+
+        var service = BuildService(db);
+        var carrierStatement = await service.GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.ServiceProvider, carrier.Id),
+            new PartyStatementFilter { IncludeOperationalColumns = false });
+        var driverStatement = await service.GetStatementAsync(
+            new PartyRef(PartyStatementPartyType.Driver, driver.Id),
+            new PartyStatementFilter { IncludeOperationalColumns = false });
+
+        Assert.Contains(carrierStatement.Rows, r => r.Reference == "TRANSPORT-RECEIPT:3");
+        Assert.DoesNotContain(carrierStatement.Rows, r => r.Reference == "TRANSPORT-RECEIPT:4");
+        Assert.Contains(driverStatement.Rows, r => r.Reference == "TRANSPORT-RECEIPT:4");
+        Assert.DoesNotContain(driverStatement.Rows, r => r.Reference == "TRANSPORT-RECEIPT:3");
+    }
+
+    private static LedgerEntry LegacySupplierEntry(int contractId, decimal amountUsd, int sourceId)
+        => new()
+        {
+            EntryDate = new DateTime(2026, 6, sourceId),
+            Side = LedgerSide.Credit,
+            AmountUsd = amountUsd,
+            Currency = "USD",
+            ContractId = contractId,
+            SourceType = "Loading",
+            SourceId = sourceId,
+            Description = "Legacy supplier entry"
+        };
+
+    private static LedgerEntry FreightEntry(int contractId, decimal amountUsd, int sourceId, int? serviceProviderId = null, int? driverId = null)
+        => new()
+        {
+            EntryDate = new DateTime(2026, 7, 19),
+            Side = LedgerSide.Credit,
+            AmountUsd = amountUsd,
+            Currency = "USD",
+            ContractId = contractId,
+            ServiceProviderId = serviceProviderId,
+            DriverId = driverId,
+            SourceType = "Expense",
+            SourceId = sourceId,
+            Reference = $"TRANSPORT-RECEIPT:{sourceId}",
+            Description = $"Truck receipt freight, receipt #{sourceId}"
+        };
 
     private static LedgerEntry Entry(
         DateTime date,

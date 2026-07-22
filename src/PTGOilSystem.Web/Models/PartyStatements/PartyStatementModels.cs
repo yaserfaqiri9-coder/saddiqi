@@ -26,7 +26,8 @@ public sealed class PartyStatementFilter
     public int? ContractId { get; init; }
     public int? CompanyId { get; init; }
     public string? CurrencyCode { get; init; }
-    public bool IncludeOperationalColumns { get; init; } = true;
+    // پیش‌فرض: ستون‌های نفتی مخفی باشند و کاربر در صورت نیاز نمایششان دهد.
+    public bool IncludeOperationalColumns { get; init; }
 }
 
 public sealed class PartyStatementPolicy
@@ -62,6 +63,16 @@ public sealed class PartyStatementSummary
     public decimal ClosingBalanceAbsolute => Math.Abs(ClosingBalance);
     public string ClosingBalanceMeaning { get; init; } = string.Empty;
     public string BaseCurrencyCode { get; init; } = "USD";
+
+    // نمایش روبلی: وقتی ارز روبل انتخاب شود، جمع‌ها با ارزش روبلی واقعیِ هر سند
+    // (نرخ تاریخی همان سند) محاسبه می‌شوند. اسنادی که به روبل ثبت نشده‌اند ارزش
+    // روبلی ندارند و در این جمع‌ها شرکت نمی‌کنند (در سطر با «—» نمایش داده می‌شوند).
+    public bool IsRubPresentation { get; init; }
+    public decimal? OpeningBalanceRub { get; init; }
+    public decimal? TotalDebitRub { get; init; }
+    public decimal? TotalCreditRub { get; init; }
+    public decimal? ClosingBalanceRub { get; init; }
+    public decimal? ClosingBalanceRubAbsolute => ClosingBalanceRub.HasValue ? Math.Abs(ClosingBalanceRub.Value) : null;
 }
 
 public sealed class PartyStatementRow
@@ -74,6 +85,11 @@ public sealed class PartyStatementRow
     public decimal? DebitBase { get; set; }
     public decimal? CreditBase { get; set; }
     public decimal RunningBalance { get; set; }
+    // ارزش روبلی سطر با نرخ تاریخی همان سند (فقط اسناد ذاتاً روبلی). null یعنی سند
+    // روبلی نیست و در نمایش روبلی «—» نشان داده می‌شود.
+    public decimal? DebitRub { get; set; }
+    public decimal? CreditRub { get; set; }
+    public decimal? RunningBalanceRub { get; set; }
     public decimal? OriginalAmount { get; set; }
     public string OriginalCurrency { get; set; } = "USD";
     public decimal? FxRate { get; set; }
@@ -91,6 +107,10 @@ public sealed class PartyStatementRow
     public bool IsOpeningBalance { get; set; }
 
     public decimal SignedAmount => (CreditBase ?? 0m) - (DebitBase ?? 0m);
+
+    // اثر روبلی سطر روی مانده. null یعنی سند روبلی نیست (در جمع روبلی شرکت نمی‌کند).
+    public decimal? SignedAmountRub =>
+        CreditRub.HasValue || DebitRub.HasValue ? (CreditRub ?? 0m) - (DebitRub ?? 0m) : null;
 }
 
 public sealed class PartyStatementPartyInfo
@@ -169,7 +189,14 @@ public sealed class PartyStatementViewModel
     public bool IsPrintMode { get; init; }
     public bool IsRtl { get; init; } = true;
     public PartyStatementPartyType PartyType => Statement.Party.PartyType;
+
+    // گزینه‌های دراپ‌داون نوار فیلتر (قرارداد/شرکت/ارز).
+    public IReadOnlyList<PartyStatementFilterOption> ContractOptions { get; init; } = [];
+    public IReadOnlyList<PartyStatementFilterOption> CompanyOptions { get; init; } = [];
+    public IReadOnlyList<string> CurrencyOptions { get; init; } = [];
 }
+
+public sealed record PartyStatementFilterOption(int Id, string Text);
 
 public sealed class PartyStatementOptions
 {

@@ -2,6 +2,22 @@ using PTGOilSystem.Web.Models.PartyStatements;
 
 namespace PTGOilSystem.Web.Services.PartyStatements;
 
+/// <summary>
+/// قرارداد نمایشیِ یک‌دستِ صورت‌حساب طرف‌حساب‌ها — مطابق فایل کاری Petrogas:
+///
+///   ستون بستانکار = آنچه شرکت به طرف داده (پرداخت)،
+///   ستون بدهکار   = آنچه شرکت از طرف گرفته (بار/فاکتور/خدمت)،
+///   مانده          = Σ(بستانکار − بدهکار)،
+///   مانده مثبت     = شرکت پیش‌پرداخت دارد (طلب از طرف).
+///
+/// این فقط لایهٔ نمایش است. جدول LedgerEntry و دفتر کل جدید (JournalEntryLine) با
+/// قرارداد حسابداری استاندارد خود دست‌نخورده باقی می‌مانند؛ وارونه‌سازی هنگام خواندن
+/// در PartyStatementReadService.MapLedgerRow با ReverseLegacyLedgerSides اعمال می‌شود.
+///
+/// نکته: این پرچم فقط روی طرف‌حساب‌هایی اثر دارد که از MapLedgerRow عبور می‌کنند
+/// (مشتری، تأمین‌کننده، شرکت خدماتی، راننده، شرکت، شریک). صراف و کارمند سازندهٔ
+/// اختصاصی دارند و پرچم را نمی‌خوانند، بنابراین معانی آن‌ها دست‌نخورده مانده است.
+/// </summary>
 public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
 {
     private static readonly IReadOnlyDictionary<PartyStatementPartyType, PartyStatementPolicy> Policies =
@@ -28,8 +44,8 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
                 "Supplier Statement",
                 "اطلاعات تأمین‌کننده",
                 "Supplier Information",
-                "شرکت به تأمین‌کننده بدهکار است",
                 "شرکت نزد تأمین‌کننده پیش‌پرداخت دارد",
+                "شرکت به تأمین‌کننده بدهکار است",
                 supportsOperationalColumns: true),
             [PartyStatementPartyType.ServiceProvider] = Payable(
                 PartyStatementPartyType.ServiceProvider,
@@ -37,8 +53,10 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
                 "Service Provider Statement",
                 "اطلاعات شرکت خدماتی",
                 "Service Provider Information",
-                "مبلغ قابل پرداخت به شرکت خدماتی",
-                "پیش‌پرداخت شرکت نزد ارائه‌دهنده خدمت"),
+                "پیش‌پرداخت شرکت نزد ارائه‌دهنده خدمت",
+                "مبلغ قابل پرداخت به شرکت خدماتی"),
+            // صراف و کارمند سازندهٔ سطر اختصاصی دارند و ReverseLegacyLedgerSides را
+            // نمی‌خوانند؛ بنابراین قرارداد و معانی قبلی آن‌ها دست‌نخورده می‌ماند.
             [PartyStatementPartyType.Sarraf] = Payable(
                 PartyStatementPartyType.Sarraf,
                 "صورت‌حساب صراف",
@@ -46,7 +64,8 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
                 "اطلاعات صراف",
                 "Sarraf Information",
                 "مبلغ قابل پرداخت به صراف",
-                "مبلغ قابل دریافت از صراف"),
+                "مبلغ قابل دریافت از صراف",
+                reverseLegacyLedgerSides: false),
             [PartyStatementPartyType.Employee] = Payable(
                 PartyStatementPartyType.Employee,
                 "صورت‌حساب کارمند",
@@ -54,15 +73,16 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
                 "اطلاعات کارمند",
                 "Employee Information",
                 "مبلغ قابل پرداخت به کارمند",
-                "پیش‌پرداخت یا مبلغ قابل دریافت از کارمند"),
+                "پیش‌پرداخت یا مبلغ قابل دریافت از کارمند",
+                reverseLegacyLedgerSides: false),
             [PartyStatementPartyType.Partner] = Payable(
                 PartyStatementPartyType.Partner,
                 "صورت‌حساب سهم شریک",
                 "Partner Share Statement",
                 "اطلاعات شریک",
                 "Partner Information",
-                "سهم بستانکار شریک",
                 "سهم بدهکار شریک",
+                "سهم بستانکار شریک",
                 supportsOperationalColumns: true,
                 accountTypeFa: "حساب سهم و سرمایه شریک"),
             [PartyStatementPartyType.Driver] = Payable(
@@ -71,16 +91,16 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
                 "Driver Statement",
                 "اطلاعات راننده",
                 "Driver Information",
-                "مبلغ قابل پرداخت به راننده",
-                "مبلغ قابل دریافت از راننده"),
+                "مبلغ قابل دریافت از راننده",
+                "مبلغ قابل پرداخت به راننده"),
             [PartyStatementPartyType.Company] = Payable(
                 PartyStatementPartyType.Company,
                 "صورت‌حساب شرکت",
                 "Company Statement",
                 "اطلاعات شرکت",
                 "Company Information",
-                "مانده بستانکار شرکت",
                 "مانده بدهکار شرکت",
+                "مانده بستانکار شرکت",
                 supportsOperationalColumns: true,
                 accountTypeFa: "حساب جاری شرکت")
         };
@@ -99,7 +119,8 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
         string positiveMeaning,
         string negativeMeaning,
         bool supportsOperationalColumns = false,
-        string accountTypeFa = "حساب پرداختنی")
+        string accountTypeFa = "حساب پرداختنی",
+        bool reverseLegacyLedgerSides = true)
         => new()
         {
             PartyType = type,
@@ -108,10 +129,13 @@ public sealed class PartyStatementPolicyResolver : IPartyStatementPolicyResolver
             PartyInformationTitleFa = infoTitleFa,
             PartyInformationTitleEn = infoTitleEn,
             AccountTypeFa = accountTypeFa,
-            DebitMeaningFa = "پرداخت یا کاهش بدهی",
-            CreditMeaningFa = "ایجاد یا افزایش بدهی",
+            // با وارونه‌سازی، ستون بدهکار «آنچه گرفتیم» و ستون بستانکار «آنچه دادیم» را
+            // نشان می‌دهد؛ بدون آن، معنای حسابداری قبلی برقرار می‌ماند.
+            DebitMeaningFa = reverseLegacyLedgerSides ? "ایجاد یا افزایش بدهی" : "پرداخت یا کاهش بدهی",
+            CreditMeaningFa = reverseLegacyLedgerSides ? "پرداخت یا کاهش بدهی" : "ایجاد یا افزایش بدهی",
             PositiveBalanceMeaningFa = positiveMeaning,
             NegativeBalanceMeaningFa = negativeMeaning,
+            ReverseLegacyLedgerSides = reverseLegacyLedgerSides,
             SupportsOperationalColumns = supportsOperationalColumns
         };
 }
